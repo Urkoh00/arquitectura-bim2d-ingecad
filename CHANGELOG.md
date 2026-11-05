@@ -60,3 +60,30 @@ Para ejecutarlas hacen falta las fuentes de IngeCAD en `PYTHONPATH` y `pytest`, 
 - `EXPORTARBIM` (y el antiguo `EXPORTARIGZ`) fallaban al abrir el diálogo de guardar: se pasaba
   como ventana padre el método `window` de Qt en lugar de la ventana. Nuevo `compat.dialog_parent`.
 - Regresión: el contorno de `36.dxf` coincide línea a línea con `36_contornos_v1.4.2.dxf` (16 líneas).
+
+## v1.6.2-dev (6-11-2026) — Fase 1: el muro se maneja como un objeto
+
+Problema visto en Windows: el eje BIM del muro está en una capa apagada y lo visible son
+líneas de contorno derivadas. Al copiar esas líneas quedaba un «recinto fantasma»: dibujado,
+pero sin muros BIM.
+
+- **Un grupo nativo por muro** (`ARQ_<handle>`): eje + sus líneas de contorno, con el indicador
+  *seleccionable* de los grupos de IngeCAD. Al pinchar o designar por ventana cualquier línea
+  del muro se selecciona el muro completo, y COPIAR, DESPLAZAR, BORRAR o SIMETRÍA actúan sobre
+  el objeto BIM y su dibujo a la vez. Los grupos se guardan en el DXF (diccionario ACAD_GROUP).
+- **`UNIONESARQ` repara lo que dejan los comandos genéricos**, en un solo paso de deshacer:
+  - una copia (mismo ID que su original) recibe identidad nueva con `copied_from`; el original,
+    el de handle más antiguo, conserva la suya;
+  - un eje o un pilar desplazado actualiza `a`/`b`/`center` desde la geometría CAD;
+  - regenera el contorno, eliminando las líneas sobrantes, y rehace los grupos.
+  Funciona con IngeCAD oficial; con el gancho de reactores propuesto ocurre automáticamente al
+  terminar la COPIA o el DESPLAZAMIENTO.
+- `UNIONESARQ` ya no destruye entidades: igual que el BORRAR de IngeCAD, desvincula las líneas
+  antiguas y las conserva, y deshacer/rehacer devuelve los mismos objetos. Corrige un fallo al
+  deshacer una COPIA reparada por el reactor.
+- **`ARQVALIDAR`** compara el contorno del dibujo con el que producen los muros: avisa de
+  líneas sin muro BIM (recinto fantasma), de líneas que faltan y de muros sin grupo.
+- `EXPORTARBIM` con identificadores duplicados indica ahora que `UNIONESARQ` lo resuelve.
+- Pruebas: `tests/test_seleccion_grupos.py` (selección por grupos real de IngeCAD, COPY/MOVE
+  reales, recinto fantasma, guardado en DXF, deshacer/rehacer). 95 correctas + 4 omitidas con
+  IngeCAD oficial; 99 con el gancho de reactores.

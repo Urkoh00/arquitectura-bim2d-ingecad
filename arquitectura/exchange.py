@@ -68,7 +68,7 @@ def read_model(drawing, tol=1e-5, strict=True):
             ident = f"{ident}#{e.dxf.handle}"
         elif ident in seen:
             raise ValueError(f"Identificador BIM duplicado {ident} (entidades {seen[ident]} y "
-                             f"{e.dxf.handle}); probablemente una COPIA: ejecute ARQVALIDAR")
+                             f"{e.dxf.handle}); probablemente una COPIA: ejecute UNIONESARQ, que le asigna identidad nueva")
         seen[ident] = e.dxf.handle
         m = dict(m)
         if kind == "wall":

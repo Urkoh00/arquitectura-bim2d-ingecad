@@ -37,7 +37,8 @@ def audit_architecture(document):
         if not ident:
             issues.append('Objeto arquitectónico sin identificador BIM')
         elif count > 1:
-            issues.append(f'Identificador BIM duplicado: {ident} ({count} objetos)')
+            issues.append(f'Identificador BIM duplicado: {ident} ({count} objetos); '
+                          'probablemente copias: UNIONESARQ les asigna identidad nueva')
     wall_ids = {d.get('id') for _, d in sources}
     for _, d in openings:
         if d.get('wall_id') not in wall_ids:
@@ -78,6 +79,7 @@ def audit_architecture(document):
         for ident in owners:
             if ident not in wall_ids:
                 issues.append(f'Contorno referido a muro inexistente: {ident}')
+    issues += _outline_issues(drawing, sources, outlines)
     if any(e.dxftype()=='LWPOLYLINE' and e.closed for e,_ in sources):
         issues.append('Hay muros de versiones antiguas con geometría duplicada; ejecutar ARQMIGRAR')
     if sources and not outlines:
@@ -103,3 +105,48 @@ def validar_arq(ctx, *args):
         ctx.echo('No se detectaron incidencias en las comprobaciones implementadas.')
     ctx.echo('La ausencia de avisos no acredita geometría 3D ni IFC válido.')
     return report
+
+
+def _segment_key(a, b, nd=6):
+    a = (round(float(a[0]), nd), round(float(a[1]), nd))
+    b = (round(float(b[0]), nd), round(float(b[1]), nd))
+    return (a, b) if a <= b else (b, a)
+
+
+def _outline_issues(drawing, sources, outlines):
+    """Compare the plan lines in the drawing with the outline the current
+    walls produce. Lines left over are what a COPY/MOVE of the visible lines
+    alone leaves behind (a "phantom room": drawn, but no BIM wall)."""
+    if not sources or not outlines:
+        return []
+    from .exchange import read_model
+    from .geom import junctions as J
+    from . import sync as SY
+    try:
+        records, columns, _ops, _issues = read_model(drawing, strict=False)
+        result = J.solve(J.walls_from_records(records),
+                         [(cid, m['polygon']) for cid, m in columns])
+        expected = {_segment_key(a, b) for a, b, _w in J.plan_outline(result)}
+    except Exception as exc:  # noqa: BLE001
+        return [f'No se pudo comprobar el contorno ({type(exc).__name__}: {exc})']
+    present = {}
+    for e, _d in outlines:
+        k = _segment_key((e.dxf.start.x, e.dxf.start.y), (e.dxf.end.x, e.dxf.end.y))
+        present[k] = present.get(k, 0) + 1
+    extra = sum(n for k, n in present.items() if k not in expected) + \
+        sum(n - 1 for k, n in present.items() if k in expected and n > 1)
+    missing = len(expected - set(present))
+    out = []
+    if extra:
+        out.append(f'Contorno con {extra} línea(s) sin muro BIM (copiadas o desplazadas sin su muro): '
+                   'ejecute UNIONESARQ para eliminarlas')
+    if missing:
+        out.append(f'Contorno desactualizado: faltan {missing} línea(s): ejecute UNIONESARQ')
+    grouped = set()
+    for _name, g in SY.arq_groups(drawing):
+        grouped |= {e.dxf.handle for e in g if e.is_alive}
+    loose = sum(1 for e, _d in sources if e.dxf.handle not in grouped)
+    if loose:
+        out.append(f'{loose} muro(s) sin grupo de selección (al pinchar su contorno no se selecciona el muro): '
+                   'ejecute UNIONESARQ')
+    return out

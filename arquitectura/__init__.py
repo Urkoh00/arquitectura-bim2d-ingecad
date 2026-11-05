@@ -1418,7 +1418,7 @@ TOOL_CLASSES = tuple(MuroV10Tool if t.name == "MURO" else PilarBimTool if t.name
 
 def arqdiag(ctx, *args):
     """Diagnóstico sin mutar el dibujo y sin depender de PySide6."""
-    ctx.echo('ARQDIAG — Arquitectura 1.6.1-dev (motor de nodos, huella única 2D/3D, exportación .arqbim)')
+    ctx.echo('ARQDIAG — Arquitectura 1.6.2-dev (motor de nodos, huella única 2D/3D, exportación .arqbim)')
     try:
         from .tools_v10 import MuroTool
         ctx.echo(f'Herramienta MURO: {MuroTool.__module__}.{MuroTool.__name__}')
@@ -1431,11 +1431,23 @@ def arqdiag(ctx, *args):
 
 def unionesarq(ctx,*args):
     try:
-        from .wall_network import regenerate_wall_outline
-        n, issues = regenerate_wall_outline(ctx)
-        ctx.echo(f'UNIONESARQ: {n} segmentos de contorno regenerados (motor de nodos v1.6). Parámetros BIM conservados en capa auxiliar.')
-        for issue in issues:
-            ctx.echo('  Aviso: ' + issue)
+        from .wall_network import RegenerateContoursCommand, sync_report
+        from .compat import require_document
+        from core.layers import NewLayerCommand
+        doc = require_document(ctx)
+        if 'ARQ-MUROS' not in doc.doc.layers:
+            ctx.execute(NewLayerCommand('ARQ-MUROS', color=8))
+        cmd = RegenerateContoursCommand()
+        ctx.execute(cmd)
+        copies, moved, groups = sync_report(cmd)
+        if copies:
+            ctx.echo(f'UNIONESARQ: {copies} copia(s) con identidad BIM nueva (el original conserva la suya).')
+        if moved:
+            ctx.echo(f'UNIONESARQ: {moved} elemento(s) con datos BIM actualizados desde la geometría CAD.')
+        ctx.echo(f'UNIONESARQ: {cmd.new_count} segmentos de contorno regenerados; {groups} muro(s) seleccionables como objeto completo.')
+        for issue in cmd.issues:
+            if 'duplicado' not in issue:
+                ctx.echo('  Aviso: ' + issue)
     except Exception as exc:
         ctx.echo(f'UNIONESARQ: {type(exc).__name__}: {exc}')
 
@@ -1457,7 +1469,7 @@ def plugin_spec() -> PluginSpec:
         **extra,
         id="arquitectura",
         name="Arquitectura",
-        version="1.6.1-dev",
+        version="1.6.2-dev",
         description="Dibujo arquitectónico 2D con objetos BIM (muros, pilares, carpinterías) y exportación a IngeTrazo/IFC",
         tools={tool.name: tool for tool in (*TOOL_CLASSES, Muro3DTool, Hueco3DTool)},
         commands={"EXPORTARBIM": exportar_bim, "EXPORTARIGZ": exportar_igz, "CONFIGIGZ": configurar_igz, "DIAGNOSTICOARQ": diagnostico_arq, "ARQDIAG": arqdiag, "UNIONESARQ": unionesarq, "ARQVALIDAR": validar_arq, "ARQMIGRAR": migrar_arq, "PARAMETROSARQ": parametros_arq},

@@ -193,82 +193,134 @@ def segment_owners(a, b, walls):
                                     for c,d in polygon_edges(poly))})
 
 class RegenerateContoursCommand(Command):
+    """UNIONESARQ: one undoable step that
+
+    1. makes XDATA true to the drawing (copies get a new identity, moved
+       axes/columns update a/b/center) -- see ``sync.sync_changes``;
+    2. solves the junctions and redraws the plan outline (ARQ-MUROS);
+    3. rebuilds one selectable group per wall (axis + its plan lines), so a
+       pick on any visible line selects the whole wall.
+
+    Like IngeCAD's own ERASE, old lines are UNLINKED and kept, never
+    destroyed: undo/redo put back the very same entities. That matters when
+    this runs as a follow-up of the user's COPY (reactor): undoing the COPY
+    must find its copied lines alive."""
     name='ARQ REGENERAR ENCUENTROS'
     # Lines erased and redrawn plus a layer switched off: the overlay cannot
     # show that, only a regen can (without it UNIONESARQ looked like a no-op
     # until the user regenerated the screen).
     needs_regen = True
     def __init__(self):
-        self.old_segments=None
+        self.removed=None       # old plan lines (unlinked, kept alive)
+        self.added=[]           # new plan lines
+        self.old_groups=None    # [(name, [handles], description)]
         self.old_layer_off=None
+        self.sync=None          # [(entity, old_meta, new_meta)], fixed on first do
+        self.groups=[]
+        self.issues=[]
+        self.new_count=0
+        self.removed_handles=[]
     def _current(self,msp):
         from .architectural import metadata
         return [e for e in msp if (metadata(e) or {}).get('kind')=='junction_edge']
-    def _clear(self,msp):
-        current=self._current(msp)
-        self.removed_handles=[e.dxf.handle for e in current]
-        for e in current:msp.delete_entity(e)
-    def _draw(self,msp,segments,wall_sources=(),restore=False):
+    def _new_lines(self,msp,segments):
         from .architectural import _xdata
-        for record in segments:
-            if restore:
-                a,b,attrs,meta=record
-            else:
-                a,b,*given_ids=record
-                attrs={'layer':'ARQ-MUROS'}
-                meta={'kind':'junction_edge','schema':3,
-                      'wall_ids':given_ids[0] if given_ids else segment_owners(a,b,wall_sources)}
-            e=msp.add_line(a,b,dxfattribs=attrs)
-            _xdata(msp,e,meta)
-    def do(self,document):
-        from .architectural import metadata,WALL_LAYER
+        made=[]
+        for a,b,ids in segments:
+            e=msp.add_line(a,b,dxfattribs={'layer':'ARQ-MUROS'})
+            _xdata(msp,e,{'kind':'junction_edge','schema':3,'wall_ids':ids})
+            made.append(e)
+        return made
+    def _write_meta(self,document,which):
+        from .architectural import _xdata
         msp=document.doc.modelspace()
-        if self.old_segments is None:
-            import copy
-            self.old_segments=[((e.dxf.start.x,e.dxf.start.y),(e.dxf.end.x,e.dxf.end.y),
-                                {'layer':e.dxf.layer,'color':e.dxf.get('color',256),
-                                 'linetype':e.dxf.get('linetype','ByLayer')},
-                                copy.deepcopy(metadata(e))) for e in self._current(msp)]
+        items=self.sync if which=='new' else list(reversed(self.sync))
+        for e,old,new in items:
+            if e.is_alive:
+                _xdata(msp,e,new if which=='new' else old)
+    def _group_lines(self,document):
+        from .architectural import metadata
+        from . import sync as SY
+        SY.delete_groups(document.doc)
+        by_wall={}
+        for e in self.added:
+            for ident in (metadata(e) or {}).get('wall_ids') or []:
+                by_wall.setdefault(ident,[]).append(e)
+        self.groups=SY.build_wall_groups(document.doc,by_wall)
+    def do(self,document):
+        import copy
+        from .architectural import metadata,WALL_LAYER
+        msp=self.space(document)
+        first=self.removed is None
+        if first:
+            from . import sync as SY
+            self.removed=self._current(msp)
+            self.old_groups=SY.snapshot_groups(document.doc)
             self.old_layer_off=document.doc.layers.get(WALL_LAYER).is_off() if WALL_LAYER in document.doc.layers else False
-        # v1.6: one footprint per element from geom.junctions (the same
-        # polygons go to IngeTrazo through exchange.py). CAD axes first.
-        from .exchange import read_model
-        from .geom import junctions as J
-        records, columns, _ops, issues = read_model(document.doc, strict=False)
-        result = J.solve(J.walls_from_records(records),
-                         [(cid, m["polygon"]) for cid, m in columns])
-        self.issues = issues + result.warnings
-        self.result = result
-        walls = [w for w in result.walls.values() if w["area"] > 0]
-        new = J.plan_outline(result)
-        if walls and not new:
-            raise ValueError('No se obtuvo contorno exterior: se conserva la geometría original')
+            self.sync=[(e,copy.deepcopy(metadata(e)),new) for e,new in SY.sync_changes(document.doc)]
+        self._write_meta(document,'new')
         try:
-            self._clear(msp)
-            self._draw(msp,new)
-            if walls and WALL_LAYER in document.doc.layers:
+            if first:
+                # v1.6: one footprint per element from geom.junctions (the same
+                # polygons go to IngeTrazo through exchange.py). CAD axes first.
+                from .exchange import read_model
+                from .geom import junctions as J
+                records, columns, _ops, issues = read_model(document.doc, strict=False)
+                result = J.solve(J.walls_from_records(records),
+                                 [(cid, m["polygon"]) for cid, m in columns])
+                self.issues = issues + result.warnings
+                self.result = result
+                walls = [w for w in result.walls.values() if w["area"] > 0]
+                segments = J.plan_outline(result)
+                if walls and not segments:
+                    raise ValueError('No se obtuvo contorno exterior: se conserva la geometría original')
+                self.has_walls = bool(walls)
+            from . import sync as SY
+            SY.delete_groups(document.doc)
+            for e in self.removed:
+                if e.is_alive and e.dxf.owner is not None:
+                    msp.unlink_entity(e)
+            if first:
+                self.added=self._new_lines(msp,segments)
+            else:
+                for e in self.added:
+                    msp.add_entity(e)
+            self._group_lines(document)
+            if self.has_walls and WALL_LAYER in document.doc.layers:
                 document.doc.layers.get(WALL_LAYER).off()
+            self.removed_handles=[e.dxf.handle for e in self.removed]
+            self.new_count=len(self.added)
             document.dirty=True
-            self.new_count=len(new)
         except Exception:
-            # A failed derived update must not leave the model invisible.
-            self._clear(msp)
-            if self.old_segments:
-                from .architectural import _xdata
-                for a,b,attrs,meta in self.old_segments:
-                    _xdata(msp, msp.add_line(a,b,dxfattribs=attrs), meta)
-            if WALL_LAYER in document.doc.layers:
-                layer=document.doc.layers.get(WALL_LAYER)
-                layer.off() if self.old_layer_off else layer.on()
+            # A failed derived update must not leave the model invisible
+            # nor half-synchronised.
+            self._revert(document)
+            if first:
+                self.removed=None
             raise
-    def undo(self,document):
+    def _revert(self,document):
         from .architectural import WALL_LAYER
-        msp=document.doc.modelspace();self._clear(msp)
-        if self.old_segments:self._draw(msp,self.old_segments,restore=True)
-        if WALL_LAYER in document.doc.layers:
+        from . import sync as SY
+        msp=self.space(document)
+        SY.delete_groups(document.doc)
+        for e in self.added:
+            if e.is_alive and e.dxf.owner is not None:
+                msp.unlink_entity(e)
+        for e in self.removed or []:
+            if e.is_alive and e.dxf.owner is None:
+                msp.add_entity(e)
+        db=document.doc.entitydb
+        for name,handles,desc in self.old_groups or []:
+            SY.create_group(document.doc,name,[db.get(h) for h in handles],desc)
+        if WALL_LAYER in document.doc.layers and self.old_layer_off is not None:
             layer=document.doc.layers.get(WALL_LAYER)
             layer.off() if self.old_layer_off else layer.on()
+        if self.sync:
+            self._write_meta(document,'old')
+        self.removed_handles=[e.dxf.handle for e in self.added if e.is_alive]
         document.dirty=True
+    def undo(self,document):
+        self._revert(document)
 
 def regenerate_wall_outline(ctx):
     """Refresh joined wall boundary through normal IngeCAD undo history."""
@@ -280,3 +332,10 @@ def regenerate_wall_outline(ctx):
     cmd=RegenerateContoursCommand()
     ctx.execute(cmd)
     return cmd.new_count, getattr(cmd, 'issues', [])
+
+
+def sync_report(cmd):
+    """Human summary of what UNIONESARQ repaired before regenerating."""
+    copies=sum(1 for _e,o,n in (cmd.sync or []) if (o or {}).get('id')!=n.get('id'))
+    moved=len(cmd.sync or [])-copies
+    return copies, moved, len(getattr(cmd,'groups',[]) or [])

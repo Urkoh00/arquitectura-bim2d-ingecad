@@ -42,7 +42,7 @@ def junction_edges(spec_module, document):
             if (spec_module.metadata(e) or {}).get('kind') == 'junction_edge']
 
 def test_spec(plugin):
-    assert plugin.version == '1.6.1-dev'
+    assert plugin.version == '1.6.2-dev'
     assert 'EXPORTARBIM' in plugin.commands and 'UNIONESARQ' in plugin.commands
 
 @pytest.mark.parametrize('name,expected', [('36.dxf', 16), ('35.dxf', 16), ('34.dxf', 8)])
@@ -70,18 +70,24 @@ def test_exportarbim(plugin, tmp_path):
     again = json.loads(dest.read_text())
     assert [e['guid'] for e in again['elements']] == [e['guid'] for e in data['elements']]
 
-def test_copy_is_detected_not_exported(plugin, tmp_path):
-    """A generic COPY duplicates the XDATA id: export must refuse, plan must still regenerate."""
+def test_copy_blocks_export_until_unionesarq(plugin, tmp_path):
+    """A generic COPY duplicates the XDATA id: export refuses; UNIONESARQ gives
+    the copy (newest handle) a new identity and then export works."""
     ctx, host, out = ctx_for('36.dxf', tmp_path)
-    from core import actions
     msp = host.document.doc.modelspace()
     arch = sys.modules[[m for m in sys.modules if m.endswith('.architectural') and 'arquitectura' in m][0]]
-    wall = next(e for e in msp if (arch.metadata(e) or {}).get('kind') == 'wall')
+    walls = [e for e in msp if (arch.metadata(e) or {}).get('kind') == 'wall']
+    wall = walls[0]
     copy = wall.copy(); msp.add_entity(copy); copy.translate(0, 40, 0)
-    plugin.commands['UNIONESARQ'](ctx)
-    assert any('duplicado' in o for o in out), out
     data = plugin.commands['EXPORTARBIM'](ctx, str(tmp_path / 'x.arqbim'))
     assert data is None and any('duplicado' in o.lower() for o in out)
+    plugin.commands['UNIONESARQ'](ctx)
+    assert any('identidad BIM nueva' in o for o in out), out
+    assert arch.metadata(copy)['copied_from'] == arch.metadata(wall)['id']
+    assert 'copied_from' not in arch.metadata(wall)
+    data = plugin.commands['EXPORTARBIM'](ctx, str(tmp_path / 'y.arqbim'))
+    assert data is not None
+    assert sum(e['ifc_class'] == 'IfcWall' for e in data['elements']) == len(walls) + 1
 
 def test_move_uses_cad_axis(plugin, tmp_path):
     """MOVE with a generic command: XDATA a/b goes stale; the exported axis is the CAD one."""
