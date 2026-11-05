@@ -1,0 +1,177 @@
+From fe96089b36f0e236e74ea3f6a2fe8ed73a83257b Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Thu, 5 Nov 2026 21:44:27 +0100
+Subject: [PATCH] plugins: follow-up reactors for plugins (generalises the
+ DIMASSOC reactor)
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ core/commands.py | 59 +++++++++++++++++++++++++++++++++++++++++++++++-
+ core/plugins.py  | 14 ++++++++++++
+ 2 files changed, 72 insertions(+), 1 deletion(-)
+
+diff --git a/core/commands.py b/core/commands.py
+index a9eb687..27ab9a7 100644
+--- a/core/commands.py
++++ b/core/commands.py
+@@ -81,10 +81,14 @@ class CompositeCommand(Command):
+             followup = getattr(command, "dimassoc_followup", None)
+             if followup is not None:
+                 followup.do(document)
++            for followup in getattr(command, "plugin_followups", ()):
++                followup.do(document)
+ 
+     def undo(self, document) -> None:
+         removed = []
+         for command in reversed(self.commands):
++            for followup in reversed(getattr(command, "plugin_followups", ())):
++                followup.undo(document)
+             followup = getattr(command, "dimassoc_followup", None)
+             if followup is not None:
+                 followup.undo(document)
+@@ -93,6 +97,32 @@ class CompositeCommand(Command):
+         self.removed_handles = removed
+ 
+ 
++#: Follow-up reactors contributed by plugins (``PluginSpec.reactors``). Each
++#: has ``before(document)`` -> a state, or None when it has nothing to watch
++#: (then a command pays nothing), and ``react(document, state)`` -> a
++#: Command already DONE by react's caller, or None. The follow-up joins the
++#: command's undo step, exactly like the associative dimensions' reactor:
++#: a plugin keeps its derived geometry and its XDATA true after MOVE, COPY,
++#: MIRROR or a grip edit made with core commands it does not own.
++REACTORS: list = []
++
++
++def _plugin_states(document) -> list:
++    states = []
++    for reactor in list(REACTORS):
++        try:
++            state = reactor.before(document)
++        except Exception:  # noqa: BLE001 -- a plugin must not break editing
++            continue
++        if state is not None:
++            states.append((reactor, state))
++    return states
++
++
++class _ReactorState(tuple):
++    """(dimassoc state, [(reactor, state)]) -- what ``record`` compares."""
++
++
+ class History:
+     """Undo/redo stacks. ``execute`` runs and records a command."""
+ 
+@@ -121,7 +151,13 @@ class History:
+         hand to ``record`` once the command has mutated the drawing."""
+         from core import dimassoc
+ 
+-        return dimassoc.before(self.document) if self.document is not None else None
++        if self.document is None:
++            return None
++        dim = dimassoc.before(self.document)
++        plugins = _plugin_states(self.document) if REACTORS else []
++        if not plugins:
++            return dim                       # unchanged path when no plugin reacts
++        return _ReactorState((dim, plugins))
+ 
+     def record(self, command: Command, dimassoc_state=None) -> None:
+         """Put an already-applied command on the undo stack (execute's last
+@@ -130,6 +166,9 @@ class History:
+         With the ``dimassoc_state`` taken before the mutation, associative
+         dimensions follow their objects in the same undo step. Grips called
+         this without one and a dimension stayed behind its line (#90)."""
++        plugin_states = []
++        if isinstance(dimassoc_state, _ReactorState):
++            dimassoc_state, plugin_states = dimassoc_state
+         if dimassoc_state is not None:
+             from core import dimassoc
+ 
+@@ -137,6 +176,20 @@ class History:
+                                                        dimassoc_state)
+             if command.dimassoc_followup is not None:
+                 command.dimassoc_followup.do(self.document)
++        followups = []
++        for reactor, state in plugin_states:
++            try:
++                followup = reactor.react(self.document, state)
++            except Exception:  # noqa: BLE001
++                followup = None
++            if followup is not None:
++                followup.do(self.document)
++                followups.append(followup)
++        if followups:
++            command.plugin_followups = followups
++            # what a follow-up changed is not in the command's own entity
++            # list: only a regen shows it
++            command.needs_regen = True
+         self._undo.append(command)
+         self._redo.clear()
+         self._mark_blocks(command, applied=True)
+@@ -185,6 +238,8 @@ class History:
+             return None
+         self._gate()
+         command = self._undo.pop()
++        for followup in reversed(getattr(command, "plugin_followups", ())):
++            followup.undo(self.document)
+         followup = getattr(command, "dimassoc_followup", None)
+         if followup is not None:
+             followup.undo(self.document)
+@@ -202,6 +257,8 @@ class History:
+         followup = getattr(command, "dimassoc_followup", None)
+         if followup is not None:
+             followup.do(self.document)
++        for followup in getattr(command, "plugin_followups", ()):
++            followup.do(self.document)
+         self._undo.append(command)
+         self._mark_blocks(command)
+         return command
+diff --git a/core/plugins.py b/core/plugins.py
+index da91315..937a31c 100644
+--- a/core/plugins.py
++++ b/core/plugins.py
+@@ -82,6 +82,10 @@ class PluginSpec:
+     options_page: Optional[Callable] = None
+     i18n_dir: Optional[Path] = None
+     on_document_open: Optional[Callable] = None
++    #: Objects with ``before(document)`` / ``react(document, state)``: run
++    #: around every recorded command (core.commands.REACTORS) so a plugin's
++    #: derived geometry follows edits made with core commands.
++    reactors: tuple = ()
+ 
+ 
+ @dataclass
+@@ -140,6 +144,7 @@ class _Activation:
+     aliases: list[str] = field(default_factory=list)
+     pack_dir: Optional[Path] = None
+     toolbar: bool = False
++    reactors: list = field(default_factory=list)
+ 
+ 
+ # -- where plugins live --------------------------------------------------------
+@@ -425,6 +430,10 @@ class PluginManager:
+             if spec.i18n_dir is not None and Path(spec.i18n_dir).is_dir():
+                 host.add_pack_dir(Path(spec.i18n_dir))
+                 record.pack_dir = Path(spec.i18n_dir)
++            if spec.reactors:
++                from core.commands import REACTORS
++                REACTORS.extend(spec.reactors)
++                record.reactors = list(spec.reactors)
+             if spec.toolbar and self.toolbar_enabled(spec.id):
+                 host.add_toolbar(spec)
+                 record.toolbar = True
+@@ -452,6 +461,11 @@ class PluginManager:
+             host.remove_pack_dir(record.pack_dir)
+         if record.toolbar:
+             host.remove_toolbar(plugin_id)
++        if getattr(record, "reactors", None):
++            from core.commands import REACTORS
++            for reactor in record.reactors:
++                if reactor in REACTORS:
++                    REACTORS.remove(reactor)
+         host.menus_changed()
+ 
+     # -- events --------------------------------------------------------------------
+-- 
+2.43.0
+

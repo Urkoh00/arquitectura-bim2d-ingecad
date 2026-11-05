@@ -1,0 +1,56 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Atomic architectural actions: the native IngeCAD history records one step.
+
+Unlike CompositeCommand.do, this variant rolls already-applied member commands
+back if a later member fails. No private History calls or host patches.
+"""
+from __future__ import annotations
+from core.commands import CompositeCommand, DeferredCommand
+from core.layers import NewLayerCommand
+from .compat import require_document
+from .wall_network import RegenerateContoursCommand
+from .architectural import WALL_LAYER
+
+
+class SafeArchitecturalCommand(CompositeCommand):
+    """Roll back successful subcommands on a failure before History.record()."""
+    needs_regen = True
+
+    def do(self, document):
+        applied = []
+        try:
+            for command in self.commands:
+                command.do(document)
+                applied.append(command)
+                followup = getattr(command, 'dimassoc_followup', None)
+                if followup is not None:
+                    followup.do(document)
+        except Exception as original:
+            failures = []
+            for command in reversed(applied):
+                try:
+                    followup = getattr(command, 'dimassoc_followup', None)
+                    if followup is not None:
+                        followup.undo(document)
+                    command.undo(document)
+                except Exception as exc:
+                    failures.append(f'{getattr(command,"name",type(command).__name__)}: {exc}')
+            if failures:
+                raise RuntimeError('Fallo al restaurar operación arquitectónica: '
+                                   + '; '.join(failures)) from original
+            raise
+
+
+def apply_architectural_change(ctx, change, *, kind='wall'):
+    """Create/edit source and derived contour as ONE undoable history entry."""
+    doc = require_document(ctx)
+    needed = [(WALL_LAYER, 8), ('ARQ-MUROS', 8)]
+    if kind == 'column':
+        from .columns import PILLAR_LAYER
+        needed.insert(0, (PILLAR_LAYER, 4))
+    commands = [NewLayerCommand(name, color=color)
+                for name, color in needed if name not in doc.doc.layers]
+    commands += [change, DeferredCommand('ARQ encuentros derivados',
+                                         lambda _doc: RegenerateContoursCommand())]
+    ctx.execute(SafeArchitecturalCommand('ARQ elemento + encuentros', commands))
+    return change

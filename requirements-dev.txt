@@ -1,0 +1,5 @@
+# Pruebas del plugin (el plugin en sí solo usa lo que ya trae IngeCAD)
+pytest>=8.0
+ezdxf>=1.3
+shapely>=2.0      # solo como oráculo independiente en las pruebas
+ifcopenshell      # opcional: tests/validate_ifc.py

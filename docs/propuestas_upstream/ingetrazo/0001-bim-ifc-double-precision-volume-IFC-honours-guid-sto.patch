@@ -1,0 +1,199 @@
+From fc920f50e8c791774ea4dd0ff8fdc11719b21a87 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Thu, 5 Nov 2026 21:44:27 +0100
+Subject: [PATCH] bim/ifc: double-precision volume; IFC honours guid, storey,
+ psets, material, type, quantities and openings from group.ifc
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ core/bim.py    |  15 +++++--
+ formats/ifc.py | 111 +++++++++++++++++++++++++++++++++++++++++++++----
+ 2 files changed, 116 insertions(+), 10 deletions(-)
+
+diff --git a/core/bim.py b/core/bim.py
+index 7157cf0..4e97704 100644
+--- a/core/bim.py
++++ b/core/bim.py
+@@ -166,12 +166,21 @@ def face_set_volume(faces):
+                 counts[key] = counts.get(key, 0) + 1
+     if any(c != 2 for c in counts.values()):
+         return None
++    # Tetrahedra from a vertex OF the set, summed in double precision: from
++    # the world origin, the float32 cross products of a far-away object
++    # cancel catastrophically (0.27 m3 column at x = 300 m: +0.5 %; at
++    # 3 km: -73 %).
++    o = faces[0].loop[0].position
++    ox, oy, oz = o.x(), o.y(), o.z()
+     total = 0.0
+     for f in faces:
+         for t0, t1, t2 in f.triangulate():
+-            total += QVector3D.dotProduct(
+-                t0, QVector3D.crossProduct(t1, t2)) / 6.0
+-    return abs(total)
++            ax, ay, az = t0.x() - ox, t0.y() - oy, t0.z() - oz
++            bx, by, bz = t1.x() - ox, t1.y() - oy, t1.z() - oz
++            cx, cy, cz = t2.x() - ox, t2.y() - oy, t2.z() - oz
++            total += (ax * (by * cz - bz * cy) - ay * (bx * cz - bz * cx)
++                      + az * (bx * cy - by * cx))
++    return abs(total) / 6.0
+ 
+ 
+ def _group_signature(g, base=None) -> tuple:
+diff --git a/formats/ifc.py b/formats/ifc.py
+index 854d742..c0a9ade 100644
+--- a/formats/ifc.py
++++ b/formats/ifc.py
+@@ -66,6 +66,27 @@ def _f(v: float) -> str:
+     return f"{v:.6f}"
+ 
+ 
++def _value(v) -> str:
++    """A property's typed IFC value (IfcBoolean/IfcInteger/IfcReal/IfcLabel)."""
++    if isinstance(v, bool):
++        return f"IFCBOOLEAN({'.T.' if v else '.F.'})"
++    if isinstance(v, int):
++        return f"IFCINTEGER({v})"
++    if isinstance(v, float):
++        return f"IFCREAL({_f(v)})"
++    return f"IFCLABEL({_s(str(v))})"
++
++
++def _valid_guid(g) -> bool:
++    return isinstance(g, str) and len(g) == 22 and g[0] in "0123" \
++        and all(c in _GUID_CHARS for c in g)
++
++
++#: Type classes sharing the common 10-attribute layout (…, ElementType,
++#: PredefinedType); others are left untyped rather than written wrong.
++_TYPE_CLASSES = {"IfcWall", "IfcColumn", "IfcSlab", "IfcBeam", "IfcMember"}
++
++
+ class _Writer:
+     def __init__(self) -> None:
+         self.lines: list[str] = []
+@@ -147,14 +168,29 @@ def save_ifc(scene, path, project_name: str = "IngeTrazo project") -> int:
+     building = w.add("IFCBUILDING", _s(ifc_guid()), "$", "'Building'", "$",
+                      "$", f"#{placement}", "$", "$", ".ELEMENT.",
+                      "$", "$", "$")
+-    storey = w.add("IFCBUILDINGSTOREY", _s(ifc_guid()), "$", "'Storey'", "$",
+-                   "$", f"#{placement}", "$", "$", ".ELEMENT.", "0.")
++    # Storeys: the ones the objects name (tag "storey": {"name",
++    # "elevation"}), else the single default one, as before.
++    storeys: dict = {}
++
++    def storey_of(tag) -> str:
++        info = (tag or {}).get("storey") or {}
++        name = str(info.get("name") or "Storey")
++        if name not in storeys:
++            elev = float(info.get("elevation") or 0.0)
++            spt = w.add("IFCCARTESIANPOINT", f"(0.,0.,{_f(elev)})")
++            sax = w.add("IFCAXIS2PLACEMENT3D", f"#{spt}", "$", "$")
++            spl = w.add("IFCLOCALPLACEMENT", "$", f"#{sax}")
++            storeys[name] = (w.add("IFCBUILDINGSTOREY", _s(ifc_guid()), "$",
++                                   _s(name), "$", "$", f"#{spl}", "$", "$",
++                                   ".ELEMENT.", _f(elev)), [])
++        return name
++
+     w.add("IFCRELAGGREGATES", _s(ifc_guid()), "$", "$", "$",
+           f"#{project}", f"(#{site})")
+     w.add("IFCRELAGGREGATES", _s(ifc_guid()), "$", "$", "$",
+           f"#{site}", f"(#{building})")
+-    w.add("IFCRELAGGREGATES", _s(ifc_guid()), "$", "$", "$",
+-          f"#{building}", f"(#{storey})")
++    materials: dict = {}
++    types: dict = {}
+ 
+     element_ids = []
+     for obj in objects:
+@@ -167,8 +203,21 @@ def save_ifc(scene, path, project_name: str = "IngeTrazo project") -> int:
+         cls = obj["class"] if obj["class"] in IFC_CLASSES \
+             else "IfcBuildingElementProxy"
+         qset_name, qentries, _metrado = class_quantities(obj["class"], faces)
++        tag0 = getattr(obj.get("group"), "ifc", None) or {}
++        if isinstance(tag0.get("quantities"), dict):
++            # Exact quantities supplied by the author tool replace the ones
++            # measured off the mesh (a wall's length is not its largest
++            # face's area over its height once it has a door).
++            given = tag0["quantities"]
++            kinds = {"Length": "length", "Height": "length", "Width": "length",
++                     "Depth": "length", "Perimeter": "length"}
++            qentries = [e for e in qentries if e[1] not in given] + [
++                (kinds.get(n, "volume" if "Volume" in n else "area"), n, float(v))
++                for n, v in given.items() if v is not None]
+         total = _ATTR_COUNT.get(cls, _DEFAULT_ATTRS)
+-        attrs = [_s(ifc_guid()), "$", _s(obj["name"] or cls), "$", "$",
++        tag = getattr(obj.get("group"), "ifc", None) or {}
++        guid = tag.get("guid") if _valid_guid(tag.get("guid")) else ifc_guid()
++        attrs = [_s(guid), "$", _s(obj["name"] or cls), "$", "$",
+                  f"#{placement}", f"#{pds}", "'IngeTrazo'"]
+         if cls in ("IfcDoor", "IfcWindow"):
+             # Attributes 9/10 are OverallHeight/OverallWidth — viewers and
+@@ -191,6 +240,41 @@ def save_ifc(scene, path, project_name: str = "IngeTrazo project") -> int:
+         attrs += ["$"] * (total - len(attrs))
+         elem = w.add(cls.upper(), *attrs)
+         element_ids.append(elem)
++        storeys[storey_of(tag)][1].append(elem)
++
++        # Property sets given by the author tool: {"Pset_WallCommon": {...}}
++        for pset_name, props in (tag.get("psets") or {}).items():
++            if not isinstance(props, dict) or not props:
++                continue
++            values = [f"#{w.add('IFCPROPERTYSINGLEVALUE', _s(str(k)), '$', _value(v), '$')}"
++                      for k, v in props.items() if v is not None]
++            if values:
++                ps = w.add("IFCPROPERTYSET", _s(ifc_guid()), "$", _s(str(pset_name)),
++                           "$", "(" + ",".join(values) + ")")
++                w.add("IFCRELDEFINESBYPROPERTIES", _s(ifc_guid()), "$", "$", "$",
++                      f"(#{elem})", f"#{ps}")
++        if tag.get("material"):
++            materials.setdefault(str(tag["material"]), []).append(elem)
++        if tag.get("type") and cls in _TYPE_CLASSES:
++            types.setdefault((cls, str(tag["type"])), []).append(elem)
++        # Openings that void this element: IfcOpeningElement + IfcRelVoidsElement.
++        for op in tag.get("openings") or ():
++            from PySide6.QtGui import QVector3D
++
++            from core.mesh import Mesh
++            om = Mesh()
++            for f in op.get("faces") or ():
++                om.add_face([QVector3D(*p) for p in f["outer"]],
++                            [[QVector3D(*p) for p in h] for h in f.get("holes", [])] or None)
++            if not om.faces:
++                continue
++            orep = _brep(w, list(om.faces), context)
++            ops = w.add("IFCPRODUCTDEFINITIONSHAPE", "$", "$", f"(#{orep})")
++            og = op.get("guid") if _valid_guid(op.get("guid")) else ifc_guid()
++            opening = w.add("IFCOPENINGELEMENT", _s(og), "$", _s(op.get("name") or "Opening"),
++                            "$", "$", f"#{placement}", f"#{ops}", "$", ".OPENING.")
++            w.add("IFCRELVOIDSELEMENT", _s(ifc_guid()), "$", "$", "$",
++                  f"#{elem}", f"#{opening}")
+ 
+         # Per-class BaseQuantities (Qto_* naming): the takeoff numbers in
+         # the budget's own measures, straight in the file.
+@@ -210,8 +294,21 @@ def save_ifc(scene, path, project_name: str = "IngeTrazo project") -> int:
+ 
+     if not element_ids:
+         raise ValueError("No tagged BIM objects to export")
+-    w.add("IFCRELCONTAINEDINSPATIALSTRUCTURE", _s(ifc_guid()), "$", "$", "$",
+-          "(" + ",".join(f"#{e}" for e in element_ids) + ")", f"#{storey}")
++    w.add("IFCRELAGGREGATES", _s(ifc_guid()), "$", "$", "$", f"#{building}",
++          "(" + ",".join(f"#{sid}" for sid, _e in storeys.values()) + ")")
++    for sid, elems in storeys.values():
++        if elems:
++            w.add("IFCRELCONTAINEDINSPATIALSTRUCTURE", _s(ifc_guid()), "$", "$",
++                  "$", "(" + ",".join(f"#{e}" for e in elems) + ")", f"#{sid}")
++    for name, elems in materials.items():
++        mat = w.add("IFCMATERIAL", _s(name), "$", "$")
++        w.add("IFCRELASSOCIATESMATERIAL", _s(ifc_guid()), "$", "$", "$",
++              "(" + ",".join(f"#{e}" for e in elems) + ")", f"#{mat}")
++    for (cls, name), elems in types.items():
++        typ = w.add(cls.upper() + "TYPE", _s(ifc_guid()), "$", _s(name), "$", "$",
++                    "$", "$", "$", "$", ".NOTDEFINED.")
++        w.add("IFCRELDEFINESBYTYPE", _s(ifc_guid()), "$", "$", "$",
++              "(" + ",".join(f"#{e}" for e in elems) + ")", f"#{typ}")
+ 
+     stamp = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+     name = Path(path).name.replace("'", "''")
+-- 
+2.43.0
+
