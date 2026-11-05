@@ -8,7 +8,7 @@ the 3D model cannot disagree because they are the same polygons.
 Pipeline (each step explicit and testable):
 
 1. **Topology.** Wall ends are grouped into *nodes*: ends closer than
-   ``tol`` and pairs of ends that lie in each other's strip near their tips
+   ``tol`` (on the reference lines or on the axes) and pairs of ends that lie in each other's strip near their tips
    (the drawn-to-the-face corner of ``35.dxf``). An end that lands inside
    another wall's strip away from a node is a **T** into that host. Every
    other end is free. Nothing is joined by mere proximity: ``tol`` is 1 mm
@@ -144,9 +144,15 @@ def solve(walls, columns=(), tol=DEFAULT_TOL, min_angle=DEFAULT_MIN_ANGLE,
 
     # ---- 1. topology -------------------------------------------------------------------
     dsu = _DSU(len(ends))
+    # the same point, measured on the drawn reference lines OR on the axes:
+    # two walls drawn by different faces meet in a corner when their AXES
+    # end at the same point (that is how the L drawing gesture writes them)
+    axis_end = [walls[e.w].point(0.0 if e.which == 0 else walls[e.w].length,
+                                 (walls[e.w].lo + walls[e.w].hi) / 2) for e in ends]
     for i in range(len(ends)):
         for j in range(i + 1, len(ends)):
-            if ends[i].w != ends[j].w and math.dist(ends[i].p, ends[j].p) <= tol:
+            if ends[i].w != ends[j].w and (math.dist(ends[i].p, ends[j].p) <= tol
+                                           or math.dist(axis_end[i], axis_end[j]) <= tol):
                 dsu.union(i, j)
     # corners drawn to the face (each tip inside the other's strip, near its tip)
     for i in range(len(ends)):
@@ -277,7 +283,12 @@ def _node_point(members, walls, tol, sin_min):
         for y in range(x + 1, len(members)):
             wx, wy = walls[members[x].w], walls[members[y].w]
             if _sin(wx.u, wy.u) >= sin_min:
-                q = P.line_intersection(wx.a, wx.u, wy.a, wy.u)
+                # The hub is where the AXES cross, never where the reference
+                # lines cross: with a face reference that point lies ON a
+                # face, the cap folds back along it and the footprint breaks
+                # (found 2026-11-06 with an L drawn by its faces).
+                q = P.line_intersection(wx.point(0, (wx.lo + wx.hi) / 2), wx.u,
+                                        wy.point(0, (wy.lo + wy.hi) / 2), wy.u)
                 if q is not None:
                     return q
     return pts[0]
