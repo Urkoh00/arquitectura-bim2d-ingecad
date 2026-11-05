@@ -32,7 +32,7 @@ contorno en planta, el sólido estanco y las cantidades. IngeTrazo no recalcula 
 | `arquitectura/geom/` | Motor geométrico en Python puro: encuentros por nodos, polígonos, sólidos |
 | `ingetrazo_ext/` | Extensión de IngeTrazo que abre los `.arqbim` como grupos BIM etiquetados |
 | `tests/` | Pruebas automáticas (geometría contrastada con shapely, DXF reales, cargador real de IngeCAD) |
-| `docs/` | Historial de versiones |
+| `docs/` | Diseño de espacios (`DISENO_ESPACIOS.md`), historial de versiones |
 | `docs/propuestas_upstream/` | Parches **propuestos** a IngeCAD e IngeTrazo (no aplicados; se discuten con su desarrollador) |
 
 ## Instalación en IngeCAD
