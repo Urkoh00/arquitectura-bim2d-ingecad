@@ -51,7 +51,8 @@ def build_scene(data):
 
     levels = {lv["name"]: float(lv["elevation"]) for lv in data.get("levels", [])}
     scene = Scene()
-    layer_of = {"IfcWall": "ARQ-MUROS", "IfcColumn": "ARQ-PILARES", "IfcSpace": "ARQ-RECINTOS"}
+    layer_of = {"IfcWall": "ARQ-MUROS", "IfcColumn": "ARQ-PILARES", "IfcSpace": "ARQ-RECINTOS",
+                "IfcCovering": "ARQ-PILARES"}
     for name in ("ARQ-MUROS", "ARQ-PILARES"):
         scene.layers.append(Layer(name, color=(0.72, 0.72, 0.70)))
     if any(el["ifc_class"] == "IfcSpace" for el in data["elements"]):

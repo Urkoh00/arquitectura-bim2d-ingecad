@@ -97,7 +97,7 @@ def test_pilar_exento_es_una_isla(plugin):
     s = Session(plugin)
     _vivienda(s)
     from importlib import import_module
-    cols = import_module(s.plugin.tools['PILAR'].__module__)
+    cols = import_module(s.plugin.tools['PILAR'].__module__.rsplit('.', 1)[0] + '.columns')
     s.history.execute(cols.column_command((2.0, 2.0), {'shape': 'rect', 'width': 0.30, 'depth': 0.30,
                                                        'rotation': 0.0, 'height': 2.7, 'base': 0.0}))
     s.plugin.commands['UNIONESARQ'](_cmd_ctx(s))

@@ -11,7 +11,7 @@ IngeCAD + plugin Arquitectura  ──.arqbim──▶  IngeTrazo (extensión)  �
        (planta 2D BIM)                          (modelo 3D)
 ```
 
-**Estado: experimental (v1.8.1-dev).** No usar todavía en proyectos reales.
+**Estado: experimental (v1.9.0-dev).** No usar todavía en proyectos reales.
 
 > Este repositorio es solo el plugin. No es un fork de IngeCAD ni de IngeTrazo, ni tiene
 > relación con los visores BIM del mismo autor
@@ -50,7 +50,7 @@ pip install -r ../ingecad/requirements.txt -r requirements-dev.txt
 python -m pytest -q
 ```
 
-Con IngeCAD oficial: 174 correctas y 4 omitidas (las 4 requieren el gancho de reactores propuesto
+Con IngeCAD oficial: 187 correctas y 4 omitidas (las 4 requieren el gancho de reactores propuesto
 en `docs/propuestas_upstream/ingecad/`). GitHub Actions las ejecuta en cada envío.
 
 ## Colaboración con IngeCAD e IngeTrazo

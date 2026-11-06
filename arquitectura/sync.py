@@ -80,6 +80,14 @@ def sync_changes(drawing, tol=1e-9):
                 if math.dist(c, old[:2]) > tol:
                     new["center"] = c
                     changed = True
+                if m.get("shape", "rect") in ("rect", "steel") and len(pts) == 4:
+                    # a generic ROTATE turned the outline: its first edge is
+                    # the local x axis (sections.local_footprint)
+                    rot = math.degrees(math.atan2(pts[1][1] - pts[0][1], pts[1][0] - pts[0][0]))
+                    was = float(m.get("rotation") or 0.0)
+                    if abs(((rot - was + 180.0) % 360.0) - 180.0) > 1e-6:
+                        new["rotation"] = rot
+                        changed = True
         if changed:
             changes.append((e, new))
     return changes

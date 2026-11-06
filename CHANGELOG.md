@@ -183,3 +183,32 @@ el dato principal es el **espesor total**.
   tipos de ese espesor; `TIPOSMURO Nombre = 0,015 Yeso + 0,07 LHD + 0,015 Yeso` crea un tipo
   multicapa; `TIPOSMURO importar ruta.csv` / `exportar ruta.csv` («Nombre;capas» o
   «Nombre;espesor;material»), para cargar catálogos completos de una vez.
+
+## v1.9.0-dev (6-11-2026) — pilares embebidos y metálicos
+
+- **`PILAR`** nuevo:
+  - **Secciones** tecleadas con S: rectangular (`0,30x0,30`, `30x40` en cm), circular (`D0,35`) y
+    **perfiles metálicos** IPE, IPN, HEA, HEB, UPN, **2 UPN en cajón** y **2 UPN empresillados**
+    con su separación.
+  - **9 puntos de enganche** (teclado numérico: 7 8 9 / 4 5 6 / 1 2 3), **G** gira 90°, **R** ángulo
+    tecleado, **A** autorrotación según el muro o la línea bajo el cursor.
+  - **P, a distancia de dos paramentos:** clic en dos caras (o líneas) y en la esquina donde va el
+    pilar; sus lados quedan a d1 y d2 de ellas. Es el caso del pilar de fachada retranqueado 5 cm
+    de las caras exteriores que corta la cara interior del muro.
+  - **U, a distancia de un paramento** (pilares intermedios de fachada).
+  - **C, recubrimiento.**
+- **Tablas de perfiles** con sus fuentes en `profiles.py`. Los contornos son exactos, con alas
+  inclinadas (IPN 14 %, UPN 8 % / 5 %) y radios de acuerdo, y reproducen el área de tabla con un
+  desvío máximo del 0,8 % (IPE/HEA/HEB ≤ 0,41 %).
+- **Modelo:** la huella del pilar (lo que corta el muro y rodea el recinto) incluye el recubrimiento
+  o el cajeado del perfil; la sección real (hormigón o perfil) es el `IfcColumn`; la diferencia se
+  exporta como `IfcCovering` («Recubrimiento» o «Interior del cajeado del perfil»). Muros, pilares,
+  revestimientos y recintos siguen teselando la planta sin huecos ni solapes.
+- El perfil se dibuja en planta dentro de su contorno y forma grupo de selección con el pilar;
+  `UNIONESARQ` lo regenera. Un giro con `GIRA` de IngeCAD actualiza la rotación del pilar.
+- Exportación: `ARQ_Perfil` (designación, área nominal, masa kg/m) y `NetWeight`.
+- Corrección: el pilar rectangular ignoraba la rotación.
+- **Recintos:** descuentan la parte del pilar que sobresale del muro (prueba con el pilar de
+  esquina: 5 × 5 cm).
+- Cadena completa probada: plano → `.arqbim` → IngeTrazo (8 elementos estancos) → IFC (0 errores
+  con la corrección de `IfcSpace` propuesta).

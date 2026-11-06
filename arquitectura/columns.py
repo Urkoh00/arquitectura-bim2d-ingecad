@@ -14,7 +14,7 @@ def column_command(center,values):
     from core.actions import AddEntityCommand
     from .architectural import APPID
     points=column_points(center,values)
-    props={k:v for k,v in values.items() if k in ('shape','width','depth','radius','rotation','height','base','name','type_name','material','level')}
+    props={k:v for k,v in values.items() if k in ('shape','width','depth','radius','rotation','profile','cover','height','base','name','type_name','material','level')}
     rec={'kind':'column','schema':2,'id':uuid.uuid4().hex,'ifc_class':'IfcColumn',
          'center':list(map(float,center[:2])),**props}
     def factory(msp):
@@ -72,7 +72,7 @@ class EditColumnCommand:
         self.before = copy.deepcopy(original)
         self.after = copy.deepcopy(original)
         self.after.update({k: v for k,v in values.items() if k in (
-            'shape','width','depth','radius','rotation','height','base','name',
+            'shape','width','depth','radius','rotation','profile','cover','height','base','name',
             'type_name','material','level')})
         # Preserve its stable BIM id and world placement.
         self.after['id'] = original['id']

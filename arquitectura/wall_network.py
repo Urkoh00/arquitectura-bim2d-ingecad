@@ -303,6 +303,38 @@ class RegenerateContoursCommand(Command):
             for ident in (metadata(e) or {}).get('wall_ids') or []:
                 by_wall.setdefault(ident,[]).append(e)
         self.groups=SY.build_wall_groups(document.doc,by_wall)
+        # a steel or covered column: its outline + the drawn profile, one pick
+        details={}
+        for e in self.added_labels:
+            cid=(metadata(e) or {}).get('column_id')
+            if cid: details.setdefault(cid,[]).append(e)
+        for e in self._current(document.doc.modelspace(),'column'):
+            m=metadata(e)
+            if m.get('id') in details:
+                name=SY.GROUP_PREFIX+str(e.dxf.handle).upper()
+                SY.create_group(document.doc,name,[e,*details[m['id']]],
+                                f"{m.get('name') or 'Pilar'} BIM {m['id'][:8]} (Arquitectura)")
+                self.groups.append(name)
+    def _new_details(self,document):
+        """Plan drawing of what is inside a column's outline: the steel
+        profile(s), or the concrete section inside its covering."""
+        from .architectural import metadata,_xdata
+        from .sections import column_geometry
+        msp=document.doc.modelspace()
+        made=[]
+        for e in self._current(msp,'column'):
+            m=metadata(e)
+            if m.get('shape')!='steel' and not float(m.get('cover') or 0):
+                continue
+            try:
+                secs=column_geometry(m['center'],m)['sections']
+            except Exception:
+                continue
+            for sec in secs:
+                d=msp.add_lwpolyline(sec,close=True,dxfattribs={'layer':e.dxf.layer})
+                _xdata(msp,d,{'kind':'column_detail','schema':1,'column_id':m['id']})
+                made.append(d)
+        return made
     def do(self,document):
         import copy
         from .architectural import metadata,WALL_LAYER
@@ -314,7 +346,7 @@ class RegenerateContoursCommand(Command):
             self.old_groups=SY.snapshot_groups(document.doc)
             self.old_layer_off=document.doc.layers.get(WALL_LAYER).is_off() if WALL_LAYER in document.doc.layers else False
             self.sync=[(e,copy.deepcopy(metadata(e)),new) for e,new in SY.sync_changes(document.doc)]
-            self.removed_labels=self._current(msp,'space_label')
+            self.removed_labels=self._current(msp,'space_label')+self._current(msp,'column_detail')
         self._write_meta(document,'new')
         try:
             if first:
@@ -344,7 +376,7 @@ class RegenerateContoursCommand(Command):
             self._apply_spaces(document,'new')
             if first:
                 self.added=self._new_lines(msp,segments)
-                self.added_labels=self._new_labels(document)
+                self.added_labels=self._new_labels(document)+self._new_details(document)
             else:
                 for e in self.added+self.added_labels:
                     msp.add_entity(e)

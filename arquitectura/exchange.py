@@ -27,7 +27,8 @@ FORMAT = "arqbim"
 VERSION = 1
 _GUID_CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_$"
 
-PSET = {"IfcWall": "Pset_WallCommon", "IfcColumn": "Pset_ColumnCommon", "IfcSpace": "Pset_SpaceCommon"}
+PSET = {"IfcWall": "Pset_WallCommon", "IfcColumn": "Pset_ColumnCommon", "IfcSpace": "Pset_SpaceCommon",
+        "IfcCovering": "Pset_CoveringCommon"}
 
 
 def ifc_guid(hex_id):
@@ -153,15 +154,53 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD"):
         elements.append(el)
     for ident, m in columns:
         level = m.get("level") or "Planta baja"
-        levels.setdefault(level, float(m.get("base", 0.0)))
-        faces, volume = S.prism_solid(m["polygon"], float(m.get("base", 0.0)), float(m["height"]))
-        el = _element(ident, "IfcColumn", m, faces, volume, volume / float(m["height"]), level)
+        base, height = float(m.get("base", 0.0)), float(m["height"])
+        levels.setdefault(level, base)
+        footprint = [tuple(p) for p in m["polygon"]]
+        try:
+            from .sections import column_geometry
+            sections = column_geometry(m["center"], m)["sections"]
+        except Exception:  # noqa: BLE001  (older records: the polygon is the section)
+            sections = [footprint]
+        from .geom import polygon as P
+        sec_pieces = [pc for sec in sections for pc in P.convex_parts(sec)]
+        faces, volume = S.wall_solid(sec_pieces, (0.0, 0.0), (1.0, 0.0), base, height, ())
+        sec_area = sum(P.area(pc) for pc in sec_pieces)
+        el = _element(ident, "IfcColumn", m, faces, volume, sec_area, level)
         el["params"].update({k: m.get(k) for k in ("shape", "width", "depth", "radius",
-                                                   "rotation", "center")})
+                                                   "rotation", "center", "profile", "cover")})
         el["footprint"] = [[[list(p) for p in result.columns[ident]], []]]
-        el["quantities"] = {"Length": float(m["height"]), "CrossSectionArea": volume / float(m["height"]),
+        el["quantities"] = {"Length": height, "CrossSectionArea": sec_area,
                             "GrossVolume": volume, "NetVolume": volume}
+        if m.get("shape") == "steel":
+            from . import profiles as PR
+            prof = PR.parse(m.get("profile", ""))
+            el["psets"]["ARQ_Perfil"] = {"Perfil": PR.designation(prof),
+                                         "AreaNominal_cm2": round(PR.nominal_area(prof) * 1e4, 2),
+                                         "Masa_kg_m": round(PR.mass_per_metre(prof), 1)}
+            el["quantities"]["NetWeight"] = PR.mass_per_metre(prof) * height
         elements.append(el)
+        # what the footprint has beyond the column itself: its covering
+        rest = P.convex_parts(footprint)
+        for sec in sections:
+            rest = P.subtract(rest, sec)
+        rest_area = sum(P.area(pc) for pc in rest)
+        if rest_area > 1e-9:
+            cf, cv = S.wall_solid(rest, (0.0, 0.0), (1.0, 0.0), base, height, ())
+            cid = ident + "-rec"
+            cover = float(m.get("cover") or 0.0)
+            what = (f"Recubrimiento de {cover:.3f} m".replace(".", ",") if cover > 0
+                    else "Interior del cajeado del perfil")
+            cm = {"name": "Revestimiento de pilar", "type_name": what,
+                  "material": m.get("cover_material") or "", "height": height, "base": base}
+            ce = _element(cid, "IfcCovering", cm, cf, cv, rest_area, level)
+            ce["psets"] = {"ARQ_Recubrimiento": {"Pilar": ident, "Descripcion": what,
+                                                 "Espesor": cover}}
+            ce["params"].update(host=ident)
+            ce["footprint"] = []
+            ce["quantities"] = {"Width": cover, "GrossArea": rest_area, "GrossVolume": cv,
+                                "NetVolume": cv}
+            elements.append(ce)
     comps = SP.components(result) if columns or specs else []
     for ident, m, ent in read_spaces(drawing):
         level = m.get("level") or "Planta baja"
@@ -207,7 +246,8 @@ def _faces_json(faces):
 
 
 def _element(ident, cls, m, faces, volume, plan_area, level):
-    name = m.get("name") or {"IfcWall": "Muro", "IfcColumn": "Pilar", "IfcSpace": "Recinto"}.get(cls, cls)
+    name = m.get("name") or {"IfcWall": "Muro", "IfcColumn": "Pilar", "IfcSpace": "Recinto",
+                             "IfcCovering": "Revestimiento"}.get(cls, cls)
     material = m.get("material") or ""
     type_name = m.get("type_name") or ""
     psets = {PSET[cls]: {"Reference": type_name or None, "LoadBearing": None, "IsExternal": None}}
