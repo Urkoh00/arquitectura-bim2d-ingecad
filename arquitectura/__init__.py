@@ -1369,7 +1369,8 @@ class AyudaArqTool(ArchitectureTool):
         self.ctx.echo("=== Plugin Arquitectura v0.8 — comandos ===")
         self.ctx.echo("CAPASARQ / CAPASAUTO  — capas ARQ-*")
         self.ctx.echo("MURO                  — muro BIM encadenado; I o F5 cambia la cara, G toma las propiedades de otro muro,")
-        self.ctx.echo("                        T elige un tipo (Tabique, Tabicón, 1 pie...; ver TIPOSMURO)")
+        self.ctx.echo("                        antes del primer punto, un número es el ESPESOR TOTAL (ofrece los tipos que lo tienen);")
+        self.ctx.echo("                        T elige un tipo del catálogo (Termoarcilla, PYL, multicapa...; ver TIPOSMURO)")
         self.ctx.echo("                        terminar en la cara próxima de otro muro = T; en la alejada = L (lo recorta)")
         self.ctx.echo("MUROPARALELO          — distancia, línea base, lado y lado del espesor; un clic en vacío encadena otro")
         self.ctx.echo("ESTIRAMURO            — alarga o acorta un muro hasta un punto, una línea o la cara de otro muro (T/L)")
@@ -1428,7 +1429,7 @@ TOOL_CLASSES = tuple(MuroCarasTool if t.name == "MURO" else PilarBimTool if t.na
 
 def arqdiag(ctx, *args):
     """Diagnóstico sin mutar el dibujo y sin depender de PySide6."""
-    ctx.echo('ARQDIAG — Arquitectura 1.8.0-dev (motor de nodos, huella única 2D/3D, exportación .arqbim)')
+    ctx.echo('ARQDIAG — Arquitectura 1.8.1-dev (motor de nodos, huella única 2D/3D, exportación .arqbim)')
     try:
         from .wall_tools import MuroCarasTool as MuroTool
         ctx.echo(f'Herramienta MURO: {MuroTool.__module__}.{MuroTool.__name__}')
@@ -1479,13 +1480,13 @@ def plugin_spec() -> PluginSpec:
         **extra,
         id="arquitectura",
         name="Arquitectura",
-        version="1.8.0-dev",
+        version="1.8.1-dev",
         description="Dibujo arquitectónico 2D con objetos BIM (muros, pilares, carpinterías) y exportación a IngeTrazo/IFC",
         tools={tool.name: tool for tool in (*TOOL_CLASSES, Muro3DTool, Hueco3DTool)},
         commands={"EXPORTARBIM": exportar_bim, "EXPORTARIGZ": exportar_igz, "CONFIGIGZ": configurar_igz, "DIAGNOSTICOARQ": diagnostico_arq, "ARQDIAG": arqdiag, "UNIONESARQ": unionesarq, "ARQVALIDAR": validar_arq, "ARQMIGRAR": migrar_arq, "PARAMETROSARQ": parametros_arq, "TIPOSMURO": tipos_muro},
         menu=(
             MenuItem("Parámetros iniciales de Arquitectura...", "PARAMETROSARQ"),
-            MenuItem("Tipos de muro (Tabique, Tabicón, 1 pie...)", "TIPOSMURO"),
+            MenuItem("Tipos de muro (espesor total y capas)...", "TIPOSMURO"),
             MenuItem("Crear capas ARQ", "CAPASARQ"),
             MenuItem("Distribuir en capas", "CAPASAUTO"),
             SEPARATOR,

@@ -227,6 +227,7 @@ def test_muro_paralelo_dentro_de_un_recinto(plugin, tmp_path):
     t = s.tool('MUROPARALELO')
     t.on_option('e')
     t.on_option('0,10')
+    t.on_option('2')                        # de los dos tipos de 0,10, el tabique de LHD
     t.on_option('1,5')
     t.on_point((2.5, 0.15))                        # cara interior del muro sur
     t.on_point((2.5, 2.0))                         # lado de la paralela: hacia el interior

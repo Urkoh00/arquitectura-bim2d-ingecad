@@ -126,6 +126,17 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD"):
                            for o, hs in geo["loops"]]
         el["params"].update(a=list(spec.a), b=list(spec.b), thickness=spec.thickness,
                             reference=spec.reference)
+        layers = m.get("layers") or []
+        if layers:
+            # from the drawn face (reference line) toward the body; for an IFC
+            # IfcMaterialLayerSet (pending in IngeTrazo) and readable as Pset
+            total = sum(float(t) for t, _m in layers)
+            if abs(total - spec.thickness) > 5e-4:
+                issues.append(f"Muro {ident}: sus capas suman {total:.3f} m y el espesor es "
+                              f"{spec.thickness:.3f} m")
+            el["material_layers"] = [{"thickness": float(t), "material": mat} for t, mat in layers]
+            el["psets"]["ARQ_Capas"] = {f"Capa {i}": f"{float(t):.3f} m {mat}".strip()
+                                        for i, (t, mat) in enumerate(layers, 1)}
         el["quantities"] = {"Length": spec.length, "Height": float(m["height"]),
                             "Width": spec.thickness, "GrossFootprintArea": geo["area"],
                             "GrossVolume": geo["area"] * float(m["height"]),

@@ -120,19 +120,106 @@ def _document(ctx):
     return require_document(ctx)
 
 
+# --- total thickness first, then the type -------------------------------------
+
+class WallTypeChoice:
+    """Shared by MURO, MUROPARALELO and DIVIDEMURO. The TOTAL thickness comes
+    first: the types with that thickness are offered (one: applied; several:
+    the user picks; none: a generic wall). ``T`` lists every type. The
+    chosen type's layers travel with the wall (IfcMaterialLayerSet later)."""
+
+    def _types(self):
+        from .parameters_arq import load_defaults
+        return load_defaults(_document(self.ctx))["wall_types"]
+
+    def _apply_type(self, t):
+        self.thickness = float(t["thickness"])
+        self.bim["type_name"] = t["name"]
+        self.bim["name"] = t["name"]
+        if t.get("material"):
+            self.bim["material"] = t["material"]
+        self.bim["layers"] = [list(l) for l in t["layers"]]
+
+    def _generic(self, thickness):
+        from .parameters_arq import _num
+        self.thickness = float(thickness)
+        self.bim["type_name"] = f"Muro {_num(self.thickness)}"
+        self.bim["name"] = "Muro"
+        self.bim.pop("layers", None)
+
+    def _set_thickness(self, value):
+        """True when a choice among several types is pending."""
+        from .parameters_arq import _num, types_with_thickness
+        hits = types_with_thickness(self._types(), value)
+        if len(hits) == 1:
+            self._apply_type(hits[0])
+            return False
+        self._generic(value)
+        if not hits:
+            return False
+        self.type_candidates = hits
+        self.prompt(f"{self.name}: hay {len(hits)} tipos de {_num(float(value))} m: "
+                    + "  ".join(f"{i}) {t['name']}" for i, t in enumerate(hits, 1))
+                    + "  (Intro: genérico)")
+        return True
+
+    def _ask_type(self):
+        from .parameters_arq import wall_types_text
+        self.type_candidates = None
+        self.choosing_type = True
+        self.prompt(f"{self.name}: tipo (número o nombre; o un espesor): " + wall_types_text(self._types()))
+
+    def _type_answer(self, text):
+        """Handle the answer to a type question. Returns True when consumed."""
+        from .parameters_arq import find_wall_type
+        cands = getattr(self, "type_candidates", None)
+        if cands is not None:
+            self.type_candidates = None
+            txt = str(text).strip()
+            if txt.isdigit() and 1 <= int(txt) <= len(cands):
+                self._apply_type(cands[int(txt) - 1])
+            elif txt:
+                t = find_wall_type(cands, txt)
+                if t is not None:
+                    self._apply_type(t)
+            return True
+        if getattr(self, "choosing_type", False):
+            self.choosing_type = False
+            txt = str(text).strip()
+            if _is_thickness(txt):
+                return self._set_thickness(float(txt.replace(",", "."))) or True
+            t = find_wall_type(self._types(), txt)
+            if t is None:
+                self.ctx.echo(f"{self.name}: tipo no reconocido; se mantiene el actual.")
+            else:
+                self._apply_type(t)
+            return True
+        return False
+
+    def _type_label(self):
+        from .parameters_arq import _num
+        return f"{self.bim.get('type_name') or 'Muro'} — {_num(self.thickness)} m"
+
+
+def _is_thickness(txt):
+    t = str(txt).strip().replace(",", ".")
+    if not t or ("." not in t and not t.startswith("0")):
+        return False          # «2» is a list number, «0,24» / «0.24» a thickness
+    try:
+        v = float(t)
+        return math.isfinite(v) and 0 < v < 3
+    except ValueError:
+        return False
+
+
 # --- MURO ------------------------------------------------------------------------
 
-class MuroCarasTool(_MuroV10):
+class MuroCarasTool(WallTypeChoice, _MuroV10):
     """MURO with face swap, property capture and the T/L end gesture."""
     name = "MURO"
 
     #: the single F5 shortcut of the main window while MURO is active
     _shortcut = None
-
-    def start(self):
-        self.capturing = False
-        super().start()
-        self._install_f5()
 
     # F5 swaps the face, as typed "I"/"F5" does. IngeCAD binds nothing to F5
     # (Ctrl+F5 is the sidebar, F8 is ORTHO) and offers plugin tools no key
@@ -178,45 +265,68 @@ class MuroCarasTool(_MuroV10):
         MuroCarasTool._drop_f5()
         super().on_cancel()
 
+    def on_enter(self):
+        if getattr(self, "type_candidates", None) is not None or getattr(self, "choosing_type", False):
+            self.type_candidates, self.choosing_type = None, False      # Intro: generic wall
+            self._status()
+            self._reprompt()
+            return
+        super().on_enter()
+
     def _reprompt(self):
-        self.prompt("MURO: siguiente punto o [Tipo/Espesor/Altura/Cota/Referencia/Invertir/iGual/Fin]:"
+        lab = self._type_label()
+        self.prompt(f"MURO ({lab}): siguiente punto o longitud; [Tipo/Espesor/Altura/Cota/Referencia/Invertir/iGual/Fin]:"
                     if self.startpoint is not None else
-                    "MURO: primer punto o [Tipo/Espesor/Altura/Cota/Referencia/Invertir/iGual/Fin]:")
+                    f"MURO ({lab}): espesor total o primer punto; [Tipo/Altura/Cota/Referencia/Invertir/iGual/Fin]:")
 
     def _status(self):
-        name = self.bim.get("type_name") or ""
         side = {"izquierda": "cara derecha (cuerpo a la izquierda)",
                 "derecha": "cara izquierda (cuerpo a la derecha)", "eje": "eje"}[self.reference]
-        self.ctx.echo(f"MURO: {name + ', ' if name else ''}espesor {self.thickness:g} m, "
-                      f"altura {self.height:g} m, se dibuja por: {side}")
+        self.ctx.echo(f"MURO: {self._type_label()}, altura {self.height:g} m, se dibuja por: {side}")
+
+    def start(self):
+        self.capturing = False
+        super().start()
+        if getattr(self, "bim", None) is not None and "layers" not in self.bim:
+            # defaults: the type with the default thickness, if exactly one
+            from .parameters_arq import types_with_thickness
+            hits = types_with_thickness(self._types(), self.thickness)
+            if len(hits) == 1 and self.bim.get("type_name") in ("", "Muro genérico", None):
+                self._apply_type(hits[0])
+        self._install_f5()
+        if getattr(self, "startpoint", None) is None:
+            self._reprompt()
 
     def on_option(self, text):
         txt = str(text).strip().lower()
+        if self._type_answer(text):
+            self._status()
+            self._reprompt()
+            return True
+        if self.pending == "thickness":
+            self.pending = None
+            if not _is_thickness(txt) and not txt.replace(",", ".").replace(".", "", 1).isdigit():
+                self.ctx.echo("Debe introducir un espesor en metros.")
+                self._reprompt()
+                return True
+            if not self._set_thickness(float(txt.replace(",", "."))):
+                self._status()
+                self._reprompt()
+            return True
         if not self.pending and txt in ("i", "invertir", "f5", "cara"):
             self.reference = {"izquierda": "derecha", "derecha": "izquierda"}.get(
                 self.reference, "izquierda")
             self._status()
             return True
-        if getattr(self, "choosing_type", False):
-            self.choosing_type = False
-            from .parameters_arq import find_wall_type, load_defaults
-            t = find_wall_type(load_defaults(_document(self.ctx))["wall_types"], text)
-            if t is None:
-                self.ctx.echo("MURO: tipo no reconocido; se mantiene el actual.")
-            else:
-                self.thickness = float(t["thickness"])
-                self.bim["type_name"] = t["name"]
-                self.bim["name"] = t["name"]
-                if t.get("material"):
-                    self.bim["material"] = t["material"]
+        if not self.pending and self.startpoint is None and _is_number_text(txt):
+            # before the first point a number is the TOTAL thickness (after
+            # it, IngeCAD takes a number as the length along the cursor)
+            if not self._set_thickness(float(txt.replace(",", "."))):
                 self._status()
-            self._reprompt()
+                self._reprompt()
             return True
         if not self.pending and txt in ("t", "tipo"):
-            from .parameters_arq import load_defaults, wall_types_text
-            types = load_defaults(_document(self.ctx))["wall_types"]
-            self.choosing_type = True
-            self.prompt("MURO: tipo (número o nombre): " + wall_types_text(types))
+            self._ask_type()
             return True
         if not self.pending and txt in ("g", "igual"):
             self.capturing = True
@@ -273,7 +383,9 @@ class MuroCarasTool(_MuroV10):
                 self.thickness, self.height = float(m["thickness"]), float(m["height"])
                 self.base = float(m.get("base", 0.0))
                 self.reference = m.get("reference", self.reference)
-                self.bim = {k: m.get(k, self.bim.get(k, "")) for k in self.bim}
+                self.bim = {k: m.get(k, self.bim.get(k, "")) for k in ("name", "type_name", "material", "level")}
+                if m.get("layers"):
+                    self.bim["layers"] = [list(l) for l in m["layers"]]
                 self.ctx.echo("MURO: propiedades tomadas de " + (m.get("name") or "muro")
                               + f" ({m['id'][:8]}).")
                 self._status()
@@ -319,7 +431,7 @@ class MuroCarasTool(_MuroV10):
 
 # --- MUROPARALELO ----------------------------------------------------------------
 
-class MuroParaleloTool(Tool):
+class MuroParaleloTool(WallTypeChoice, Tool):
     """Wall parallel to a line: distance, base line, side, thickness side.
     After a wall, a click on empty space (no line) is the side of the next
     parallel, measured from the far face of the wall just made."""
@@ -343,42 +455,34 @@ class MuroParaleloTool(Tool):
     def _ask_face(self):
         self.stage = "face"
         txt = "línea base o lado de paralela" if self.last else "línea base (cara, eje o línea)"
-        self.prompt(f"MUROPARALELO (distancia {self.distance:g} m, espesor {self.thickness:g} m): "
+        self.prompt(f"MUROPARALELO ({self._type_label()}; distancia {self.distance:g} m): "
                     f"indique {txt}; o teclee [distancia/Espesor/Tipo]:")
 
     def on_option(self, text):
         raw = str(text).strip()
         txt = raw.lower().replace(",", ".")
-        if self.stage in ("thickness", "type"):
-            if self.stage == "type":
-                from .parameters_arq import find_wall_type, load_defaults
-                t = find_wall_type(load_defaults(_document(self.ctx))["wall_types"], raw)
-                if t is None:
-                    self.ctx.echo("Tipo no reconocido.")
-                else:
-                    self.thickness = float(t["thickness"])
-                    self.bim.update(type_name=t["name"], name=t["name"])
-                    if t.get("material"):
-                        self.bim["material"] = t["material"]
-            else:
-                try:
-                    v = float(txt)
-                    if not (math.isfinite(v) and v > 0):
-                        raise ValueError
-                    self.thickness = v
-                except ValueError:
-                    self.ctx.echo("Espesor no válido.")
+        if self._type_answer(raw):
             self._ask_face()
+            return True
+        if self.stage == "thickness":
+            self.stage = "face"
+            try:
+                v = float(txt)
+                if not (math.isfinite(v) and v > 0):
+                    raise ValueError
+            except ValueError:
+                self.ctx.echo("Espesor no válido.")
+                self._ask_face()
+                return True
+            if not self._set_thickness(v):
+                self._ask_face()
             return True
         if txt in ("e", "espesor"):
             self.stage = "thickness"
-            self.prompt(f"Espesor del muro nuevo (m) <{self.thickness:g}>:")
+            self.prompt(f"Espesor total del muro nuevo (m) <{self.thickness:g}>:")
             return True
         if txt in ("t", "tipo"):
-            from .parameters_arq import load_defaults, wall_types_text
-            self.stage = "type"
-            self.prompt("Tipo (número o nombre): " + wall_types_text(
-                load_defaults(_document(self.ctx))["wall_types"]))
+            self._ask_type()
             return True
         try:
             v = float(txt)
@@ -392,7 +496,11 @@ class MuroParaleloTool(Tool):
         return True
 
     def on_enter(self):
-        if self.stage in ("side", "body", "thickness", "type"):
+        if getattr(self, "type_candidates", None) is not None or getattr(self, "choosing_type", False):
+            self.type_candidates, self.choosing_type = None, False
+            self._ask_face()
+            return
+        if self.stage in ("side", "body", "thickness"):
             self._ask_face()
             return
         self.ctx.finish()
@@ -834,7 +942,7 @@ class UnirMuroTool(Tool):
 
 # --- DIVIDEMURO ------------------------------------------------------------------
 
-class DivideMuroTool(Tool):
+class DivideMuroTool(WallTypeChoice, Tool):
     """Divide the span between two points into N equal clear spans with
     walls perpendicular to it (to the left of the first->second direction).
     Length: typed with L; without it, each wall reaches the facing wall."""
@@ -854,33 +962,29 @@ class DivideMuroTool(Tool):
 
     def _prompt(self):
         ln = f"{self.length:g} m" if self.length else "hasta el muro de enfrente"
-        self.prompt(f"DIVIDEMURO ({self.parts} partes, espesor {self.thickness:g} m, longitud {ln}): "
+        self.prompt(f"DIVIDEMURO ({self.parts} partes, {self._type_label()}, longitud {ln}): "
                     "primer punto o [número de partes/Longitud/Espesor/Tipo]:")
 
     def on_option(self, text):
         raw = str(text).strip()
         txt = raw.lower().replace(",", ".")
+        if self._type_answer(raw):
+            self._prompt()
+            return True
         if self.pending:
             key, self.pending = self.pending, None
-            if key == "type":
-                from .parameters_arq import find_wall_type, load_defaults
-                t = find_wall_type(load_defaults(_document(self.ctx))["wall_types"], raw)
-                if t is None:
-                    self.ctx.echo("Tipo no reconocido.")
-                else:
-                    self.thickness = float(t["thickness"])
-                    self.bim.update(type_name=t["name"], name=t["name"])
-            else:
-                try:
-                    v = float(txt)
-                    if not (math.isfinite(v) and v >= 0):
-                        raise ValueError
-                    if key == "length":
-                        self.length = v or None
-                    elif v > 0:
-                        self.thickness = v
-                except ValueError:
-                    self.ctx.echo("Valor no válido.")
+            try:
+                v = float(txt)
+                if not (math.isfinite(v) and v >= 0):
+                    raise ValueError
+            except ValueError:
+                self.ctx.echo("Valor no válido.")
+                self._prompt()
+                return True
+            if key == "length":
+                self.length = v or None
+            elif v > 0 and self._set_thickness(v):
+                return True
             self._prompt()
             return True
         if txt in ("l", "longitud"):
@@ -889,13 +993,10 @@ class DivideMuroTool(Tool):
             return True
         if txt in ("e", "espesor"):
             self.pending = "thickness"
-            self.prompt(f"Espesor (m) <{self.thickness:g}>:")
+            self.prompt(f"Espesor total (m) <{self.thickness:g}>:")
             return True
         if txt in ("t", "tipo"):
-            from .parameters_arq import load_defaults, wall_types_text
-            self.pending = "type"
-            self.prompt("Tipo (número o nombre): " + wall_types_text(
-                load_defaults(_document(self.ctx))["wall_types"]))
+            self._ask_type()
             return True
         if txt.isdigit() and self.p1 is None:
             n = int(txt)
@@ -908,8 +1009,9 @@ class DivideMuroTool(Tool):
         return False
 
     def on_enter(self):
-        if self.pending:
-            self.pending = None
+        if self.pending or getattr(self, "type_candidates", None) is not None \
+                or getattr(self, "choosing_type", False):
+            self.pending, self.type_candidates, self.choosing_type = None, None, False
             self._prompt()
             return
         self.ctx.finish()
@@ -1070,3 +1172,11 @@ class RecintoTool(Tool):
 
 
 TOOLS = TOOLS + (RecintoTool, DivideMuroTool, BorraTramoTool, ParteMuroTool, UnirMuroTool)
+
+
+def _is_number_text(txt):
+    try:
+        v = float(str(txt).replace(",", "."))
+        return math.isfinite(v) and v > 0
+    except ValueError:
+        return False

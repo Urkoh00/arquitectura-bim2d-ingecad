@@ -160,3 +160,26 @@ Repaso a fondo de manuales, ayuda y vídeos (fotograma a fotograma) centrado en 
 - Corrección: al deshacer el borrado de un muro, su grupo de selección se restaura en el orden
   correcto.
 - Pruebas: `tests/test_wall_tools_2.py` (15 casos con Document/History reales).
+
+## v1.8.1-dev (6-11-2026) — espesor total primero; tipos multicapa
+
+Petición del usuario: los nombres tradicionales (tabique, tabicón, pies) ya no describen lo que
+se construye; hacen falta muchos más tipos (Termoarcilla, placa de yeso laminado, multicapa) y
+el dato principal es el **espesor total**.
+
+- **`MURO`**: antes del primer punto, un número tecleado es el **espesor total**. Si un solo tipo
+  del catálogo lo tiene, se aplica; si varios, se elige por número (Intro = muro genérico); si
+  ninguno, muro genérico «Muro 0,33». Después del primer punto un número sigue siendo la
+  longitud. `MUROPARALELO` y `DIVIDEMURO` siguen la misma regla con la opción E.
+- **Tipos multicapa**: cada tipo es una lista de capas (espesor y material) desde la cara
+  dibujada; el espesor total es su suma. El muro guarda sus capas, y la exportación las lleva en
+  `material_layers` y en el Pset `ARQ_Capas` (el IFC `IfcMaterialLayerSet` queda pendiente de
+  IngeTrazo). Se avisa si las capas no suman el espesor.
+- **Catálogo por defecto** (editable por dibujo): PYL 78/48, 98/48, 100/70, 120/70, 120/90 y 140/90
+  (designación espesor total / montante, Placo); Termoarcilla 14, 19, 24 y 29 (Hispalyt);
+  tabique de LHD 7 guarnecido; una fachada multicapa de ejemplo. Se retiran los nombres
+  tradicionales.
+- **`TIPOSMURO`**: lista agrupada por espesor total; `TIPOSMURO 0,24` muestra las capas de los
+  tipos de ese espesor; `TIPOSMURO Nombre = 0,015 Yeso + 0,07 LHD + 0,015 Yeso` crea un tipo
+  multicapa; `TIPOSMURO importar ruta.csv` / `exportar ruta.csv` («Nombre;capas» o
+  «Nombre;espesor;material»), para cargar catálogos completos de una vez.

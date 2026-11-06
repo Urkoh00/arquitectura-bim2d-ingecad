@@ -12,37 +12,95 @@ def _new_walls(s, before):
     return {k: w for k, w in s.walls().items() if k not in before}
 
 
-# --- tipos de muro -------------------------------------------------------------
+# --- tipos de muro: espesor total primero ----------------------------------------
 
-def test_tiposmuro_lista_anade_quita_y_deshace(plugin):
+def _pa(plugin):
+    from importlib import import_module
+    return import_module(plugin.commands['PARAMETROSARQ'].__module__)
+
+
+def test_catalogo_por_defecto_suma_capas():
+    from arquitectura.parameters_arq import DEFAULTS, normalise_type
+    types = {t['name']: normalise_type(t) for t in DEFAULTS['wall_types']}
+    assert types['PYL 98/48']['thickness'] == pytest.approx(0.098)        # designación = total
+    assert types['PYL 140/90']['thickness'] == pytest.approx(0.140)
+    assert types['Termoarcilla 24']['thickness'] == pytest.approx(0.24)
+    assert types['Fachada caravista + aislamiento + LHD (ejemplo)']['thickness'] == pytest.approx(0.26)
+
+
+def test_tiposmuro_multicapa_quitar_y_deshacer(plugin):
     s = Session(plugin)
     ctx = _cmd_ctx(s)
     plugin.commands['TIPOSMURO'](ctx)
-    assert any('Tabicón 0,1' in o for o in s.out)
-    plugin.commands['TIPOSMURO'](ctx, 'Ladrillo', 'perforado', '0,115', 'Cerámico')
-    plugin.commands['TIPOSMURO'](ctx, '-Tabique')
-    from importlib import import_module
-    pa = import_module(plugin.commands['PARAMETROSARQ'].__module__)
-    types = pa.load_defaults(s.document)['wall_types']
-    names = [t['name'] for t in types]
-    assert 'Ladrillo perforado' in names and 'Tabique' not in names
-    assert next(t for t in types if t['name'] == 'Ladrillo perforado')['thickness'] == 0.115
+    assert any('Termoarcilla 24' in o for o in s.out)
+    plugin.commands['TIPOSMURO'](ctx, 'Trasdosado', 'PYL', '=', '0,015', 'Placa', '+', '0,046', 'Lana', 'mineral')
+    plugin.commands['TIPOSMURO'](ctx, '-Termoarcilla', '14')
+    types = {t['name']: t for t in _pa(plugin).load_defaults(s.document)['wall_types']}
+    assert types['Trasdosado PYL']['thickness'] == pytest.approx(0.061)
+    assert types['Trasdosado PYL']['layers'] == [[0.015, 'Placa'], [0.046, 'Lana mineral']]
+    assert 'Termoarcilla 14' not in types
+    s.out.clear()
+    plugin.commands['TIPOSMURO'](ctx, '0,061')
+    assert any('0,015 Placa + 0,046 Lana mineral' in o for o in s.out)
     s.history.undo()
-    assert 'Tabique' in [t['name'] for t in pa.load_defaults(s.document)['wall_types']]
+    assert 'Termoarcilla 14' in {t['name'] for t in _pa(plugin).load_defaults(s.document)['wall_types']}
 
 
-def test_muro_opcion_tipo(plugin):
+def test_tiposmuro_importar_y_exportar_csv(plugin, tmp_path):
+    s = Session(plugin)
+    ctx = _cmd_ctx(s)
+    src = tmp_path / 'tipos.csv'
+    src.write_text('# nombre;capas o espesor;material\n'
+                   'Termoarcilla 30 ECO;0,30;Bloque Termoarcilla\n'
+                   'Fachada SATE;0,24 Termoarcilla + 0,08 EPS + 0,01 Mortero\n', encoding='utf-8')
+    plugin.commands['TIPOSMURO'](ctx, 'importar', str(src))
+    types = {t['name']: t for t in _pa(plugin).load_defaults(s.document)['wall_types']}
+    assert types['Fachada SATE']['thickness'] == pytest.approx(0.33)
+    assert types['Termoarcilla 30 ECO']['layers'] == [[0.30, 'Bloque Termoarcilla']]
+    out = tmp_path / 'salida.csv'
+    plugin.commands['TIPOSMURO'](ctx, 'exportar', str(out))
+    text = out.read_text(encoding='utf-8-sig')
+    assert 'Fachada SATE;0,24 Termoarcilla + 0,08 EPS + 0,01 Mortero' in text
+
+
+def test_muro_espesor_total_primero(plugin, tmp_path):
+    s = Session(plugin)
+    t = s.tool('MURO')
+    t.on_option('0,24')                    # un solo tipo con 0,24: se aplica
+    assert t.bim['type_name'] == 'Termoarcilla 24' and t.thickness == pytest.approx(0.24)
+    t.on_option('0,10')                    # dos tipos con 0,10: pregunta
+    assert t.type_candidates and len(t.type_candidates) == 2
+    t.on_option('2')                       # orden por nombre: 1) PYL 100/70, 2) Tabique LHD 7
+    assert t.bim['type_name'] == 'Tabique LHD 7 guarnecido' and len(t.bim['layers']) == 3
+    t.on_option('0,10')
+    t.on_enter()                           # Intro: genérico
+    assert t.bim['type_name'] == 'Muro 0,1' and 'layers' not in t.bim
+    t.on_option('0,33')                    # ningún tipo: genérico
+    assert t.bim['type_name'] == 'Muro 0,33' and t.thickness == pytest.approx(0.33)
+    t.on_option('T')
+    t.on_option('termoarcilla 29')
+    assert t.thickness == pytest.approx(0.29)
+    draw(t, (0, 0), (4, 0))                # tras el primer punto, un número es longitud
+    m = s.meta(next(iter(s.walls().values())))
+    assert m['type_name'] == 'Termoarcilla 29' and m['layers'] == [[0.29, 'Bloque Termoarcilla']]
+    data = s.export(tmp_path)
+    el = data['elements'][0]
+    assert el['material_layers'] == [{'thickness': 0.29, 'material': 'Bloque Termoarcilla'}]
+    assert el['psets']['ARQ_Capas'] == {'Capa 1': '0.290 m Bloque Termoarcilla'}
+    assert el['material'] == 'Bloque Termoarcilla' and not data['issues']
+
+
+def test_muro_multicapa_exporta_capas(plugin, tmp_path):
     s = Session(plugin)
     t = s.tool('MURO')
     t.on_option('T')
-    t.on_option('2')                       # Tabicón
-    assert t.thickness == pytest.approx(0.10) and t.bim['type_name'] == 'Tabicón'
-    t.on_option('T')
-    t.on_option('un')                      # «Un pie» por el principio del nombre
-    assert t.thickness == pytest.approx(0.25)
-    draw(t, (0, 0), (4, 0))
-    w = next(iter(s.walls().values()))
-    assert s.meta(w)['type_name'] == 'Un pie' and s.meta(w)['thickness'] == 0.25
+    t.on_option('fachada')
+    t.reference = 'izquierda'
+    draw(t, (0, 0), (5, 0))
+    el = s.export(tmp_path)['elements'][0]
+    assert [l['material'] for l in el['material_layers']][0] == 'Ladrillo cara vista'
+    assert sum(l['thickness'] for l in el['material_layers']) == pytest.approx(0.26)
+    assert el['quantities']['Width'] == pytest.approx(0.26)
 
 
 # --- cara automática ----------------------------------------------------------
@@ -83,7 +141,7 @@ def test_paralelo_centrado_en_un_eje(plugin):
     s.document.doc.modelspace().add_line((0, 0), (6, 0))          # un eje de replanteo
     t = s.tool('MUROPARALELO')
     t.on_option('e')
-    t.on_option('0,20')
+    t.on_option('0,20')                     # ningún tipo de 0,20: genérico
     t.on_option('0,10')                     # distancia = medio espesor
     t.on_point((3, 0))                      # la línea
     t.on_point((3, 1))                      # paralela por encima
@@ -101,8 +159,9 @@ def test_paralelo_encadenado(plugin):
     before = set(s.walls())
     t = s.tool('MUROPARALELO')
     t.on_option('e')
-    t.on_option('0,10')
+    t.on_option('0,10')                     # dos tipos de 0,10: se elige el 1
     t.on_option('1')
+    t.on_option('1')                        # distancia 1 m
     t.on_point((2.5, 0.15))                 # cara interior del muro sur
     t.on_point((2.5, 2.0))
     t.on_point((2.5, 3.0))                  # primer tabique: caras en y = 1,15 y 1,25
@@ -161,6 +220,8 @@ def test_divide_en_tres_partes_iguales_hasta_el_muro_de_enfrente(plugin):
     t.on_option('3')
     t.on_option('e')
     t.on_option('0,10')
+    t.on_option('1')                        # PYL 100/70
+    assert t.bim['type_name'] == 'PYL 100/70'
     t.on_point((0.15, 0.15))                # cara interior del muro sur, de izq. a dcha.
     t.on_point((7.85, 0.15))
     new = [s.meta(w) for w in _new_walls(s, before).values()]
