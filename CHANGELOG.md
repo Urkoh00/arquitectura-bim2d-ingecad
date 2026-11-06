@@ -244,3 +244,21 @@ el dato principal es el **espesor total**.
   cerco o antepecho y remate en `ARQ_IngeCAD`) que **rellena** el `IfcOpeningElement` de su muro.
   Propuesta a IngeTrazo `0003` para escribir `IfcRelFillsElement`: con ella, cadena completa
   (2 puertas, 1 ventana, 1 vano, 2 recintos) → IFC con 0 errores en IfcOpenShell (reglas EXPRESS).
+
+## v1.10.1-dev (6-11-2026) — carpinterías y recintos: criterios del usuario
+
+- **Ajuste del cerco** como en los modeladores BIM habituales: plano **interior** (hacia el que
+  abre la puerta o la ventana), **medio** o **exterior**; las ventanas pasan a ir por defecto
+  ajustadas al plano interior.
+- **Hojas normalizadas:** `72`, `82`, `92` (y `62`) dan hojas de 725, 825, 925 (625) mm; un ancho
+  mayor de 10 se lee en centímetros.
+- **Tipo de apertura (T):** puerta abatible o corredera (1 o 2 hojas, dibujadas solapadas en la cara a
+  la que abren, con la dirección de corrida); ventana abatible, corredera (hojas en dos carriles) o
+  fija (una hoja). Se exporta en `ARQ_IngeCAD.Apertura`, junto con el `Ajuste`.
+- **Punto de inserción (I):** lateral (jamba) o medio (centro del hueco) para la colocación a
+  distancia fija.
+- **RECINTO, F falso techo:** el recinto es el volumen de aire hasta el falso techo (altura libre
+  bajo él); 0 vuelve a «hasta el forjado». Se exporta `FinishCeilingHeight` y `ARQ_Recinto.Techo`;
+  la altura, el volumen y el sólido del `IfcSpace` usan esa altura.
+- Cadena completa con puerta corredera, ventanas corredera y fija, vano y recintos con falso techo:
+  IFC con 0 errores en IfcOpenShell (con las propuestas 0002 y 0003 a IngeTrazo).

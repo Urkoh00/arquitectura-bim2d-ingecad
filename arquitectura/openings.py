@@ -37,14 +37,20 @@ FACES = ("interior", "centrada", "exterior")
 SILLS = ("alfeizar", "vierteaguas", "ventanal")
 SYMBOL_LAYER = "ARQ-CARPINTERIA"
 V3_KEYS = ("leaves", "leaf", "leaf2", "frame_width", "frame_depth", "side", "hinge",
-           "angle", "face", "sill_kind")
+           "angle", "face", "sill_kind", "operation")
+# opening type (IFC names, as in the properties dialog)
+OPERATIONS = {"door": ("SWINGING", "SLIDING"), "window": ("SIDEHUNG", "SLIDING", "FIXED"), "gap": ("",)}
+OPERATION_NAMES = {"SWINGING": "abatible", "SLIDING": "corredera", "SIDEHUNG": "abatible",
+                   "FIXED": "fija", "": ""}
+# usual single-leaf doors (leaf width, m): standard leaves 625/725/825/925 mm
+DOOR_LEAVES = {"62": 0.625, "72": 0.725, "82": 0.825, "92": 0.925}
 
 DEFAULTS = {
     "door": {"leaves": 1, "leaf": 0.825, "leaf2": 0.0, "frame_width": 0.03, "frame_depth": 0.0,
              "side": 1, "hinge": 0, "angle": 90.0, "face": "interior", "sill": 0.0,
              "height": 2.10, "sill_kind": ""},
     "window": {"leaves": 2, "leaf": 0.0, "leaf2": 0.0, "frame_width": 0.05, "frame_depth": 0.0,
-               "side": 1, "hinge": 0, "angle": 90.0, "face": "centrada", "sill": 0.90,
+               "side": 1, "hinge": 0, "angle": 90.0, "face": "interior", "sill": 0.90,
                "height": 1.20, "width": 1.20, "sill_kind": "alfeizar"},
     "gap": {"leaves": 0, "leaf": 0.0, "leaf2": 0.0, "frame_width": 0.0, "frame_depth": 0.0,
             "side": 1, "hinge": 0, "angle": 0.0, "face": "centrada", "sill": 0.0,
@@ -76,6 +82,9 @@ def normalise(rec):
     out["hinge"] = 1 if int(out.get("hinge") or 0) else 0
     if out["face"] not in FACES:
         out["face"] = "centrada"
+    ops = OPERATIONS[typ]
+    if out.get("operation") not in ops:
+        out["operation"] = ops[0]
     if typ == "door":
         out["leaves"] = 2 if out["leaves"] >= 2 else 1
         clear = float(out["width"]) - 2 * float(out["frame_width"])
@@ -89,7 +98,7 @@ def normalise(rec):
                 main = clear / 2
             out["leaf"], out["leaf2"] = main, clear - main
     elif typ == "window":
-        out["leaves"] = max(1, out["leaves"])
+        out["leaves"] = 1 if out["operation"] == "FIXED" else max(1, out["leaves"])
         if out["sill_kind"] not in SILLS:
             out["sill_kind"] = "alfeizar"
     out["ifc_class"] = IFC[typ] if typ != "gap" else "IfcOpeningElement"
@@ -178,6 +187,21 @@ def plan_symbol(spec, rec):
                 out.append(("poly", [pt(a, f0), pt(b, f0), pt(b, f1), pt(a, f1)], True))
         c0, c1 = s0 + fw, s1 - fw
         h = f1 if sg > 0 else f0            # hinge on the swing face of the frame
+        if rec["operation"] == "SLIDING":
+            # leaves in their closed position on the face it opens to, each
+            # overlapping the next one by 5 cm, and the direction it runs
+            lap = 0.05
+            if rec["leaves"] == 1:
+                runs = [(c0, c1 + lap, sg * 0.02, 1 if rec["hinge"] == 0 else -1)]
+            else:
+                mid = c0 + float(rec["leaf"])
+                runs = [(c0, mid + lap / 2, sg * 0.02, 1), (mid - lap / 2, c1, sg * 0.05, -1)]
+            for a, b, d, direction in runs:
+                out.append(("poly", [pt(a, h + d), pt(b, h + d), pt(b, h + d + sg * 0.02),
+                                     pt(a, h + d + sg * 0.02)], True))
+                tip = b if direction > 0 else a
+                out.append(("line", pt((a + b) / 2, h + d + sg * 0.01), pt(tip, h + d + sg * 0.01)))
+            return out
         ang = math.radians(float(rec.get("angle") or 90.0))
         leaves = []
         if rec["leaves"] == 1:
@@ -199,11 +223,20 @@ def plan_symbol(spec, rec):
     # window: frame, glazing, leaf divisions and the sill on the exterior face
     out.append(("poly", [pt(s0, f0), pt(s1, f0), pt(s1, f1), pt(s0, f1)], True))
     mid = (f0 + f1) / 2
-    out.append(("line", pt(s0 + fw, mid), pt(s1 - fw, mid)))
     n = max(1, int(rec["leaves"]))
-    for k in range(1, n):
-        s = s0 + (s1 - s0) * k / n
-        out.append(("line", pt(s, f0), pt(s, f1)))
+    if rec["operation"] == "SLIDING" and n > 1:
+        # leaves on two tracks, overlapping 5 cm
+        lap, step = 0.05, (s1 - s0 - 2 * fw) / n
+        for k in range(n):
+            a = s0 + fw + k * step - (lap / 2 if k else 0)
+            b = s0 + fw + (k + 1) * step + (lap / 2 if k < n - 1 else 0)
+            off = f0 + (f1 - f0) * (1 if k % 2 == 0 else 2) / 3
+            out.append(("line", pt(a, off), pt(b, off)))
+    else:
+        out.append(("line", pt(s0 + fw, mid), pt(s1 - fw, mid)))
+        for k in range(1, n):
+            s = s0 + (s1 - s0) * k / n
+            out.append(("line", pt(s, f0), pt(s, f1)))
     proj = SILL_PROJECTION.get(rec.get("sill_kind"), 0.0)
     if proj > 0:
         ext, e = (spec.lo, -1) if sg > 0 else (spec.hi, 1)
@@ -267,16 +300,19 @@ def free_span(spec, segments, s, side):
     return mine, other, (max(mine[0], other[0]), min(mine[1], other[1]))
 
 
-def place(mode, width, s, span, usable, distance=0.0, other=None):
+def place(mode, width, s, span, usable, distance=0.0, other=None, anchor="lateral"):
     """(s0, hinge, width) for a placement mode («libre» is decided by the
     tool with its second click):
     * ``distancia``: the jamb nearest the clicked end of the stretch at
-      ``distance`` from its corner;
+      ``distance`` from its corner (``anchor='medio'``: the centre of the
+      hole at that distance);
     * ``centrada``: centred on the clicked face's stretch;
     * ``centrada_ext``: centred on the other face's stretch;
     * ``maxima``: the whole usable stretch."""
     u0, u1 = usable
     if mode == "distancia":
+        if anchor == "medio":             # the distance is to the centre of the hole
+            distance -= width / 2
         if s - u0 <= u1 - s:
             return u0 + distance, 0, width
         return u1 - distance - width, 1, width

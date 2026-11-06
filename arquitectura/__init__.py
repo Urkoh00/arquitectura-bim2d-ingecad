@@ -1378,15 +1378,18 @@ class AyudaArqTool(ArchitectureTool):
         self.ctx.echo("DIVIDEMURO            — divide un tramo en N partes iguales con muros perpendiculares")
         self.ctx.echo("BORRATRAMO            — borra el tramo de muro entre cruces (o hasta su extremo)")
         self.ctx.echo("PARTEMURO / UNIRMURO  — abre un vano en un muro / une dos muros alineados")
-        self.ctx.echo("RECINTO               — espacio BIM (IfcSpace) con un clic dentro de la estancia; sigue a los muros")
+        self.ctx.echo("RECINTO               — espacio BIM (IfcSpace) con un clic dentro de la estancia; sigue a los muros;")
+        self.ctx.echo("                        F falso techo (altura libre bajo él; 0 = hasta el forjado)")
         self.ctx.echo("PILAR                 — S sección (0,30x0,30 · D0,35 · IPE/IPN/HEA/HEB/UPN · 2UPN cajon/empresillado),")
         self.ctx.echo("                        E enganche 1-9, G girar 90°, A autorrotación, P a distancia de dos paramentos,")
         self.ctx.echo("                        U de un paramento, C recubrimiento")
         self.ctx.echo("PILAR                 — pilar rect/circ")
         self.ctx.echo("CARPINTERIA           — puertas, ventanas y huecos en muros y tabiques: clic en la cara hacia la que abre;")
-        self.ctx.echo("                        P/V/H tipo, un número o N = ancho de hoja (puerta) o de hueco, Hojas 1/2 (2 0,625),")
+        self.ctx.echo("                        P/V/H tipo, un número o N = ancho de hoja (puerta; 62/72/82/92 = hojas normalizadas)")
+        self.ctx.echo("                        o de hueco, Hojas 1/2 (2 0,625), T apertura abatible/corredera/fija,")
+        self.ctx.echo("                        I punto de inserción lateral/medio,")
         self.ctx.echo("                        M colocación: Libre (2.º clic: sentido) / Distancia d a la esquina / Centrada /")
-        self.ctx.echo("                        Exterior (centrada en la otra cara) / Máxima; C cerco interior/centrado/exterior,")
+        self.ctx.echo("                        Exterior (centrada en la otra cara) / Máxima; C ajuste interior/medio/exterior,")
         self.ctx.echo("                        E cerco (ancho y profundidad), R alféizar/vierteaguas/ventanal, B bisagra y S sentido")
         self.ctx.echo("                        de la última; pinchar una carpintería sustituye su modelo (misma identidad)")
         self.ctx.echo("PUERTAARQ / VENTANAARQ / HUECOARQ — CARPINTERIA con ese tipo de partida")
@@ -1442,7 +1445,7 @@ TOOL_CLASSES = tuple(MuroCarasTool if t.name == "MURO" else PilarPerfilesTool if
 
 def arqdiag(ctx, *args):
     """Diagnóstico sin mutar el dibujo y sin depender de PySide6."""
-    ctx.echo('ARQDIAG — Arquitectura 1.10.0-dev (motor de nodos, huella única 2D/3D, exportación .arqbim)')
+    ctx.echo('ARQDIAG — Arquitectura 1.10.1-dev (motor de nodos, huella única 2D/3D, exportación .arqbim)')
     try:
         from .wall_tools import MuroCarasTool as MuroTool
         ctx.echo(f'Herramienta MURO: {MuroTool.__module__}.{MuroTool.__name__}')
@@ -1493,7 +1496,7 @@ def plugin_spec() -> PluginSpec:
         **extra,
         id="arquitectura",
         name="Arquitectura",
-        version="1.10.0-dev",
+        version="1.10.1-dev",
         description="Dibujo arquitectónico 2D con objetos BIM (muros, pilares, carpinterías) y exportación a IngeTrazo/IFC",
         tools={tool.name: tool for tool in (*TOOL_CLASSES, Muro3DTool, Hueco3DTool)},
         commands={"EXPORTARBIM": exportar_bim, "EXPORTARIGZ": exportar_igz, "CONFIGIGZ": configurar_igz, "DIAGNOSTICOARQ": diagnostico_arq, "ARQDIAG": arqdiag, "UNIONESARQ": unionesarq, "ARQVALIDAR": validar_arq, "ARQMIGRAR": migrar_arq, "PARAMETROSARQ": parametros_arq, "TIPOSMURO": tipos_muro},

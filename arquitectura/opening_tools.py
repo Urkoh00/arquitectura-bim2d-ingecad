@@ -65,6 +65,7 @@ class CarpinteriaTool(Tool):
         self.name = type(self).name
         self.v = self._defaults(self.kind)
         self.mode = "libre"
+        self.anchor = "lateral"
         self.distance = 0.10
         self.width_given = False
         self.pending = None
@@ -76,7 +77,7 @@ class CarpinteriaTool(Tool):
     # --- settings ------------------------------------------------------------
     @staticmethod
     def _defaults(kind):
-        v = {"type": kind, **copy.deepcopy(OP.DEFAULTS[kind])}
+        v = {"type": kind, **copy.deepcopy(OP.DEFAULTS[kind]), "operation": OP.OPERATIONS[kind][0]}
         if kind == "door":
             v["width"] = OP.door_width(v["leaf"], 1, 0.0, v["frame_width"])
         return v
@@ -92,19 +93,23 @@ class CarpinteriaTool(Tool):
         f = lambda x: f"{float(x):.3f}".rstrip("0").rstrip(".").replace(".", ",")  # noqa: E731
         if v["type"] == "door":
             leaves = "1 hoja" if v["leaves"] == 1 else "2 hojas"
-            txt = f"Puerta {leaves} de {f(v['leaf'])}" + (f"+{f(v['leaf2'] or v['leaf'])}" if v["leaves"] == 2 else "")
+            txt = (f"Puerta {OP.OPERATION_NAMES[v['operation']]} {leaves} de {f(v['leaf'])}"
+                   + (f"+{f(v['leaf2'] or v['leaf'])}" if v["leaves"] == 2 else ""))
             txt += f", hueco {f(self._width())} x {f(v['height'])}"
         elif v["type"] == "window":
-            txt = (f"Ventana {v['leaves']} hoja(s) {f(v['width'])} x {f(v['height'])}, "
+            txt = (f"Ventana {OP.OPERATION_NAMES[v['operation']]} {v['leaves']} hoja(s) "
+                   f"{f(v['width'])} x {f(v['height'])}, "
                    f"antepecho {f(v['sill'])}, {v['sill_kind']}")
         else:
             txt = f"Hueco {f(v['width'])} x {f(v['height'])}"
             if v["sill"]:
                 txt += f", antepecho {f(v['sill'])}"
-        mode = {"libre": "libre", "distancia": f"a {f(self.distance)} m de la esquina",
+        mode = {"libre": "libre",
+                "distancia": f"{'centro' if self.anchor == 'medio' else 'jamba'} a {f(self.distance)} m "
+                             "de la esquina",
                 "centrada": "centrada en la cara", "centrada_ext": "centrada en la otra cara",
                 "maxima": "longitud máxima"}[self.mode]
-        return f"{txt}; {mode}; cerco {v['face']}"
+        return f"{txt}; {mode}; ajuste {({'centrada': 'medio'}).get(v['face'], v['face'])}"
 
     def _prompt(self):
         if self.first is not None:
@@ -112,8 +117,8 @@ class CarpinteriaTool(Tool):
                         "(Intro: hacia el lado más largo):")
             return
         self.prompt(f"CARPINTERIA ({self._summary()}): clic en la cara del muro hacia la que abre o "
-                    "[Puerta/Ventana/Hueco/aNcho/Hojas/aLtura/Antepecho/Modo/Cara/cErco/"
-                    "Remate/Bisagra/Sentido/Fin]:")
+                    "[Puerta/Ventana/Hueco/aNcho/Hojas/Tipo de apertura/aLtura/Antepecho/Modo/"
+                    "punto de Inserción/ajuste Cerco/cErco/Remate/Bisagra/Sentido/Fin]:")
 
     def on_option(self, text):
         raw = str(text).strip()
@@ -134,21 +139,25 @@ class CarpinteriaTool(Tool):
                 self.mode = "libre"
             self._prompt()
             return True
-        asks = {"n": ("ancho", "Ancho de hoja (puerta) o del hueco (ventana, hueco), m:"),
+        asks = {"n": ("ancho", "Ancho de hoja (puerta: 62/72/82/92 = hojas de 625/725/825/925 mm) "
+                              "o del hueco (ventana, hueco); m o cm:"),
+                "t": ("apertura", "Tipo de apertura [Abatible/Corredera/Fija (ventanas)]:"),
+                "i": ("insercion", "Punto de inserción [Lateral (jamba)/Medio (centro)]:"),
                 "ancho": None,
                 "hojas": ("hojas", "Número de hojas (puerta: 1 o 2; 2 0,625 = hoja principal de 0,625):"),
                 "l": ("altura", "Altura del hueco (m):"), "altura": None,
                 "a": ("antepecho", "Antepecho (m sobre la base del muro):"), "antepecho": None,
                 "m": ("modo", "Colocación [Libre/Distancia d/Centrada/Exterior (centrada en la otra cara)/"
                               "Máxima]:"), "modo": None,
-                "c": ("cara", "Cerco [Interior (a la cara a la que abre)/Centrado/Exterior]:"),
+                "c": ("cara", "Ajuste del cerco [Interior (plano hacia el que abre)/Medio/Exterior]:"),
                 "cara": None,
                 "e": ("cerco", "Cerco: ancho de cada jamba y profundidad (m; 0 = automática):"),
                 "cerco": None,
                 "r": ("remate", "Remate inferior de la ventana [Alféizar/Vierteaguas/venTanal]:"),
                 "remate": None}
         for alias, target in (("ancho", "n"), ("altura", "l"), ("antepecho", "a"), ("modo", "m"),
-                              ("cara", "c"), ("cerco", "e"), ("remate", "r")):
+                              ("cara", "c"), ("ajuste", "c"), ("cerco", "e"), ("remate", "r"),
+                              ("apertura", "t"), ("insercion", "i")):
             asks[alias] = asks[target]
         if t in asks:
             self.pending = asks[t][0]
@@ -173,7 +182,12 @@ class CarpinteriaTool(Tool):
         v = self.v
         t = raw.strip().lower()
         if key == "ancho":
-            w = _num(raw)
+            if v["type"] == "door" and t in OP.DOOR_LEAVES:
+                w = OP.DOOR_LEAVES[t]
+            else:
+                w = _num(raw)
+                if w > 10:                             # typed in cm
+                    w /= 100.0
             if w <= 0:
                 raise ValueError("el ancho debe ser positivo")
             if v["type"] == "door":
@@ -223,7 +237,18 @@ class CarpinteriaTool(Tool):
             else:
                 self.mode = "libre"
         elif key == "cara":
-            v["face"] = {"i": "interior", "c": "centrada", "e": "exterior"}.get(t[:1], v["face"])
+            v["face"] = {"i": "interior", "c": "centrada", "m": "centrada",
+                         "e": "exterior"}.get(t[:1], v["face"])
+        elif key == "apertura":
+            op = {"a": "SWINGING" if v["type"] == "door" else "SIDEHUNG", "c": "SLIDING",
+                  "f": "FIXED"}.get(t[:1])
+            if op not in OP.OPERATIONS[v["type"]]:
+                raise ValueError("tipo de apertura no disponible para " + OP.NAMES[v["type"]].lower())
+            v["operation"] = op
+            if op == "FIXED":
+                v["leaves"] = 1
+        elif key == "insercion":
+            self.anchor = "medio" if t.startswith("m") else "lateral"
         elif key == "cerco":
             parts = [_num(x) for x in raw.replace(";", " ").split()]
             if parts:
@@ -272,7 +297,8 @@ class CarpinteriaTool(Tool):
                 toward = 1 if usable[1] - s >= s - usable[0] else -1
             s0, hinge = (s, 0) if toward > 0 else (s - width, 1)
         else:
-            s0, hinge, width = OP.place(self.mode, width, s, span, usable, self.distance, other)
+            s0, hinge, width = OP.place(self.mode, width, s, span, usable, self.distance, other,
+                                        self.anchor)
         if width <= 1e-6:
             raise ValueError("no queda paramento libre")
         if s0 < usable[0] - 1e-6 or s0 + width > usable[1] + 1e-6:

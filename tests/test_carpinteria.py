@@ -240,3 +240,59 @@ def test_exporta_puerta_que_rellena_su_hueco(plugin):
     gross = south['quantities']['GrossVolume']
     holes = 0.885 * 2.10 * 0.30 + 1.20 * 1.20 * 0.30
     assert south['volume'] == pytest.approx(gross - holes)
+
+
+def test_hojas_normalizadas_apertura_e_insercion_por_el_centro(plugin):
+    s = Session(plugin)
+    _vivienda(s)
+    t = s.tool('CARPINTERIA')
+    t.on_option('n')
+    t.on_option('72')                   # hoja normalizada de 725 mm
+    t.on_option('t')
+    t.on_option('corredera')
+    t.on_option('m')
+    t.on_option('d 1,00')
+    t.on_option('i')
+    t.on_option('medio')                # la distancia es al centro del hueco
+    t.on_point((1.0, 0.15))
+    [door] = _openings(s)
+    m = s.meta(door)
+    assert m['leaf'] == pytest.approx(0.725) and m['operation'] == 'SLIDING'
+    assert m['offset'] + m['width'] / 2 == pytest.approx(0.15 + 1.00)    # centro a 1 m de la esquina
+    sym = _symbols(s, m['id'])
+    assert not [e for e in sym if e.dxftype() == 'ARC']                   # corredera: sin arco de giro
+    assert len([e for e in sym if e.dxftype() == 'LWPOLYLINE']) == 3      # 2 jambas + hoja
+    t.on_option('v')
+    t.on_option('t')
+    t.on_option('f')                    # ventana fija: una hoja
+    t.on_option('m')
+    t.on_option('c')
+    t.on_point((6.0, 0.15))
+    win = next(s.meta(e) for e in _openings(s) if s.meta(e)['type'] == 'window')
+    assert win['operation'] == 'FIXED' and win['leaves'] == 1 and win['face'] == 'interior'
+    data = s.export(None)
+    w = next(e for e in data['elements'] if e['ifc_class'] == 'IfcWindow')
+    d = next(e for e in data['elements'] if e['ifc_class'] == 'IfcDoor')
+    assert w['psets']['ARQ_IngeCAD']['Apertura'] == 'fija'
+    assert d['psets']['ARQ_IngeCAD']['Apertura'] == 'corredera'
+
+
+def test_recinto_hasta_el_falso_techo(plugin):
+    s = Session(plugin)
+    _vivienda(s)
+    r = s.tool('RECINTO')
+    r.on_option('f')
+    r.on_option('2,50')
+    r.on_point((2, 2))
+    r.on_option('f')
+    r.on_option('0')                    # sin falso techo: hasta el forjado (altura del muro)
+    r.on_point((6, 2))
+    data = s.export(None)
+    sp = sorted((e for e in data['elements'] if e['ifc_class'] == 'IfcSpace'),
+                key=lambda e: e['params']['seed'][0])
+    assert sp[0]['quantities']['Height'] == pytest.approx(2.50)
+    assert sp[0]['quantities']['FinishCeilingHeight'] == pytest.approx(2.50)
+    assert sp[0]['quantities']['NetVolume'] == pytest.approx(17.86 * 2.50)
+    assert sp[0]['psets']['ARQ_Recinto']['Techo'] == 'falso techo'
+    assert sp[1]['quantities']['Height'] == pytest.approx(2.70)
+    assert 'FinishCeilingHeight' not in sp[1]['quantities']

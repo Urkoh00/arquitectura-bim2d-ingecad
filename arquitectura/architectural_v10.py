@@ -173,7 +173,7 @@ def edit_opening(entity,*,offset=None,width=None,sill=None,height=None,
                           **{k:(v if v is not None else d.get(k,''))
             for k,v in (('name',name),('type_name',type_name),('material',material),('operation',operation))},
                           **{k:(v3[k] if v3.get(k) is not None else d.get(k)) for k in OP.V3_KEYS
-                             if v3.get(k) is not None or d.get(k) is not None})
+                             if k!='operation' and (v3.get(k) is not None or d.get(k) is not None)})
     if entity.dxftype()=='LWPOLYLINE':
         return EditArchitecturalCommand(entity,rec,points=opening_symbol(wall,rec))
     return EditArchitecturalCommand(entity,rec,position=(pt[0],pt[1],0.0))

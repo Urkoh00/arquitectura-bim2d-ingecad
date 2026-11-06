@@ -42,7 +42,7 @@ def junction_edges(spec_module, document):
             if (spec_module.metadata(e) or {}).get('kind') == 'junction_edge']
 
 def test_spec(plugin):
-    assert plugin.version == '1.10.0-dev'
+    assert plugin.version == '1.10.1-dev'
     assert 'EXPORTARBIM' in plugin.commands and 'UNIONESARQ' in plugin.commands
 
 @pytest.mark.parametrize('name,expected', [('36.dxf', 16), ('35.dxf', 16), ('34.dxf', 8)])

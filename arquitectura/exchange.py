@@ -232,13 +232,17 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD"):
                        "ARQ_Recinto": {k: v for k, v in (("Uso", m.get("use") or None),
                                                          ("Acondicionado", m.get("conditioned")),
                                                          ("SourceId", ident),
-                                                         ("CriterioSuperficie", "libre entre caras de muros y pilares"))
+                                                         ("CriterioSuperficie", "libre entre caras de muros y pilares"),
+                                                         ("Techo", "falso techo" if m.get("ceiling") else "forjado"))
                                        if v is not None}}
         el["params"].update(seed=list(map(float, m["seed"])))
         el["footprint"] = [[[list(q) for q in room["outer"]], [[list(q) for q in h] for h in room["holes"]]]]
         el["quantities"] = {"Height": height, "GrossFloorArea": room["area"], "NetFloorArea": room["area"],
                             "GrossPerimeter": room["perimeter"], "NetPerimeter": room["perimeter"],
                             "GrossVolume": volume, "NetVolume": volume}
+        if m.get("ceiling"):
+            # the room is the air below the false ceiling (Qto_SpaceBaseQuantities)
+            el["quantities"]["FinishCeilingHeight"] = height
         elements.append(el)
     return {
         "format": FORMAT, "version": VERSION, "units": "m",
@@ -282,6 +286,8 @@ def _filling(o, spec, wall_meta, level, void_guid, wall_id):
     for k in ("Thickness", "Reference"):
         arq.pop(k, None)
     arq["Host"] = wall_id
+    arq["Apertura"] = OP.OPERATION_NAMES.get(o.get("operation"), "")
+    arq["Ajuste"] = {"centrada": "medio"}.get(o.get("face"), o.get("face"))
     if o["type"] == "door":
         arq.update({"Hojas": o["leaves"], "Hoja": round(o["leaf"], 4),
                     "Cerco": round(float(o["frame_width"]), 4)})
