@@ -229,7 +229,8 @@ def test_muro_paralelo_dentro_de_un_recinto(plugin, tmp_path):
     t.on_option('0,10')
     t.on_option('1,5')
     t.on_point((2.5, 0.15))                        # cara interior del muro sur
-    t.on_point((2.5, 2.0))                         # lado: hacia el interior
+    t.on_point((2.5, 2.0))                         # lado de la paralela: hacia el interior
+    t.on_point((2.5, 3.0))                         # lado del espesor: más allá
     t.on_enter()
     walls = s.walls()
     assert len(walls) == n + 1

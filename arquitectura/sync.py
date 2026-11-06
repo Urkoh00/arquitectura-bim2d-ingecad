@@ -112,8 +112,14 @@ def delete_groups(drawing):
             pass
 
 
+def _in_layout(e):
+    return e is not None and e.is_alive and e.dxf.get("owner") is not None
+
+
 def create_group(drawing, name, entities, description=""):
-    entities = [e for e in entities if e is not None and e.is_alive]
+    # only entities that are in the drawing (an erased one is kept alive,
+    # unlinked, for undo: ezdxf rejects it as a group member)
+    entities = [e for e in entities if _in_layout(e)]
     if not entities:
         return None
     if name in drawing.groups:
@@ -148,3 +154,29 @@ def build_wall_groups(drawing, lines_by_wall):
                      f"{label} BIM {ident[:8]} (Arquitectura)")
         names.append(name)
     return names
+
+
+class DropGroupsCommand:
+    """Removes the selection groups holding ``entities`` before they are
+    erased, and restores them on undo. Undo runs it AFTER the erase is
+    undone, so the restored group finds its members back in the drawing."""
+    name = "ARQ GRUPOS"
+
+    def __init__(self, entities):
+        self.handles = {e.dxf.handle for e in entities}
+        self.saved = None
+
+    def do(self, document):
+        drawing = document.doc
+        if self.saved is None:
+            self.saved = [(n, hs, d) for n, hs, d in snapshot_groups(drawing)
+                          if self.handles & set(hs)]
+        for name, _hs, _d in self.saved:
+            if name in drawing.groups:
+                drawing.groups.delete(name)
+
+    def undo(self, document):
+        drawing = document.doc
+        db = drawing.entitydb
+        for name, hs, desc in self.saved or []:
+            create_group(drawing, name, [db.get(h) for h in hs], desc)

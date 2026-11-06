@@ -186,19 +186,34 @@ def move_end(a, b, end, point):
 
 # --- parallel wall -----------------------------------------------------------
 
-def parallel_wall(p, q, distance, side_point, thickness):
-    """A wall parallel to the face p-q, whose near face is ``distance`` away
-    on the side of ``side_point``. Returns (a, b, reference): the reference
-    line IS the near face, and the body extends away from p-q."""
-    f = Frame(p, q, max(thickness, 1e-6), "eje")
+def parallel_line(p, q, distance, side_point):
+    """The line parallel to p-q at ``distance`` on the side of ``side_point``."""
+    f = Frame(p, q, 1.0, "eje")
     _s, o = f.local(side_point)
     if abs(o) < 1e-9:
         raise ValueError("Indique el lado con un punto fuera de la línea")
-    sign = 1.0 if o > 0 else -1.0
-    shift = _mul(f.n, sign * float(distance))
-    a, b = _add(f.a, shift), _add(f.b, shift)
-    # body on the far side: to the left of a->b when sign > 0
-    return a, b, "izquierda" if sign > 0 else "derecha"
+    shift = _mul(f.n, (1.0 if o > 0 else -1.0) * float(distance))
+    return _add(f.a, shift), _add(f.b, shift)
+
+
+def parallel_wall(p, q, distance, side_point, thickness, body_point=None):
+    """A wall parallel to the line p-q: its reference line is the parallel at
+    ``distance`` on the side of ``side_point``; the body lies on the side of
+    ``body_point`` (by default, away from p-q). Returns (a, b, reference).
+    With distance = thickness / 2 and the body toward p-q, the wall is
+    centred on p-q."""
+    a, b = parallel_line(p, q, distance, side_point)
+    f = Frame(a, b, 1.0, "eje")
+    if body_point is None:
+        # away from the base line
+        _s, o_base = f.local(p)
+        left = o_base < 0
+    else:
+        _s, o = f.local(body_point)
+        if abs(o) < 1e-9:
+            raise ValueError("Indique el lado del espesor con un punto fuera de la línea")
+        left = o > 0
+    return a, b, "izquierda" if left else "derecha"
 
 
 def extend_to_faces(a, b, walls, max_gap, skip=()):
@@ -230,3 +245,84 @@ def extend_to_faces(a, b, walls, max_gap, skip=()):
     if math.dist(out[0], out[1]) < 1e-6:
         raise ValueError("El muro paralelo quedaría con longitud nula")
     return out[0], out[1]
+
+
+# --- automatic face ------------------------------------------------------------
+
+def strip_polygon(a, b, thickness, reference, s0=0.0, s1=None):
+    f = Frame(a, b, thickness, reference)
+    s1 = f.length if s1 is None else s1
+    return [f.point(s0, f.lo), f.point(s1, f.lo), f.point(s1, f.hi), f.point(s0, f.hi)]
+
+
+def best_side(start, end, thickness, reference, walls, probe=1.0):
+    """'izquierda' or 'derecha': the side on which a new wall starting at
+    ``start`` overlaps the existing ``walls`` least (first ``probe`` metres).
+    Keeps ``reference`` on a tie."""
+    from . import polygon as P
+    try:
+        f = Frame(start, end, thickness, reference)
+    except ValueError:
+        return reference
+    s1 = min(f.length, probe)
+
+    def overlap(ref):
+        mine = P.ccw(strip_polygon(start, end, thickness, ref, 0.0, s1))
+        total = 0.0
+        for a, b, t, r in walls.values():
+            other = P.ccw(strip_polygon(a, b, t, r))
+            total += abs(P.area(P.convex_intersection(mine, other) or []))
+        return total
+
+    other = "derecha" if reference == "izquierda" else "izquierda"
+    here, there = overlap(reference), overlap(other)
+    return other if there + 1e-9 < here else reference
+
+
+# --- divide into equal parts ---------------------------------------------------
+
+def divide_walls(p1, p2, parts, thickness, length=None, walls=None, max_reach=50.0):
+    """Walls that divide the span p1-p2 into ``parts`` equal CLEAR spans.
+
+    They are perpendicular to p1-p2 and go to its LEFT (p1 -> p2 from left to
+    right draws them upwards). Each wall is ``length`` long; without a length
+    it reaches the first wall face found within ``max_reach``. Returns
+    [(a, b, "eje")]: axis lines, ends snapped onto faces when they touch
+    one (T junctions)."""
+    parts = int(parts)
+    if parts < 2:
+        raise ValueError("Indique al menos 2 partes")
+    f = Frame(p1, p2, 1.0, "eje")
+    clear = (f.length - (parts - 1) * thickness) / parts
+    if clear <= 1e-6:
+        raise ValueError("No caben los muros en ese tramo")
+    out = []
+    for i in range(1, parts):
+        s = i * clear + (i - 1) * thickness + thickness / 2.0
+        a = f.point(s)
+        reach = float(length) if length else max_reach
+        b = _add(a, _mul(f.n, reach))
+        if not length:
+            hit = _first_face(a, f.n, walls or {}, max_reach)
+            if hit is None:
+                raise ValueError("Sin longitud y sin muro enfrente: indique la Longitud")
+            b = hit
+        out.append((a, b, "eje"))
+    return out
+
+
+def _first_face(origin, direction, walls, max_reach):
+    """Nearest wall face crossed by the ray origin + t·direction, t > 1 mm."""
+    best = None
+    for wa, wb, t, ref in walls.values():
+        fr = Frame(wa, wb, t, ref)
+        for off in (fr.lo, fr.hi):
+            x = line_intersection(origin, direction, fr.point(0.0, off), fr.u)
+            if x is None:
+                continue
+            s, _o = fr.local(x)
+            along = _dot(_sub(x, origin), direction)
+            if -1e-9 <= s <= fr.length + 1e-9 and 1e-3 < along <= max_reach:
+                if best is None or along < best[0]:
+                    best = (along, x)
+    return best[1] if best else None

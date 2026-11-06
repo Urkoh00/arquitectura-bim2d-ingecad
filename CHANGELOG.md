@@ -132,3 +132,31 @@ pero sin muros BIM.
   - El exportador IFC actual de IngeTrazo contiene los `IfcSpace` en la planta en lugar de
     agregarlos (errores de reglas IFC4). Corrección preparada en
     `docs/propuestas_upstream/ingetrazo/0002-…`: con ella, el IFC de prueba da 0 errores.
+
+## v1.8.0-dev (6-11-2026) — muros y tabiques: segundo repaso del programa de referencia
+
+Repaso a fondo de manuales, ayuda y vídeos (fotograma a fotograma) centrado en muros y tabiques.
+
+- **Tipos de muro con nombre** (`IfcWallType`): Tabique, Tabicón, Medio pie, Un pie, Pie y medio y
+  Dos pies, editables por dibujo con `TIPOSMURO` (listar, `TIPOSMURO Nombre 0,12 [material]`,
+  `TIPOSMURO -Nombre`). En `MURO`, `MUROPARALELO` y `DIVIDEMURO`, la opción **T** elige el tipo por
+  número o por el principio del nombre.
+- **Cambio automático de cara**: un muro que arranca en la cara de otro o en una esquina interior
+  cambia solo de cara si la elegida invadiría el muro existente (F5 la sigue invirtiendo).
+- **`MUROPARALELO`** de tres clics: línea base, lado de la paralela y lado del espesor (con
+  distancia = medio espesor y el espesor hacia la línea, queda centrado en un eje). Tras un muro,
+  un clic en vacío crea el siguiente paralelo a partir del recién hecho (encadenado). La distancia
+  se cambia tecleándola en cualquier momento.
+- **`ESTIRAMURO`** como «estirar/acortar»: hasta un punto libre (sobre la dirección del muro), una
+  línea o la cara de otro muro (cara próxima = T; alejada = L, que recorta ese muro); también con
+  la longitud tecleada.
+- **`DIVIDEMURO`**: divide un tramo en N partes iguales (luces libres iguales) con muros
+  perpendiculares hacia la izquierda del sentido indicado; longitud dada o hasta el muro de enfrente.
+- **`BORRATRAMO`**: borra el tramo de muro entre dos cruces (o entre un cruce y el extremo) y
+  rehace los encuentros; el tramo central parte el muro en dos.
+- **`PARTEMURO` / `UNIRMURO`**: abre un vano partiendo el muro en dos (las carpinterías pasan al
+  tramo que las contiene; un vano sobre una carpintería se rechaza) / une dos muros alineados del
+  mismo espesor (el primero conserva su identidad y recibe las carpinterías del segundo).
+- Corrección: al deshacer el borrado de un muro, su grupo de selección se restaura en el orden
+  correcto.
+- Pruebas: `tests/test_wall_tools_2.py` (15 casos con Document/History reales).
