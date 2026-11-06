@@ -274,3 +274,10 @@ el dato principal es el **espesor total**.
   IngeTrazo escribe estos atributos enumerados; 0 errores en IfcOpenShell.
 - **CARPINTERIA:** si el clic cae sobre otra entidad dibujada en la cara del muro (el contorno de un
   recinto, una cota), el muro se busca geométricamente.
+
+## Registro de IngeCAD e IngeTrazo (6-11-2026)
+
+- `docs/REGISTRO_UPSTREAM.md`: errores, inconsistencias y carencias de IngeCAD e IngeTrazo, con
+  evidencia, estado, parche y rodeo en el plugin. Una prueba exige que todo parche propuesto figure
+  en él. Nueva inconsistencia de IngeCAD reproducida: borrar una entidad de un grupo y deshacer
+  tras guardar la deja fuera del grupo (C-02).

@@ -1,7 +1,10 @@
 # Propuestas a IngeCAD e IngeTrazo
 
 Parches **propuestos**, no aplicados. Se discuten con su desarrollador mediante incidencias;
-el plugin se adapta a lo que él decida.
+el plugin se adapta a lo que él decida. El registro completo de errores, inconsistencias y
+carencias de ambos programas, con o sin parche, está en [`../REGISTRO_UPSTREAM.md`](../REGISTRO_UPSTREAM.md).
+
+**No se envían más consultas hasta que respondan #1221 y #1222.**
 
 | Proyecto | Incidencia | Tema | Parche | Estado |
 |---|---|---|---|---|
