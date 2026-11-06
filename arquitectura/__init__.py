@@ -1379,7 +1379,9 @@ class AyudaArqTool(ArchitectureTool):
         self.ctx.echo("BORRATRAMO            — borra el tramo de muro entre cruces (o hasta su extremo)")
         self.ctx.echo("PARTEMURO / UNIRMURO  — abre un vano en un muro / une dos muros alineados")
         self.ctx.echo("RECINTO               — espacio BIM (IfcSpace) con un clic dentro de la estancia; sigue a los muros;")
-        self.ctx.echo("                        F falso techo (altura libre bajo él; 0 = hasta el forjado)")
+        self.ctx.echo("                        F falso techo (altura libre bajo él; 0 = hasta el forjado),")
+        self.ctx.echo("                        T tipo: interior / exterior cubierto (terraza, balcón, porche: 50 %)")
+        self.ctx.echo("SUPERFICIES           — cuadro de superficies útiles (Decreto 10/2019 de Extremadura)")
         self.ctx.echo("PILAR                 — S sección (0,30x0,30 · D0,35 · IPE/IPN/HEA/HEB/UPN · 2UPN cajon/empresillado),")
         self.ctx.echo("                        E enganche 1-9, G girar 90°, A autorrotación, P a distancia de dos paramentos,")
         self.ctx.echo("                        U de un paramento, C recubrimiento")
@@ -1445,7 +1447,7 @@ TOOL_CLASSES = tuple(MuroCarasTool if t.name == "MURO" else PilarPerfilesTool if
 
 def arqdiag(ctx, *args):
     """Diagnóstico sin mutar el dibujo y sin depender de PySide6."""
-    ctx.echo('ARQDIAG — Arquitectura 1.10.2-dev (motor de nodos, huella única 2D/3D, exportación .arqbim)')
+    ctx.echo('ARQDIAG — Arquitectura 1.11.0-dev (motor de nodos, huella única 2D/3D, exportación .arqbim)')
     try:
         from .wall_tools import MuroCarasTool as MuroTool
         ctx.echo(f'Herramienta MURO: {MuroTool.__module__}.{MuroTool.__name__}')
@@ -1484,6 +1486,7 @@ def plugin_spec() -> PluginSpec:
     from pathlib import Path
     glyph = Path(__file__).parent / "icons"
     from .quality import validar_arq
+    from .superficies import superficies
     from .bim_export import exportar_bim
     import dataclasses
     extra = {}
@@ -1496,10 +1499,10 @@ def plugin_spec() -> PluginSpec:
         **extra,
         id="arquitectura",
         name="Arquitectura",
-        version="1.10.2-dev",
+        version="1.11.0-dev",
         description="Dibujo arquitectónico 2D con objetos BIM (muros, pilares, carpinterías) y exportación a IngeTrazo/IFC",
         tools={tool.name: tool for tool in (*TOOL_CLASSES, Muro3DTool, Hueco3DTool)},
-        commands={"EXPORTARBIM": exportar_bim, "EXPORTARIGZ": exportar_igz, "CONFIGIGZ": configurar_igz, "DIAGNOSTICOARQ": diagnostico_arq, "ARQDIAG": arqdiag, "UNIONESARQ": unionesarq, "ARQVALIDAR": validar_arq, "ARQMIGRAR": migrar_arq, "PARAMETROSARQ": parametros_arq, "TIPOSMURO": tipos_muro},
+        commands={"EXPORTARBIM": exportar_bim, "EXPORTARIGZ": exportar_igz, "CONFIGIGZ": configurar_igz, "DIAGNOSTICOARQ": diagnostico_arq, "ARQDIAG": arqdiag, "UNIONESARQ": unionesarq, "ARQVALIDAR": validar_arq, "ARQMIGRAR": migrar_arq, "PARAMETROSARQ": parametros_arq, "TIPOSMURO": tipos_muro, "SUPERFICIES": superficies},
         menu=(
             MenuItem("Parámetros iniciales de Arquitectura...", "PARAMETROSARQ"),
             MenuItem("Tipos de muro (espesor total y capas)...", "TIPOSMURO"),
@@ -1525,6 +1528,7 @@ def plugin_spec() -> PluginSpec:
                 MenuItem("Regenerar uniones de muros y pilares", "UNIONESARQ"),
                 MenuItem("Diagnosticar encuentros", "DIAGNOSTICOARQ"),
                 MenuItem("Validar integridad CAD y BIM", "ARQVALIDAR"),
+                MenuItem("Cuadro de superficies útiles", "SUPERFICIES"),
                 MenuItem("Convertir muros de versiones anteriores", "ARQMIGRAR"),
                 MenuItem("Muro arquitectónico 3D", "MURO3D"),
                 MenuItem("Hueco en muro 3D", "HUECO3D"),

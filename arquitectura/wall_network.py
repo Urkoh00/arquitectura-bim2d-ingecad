@@ -251,7 +251,11 @@ class RegenerateContoursCommand(Command):
             if key in seen:
                 self.issues.append(f'Recintos {seen[key]} y {label} ocupan la misma estancia')
             seen.setdefault(key,label)
+            from . import superficies as SU
+            room_u=SP.space_at(self.useful,m['seed'])[0] if getattr(self,'useful',None) is not None else None
+            ev=SU.evaluate(m,room,room_u)
             new=copy.deepcopy(m)
+            new.update(useful_area=ev['useful'],computable_area=ev['computable'])
             new.update(area=room['area'],perimeter=room['perimeter'],
                        islands=[[list(q) for q in h] for h in room['holes']],
                        ref_vertex=list(room['outer'][0]))
@@ -397,7 +401,12 @@ class RegenerateContoursCommand(Command):
         made=[]
         for e in self._current(msp,'space'):
             m=metadata(e)
-            text=f"{m.get('name') or 'Recinto'}  {float(m.get('area',0)):.2f} m²".replace('.',',')
+            useful=float(m.get('useful_area',m.get('area',0)))
+            comp=float(m.get('computable_area',useful))
+            text=f"{m.get('name') or 'Recinto'}  {useful:.2f} m²"
+            if abs(comp-useful)>1e-9:
+                text+=f" (computa {comp:.2f})"
+            text=text.replace('.',',')
             t=msp.add_text(text,dxfattribs={'layer':e.dxf.layer,'height':0.20})
             t.set_placement((float(m['seed'][0]),float(m['seed'][1])),align=_MIDDLE_CENTER())
             _xdata(msp,t,{'kind':'space_label','schema':1,'space_id':m['id']})
@@ -492,8 +501,10 @@ class RegenerateContoursCommand(Command):
                 from .exchange import read_model
                 from .geom import junctions as J
                 records, columns, _ops, issues = read_model(document.doc, strict=False)
-                result = J.solve(J.walls_from_records(records),
-                                 [(cid, m["polygon"]) for cid, m in columns])
+                specs = J.walls_from_records(records)
+                result = J.solve(specs, [(cid, m["polygon"]) for cid, m in columns])
+                from .superficies import useful_result
+                self.useful = useful_result(specs, columns)
                 self.issues = issues + result.warnings
                 self.result = result
                 walls = [w for w in result.walls.values() if w["area"] > 0]

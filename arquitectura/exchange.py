@@ -215,6 +215,8 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD"):
                                 "NetVolume": cv}
             elements.append(ce)
     comps = SP.components(result) if columns or specs else []
+    from . import superficies as SU
+    res_u = SU.useful_result(specs, columns)
     for ident, m, ent in read_spaces(drawing):
         level = m.get("level") or "Planta baja"
         levels.setdefault(level, float(m.get("base", 0.0)))
@@ -227,12 +229,20 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD"):
         base, height = float(m.get("base", 0.0)), float(m["height"])
         faces, volume = S.wall_solid(room["pieces"], (0.0, 0.0), (1.0, 0.0), base, height, ())
         el = _element(ident, "IfcSpace", m, faces, volume, room["area"], level)
+        room_u = SP.space_at(res_u, m["seed"])[0] if res_u is not None else None
+        ev = SU.evaluate(m, room, room_u)
+        exterior = (m.get("enclosure") or "interior") != "interior"
         el["psets"] = {"Pset_SpaceCommon": {k: v for k, v in (("Reference", m.get("number") or None),
-                                                               ("IsExternal", False)) if v is not None},
+                                                               ("IsExternal", exterior)) if v is not None},
                        "ARQ_Recinto": {k: v for k, v in (("Uso", m.get("use") or None),
                                                          ("Acondicionado", m.get("conditioned")),
                                                          ("SourceId", ident),
-                                                         ("CriterioSuperficie", "libre entre caras de muros y pilares"),
+                                                         ("CriterioSuperficie", ev["criterion"]),
+                                                         ("SuperficieUtil", round(ev["useful"], 4)),
+                                                         ("CoeficienteComputo", ev["factor"]),
+                                                         ("SuperficieComputable", round(ev["computable"], 4)),
+                                                         ("Habitable", ev["habitable"]),
+                                                         ("Clase", m.get("enclosure") or "interior"),
                                                          ("Techo", "falso techo" if m.get("ceiling") else "forjado"))
                                        if v is not None}}
         el["params"].update(seed=list(map(float, m["seed"])))

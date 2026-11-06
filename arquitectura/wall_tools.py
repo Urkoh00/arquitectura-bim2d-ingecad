@@ -1058,7 +1058,7 @@ SPACE_LAYER = "ARQ-RECINTOS"
 
 
 def create_space(seed, room, *, name, number, height, base=0.0, level="Planta baja", use="",
-                 ceiling=False):
+                 ceiling=False, enclosure="interior"):
     """AddEntityCommand of a space: closed outline + its BIM record (seed)."""
     import uuid
     from core.actions import AddEntityCommand
@@ -1066,7 +1066,8 @@ def create_space(seed, room, *, name, number, height, base=0.0, level="Planta ba
     rec = {"kind": "space", "schema": 1, "id": uuid.uuid4().hex, "ifc_class": "IfcSpace",
            "seed": [float(seed[0]), float(seed[1])], "ref_vertex": list(room["outer"][0]),
            "name": name, "number": str(number), "use": use, "level": level,
-           "base": float(base), "height": float(height), "ceiling": bool(ceiling), "area": room["area"],
+           "base": float(base), "height": float(height), "ceiling": bool(ceiling), "enclosure": enclosure,
+           "area": room["area"],
            "perimeter": room["perimeter"], "islands": [[list(q) for q in h] for h in room["holes"]]}
 
     def factory(msp):
@@ -1085,6 +1086,7 @@ class RecintoTool(Tool):
         d = load_defaults(_document(self.ctx))["wall"]
         self.slab_height = self.height = float(d["height"])
         self.ceiling = False
+        self.enclosure = "interior"
         self.level = d.get("level") or "Planta baja"
         self.use = ""
         self.next_name = None
@@ -1094,7 +1096,9 @@ class RecintoTool(Tool):
     def _prompt(self):
         top = (f"falso techo a {self.height:g} m" if self.ceiling
                else f"hasta el forjado, {self.height:g} m").replace(".", ",")
-        self.prompt(f"RECINTO ({top}): haga clic dentro de la estancia o [Nombre/Altura/Falso techo/Uso]:")
+        kind = "" if self.enclosure == "interior" else "exterior cubierto, "
+        self.prompt(f"RECINTO ({kind}{top}): haga clic dentro de la estancia o "
+                    "[Nombre/Altura/Falso techo/Tipo/Uso]:")
 
     def _count(self):
         return sum(1 for e in _document(self.ctx).doc.modelspace()
@@ -1109,6 +1113,8 @@ class RecintoTool(Tool):
                 self.next_name = raw
             elif key == "use":
                 self.use = raw
+            elif key == "enclosure":
+                self.enclosure = "exterior_cubierto" if txt.startswith("e") else "interior"
             elif key == "ceiling":
                 try:
                     v = float(txt.replace(",", ".")) if txt else 0.0
@@ -1137,6 +1143,10 @@ class RecintoTool(Tool):
         if txt in ("a", "altura"):
             self.pending = "height"
             self.prompt(f"Altura libre del recinto (m) <{self.height:g}>:")
+            return True
+        if txt in ("t", "tipo"):
+            self.pending = "enclosure"
+            self.prompt("Tipo de recinto [Interior/Exterior cubierto (terraza, balcón, galería, porche)]:")
             return True
         if txt in ("f", "falso techo", "falsotecho", "techo"):
             self.pending = "ceiling"
@@ -1179,7 +1189,8 @@ class RecintoTool(Tool):
         name = self.next_name or f"Recinto {n}"
         self.next_name = None
         cmd, rec = create_space(p, room, name=name, number=n, height=self.height,
-                                level=self.level, use=self.use, ceiling=self.ceiling)
+                                level=self.level, use=self.use, ceiling=self.ceiling,
+                                enclosure=self.enclosure)
         try:
             apply(self.ctx, "ARQ RECINTO", [cmd], kind="space")
         except Exception as exc:  # noqa: BLE001

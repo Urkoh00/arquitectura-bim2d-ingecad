@@ -281,3 +281,22 @@ el dato principal es el **espesor total**.
   evidencia, estado, parche y rodeo en el plugin. Una prueba exige que todo parche propuesto figure
   en él. Nueva inconsistencia de IngeCAD reproducida: borrar una entidad de un grupo y deshacer
   tras guardar la deja fuera del grupo (C-02).
+
+## v1.11.0-dev (6-11-2026) — superficie útil según el Decreto 10/2019 de Extremadura
+
+- **Superficie útil de cada recinto** según el art. 2.3 del decreto: la cerrada por la cara interior
+  de los cerramientos, descontando tabiquería y puertas (el recinto se detiene en las caras de sus
+  muros, así que el paso de una puerta no computa) y los elementos estructurales verticales,
+  canalizaciones o conductos de más de 100 cm² de sección. Los de hasta 100 cm² **no se descuentan**.
+  El suelo con altura libre menor de 1,50 m no computa.
+- **RECINTO, T tipo:** interior o **exterior cubierto** (terraza, galería, balcón, tendedero,
+  porche). Computa el 50 % si su fondo es de al menos 50 cm, y se exporta con `IsExternal`.
+- **Superficie útil habitable:** recintos interiores con altura libre de al menos 2,50 m. Es un
+  parámetro: la cifra exacta está en el anexo del decreto y debe comprobarse.
+- La etiqueta del recinto muestra la superficie útil y, si difiere, la computable. El `IfcSpace`
+  lleva en `ARQ_Recinto` la superficie útil, el coeficiente, la superficie computable, si es
+  habitable y el criterio aplicado. Su geometría y `NetFloorArea` siguen siendo las reales, entre
+  caras, coplanarias con los elementos que lo limitan.
+- **`SUPERFICIES`:** cuadro de superficies útiles de todos los recintos, con los totales interior,
+  exterior computable, útil computable y habitable.
+- Pendiente: descontar las escaleras interiores, cuando se modelen.
