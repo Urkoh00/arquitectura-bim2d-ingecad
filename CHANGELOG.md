@@ -262,3 +262,15 @@ el dato principal es el **espesor total**.
   la altura, el volumen y el sólido del `IfcSpace` usan esa altura.
 - Cadena completa con puerta corredera, ventanas corredera y fija, vano y recintos con falso techo:
   IFC con 0 errores en IfcOpenShell (con las propuestas 0002 y 0003 a IngeTrazo).
+
+## v1.10.2-dev (6-11-2026) — falsos techos y tipos IFC de carpintería
+
+- **Falso techo:** un recinto con falso techo exporta también su `IfcCovering` (tipo
+  `CEILING`, 15 mm por defecto) con el contorno del recinto, apoyado en su cara superior. La cara
+  superior del espacio queda así coplanaria con la del elemento que lo cierra, como piden las
+  herramientas de análisis térmico. Va a la capa `ARQ-TECHOS` en IngeTrazo.
+- **Puertas y ventanas:** `PredefinedType` y `OperationType` (abatible a izquierda o derecha,
+  corredera, doble hoja) o `PartitioningType` (1, 2 o 3 hojas) en el IFC. La propuesta `0004` a
+  IngeTrazo escribe estos atributos enumerados; 0 errores en IfcOpenShell.
+- **CARPINTERIA:** si el clic cae sobre otra entidad dibujada en la cara del muro (el contorno de un
+  recinto, una cota), el muro se busca geométricamente.

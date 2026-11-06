@@ -277,13 +277,30 @@ class CarpinteriaTool(Tool):
             self._cache = analyse(_document(self.ctx).doc)
         return self._cache
 
-    def _wall_at(self, p):
+    def _wall_at(self, p, tol=0.05):
+        """The wall whose face was clicked. The pick may land on another
+        entity drawn on that face (a room outline, a dimension): then the
+        wall is found geometrically, the nearest face within ``tol``."""
         from .wall_tools import wall_from_pick
-        wall, _line = wall_from_pick(self.ctx, p)
-        if wall is None:
-            return None, None
         specs, _segs, _recs = self._model()
-        return wall, specs.get(metadata(wall)["id"])
+        wall, _line = wall_from_pick(self.ctx, p)
+        if wall is not None and metadata(wall)["id"] in specs:
+            return wall, specs[metadata(wall)["id"]]
+        best = None
+        for w in specs.values():
+            s, off = w.local(p)
+            if not -tol <= s <= w.length + tol:
+                continue
+            d = 0.0 if w.lo <= off <= w.hi else min(abs(off - w.lo), abs(off - w.hi))
+            if d <= tol and (best is None or d < best[0]):
+                best = (d, w)
+        if best is None:
+            return None, None
+        for e in _document(self.ctx).doc.modelspace():
+            m = metadata(e) or {}
+            if m.get("kind") == "wall" and m.get("id") == best[1].id and e.dxftype() == "LWPOLYLINE":
+                return e, best[1]
+        return None, None
 
     def _solve(self, spec, s, side, toward=None):
         """(s0, hinge, width) or raise ValueError."""

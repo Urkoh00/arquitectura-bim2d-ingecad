@@ -1445,7 +1445,7 @@ TOOL_CLASSES = tuple(MuroCarasTool if t.name == "MURO" else PilarPerfilesTool if
 
 def arqdiag(ctx, *args):
     """Diagnóstico sin mutar el dibujo y sin depender de PySide6."""
-    ctx.echo('ARQDIAG — Arquitectura 1.10.1-dev (motor de nodos, huella única 2D/3D, exportación .arqbim)')
+    ctx.echo('ARQDIAG — Arquitectura 1.10.2-dev (motor de nodos, huella única 2D/3D, exportación .arqbim)')
     try:
         from .wall_tools import MuroCarasTool as MuroTool
         ctx.echo(f'Herramienta MURO: {MuroTool.__module__}.{MuroTool.__name__}')
@@ -1496,7 +1496,7 @@ def plugin_spec() -> PluginSpec:
         **extra,
         id="arquitectura",
         name="Arquitectura",
-        version="1.10.1-dev",
+        version="1.10.2-dev",
         description="Dibujo arquitectónico 2D con objetos BIM (muros, pilares, carpinterías) y exportación a IngeTrazo/IFC",
         tools={tool.name: tool for tool in (*TOOL_CLASSES, Muro3DTool, Hueco3DTool)},
         commands={"EXPORTARBIM": exportar_bim, "EXPORTARIGZ": exportar_igz, "CONFIGIGZ": configurar_igz, "DIAGNOSTICOARQ": diagnostico_arq, "ARQDIAG": arqdiag, "UNIONESARQ": unionesarq, "ARQVALIDAR": validar_arq, "ARQMIGRAR": migrar_arq, "PARAMETROSARQ": parametros_arq, "TIPOSMURO": tipos_muro},

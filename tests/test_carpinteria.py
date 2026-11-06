@@ -296,3 +296,25 @@ def test_recinto_hasta_el_falso_techo(plugin):
     assert sp[0]['psets']['ARQ_Recinto']['Techo'] == 'falso techo'
     assert sp[1]['quantities']['Height'] == pytest.approx(2.70)
     assert 'FinishCeilingHeight' not in sp[1]['quantities']
+
+
+def test_falso_techo_se_exporta_como_ifccovering_coplanario(plugin):
+    s = Session(plugin)
+    _vivienda(s)
+    r = s.tool('RECINTO')
+    r.on_option('f')
+    r.on_option('2,55')
+    r.on_point((2, 2))
+    t = s.tool('CARPINTERIA')
+    t.on_point((1.0, 0.15))             # bisagra en s0, abre hacia +y (interior)
+    t.on_enter()
+    data = s.export(None)
+    techo = next(e for e in data['elements'] if e['ifc_class'] == 'IfcCovering')
+    space = next(e for e in data['elements'] if e['ifc_class'] == 'IfcSpace')
+    assert techo['enums'] == {'PredefinedType': 'CEILING'}
+    zs_space = max(v[2] for f in space['faces'] for v in f['outer'])
+    zs_techo = min(v[2] for f in techo['faces'] for v in f['outer'])
+    assert zs_space == pytest.approx(2.55) and zs_techo == pytest.approx(2.55)
+    assert techo['volume'] == pytest.approx(17.86 * 0.015)
+    door = next(e for e in data['elements'] if e['ifc_class'] == 'IfcDoor')
+    assert door['enums'] == {'PredefinedType': 'DOOR', 'OperationType': 'SINGLE_SWING_LEFT'}

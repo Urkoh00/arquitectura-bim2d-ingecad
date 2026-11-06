@@ -56,6 +56,8 @@ def build_scene(data):
                 "IfcWindow": "ARQ-CARPINTERIA"}
     for name in ("ARQ-MUROS", "ARQ-PILARES"):
         scene.layers.append(Layer(name, color=(0.72, 0.72, 0.70)))
+    if any((el.get("enums") or {}).get("PredefinedType") == "CEILING" for el in data["elements"]):
+        scene.layers.append(Layer("ARQ-TECHOS", color=(0.92, 0.92, 0.88)))
     if any(el["ifc_class"] in ("IfcDoor", "IfcWindow") for el in data["elements"]):
         scene.layers.append(Layer("ARQ-CARPINTERIA", color=(0.62, 0.45, 0.30)))
     if any(el["ifc_class"] == "IfcSpace" for el in data["elements"]):
@@ -71,7 +73,8 @@ def build_scene(data):
         if not mesh.faces:
             raise ValueError("Elemento sin geometría: %s" % el["id"])
         g = Group(mesh, name=el.get("name") or el["ifc_class"])
-        g.layer = layer_of.get(el["ifc_class"])
+        g.layer = ("ARQ-TECHOS" if (el.get("enums") or {}).get("PredefinedType") == "CEILING"
+                   else layer_of.get(el["ifc_class"]))
         tag = {"class": el["ifc_class"], "name": g.name, "guid": el["guid"]}
         if el.get("level"):
             tag["storey"] = {"name": el["level"], "elevation": levels.get(el["level"], 0.0)}
@@ -83,6 +86,9 @@ def build_scene(data):
             tag["psets"] = el["psets"]
         if el.get("quantities"):
             tag["quantities"] = el["quantities"]
+        if el.get("enums"):
+            # enumerated attributes (IfcCovering .CEILING., door operation)
+            tag["enums"] = el["enums"]
         if el.get("fills"):
             # IfcRelFillsElement: the hole (IfcOpeningElement) it fills
             tag["fills"] = el["fills"]

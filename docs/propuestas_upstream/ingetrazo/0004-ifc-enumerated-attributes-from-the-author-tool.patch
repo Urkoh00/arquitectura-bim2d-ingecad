@@ -1,0 +1,49 @@
+From 1f98d80b4941f2bcc3d5f4431ae63d35deff019e Mon Sep 17 00:00:00 2001
+From: Urkoh00 <Urkoh00@users.noreply.github.com>
+Date: Fri, 6 Nov 2026 14:23:26 +0100
+Subject: [PATCH] ifc: enumerated attributes given by the author tool
+
+group.ifc['enums'] sets IfcCovering.PredefinedType (.CEILING. for a false
+ceiling), IfcDoor PredefinedType/OperationType and IfcWindow
+PredefinedType/PartitioningType at their IFC4 positions; values must be
+upper-case enumeration identifiers, anything else is ignored.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_017fBpUQNC2Xfc8fP2ZQTBto
+---
+ formats/ifc.py | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+diff --git a/formats/ifc.py b/formats/ifc.py
+index 3520d5b..fab5714 100644
+--- a/formats/ifc.py
++++ b/formats/ifc.py
+@@ -86,6 +86,13 @@ def _valid_guid(g) -> bool:
+ #: PredefinedType); others are left untyped rather than written wrong.
+ _TYPE_CLASSES = {"IfcWall", "IfcColumn", "IfcSlab", "IfcBeam", "IfcMember"}
+ 
++#: Enumerated attributes an author tool may give in group.ifc["enums"]
++#: (IFC4 position in the entity): a false ceiling is an IfcCovering
++#: .CEILING., a door says how it opens, a window how it is divided.
++_ENUM_POS = {"IfcCovering": {"PredefinedType": 8},
++             "IfcDoor": {"PredefinedType": 10, "OperationType": 11},
++             "IfcWindow": {"PredefinedType": 10, "PartitioningType": 11}}
++
+ 
+ class _Writer:
+     def __init__(self) -> None:
+@@ -241,6 +248,11 @@ def save_ifc(scene, path, project_name: str = "IngeTrazo project") -> int:
+                       _f(dims["Length"]) if "Length" in dims else "$",
+                       ".NOTDEFINED."]
+         attrs += ["$"] * (total - len(attrs))
++        for name, value in (tag.get("enums") or {}).items():
++            pos = _ENUM_POS.get(cls, {}).get(name)
++            if pos is not None and pos < total and isinstance(value, str) \
++                    and value.replace("_", "").isalnum() and value.isupper():
++                attrs[pos] = f".{value}."
+         elem = w.add(cls.upper(), *attrs)
+         element_ids.append(elem)
+         if cls == "IfcSpace":
+-- 
+2.43.0
+

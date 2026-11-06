@@ -244,6 +244,8 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD"):
             # the room is the air below the false ceiling (Qto_SpaceBaseQuantities)
             el["quantities"]["FinishCeilingHeight"] = height
         elements.append(el)
+        if m.get("ceiling"):
+            elements.append(_ceiling(ident, m, room, base + height, level))
     return {
         "format": FORMAT, "version": VERSION, "units": "m",
         "generator": generator, "project": {"name": project},
@@ -262,6 +264,41 @@ def _faces_json(faces):
             for o, hs in faces]
 
 
+CEILING_THICKNESS = 0.015     # one plasterboard sheet
+
+
+def _ceiling(space_id, m, room, z, level):
+    """The false ceiling of a room as an IfcCovering .CEILING.: its outline,
+    from the top of the room upwards, so the room's top face is coplanar
+    with the ceiling's underside (what thermal analysis tools require)."""
+    t = float(m.get("ceiling_thickness") or CEILING_THICKNESS)
+    faces, volume = S.wall_solid(room["pieces"], (0.0, 0.0), (1.0, 0.0), z, t, ())
+    cm = {"name": "Falso techo de " + (m.get("name") or "Recinto"), "height": t, "base": z,
+          "type_name": m.get("ceiling_type") or "", "material": m.get("ceiling_material") or ""}
+    el = _element(space_id + "-techo", "IfcCovering", cm, faces, volume, room["area"], level)
+    el["enums"] = {"PredefinedType": "CEILING"}
+    el["psets"]["ARQ_IngeCAD"].update({"Recinto": space_id, "Tipo": "falso techo"})
+    for k in ("Thickness", "Reference"):
+        el["psets"]["ARQ_IngeCAD"].pop(k, None)
+    el["quantities"] = {"Width": t, "GrossArea": room["area"], "NetArea": room["area"]}
+    el["footprint"] = []
+    return el
+
+
+def _door_enums(o):
+    if o["type"] == "door":
+        if o["leaves"] == 2:
+            op = "DOUBLE_DOOR_SLIDING" if o["operation"] == "SLIDING" else "DOUBLE_DOOR_SINGLE_SWING"
+        else:
+            # IFC: hinge side seen in the direction the door opens
+            left = (o["hinge"] == 0) == (o["side"] > 0)
+            op = (("SLIDING_TO_LEFT" if not left else "SLIDING_TO_RIGHT") if o["operation"] == "SLIDING"
+                  else ("SINGLE_SWING_LEFT" if left else "SINGLE_SWING_RIGHT"))
+        return {"PredefinedType": "DOOR", "OperationType": op}
+    part = {1: "SINGLE_PANEL", 2: "DOUBLE_PANEL_VERTICAL", 3: "TRIPLE_PANEL_VERTICAL"}
+    return {"PredefinedType": "WINDOW", "PartitioningType": part.get(o["leaves"], "NOTDEFINED")}
+
+
 def _filling(o, spec, wall_meta, level, void_guid, wall_id):
     """IfcDoor/IfcWindow filling a wall's hole (IfcRelFillsElement in the
     IFC): one closed body across the frame depth, so that wall + door have
@@ -276,6 +313,7 @@ def _filling(o, spec, wall_meta, level, void_guid, wall_id):
          "material": o.get("material") or "", "height": z1 - z0, "base": z0}
     el = _element(o["id"], cls, m, faces, (s1 - s0) * (f1 - f0) * (z1 - z0), (s1 - s0) * (f1 - f0), level)
     el["fills"] = void_guid
+    el["enums"] = _door_enums(o)
     el["host"] = wall_id
     el["params"].update({k: o.get(k) for k in ("offset", "width", "sill", "leaves", "leaf", "leaf2",
                                               "side", "hinge", "face", "frame_width", "frame_depth",
