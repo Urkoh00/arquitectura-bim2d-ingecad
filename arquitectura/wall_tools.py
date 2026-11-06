@@ -735,13 +735,15 @@ def _rehost(opening, new_wall_cmd, offset):
     """Deferred: the opening now belongs to the wall created by
     ``new_wall_cmd`` (known only after it runs), at ``offset`` from its start."""
     from .architectural_v10 import opening_record, opening_symbol
+    from . import openings as OP
 
     def factory(_doc):
         d = metadata(opening)
         wall = new_wall_cmd.entity
         rec, pt = opening_record(wall, offset, d["width"], d["sill"], d["height"], d["type"],
                                  existing=d["id"], **{k: d.get(k, "") for k in
-                                                      ("name", "type_name", "material", "operation")})
+                                                      ("name", "type_name", "material", "operation")},
+                                 **{k: d[k] for k in OP.V3_KEYS if k in d})
         if opening.dxftype() == "LWPOLYLINE":
             return EditArchitecturalCommand(opening, rec, points=opening_symbol(wall, rec))
         return EditArchitecturalCommand(opening, rec, position=(pt[0], pt[1], 0.0))

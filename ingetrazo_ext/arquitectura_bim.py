@@ -52,9 +52,12 @@ def build_scene(data):
     levels = {lv["name"]: float(lv["elevation"]) for lv in data.get("levels", [])}
     scene = Scene()
     layer_of = {"IfcWall": "ARQ-MUROS", "IfcColumn": "ARQ-PILARES", "IfcSpace": "ARQ-RECINTOS",
-                "IfcCovering": "ARQ-PILARES"}
+                "IfcCovering": "ARQ-PILARES", "IfcDoor": "ARQ-CARPINTERIA",
+                "IfcWindow": "ARQ-CARPINTERIA"}
     for name in ("ARQ-MUROS", "ARQ-PILARES"):
         scene.layers.append(Layer(name, color=(0.72, 0.72, 0.70)))
+    if any(el["ifc_class"] in ("IfcDoor", "IfcWindow") for el in data["elements"]):
+        scene.layers.append(Layer("ARQ-CARPINTERIA", color=(0.62, 0.45, 0.30)))
     if any(el["ifc_class"] == "IfcSpace" for el in data["elements"]):
         # rooms are volumes of air: off and translucent, so walls stay in view
         scene.layers.append(Layer("ARQ-RECINTOS", visible=False, color=(0.55, 0.75, 0.95),
@@ -80,6 +83,9 @@ def build_scene(data):
             tag["psets"] = el["psets"]
         if el.get("quantities"):
             tag["quantities"] = el["quantities"]
+        if el.get("fills"):
+            # IfcRelFillsElement: the hole (IfcOpeningElement) it fills
+            tag["fills"] = el["fills"]
         if el.get("openings"):
             tag["openings"] = [{"guid": o["guid"], "name": o.get("name", "Hueco"),
                                 "faces": o["faces"]} for o in el["openings"]]

@@ -263,7 +263,7 @@ def test_partemuro_lleva_la_puerta_al_tramo_nuevo_y_deshace(plugin):
     assert s.meta(door)['wall_id'] == nid and s.meta(door)['offset'] == pytest.approx(3.0)
     assert min(p[0] for p in door.get_points('xy')) == pytest.approx(7.0)
     data = s.export(None)
-    assert not data['issues'] and len(data['elements']) == 2
+    assert not data['issues'] and [e['ifc_class'] for e in data['elements']].count('IfcWall') == 2
     s.history.undo()
     assert list(s.walls()) == [hid] and s.meta(door)['wall_id'] == hid
     assert s.meta(door)['offset'] == pytest.approx(7.0)

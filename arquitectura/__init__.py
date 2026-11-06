@@ -1383,7 +1383,14 @@ class AyudaArqTool(ArchitectureTool):
         self.ctx.echo("                        E enganche 1-9, G girar 90°, A autorrotación, P a distancia de dos paramentos,")
         self.ctx.echo("                        U de un paramento, C recubrimiento")
         self.ctx.echo("PILAR                 — pilar rect/circ")
-        self.ctx.echo("PUERTA / VENTANA / ARMARIO — carpinterías")
+        self.ctx.echo("CARPINTERIA           — puertas, ventanas y huecos en muros y tabiques: clic en la cara hacia la que abre;")
+        self.ctx.echo("                        P/V/H tipo, un número o N = ancho de hoja (puerta) o de hueco, Hojas 1/2 (2 0,625),")
+        self.ctx.echo("                        M colocación: Libre (2.º clic: sentido) / Distancia d a la esquina / Centrada /")
+        self.ctx.echo("                        Exterior (centrada en la otra cara) / Máxima; C cerco interior/centrado/exterior,")
+        self.ctx.echo("                        E cerco (ancho y profundidad), R alféizar/vierteaguas/ventanal, B bisagra y S sentido")
+        self.ctx.echo("                        de la última; pinchar una carpintería sustituye su modelo (misma identidad)")
+        self.ctx.echo("PUERTAARQ / VENTANAARQ / HUECOARQ — CARPINTERIA con ese tipo de partida")
+        self.ctx.echo("ARMARIO               — armarios (pendiente)")
         self.ctx.echo("SUPERFICIE            — área m² + etiqueta")
         self.ctx.echo("CAMARA                — eje / cámara de muro")
         self.ctx.echo("ESCALERA              — escalera en alzado")
@@ -1429,11 +1436,13 @@ def diagnostico_arq(ctx, *args):
 
 from .wall_tools import MuroCarasTool, MuroParaleloTool, EstiraMuroTool, PivotaMuroTool, RecintoTool, DivideMuroTool, BorraTramoTool, ParteMuroTool, UnirMuroTool
 from .column_tools import PilarTool as PilarPerfilesTool
-TOOL_CLASSES = tuple(MuroCarasTool if t.name == "MURO" else PilarPerfilesTool if t.name == "PILAR" else t for t in TOOL_CLASSES) + (CarpinteriaTool, VentanaArqTool, EditarArqTool, ArqPropiedadesTool, MuroParaleloTool, EstiraMuroTool, PivotaMuroTool, RecintoTool, DivideMuroTool, BorraTramoTool, ParteMuroTool, UnirMuroTool)
+from .opening_tools import (CarpinteriaTool as CarpinteriaArqTool, PuertaTool as PuertaArqTool,
+                            VentanaTool as VentanaArqTool2, HuecoTool as HuecoArqTool)
+TOOL_CLASSES = tuple(MuroCarasTool if t.name == "MURO" else PilarPerfilesTool if t.name == "PILAR" else t for t in TOOL_CLASSES) + (CarpinteriaArqTool, PuertaArqTool, VentanaArqTool2, HuecoArqTool, EditarArqTool, ArqPropiedadesTool, MuroParaleloTool, EstiraMuroTool, PivotaMuroTool, RecintoTool, DivideMuroTool, BorraTramoTool, ParteMuroTool, UnirMuroTool)
 
 def arqdiag(ctx, *args):
     """Diagnóstico sin mutar el dibujo y sin depender de PySide6."""
-    ctx.echo('ARQDIAG — Arquitectura 1.9.0-dev (motor de nodos, huella única 2D/3D, exportación .arqbim)')
+    ctx.echo('ARQDIAG — Arquitectura 1.10.0-dev (motor de nodos, huella única 2D/3D, exportación .arqbim)')
     try:
         from .wall_tools import MuroCarasTool as MuroTool
         ctx.echo(f'Herramienta MURO: {MuroTool.__module__}.{MuroTool.__name__}')
@@ -1484,7 +1493,7 @@ def plugin_spec() -> PluginSpec:
         **extra,
         id="arquitectura",
         name="Arquitectura",
-        version="1.9.0-dev",
+        version="1.10.0-dev",
         description="Dibujo arquitectónico 2D con objetos BIM (muros, pilares, carpinterías) y exportación a IngeTrazo/IFC",
         tools={tool.name: tool for tool in (*TOOL_CLASSES, Muro3DTool, Hueco3DTool)},
         commands={"EXPORTARBIM": exportar_bim, "EXPORTARIGZ": exportar_igz, "CONFIGIGZ": configurar_igz, "DIAGNOSTICOARQ": diagnostico_arq, "ARQDIAG": arqdiag, "UNIONESARQ": unionesarq, "ARQVALIDAR": validar_arq, "ARQMIGRAR": migrar_arq, "PARAMETROSARQ": parametros_arq, "TIPOSMURO": tipos_muro},
@@ -1506,6 +1515,8 @@ def plugin_spec() -> PluginSpec:
                 MenuItem("Recinto (espacio BIM) por clic", "RECINTO"),
                 MenuItem("Puerta vinculada", "PUERTAARQ", icon=glyph / "puerta.svg"),
                 MenuItem("Ventana vinculada", "VENTANAARQ", icon=glyph / "ventana.svg"),
+                MenuItem("Hueco (vano)", "HUECOARQ"),
+                MenuItem("Carpintería (puertas, ventanas, huecos)", "CARPINTERIA"),
                 MenuItem("Editar entidad arquitectónica", "EDITARARQ", icon=glyph / "editar.svg"),
                 MenuItem("Propiedades BIM del elemento", "PROPIEDADESARQ", icon=glyph / "editar.svg"),
                 MenuItem("Regenerar uniones de muros y pilares", "UNIONESARQ"),

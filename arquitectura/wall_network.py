@@ -225,6 +225,9 @@ class RegenerateContoursCommand(Command):
         self.space_edits=[]     # [(entity, old_meta, new_meta, old_pts, new_pts)]
         self.added_labels=[]
         self.space_count=0
+        self.opening_edits=[]   # [(entity, old_meta, new_meta, old_pts, new_pts)]
+        self.orphans=[]         # openings whose wall was erased (unlinked)
+        self.old_opening_layer_off=None
     def _current(self,msp,kind='junction_edge'):
         from .architectural import metadata
         return [e for e in msp if (metadata(e) or {}).get('kind')==kind]
@@ -257,6 +260,127 @@ class RegenerateContoursCommand(Command):
             if new!=m or old_pts!=pts:
                 self.space_edits.append((e,copy.deepcopy(m),new,old_pts,pts))
         self.space_count=len(self._current(document.doc.modelspace(),'space'))
+    def _plan_openings(self,document,records):
+        """Carrier of every door/window true to its wall (first do only).
+
+        * the wall moved/rotated/stretched (MOVE of its group): the opening
+          keeps its offset and its carrier is redrawn on the wall;
+        * the carrier itself was moved/copied (MOVE/COPY of the door): its
+          new position along the wall (or along another wall it now lies
+          on) becomes the offset; a mirrored carrier swaps the hinge;
+        * the wall was erased: the opening goes with it;
+        * an older record (schema 2) is upgraded to schema 3."""
+        import copy,math
+        from .architectural import metadata
+        from .geom import junctions as J
+        from . import openings as OP
+        specs={w.id:w for w in J.walls_from_records(records)}
+        olds={}
+        for e,old,new in self.sync or []:
+            if (old or {}).get('kind')=='wall' and old.get('id')==new.get('id'):
+                try:
+                    olds[old['id']]=J.walls_from_records([(old['id'],old)])[0]
+                except Exception:
+                    pass
+        self.opening_specs=specs
+        news={}
+        for e in self._current(document.doc.modelspace(),'opening'):
+            m=metadata(e)
+            label=m.get('name') or OP.NAMES.get(m.get('type'),'Carpintería')
+            host=specs.get(m.get('wall_id'))
+            pts=None
+            if e.dxftype()=='LWPOLYLINE' and int(m.get('schema') or 2)>=3 and len(e)==2 and not e.closed:
+                pts=[tuple(map(float,q)) for q in e.get_points('xy')]
+            if host is None and pts is None:
+                self.orphans.append(e)
+                continue
+            new=OP.normalise(copy.deepcopy(m))
+            width=float(new['width'])
+            if pts is not None:
+                before=olds.get(new['wall_id'],host)
+                same=before is not None and all(math.dist(p,q)<1e-6 for p,q in zip(pts,OP.carrier_points(before,new)))
+                if not same:
+                    mid=((pts[0][0]+pts[1][0])/2,(pts[0][1]+pts[1][1])/2)
+                    best=None
+                    for w in specs.values():
+                        s,o=w.local(mid)
+                        d=abs(o-(w.lo+w.hi)/2)
+                        if d<=(w.hi-w.lo)/2+1e-6 and -1e-6<=s<=w.length+1e-6:
+                            key=(0 if w.id==new['wall_id'] else 1,d)
+                            if best is None or key<best[0]:
+                                best=(key,w,s)
+                    if best is None:
+                        if host is None:
+                            self.orphans.append(e)
+                            continue
+                        self.issues.append(f'{label}: quedó fuera de su muro; vuelve a su posición')
+                    else:
+                        _k,host,s=best
+                        new['wall_id']=host.id
+                        new['offset']=s-width/2
+                        dx,dy=pts[1][0]-pts[0][0],pts[1][1]-pts[0][1]
+                        if dx*host.u[0]+dy*host.u[1]<0:
+                            new['hinge']=1-int(new.get('hinge') or 0)     # mirrored
+            if host is None:
+                self.orphans.append(e)
+                continue
+            if new['offset']<-1e-9 or new['offset']+width>host.length+1e-9:
+                self.issues.append(f'{label}: no cabe en su muro; se ajusta a su longitud')
+                new['offset']=min(max(0.0,new['offset']),max(0.0,host.length-width))
+            new_pts=OP.carrier_points(host,new)
+            old_pts=[tuple(map(float,q)) for q in e.get_points('xy')] if e.dxftype()=='LWPOLYLINE' else None
+            news.setdefault(new['wall_id'],[]).append(new)
+            if new!=m or old_pts!=new_pts:
+                self.opening_edits.append((e,copy.deepcopy(m),new,old_pts,new_pts))
+        for wid,ops in news.items():
+            ops.sort(key=lambda o:float(o['offset']))
+            for a,b in zip(ops,ops[1:]):
+                if float(a['offset'])+float(a['width'])>float(b['offset'])+1e-6:
+                    self.issues.append(f"Carpinterías solapadas en el muro {wid[:8]}: "
+                                       f"{a.get('name') or OP.NAMES[a['type']]} y {b.get('name') or OP.NAMES[b['type']]}")
+        self.opening_records=news
+        if self.orphans:
+            self.issues.append(f'{len(self.orphans)} carpintería(s) eliminada(s) con su muro')
+    def _apply_openings(self,document,which):
+        from .architectural import _xdata
+        msp=document.doc.modelspace()
+        items=self.opening_edits if which=='new' else list(reversed(self.opening_edits))
+        for e,old,new,old_pts,new_pts in items:
+            if not e.is_alive:
+                continue
+            pts=new_pts if which=='new' else old_pts
+            if pts is not None and e.dxftype()=='LWPOLYLINE':
+                e.set_points(pts,format='xy')
+                if which=='new':
+                    e.closed=False
+            _xdata(msp,e,new if which=='new' else old)
+    def _opening_cuts(self):
+        from . import openings as OP
+        ops=[o for lst in getattr(self,'opening_records',{}).values() for o in lst]
+        return OP.opening_cuts(self.opening_specs,ops)
+    def _new_symbols(self,document):
+        """Plan drawing of every door/window (frame, leaves and swing,
+        glazing, sill), derived from its record."""
+        from .architectural import _xdata
+        from . import openings as OP
+        msp=document.doc.modelspace()
+        made=[]
+        for wid,ops in getattr(self,'opening_records',{}).items():
+            spec=self.opening_specs.get(wid)
+            if spec is None:
+                continue
+            for o in ops:
+                for item in OP.plan_symbol(spec,o):
+                    attribs={'layer':OP.SYMBOL_LAYER}
+                    if item[0]=='line':
+                        d=msp.add_line(item[1],item[2],dxfattribs=attribs)
+                    elif item[0]=='poly':
+                        d=msp.add_lwpolyline(item[1],close=item[2],dxfattribs=attribs)
+                    else:
+                        d=msp.add_arc(item[1],item[2],item[3],item[4],dxfattribs=attribs)
+                    _xdata(msp,d,{'kind':'opening_symbol','schema':1,'opening_id':o['id']})
+                    made.append(d)
+        return made
     def _apply_spaces(self,document,which):
         from .architectural import _xdata
         msp=document.doc.modelspace()
@@ -306,8 +430,16 @@ class RegenerateContoursCommand(Command):
         # a steel or covered column: its outline + the drawn profile, one pick
         details={}
         for e in self.added_labels:
-            cid=(metadata(e) or {}).get('column_id')
+            md=metadata(e) or {}
+            cid=md.get('column_id') or md.get('opening_id')
             if cid: details.setdefault(cid,[]).append(e)
+        for e in self._current(document.doc.modelspace(),'opening'):
+            m=metadata(e)
+            if m.get('id') in details:
+                name=SY.GROUP_PREFIX+str(e.dxf.handle).upper()
+                SY.create_group(document.doc,name,[e,*details[m['id']]],
+                                f"{m.get('name') or 'Carpinteria'} BIM {m['id'][:8]} (Arquitectura)")
+                self.groups.append(name)
         for e in self._current(document.doc.modelspace(),'column'):
             m=metadata(e)
             if m.get('id') in details:
@@ -343,10 +475,15 @@ class RegenerateContoursCommand(Command):
         if first:
             from . import sync as SY
             self.removed=self._current(msp)
+            self.opening_edits=[];self.orphans=[]
             self.old_groups=SY.snapshot_groups(document.doc)
             self.old_layer_off=document.doc.layers.get(WALL_LAYER).is_off() if WALL_LAYER in document.doc.layers else False
             self.sync=[(e,copy.deepcopy(metadata(e)),new) for e,new in SY.sync_changes(document.doc)]
-            self.removed_labels=self._current(msp,'space_label')+self._current(msp,'column_detail')
+            self.removed_labels=(self._current(msp,'space_label')+self._current(msp,'column_detail')
+                                 +self._current(msp,'opening_symbol'))
+            from .architectural import OPENING_LAYER
+            self.old_opening_layer_off=(document.doc.layers.get(OPENING_LAYER).is_off()
+                                        if OPENING_LAYER in document.doc.layers else None)
         self._write_meta(document,'new')
         try:
             if first:
@@ -360,7 +497,8 @@ class RegenerateContoursCommand(Command):
                 self.issues = issues + result.warnings
                 self.result = result
                 walls = [w for w in result.walls.values() if w["area"] > 0]
-                segments = J.plan_outline(result)
+                self._plan_openings(document,records)
+                segments = J.plan_outline(result, self._opening_cuts())
                 if walls and not segments:
                     raise ValueError('No se obtuvo contorno exterior: se conserva la geometría original')
                 self.has_walls = bool(walls)
@@ -373,16 +511,27 @@ class RegenerateContoursCommand(Command):
             for e in self.removed_labels:
                 if e.is_alive and e.dxf.owner is not None:
                     msp.unlink_entity(e)
+            for e in self.orphans:
+                if e.is_alive and e.dxf.owner is not None:
+                    msp.unlink_entity(e)
             self._apply_spaces(document,'new')
+            self._apply_openings(document,'new')
             if first:
+                from .openings import SYMBOL_LAYER
+                if SYMBOL_LAYER not in document.doc.layers:
+                    document.doc.layers.add(SYMBOL_LAYER,color=6)
                 self.added=self._new_lines(msp,segments)
-                self.added_labels=self._new_labels(document)+self._new_details(document)
+                self.added_labels=(self._new_labels(document)+self._new_details(document)
+                                   +self._new_symbols(document))
             else:
                 for e in self.added+self.added_labels:
                     msp.add_entity(e)
             self._group_lines(document)
             if self.has_walls and WALL_LAYER in document.doc.layers:
                 document.doc.layers.get(WALL_LAYER).off()
+            from .architectural import OPENING_LAYER
+            if getattr(self,'opening_records',None) and OPENING_LAYER in document.doc.layers:
+                document.doc.layers.get(OPENING_LAYER).off()
             self.removed_handles=[e.dxf.handle for e in self.removed]
             self.new_count=len(self.added)
             document.dirty=True
@@ -405,6 +554,14 @@ class RegenerateContoursCommand(Command):
             if e.is_alive and e.dxf.owner is None:
                 msp.add_entity(e)
         self._apply_spaces(document,'old')
+        self._apply_openings(document,'old')
+        for e in self.orphans:
+            if e.is_alive and e.dxf.owner is None:
+                msp.add_entity(e)
+        from .architectural import OPENING_LAYER
+        if OPENING_LAYER in document.doc.layers and self.old_opening_layer_off is not None:
+            layer=document.doc.layers.get(OPENING_LAYER)
+            layer.off() if self.old_opening_layer_off else layer.on()
         db=document.doc.entitydb
         for name,handles,desc in self.old_groups or []:
             SY.create_group(document.doc,name,[db.get(h) for h in handles],desc)

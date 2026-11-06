@@ -22,13 +22,15 @@ import uuid
 from .architectural import metadata
 from .geom import junctions as J
 from .geom import solids as S
+from . import openings as OP
 
 FORMAT = "arqbim"
 VERSION = 1
 _GUID_CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_$"
 
 PSET = {"IfcWall": "Pset_WallCommon", "IfcColumn": "Pset_ColumnCommon", "IfcSpace": "Pset_SpaceCommon",
-        "IfcCovering": "Pset_CoveringCommon"}
+        "IfcCovering": "Pset_CoveringCommon", "IfcDoor": "Pset_DoorCommon",
+        "IfcWindow": "Pset_WindowCommon"}
 
 
 def ifc_guid(hex_id):
@@ -143,15 +145,26 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD"):
                             "GrossVolume": geo["area"] * float(m["height"]),
                             "NetVolume": volume}
         el["openings"] = []
+        fillings = []
         for o in ops:
+            o = OP.normalise(o)
             box = S.opening_box(spec.a, spec.u, spec.n, spec.lo - 0.01, spec.hi + 0.01,
                                 o, float(m.get("base", 0.0)))
-            el["openings"].append({"id": o["id"], "guid": ifc_guid(o["id"]),
-                                   "name": o.get("name") or "Hueco",
-                                   "kind": o.get("type", "opening"),
+            filled = o["type"] in ("door", "window")
+            # the void is derived from the door/window: the door keeps the
+            # record's identity, its hole gets a stable one of its own
+            void_id = o["id"] + "-hueco" if filled else o["id"]
+            el["openings"].append({"id": void_id, "guid": ifc_guid(void_id),
+                                   "name": ("Hueco de " + (o.get("name") or OP.NAMES[o["type"]]))
+                                   if filled else (o.get("name") or "Hueco"),
+                                   "kind": o["type"],
                                    "params": {k: o[k] for k in ("offset", "width", "sill", "height")},
                                    "faces": _faces_json(box)})
+            if filled:
+                fillings.append(_filling(o, spec, {**m, "_external": ident in external}, level,
+                                         ifc_guid(void_id), ident))
         elements.append(el)
+        elements.extend(fillings)
     for ident, m in columns:
         level = m.get("level") or "Planta baja"
         base, height = float(m.get("base", 0.0)), float(m["height"])
@@ -245,9 +258,47 @@ def _faces_json(faces):
             for o, hs in faces]
 
 
+def _filling(o, spec, wall_meta, level, void_guid, wall_id):
+    """IfcDoor/IfcWindow filling a wall's hole (IfcRelFillsElement in the
+    IFC): one closed body across the frame depth, so that wall + door have
+    the volume of the uncut wall slice they replace."""
+    from . import openings as OP
+    base = float(wall_meta.get("base", 0.0))
+    s0, s1, f0, f1, z0, z1 = OP.filling_box(spec, o, base)
+    fake = {"offset": s0, "width": s1 - s0, "sill": z0 - base, "height": z1 - z0}
+    faces = S.opening_box(spec.a, spec.u, spec.n, f0, f1, fake, base)
+    cls = OP.IFC[o["type"]]
+    m = {"name": o.get("name") or OP.NAMES[o["type"]], "type_name": o.get("type_name") or "",
+         "material": o.get("material") or "", "height": z1 - z0, "base": z0}
+    el = _element(o["id"], cls, m, faces, (s1 - s0) * (f1 - f0) * (z1 - z0), (s1 - s0) * (f1 - f0), level)
+    el["fills"] = void_guid
+    el["host"] = wall_id
+    el["params"].update({k: o.get(k) for k in ("offset", "width", "sill", "leaves", "leaf", "leaf2",
+                                              "side", "hinge", "face", "frame_width", "frame_depth",
+                                              "sill_kind")})
+    common = el["psets"].setdefault(PSET[cls], {})
+    common["IsExternal"] = bool(wall_meta.get("_external"))
+    arq = el["psets"]["ARQ_IngeCAD"]
+    for k in ("Thickness", "Reference"):
+        arq.pop(k, None)
+    arq["Host"] = wall_id
+    if o["type"] == "door":
+        arq.update({"Hojas": o["leaves"], "Hoja": round(o["leaf"], 4),
+                    "Cerco": round(float(o["frame_width"]), 4)})
+        if o["leaves"] == 2:
+            arq["Hoja2"] = round(o["leaf2"], 4)
+    else:
+        arq.update({"Hojas": o["leaves"], "Antepecho": float(o["sill"]),
+                    "Remate": o.get("sill_kind") or ""})
+    el["quantities"] = {"Height": z1 - z0, "Width": s1 - s0, "Area": (s1 - s0) * (z1 - z0)}
+    el["footprint"] = []
+    return el
+
+
 def _element(ident, cls, m, faces, volume, plan_area, level):
     name = m.get("name") or {"IfcWall": "Muro", "IfcColumn": "Pilar", "IfcSpace": "Recinto",
-                             "IfcCovering": "Revestimiento"}.get(cls, cls)
+                             "IfcCovering": "Revestimiento", "IfcDoor": "Puerta",
+                             "IfcWindow": "Ventana"}.get(cls, cls)
     material = m.get("material") or ""
     type_name = m.get("type_name") or ""
     psets = {PSET[cls]: {"Reference": type_name or None, "LoadBearing": None, "IsExternal": None}}

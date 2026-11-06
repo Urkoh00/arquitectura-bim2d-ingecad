@@ -124,10 +124,12 @@ def _outline_issues(drawing, sources, outlines):
     from .geom import junctions as J
     from . import sync as SY
     try:
-        records, columns, _ops, _issues = read_model(drawing, strict=False)
-        result = J.solve(J.walls_from_records(records),
-                         [(cid, m['polygon']) for cid, m in columns])
-        expected = {_segment_key(a, b) for a, b, _w in J.plan_outline(result)}
+        from .openings import opening_cuts
+        records, columns, ops, _issues = read_model(drawing, strict=False)
+        specs = J.walls_from_records(records)
+        result = J.solve(specs, [(cid, m['polygon']) for cid, m in columns])
+        cuts = opening_cuts({w.id: w for w in specs}, ops)
+        expected = {_segment_key(a, b) for a, b, _w in J.plan_outline(result, cuts)}
     except Exception as exc:  # noqa: BLE001
         return [f'No se pudo comprobar el contorno ({type(exc).__name__}: {exc})']
     present = {}

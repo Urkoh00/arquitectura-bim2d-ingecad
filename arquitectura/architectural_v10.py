@@ -58,7 +58,9 @@ def opening_record(wall, offset, width, sill, height, kind, existing=None, **bim
     if not meta or meta.get('kind')!='wall':
         raise ValueError('Seleccione un muro arquitectónico (MURO)')
     kind=str(kind).lower()
-    if kind not in ('puerta','ventana','door','window'):
+    from . import openings as OP
+    typ=OP.kind_of(kind)
+    if typ is None:
         raise ValueError('Tipo de carpintería no admitido')
     length=math.dist(meta['a'],meta['b'])
     offset=finite(offset);width=finite(width,True)
@@ -70,9 +72,9 @@ def opening_record(wall, offset, width, sill, height, kind, existing=None, **bim
     import uuid
     rec={'kind':'opening','schema':2,'id':existing or uuid.uuid4().hex,
          'wall_id':meta['id'],'offset':offset,'width':width,'sill':sill,
-         'height':height,'type':'door' if kind in ('puerta','door') else 'window',
-         'ifc_class':'IfcDoor' if kind in ('puerta','door') else 'IfcWindow',
-         **{k:v for k,v in bim.items() if k in ('name','type_name','material','operation')}}
+         'height':height,'type':typ,
+         **{k:v for k,v in bim.items() if k in ('name','type_name','material','operation')+OP.V3_KEYS}}
+    rec=OP.normalise(rec)
     drawing=wall.doc
     openings=[p for p in _find_openings(drawing,meta['id']) if p.get('id')!=rec['id']]
     validate_wall({**meta,'openings':sorted(openings+[rec],key=lambda o:o['offset'])})
@@ -83,7 +85,15 @@ def opening_record(wall, offset, width, sill, height, kind, existing=None, **bim
 
 
 def opening_symbol(wall,record):
+    """Points of the DXF entity carrying an opening record: since schema 3
+    the 2-point carrier along the middle of the wall (the drawn symbol is
+    derived by UNIONESARQ); older records kept a simplified symbol."""
     meta=metadata(wall)
+    if int(record.get('schema') or 2)>=3:
+        from .geom import junctions as J
+        from . import openings as OP
+        spec=J.walls_from_records([(meta['id'],meta)])[0]
+        return OP.carrier_points(spec,record)
     a,b=meta['a'],meta['b']
     length=math.dist(a,b)
     ux,uy=(b[0]-a[0])/length,(b[1]-a[1])/length
@@ -149,7 +159,8 @@ def edit_wall(entity,*,thickness=None,height=None,base=None,reference=None,
 
 
 def edit_opening(entity,*,offset=None,width=None,sill=None,height=None,
-                 name=None,type_name=None,material=None,operation=None):
+                 name=None,type_name=None,material=None,operation=None,**v3):
+    from . import openings as OP
     d=metadata(entity)
     if not d or d.get('kind')!='opening':raise ValueError('Entidad no es una carpintería ARQ')
     wall=next((e for e in entity.doc.modelspace() if (metadata(e) or {}).get('id')==d['wall_id']),None)
@@ -158,8 +169,11 @@ def edit_opening(entity,*,offset=None,width=None,sill=None,height=None,
                           width if width is not None else d['width'],
                           sill if sill is not None else d['sill'],
                           height if height is not None else d['height'],
-                          d['type'],existing=d['id'],**{k:(v if v is not None else d.get(k,''))
-            for k,v in (('name',name),('type_name',type_name),('material',material),('operation',operation))})
+                          v3.get('type') or d['type'],existing=d['id'],
+                          **{k:(v if v is not None else d.get(k,''))
+            for k,v in (('name',name),('type_name',type_name),('material',material),('operation',operation))},
+                          **{k:(v3[k] if v3.get(k) is not None else d.get(k)) for k in OP.V3_KEYS
+                             if v3.get(k) is not None or d.get(k) is not None})
     if entity.dxftype()=='LWPOLYLINE':
         return EditArchitecturalCommand(entity,rec,points=opening_symbol(wall,rec))
     return EditArchitecturalCommand(entity,rec,position=(pt[0],pt[1],0.0))

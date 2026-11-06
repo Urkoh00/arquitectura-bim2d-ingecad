@@ -212,3 +212,35 @@ el dato principal es el **espesor total**.
   esquina: 5 × 5 cm).
 - Cadena completa probada: plano → `.arqbim` → IngeTrazo (8 elementos estancos) → IFC (0 errores
   con la corrección de `IfcSpace` propuesta).
+
+## v1.10.0-dev (6-11-2026) — carpinterías en muros y tabiques
+
+- **`CARPINTERIA`** (y `PUERTAARQ`, `VENTANAARQ`, `HUECOARQ`, que arrancan con ese tipo): un clic
+  en la **cara del muro o tabique hacia la que abre** inserta la carpintería; el muro se reconoce
+  por la línea pinchada, sin seleccionarlo antes. La orden sigue activa para la siguiente.
+  - **Tipos:** puerta de 1 o 2 hojas (hoja principal y segunda), ventana de N hojas con alféizar,
+    vierteaguas o ventanal, y hueco sin carpintería (vano).
+  - **Colocación:** libre (el clic es la jamba de la bisagra; el segundo clic da el sentido a lo
+    largo del muro y la cara a la que abre; Intro, hacia el lado más largo), **a distancia fija** de
+    la esquina más próxima del paramento, **centrada** en el paramento pinchado, **centrada en el de
+    la otra cara** y, en ventanas y huecos, **longitud máxima**. El paramento libre es el tramo de
+    cara entre encuentros; si no cabe, se dice cuánto mide y no se crea nada.
+  - **Cerco:** ancho de jamba (puerta 3 cm: el hueco es la hoja + 6 cm) y profundidad (0 =
+    automática: 15 cm en puertas y 5 cm en ventanas, nunca más que el muro; en un tabique ocupa su
+    espesor); enrasado con la cara a la que abre, centrado o con la otra cara.
+  - **B** cambia la bisagra y **S** el sentido de la última; pinchar una carpintería existente
+    **sustituye su modelo** conservando su identidad y su centro (y su ancho, si no se tecleó otro).
+- **Planta:** el contorno del muro se interrumpe en el hueco y se dibujan las **mochetas**. Puertas:
+  jambas del cerco, hoja y arco de giro; ventanas: marco, vidrio, divisiones de hojas y remate
+  exterior. Todo se deriva del registro y lo regenera `UNIONESARQ`; el portador del registro va en
+  la capa oculta de huecos y forma grupo de selección con su dibujo. Los recintos no se unen a
+  través de las puertas.
+- **Asociatividad:** mover el muro arrastra sus carpinterías; mover una carpintería cambia su
+  posición en el muro; copiarla a otro muro la aloja en él con identidad nueva; borrar el muro
+  borra sus carpinterías (deshacer las recupera). Registro de esquema 3; los de esquema 2 se
+  actualizan solos al regenerar.
+- **Exportación:** cada puerta o ventana es un `IfcDoor`/`IfcWindow` (con la identidad del
+  registro, alto y ancho totales, `Pset_DoorCommon`/`Pset_WindowCommon.IsExternal` y hojas, hoja,
+  cerco o antepecho y remate en `ARQ_IngeCAD`) que **rellena** el `IfcOpeningElement` de su muro.
+  Propuesta a IngeTrazo `0003` para escribir `IfcRelFillsElement`: con ella, cadena completa
+  (2 puertas, 1 ventana, 1 vano, 2 recintos) → IFC con 0 errores en IfcOpenShell (reglas EXPRESS).

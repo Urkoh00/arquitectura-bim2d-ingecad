@@ -18,6 +18,13 @@ def resolve_arch_entity(doc, picked):
     data=metadata(picked) or {}
     if data.get('kind') in ('wall','column','opening'):
         return picked, ''
+    if data.get('kind') in ('opening_symbol','column_detail'):
+        key,want=(('opening_id','opening') if data['kind']=='opening_symbol' else ('column_id','column'))
+        for entity in doc.doc.modelspace():
+            info=metadata(entity) or {}
+            if info.get('kind')==want and info.get('id')==data.get(key):
+                return entity, ''
+        return None, 'No se encuentra el elemento BIM original.'
     if data.get('kind') != 'junction_edge':
         return None, 'La entidad seleccionada no pertenece al plugin Arquitectura.'
     identifiers=list(data.get('wall_ids') or [])

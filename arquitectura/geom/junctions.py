@@ -381,13 +381,21 @@ def _seg_cross(a, b, c, d):
 
 # -- plan outline --------------------------------------------------------------------------
 
-def plan_outline(result):
+def plan_outline(result, cuts=None):
     """Visible plan lines: boundary of walls+columns, minus column edges
     (columns keep their own outline). Each segment carries its wall id(s):
-    [(a, b, [wall_id])]. Collinear pieces of the same wall are merged."""
+    [(a, b, [wall_id])]. Collinear pieces of the same wall are merged.
+
+    ``cuts`` {wall id: [polygon]}: the holes of its doors/windows. They are
+    removed from that wall only, so its faces stop at the hole and the
+    jambs («mochetas») appear; rooms and 3D keep the uncut footprint."""
     pieces, tags = [], []
+    cuts = cuts or {}
     for wid, g in result.walls.items():
-        for pc in g["pieces"]:
+        own = list(g["pieces"])
+        for poly in cuts.get(wid, ()):
+            own = P.subtract(own, P.ccw(list(poly)))
+        for pc in own:
             pieces.append(pc)
             tags.append(("wall", wid))
     for cid, poly in result.columns.items():

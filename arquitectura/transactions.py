@@ -50,6 +50,10 @@ def apply_architectural_change(ctx, change, *, kind='wall'):
         needed.insert(0, (PILLAR_LAYER, 4))
     if kind == 'space':
         needed.append(('ARQ-RECINTOS', 3))
+    if kind == 'opening':
+        from .architectural import OPENING_LAYER
+        from .openings import SYMBOL_LAYER
+        needed += [(OPENING_LAYER, 3), (SYMBOL_LAYER, 6)]
     commands = [NewLayerCommand(name, color=color)
                 for name, color in needed if name not in doc.doc.layers]
     commands += [change, DeferredCommand('ARQ encuentros derivados',

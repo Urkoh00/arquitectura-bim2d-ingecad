@@ -11,7 +11,7 @@ IngeCAD + plugin Arquitectura  ──.arqbim──▶  IngeTrazo (extensión)  �
        (planta 2D BIM)                          (modelo 3D)
 ```
 
-**Estado: experimental (v1.9.0-dev).** No usar todavía en proyectos reales.
+**Estado: experimental (v1.10.0-dev).** No usar todavía en proyectos reales.
 
 > Este repositorio es solo el plugin. No es un fork de IngeCAD ni de IngeTrazo, ni tiene
 > relación con los visores BIM del mismo autor
@@ -28,7 +28,7 @@ contorno en planta, el sólido estanco y las cantidades. IngeTrazo no recalcula 
 
 | Carpeta | Contenido |
 |---|---|
-| `arquitectura/` | El plugin de IngeCAD (comandos `MURO`, `PILAR`, `UNIONESARQ`, `EXPORTARBIM`, `ARQVALIDAR`…) |
+| `arquitectura/` | El plugin de IngeCAD (comandos `MURO`, `PILAR`, `CARPINTERIA`, `RECINTO`, `UNIONESARQ`, `EXPORTARBIM`, `ARQVALIDAR`…) |
 | `arquitectura/geom/` | Motor geométrico en Python puro: encuentros por nodos, polígonos, sólidos |
 | `ingetrazo_ext/` | Extensión de IngeTrazo que abre los `.arqbim` como grupos BIM etiquetados |
 | `tests/` | Pruebas automáticas (geometría contrastada con shapely, DXF reales, cargador real de IngeCAD) |

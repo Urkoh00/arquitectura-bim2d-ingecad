@@ -1,0 +1,61 @@
+From 7757686578bcfa8583b9eb8fe6bc86089e9443b0 Mon Sep 17 00:00:00 2001
+From: Urkoh00 <Urkoh00@users.noreply.github.com>
+Date: Fri, 6 Nov 2026 10:00:50 +0100
+Subject: [PATCH] ifc: IfcRelFillsElement for doors and windows that fill a
+ wall opening
+
+group.ifc['fills'] names the GlobalId of the IfcOpeningElement (listed in
+the host's group.ifc['openings']) that an IfcDoor/IfcWindow fills.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_017fBpUQNC2Xfc8fP2ZQTBto
+---
+ formats/ifc.py | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/formats/ifc.py b/formats/ifc.py
+index a1eaaa4..3520d5b 100644
+--- a/formats/ifc.py
++++ b/formats/ifc.py
+@@ -194,6 +194,8 @@ def save_ifc(scene, path, project_name: str = "IngeTrazo project") -> int:
+ 
+     element_ids = []
+     spaces_of = {}          # storey name -> IfcSpace ids
++    openings_by_guid = {}   # IfcOpeningElement GlobalId -> entity id
++    fills = []              # (door/window id, GlobalId of the opening it fills)
+     for obj in objects:
+         faces = obj.get("faces") or list(obj["group"].mesh.faces)
+         if not faces:
+@@ -248,6 +250,8 @@ def save_ifc(scene, path, project_name: str = "IngeTrazo project") -> int:
+             spaces_of.setdefault(storey_of(tag), []).append(elem)
+         else:
+             storeys[storey_of(tag)][1].append(elem)
++        if cls in ("IfcDoor", "IfcWindow") and tag.get("fills"):
++            fills.append((elem, str(tag["fills"])))
+ 
+         # Property sets given by the author tool: {"Pset_WallCommon": {...}}
+         for pset_name, props in (tag.get("psets") or {}).items():
+@@ -282,6 +286,7 @@ def save_ifc(scene, path, project_name: str = "IngeTrazo project") -> int:
+                             "$", "$", f"#{placement}", f"#{ops}", "$", ".OPENING.")
+             w.add("IFCRELVOIDSELEMENT", _s(ifc_guid()), "$", "$", "$",
+                   f"#{elem}", f"#{opening}")
++            openings_by_guid[og] = opening
+ 
+         # Per-class BaseQuantities (Qto_* naming): the takeoff numbers in
+         # the budget's own measures, straight in the file.
+@@ -303,6 +308,12 @@ def save_ifc(scene, path, project_name: str = "IngeTrazo project") -> int:
+         raise ValueError("No tagged BIM objects to export")
+     w.add("IFCRELAGGREGATES", _s(ifc_guid()), "$", "$", "$", f"#{building}",
+           "(" + ",".join(f"#{sid}" for sid, _e in storeys.values()) + ")")
++    # A door/window fills the opening of its host wall (IfcRelFillsElement):
++    # "group.ifc['fills']" names the GlobalId of that opening.
++    for elem, og in fills:
++        if og in openings_by_guid:
++            w.add("IFCRELFILLSELEMENT", _s(ifc_guid()), "$", "$", "$",
++                  f"#{openings_by_guid[og]}", f"#{elem}")
+     for name, elems in spaces_of.items():
+         w.add("IFCRELAGGREGATES", _s(ifc_guid()), "$", "$", "$", f"#{storeys[name][0]}",
+               "(" + ",".join(f"#{e}" for e in elems) + ")")
+-- 
+2.43.0
+
