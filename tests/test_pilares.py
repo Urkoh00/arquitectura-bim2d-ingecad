@@ -164,7 +164,8 @@ def test_giro_generico_actualiza_la_rotacion(plugin, tmp_path):
     assert s.meta(c)['rotation'] == pytest.approx(30.0)
     det = next(e for e in s.document.doc.modelspace() if (s.meta(e) or {}).get('kind') == 'column_detail')
     sec = SEC.column_geometry(s.meta(c)['center'], s.meta(c))['sections'][0]
-    assert [tuple(p) for p in det.get_points('xy')] == pytest.approx(sec)
+    got = [c for p in det.get_points('xy') for c in p[:2]]
+    assert got == pytest.approx([c for p in sec for c in p])
 
 
 def test_dos_upn_en_cajon(plugin, tmp_path):
