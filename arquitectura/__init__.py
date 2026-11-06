@@ -1368,7 +1368,11 @@ class AyudaArqTool(ArchitectureTool):
     def on_start(self):
         self.ctx.echo("=== Plugin Arquitectura v0.8 — comandos ===")
         self.ctx.echo("CAPASARQ / CAPASAUTO  — capas ARQ-*")
-        self.ctx.echo("MURO                  — muro doble línea continuo + 'P' puerta")
+        self.ctx.echo("MURO                  — muro BIM encadenado; I o F5 cambia la cara, G toma las propiedades de otro muro")
+        self.ctx.echo("                        terminar en la cara próxima de otro muro = T; en la alejada = L (lo recorta)")
+        self.ctx.echo("MUROPARALELO          — muro paralelo a una cara, a una distancia y en el lado indicado")
+        self.ctx.echo("ESTIRAMURO            — alarga o acorta un muro hasta una línea")
+        self.ctx.echo("PIVOTAMURO            — mueve un extremo de un muro")
         self.ctx.echo("PILAR                 — pilar rect/circ")
         self.ctx.echo("PUERTA / VENTANA / ARMARIO — carpinterías")
         self.ctx.echo("SUPERFICIE            — área m² + etiqueta")
@@ -1414,13 +1418,14 @@ def diagnostico_arq(ctx, *args):
     except (ValueError,KeyError,TypeError) as err:
         ctx.echo('DIAGNOSTICOARQ: '+str(err))
 
-TOOL_CLASSES = tuple(MuroV10Tool if t.name == "MURO" else PilarBimTool if t.name == "PILAR" else t for t in TOOL_CLASSES) + (CarpinteriaTool, VentanaArqTool, EditarArqTool, ArqPropiedadesTool)
+from .wall_tools import MuroCarasTool, MuroParaleloTool, EstiraMuroTool, PivotaMuroTool
+TOOL_CLASSES = tuple(MuroCarasTool if t.name == "MURO" else PilarBimTool if t.name == "PILAR" else t for t in TOOL_CLASSES) + (CarpinteriaTool, VentanaArqTool, EditarArqTool, ArqPropiedadesTool, MuroParaleloTool, EstiraMuroTool, PivotaMuroTool)
 
 def arqdiag(ctx, *args):
     """Diagnóstico sin mutar el dibujo y sin depender de PySide6."""
-    ctx.echo('ARQDIAG — Arquitectura 1.6.2-dev (motor de nodos, huella única 2D/3D, exportación .arqbim)')
+    ctx.echo('ARQDIAG — Arquitectura 1.7.0-dev (motor de nodos, huella única 2D/3D, exportación .arqbim)')
     try:
-        from .tools_v10 import MuroTool
+        from .wall_tools import MuroCarasTool as MuroTool
         ctx.echo(f'Herramienta MURO: {MuroTool.__module__}.{MuroTool.__name__}')
         ctx.echo(f'Documento activo: {document_of(ctx) is not None}')
         from . import bim_dialogs
@@ -1469,7 +1474,7 @@ def plugin_spec() -> PluginSpec:
         **extra,
         id="arquitectura",
         name="Arquitectura",
-        version="1.6.2-dev",
+        version="1.7.0-dev",
         description="Dibujo arquitectónico 2D con objetos BIM (muros, pilares, carpinterías) y exportación a IngeTrazo/IFC",
         tools={tool.name: tool for tool in (*TOOL_CLASSES, Muro3DTool, Hueco3DTool)},
         commands={"EXPORTARBIM": exportar_bim, "EXPORTARIGZ": exportar_igz, "CONFIGIGZ": configurar_igz, "DIAGNOSTICOARQ": diagnostico_arq, "ARQDIAG": arqdiag, "UNIONESARQ": unionesarq, "ARQVALIDAR": validar_arq, "ARQMIGRAR": migrar_arq, "PARAMETROSARQ": parametros_arq},
@@ -1480,6 +1485,9 @@ def plugin_spec() -> PluginSpec:
             SEPARATOR,
             Submenu("Construcción", (
                 MenuItem("Muro 2D arquitectónico", "MURO", icon=glyph / "muro.svg"),
+                MenuItem("Muro paralelo a una cara", "MUROPARALELO"),
+                MenuItem("Alargar o acortar muro hasta una línea", "ESTIRAMURO"),
+                MenuItem("Mover un extremo de muro", "PIVOTAMURO"),
                 MenuItem("Puerta vinculada", "PUERTAARQ", icon=glyph / "puerta.svg"),
                 MenuItem("Ventana vinculada", "VENTANAARQ", icon=glyph / "ventana.svg"),
                 MenuItem("Editar entidad arquitectónica", "EDITARARQ", icon=glyph / "editar.svg"),

@@ -87,3 +87,28 @@ pero sin muros BIM.
 - Pruebas: `tests/test_seleccion_grupos.py` (selección por grupos real de IngeCAD, COPY/MOVE
   reales, recinto fantasma, guardado en DXF, deshacer/rehacer). 95 correctas + 4 omitidas con
   IngeCAD oficial; 99 con el gancho de reactores.
+
+## v1.7.0-dev (6-11-2026) — Fase 2: dibujo de muros
+
+- **`MURO`**:
+  - **I** o **F5** cambia la cara por la que se dibuja (cuerpo del muro a un lado u otro de la
+    línea trazada). F5 funciona como tecla mientras `MURO` está activo; IngeCAD no la usa.
+  - **G** (iGual) toma espesor, altura, cota, referencia, tipo, material y planta de un muro
+    existente designado por su contorno.
+  - **Gesto T/L**: terminar el muro en la cara **próxima** de otro hace una T; terminar en la
+    cara **alejada** hace una L y recorta el otro muro, que conserva su parte más larga y su
+    identidad BIM. Sus carpinterías mantienen la posición; si el recorte eliminara una, la
+    esquina se rechaza con un aviso. Todo en un solo paso de deshacer.
+- **`MUROPARALELO`**: muro paralelo a una cara (o a cualquier línea) a una distancia dada, en
+  el lado que se indica; sus extremos se ajustan a las caras de los muros vecinos, también
+  oblicuos, para que formen T. Repetible.
+- **`ESTIRAMURO`**: alarga o acorta el extremo designado de un muro hasta una línea límite.
+- **`PIVOTAMURO`**: mueve un extremo de un muro; el otro queda fijo.
+- **Motor de encuentros** (fallo encontrado por las pruebas de esta fase):
+  - El centro del nodo es el cruce de los **ejes**, no el de las líneas de referencia. Con un
+    muro referido a su cara, la huella se partía con un solape.
+  - Dos extremos cuyos ejes terminan en el mismo punto forman una esquina aunque se hayan
+    dibujado por caras distintas (antes, a 45°, se tomaba por T).
+- Pruebas nuevas: `test_drafting.py` (46 casos de geometría contra el motor y shapely),
+  `test_wall_tools.py` (las herramientas con Document/History reales) y `test_f5_ventana.py`
+  (F5 en la ventana real de IngeCAD, en un proceso aparte).
