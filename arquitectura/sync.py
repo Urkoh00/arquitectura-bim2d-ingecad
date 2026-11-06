@@ -27,7 +27,7 @@ import uuid
 from .architectural import metadata
 
 GROUP_PREFIX = "ARQ_"
-KINDS = ("wall", "column", "opening")
+KINDS = ("wall", "column", "opening", "space")
 
 
 def _handle_key(entity):
@@ -65,6 +65,14 @@ def sync_changes(drawing, tol=1e-9):
             if m["kind"] == "wall" and not e.closed and len(pts) == 2 and "a" in m and "b" in m:
                 if math.dist(pts[0], m["a"][:2]) > tol or math.dist(pts[1], m["b"][:2]) > tol:
                     new["a"], new["b"] = list(pts[0]), list(pts[1])
+                    changed = True
+            elif m["kind"] == "space" and pts and m.get("ref_vertex") and m.get("seed"):
+                # the outline was moved/copied: its seed travels with it
+                dx = pts[0][0] - float(m["ref_vertex"][0])
+                dy = pts[0][1] - float(m["ref_vertex"][1])
+                if math.hypot(dx, dy) > tol:
+                    new["seed"] = [float(m["seed"][0]) + dx, float(m["seed"][1]) + dy]
+                    new["ref_vertex"] = list(pts[0])
                     changed = True
             elif m["kind"] == "column" and pts:
                 c = [sum(p[0] for p in pts) / len(pts), sum(p[1] for p in pts) / len(pts)]

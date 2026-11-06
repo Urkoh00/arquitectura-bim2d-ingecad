@@ -112,3 +112,23 @@ pero sin muros BIM.
 - Pruebas nuevas: `test_drafting.py` (46 casos de geometría contra el motor y shapely),
   `test_wall_tools.py` (las herramientas con Document/History reales) y `test_f5_ventana.py`
   (F5 en la ventana real de IngeCAD, en un proceso aparte).
+- **`RECINTO`** (espacios BIM básicos, véase `docs/DISENO_ESPACIOS.md`):
+  - Con un clic dentro de una estancia se crea un recinto `IfcSpace`: contorno exacto entre las
+    caras de muros y pilares, con los pilares exentos descontados como islas, y etiqueta con
+    nombre y superficie. Opciones antes del clic: Nombre, Altura y Uso.
+  - Es **asociativo**: guarda el punto interior y `UNIONESARQ` recalcula su contorno, superficie
+    y etiqueta cuando se mueven los muros. Copiar un recinto lleva su punto con él y le da
+    identidad nueva.
+  - Se rechaza, con un aviso, un clic dentro de un muro, en una estancia abierta o en una
+    estancia que ya es otro recinto. `ARQVALIDAR` avisa de recintos abiertos, duplicados o
+    desactualizados.
+  - Exportación: `IfcSpace` con `Qto_SpaceBaseQuantities` (Height, Gross/NetFloorArea,
+    Gross/NetPerimeter, Gross/NetVolume), `Pset_SpaceCommon` y `ARQ_Recinto`. En IngeTrazo van
+    en la capa `ARQ-RECINTOS`, apagada y semitransparente.
+  - **Muros exteriores automáticos:** `Pset_WallCommon.IsExternal` se calcula; es exterior el muro
+    que tiene una cara en el contorno exterior del edificio.
+  - Pendiente de las decisiones del usuario: criterio de superficie útil y altura (hoy, superficie
+    libre entre caras y altura = altura de muro por defecto, modificable).
+  - El exportador IFC actual de IngeTrazo contiene los `IfcSpace` en la planta en lugar de
+    agregarlos (errores de reglas IFC4). Corrección preparada en
+    `docs/propuestas_upstream/ingetrazo/0002-…`: con ella, el IFC de prueba da 0 errores.

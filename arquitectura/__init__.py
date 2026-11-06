@@ -1373,6 +1373,7 @@ class AyudaArqTool(ArchitectureTool):
         self.ctx.echo("MUROPARALELO          — muro paralelo a una cara, a una distancia y en el lado indicado")
         self.ctx.echo("ESTIRAMURO            — alarga o acorta un muro hasta una línea")
         self.ctx.echo("PIVOTAMURO            — mueve un extremo de un muro")
+        self.ctx.echo("RECINTO               — espacio BIM (IfcSpace) con un clic dentro de la estancia; sigue a los muros")
         self.ctx.echo("PILAR                 — pilar rect/circ")
         self.ctx.echo("PUERTA / VENTANA / ARMARIO — carpinterías")
         self.ctx.echo("SUPERFICIE            — área m² + etiqueta")
@@ -1418,8 +1419,8 @@ def diagnostico_arq(ctx, *args):
     except (ValueError,KeyError,TypeError) as err:
         ctx.echo('DIAGNOSTICOARQ: '+str(err))
 
-from .wall_tools import MuroCarasTool, MuroParaleloTool, EstiraMuroTool, PivotaMuroTool
-TOOL_CLASSES = tuple(MuroCarasTool if t.name == "MURO" else PilarBimTool if t.name == "PILAR" else t for t in TOOL_CLASSES) + (CarpinteriaTool, VentanaArqTool, EditarArqTool, ArqPropiedadesTool, MuroParaleloTool, EstiraMuroTool, PivotaMuroTool)
+from .wall_tools import MuroCarasTool, MuroParaleloTool, EstiraMuroTool, PivotaMuroTool, RecintoTool
+TOOL_CLASSES = tuple(MuroCarasTool if t.name == "MURO" else PilarBimTool if t.name == "PILAR" else t for t in TOOL_CLASSES) + (CarpinteriaTool, VentanaArqTool, EditarArqTool, ArqPropiedadesTool, MuroParaleloTool, EstiraMuroTool, PivotaMuroTool, RecintoTool)
 
 def arqdiag(ctx, *args):
     """Diagnóstico sin mutar el dibujo y sin depender de PySide6."""
@@ -1488,6 +1489,7 @@ def plugin_spec() -> PluginSpec:
                 MenuItem("Muro paralelo a una cara", "MUROPARALELO"),
                 MenuItem("Alargar o acortar muro hasta una línea", "ESTIRAMURO"),
                 MenuItem("Mover un extremo de muro", "PIVOTAMURO"),
+                MenuItem("Recinto (espacio BIM) por clic", "RECINTO"),
                 MenuItem("Puerta vinculada", "PUERTAARQ", icon=glyph / "puerta.svg"),
                 MenuItem("Ventana vinculada", "VENTANAARQ", icon=glyph / "ventana.svg"),
                 MenuItem("Editar entidad arquitectónica", "EDITARARQ", icon=glyph / "editar.svg"),

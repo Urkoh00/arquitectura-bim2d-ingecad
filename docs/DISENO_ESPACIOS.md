@@ -1,6 +1,6 @@
 # Diseño: espacios (recintos) BIM para cálculo energético
 
-Estado: **propuesta de diseño**, 6-11-2026. Aún no implementado.
+Estado (6-11-2026): **implementados los recintos básicos** en v1.7.0-dev (orden `RECINTO`: contorno, islas, superficie, perímetro, volumen, asociatividad por punto semilla, `IsExternal` de los muros). Pendientes: separaciones virtuales, límites de espacio de 1.º y 2.º nivel, suelos y techos, y las decisiones del final de este documento.
 
 ## Por qué importan
 

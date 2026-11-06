@@ -50,7 +50,7 @@ pip install -r ../ingecad/requirements.txt -r requirements-dev.txt
 python -m pytest -q
 ```
 
-Con IngeCAD oficial: 150 correctas y 4 omitidas (las 4 requieren el gancho de reactores propuesto
+Con IngeCAD oficial: 156 correctas y 4 omitidas (las 4 requieren el gancho de reactores propuesto
 en `docs/propuestas_upstream/ingecad/`). GitHub Actions las ejecuta en cada envío.
 
 ## Colaboración con IngeCAD e IngeTrazo

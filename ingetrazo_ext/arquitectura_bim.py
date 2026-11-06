@@ -51,9 +51,13 @@ def build_scene(data):
 
     levels = {lv["name"]: float(lv["elevation"]) for lv in data.get("levels", [])}
     scene = Scene()
-    layer_of = {"IfcWall": "ARQ-MUROS", "IfcColumn": "ARQ-PILARES"}
-    for name in sorted(set(layer_of.values())):
+    layer_of = {"IfcWall": "ARQ-MUROS", "IfcColumn": "ARQ-PILARES", "IfcSpace": "ARQ-RECINTOS"}
+    for name in ("ARQ-MUROS", "ARQ-PILARES"):
         scene.layers.append(Layer(name, color=(0.72, 0.72, 0.70)))
+    if any(el["ifc_class"] == "IfcSpace" for el in data["elements"]):
+        # rooms are volumes of air: off and translucent, so walls stay in view
+        scene.layers.append(Layer("ARQ-RECINTOS", visible=False, color=(0.55, 0.75, 0.95),
+                                  opacity=0.35))
     for el in data["elements"]:
         mesh = Mesh()
         for f in el["faces"]:

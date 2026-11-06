@@ -443,3 +443,127 @@ class PivotaMuroTool(_EndTool):
 
 
 TOOLS = (MuroCarasTool, MuroParaleloTool, EstiraMuroTool, PivotaMuroTool)
+
+
+# --- RECINTO -----------------------------------------------------------------------
+
+SPACE_LAYER = "ARQ-RECINTOS"
+
+
+def create_space(seed, room, *, name, number, height, base=0.0, level="Planta baja", use=""):
+    """AddEntityCommand of a space: closed outline + its BIM record (seed)."""
+    import uuid
+    from core.actions import AddEntityCommand
+    from .architectural import _xdata
+    rec = {"kind": "space", "schema": 1, "id": uuid.uuid4().hex, "ifc_class": "IfcSpace",
+           "seed": [float(seed[0]), float(seed[1])], "ref_vertex": list(room["outer"][0]),
+           "name": name, "number": str(number), "use": use, "level": level,
+           "base": float(base), "height": float(height), "area": room["area"],
+           "perimeter": room["perimeter"], "islands": [[list(q) for q in h] for h in room["holes"]]}
+
+    def factory(msp):
+        e = msp.add_lwpolyline([tuple(q) for q in room["outer"]], close=True)
+        return _xdata(msp, e, rec)
+    return AddEntityCommand("ARQ RECINTO", factory, layer=SPACE_LAYER), rec
+
+
+class RecintoTool(Tool):
+    """Space (room) by a click inside it; associative to the walls."""
+    name = "RECINTO"
+
+    def start(self):
+        self.name = type(self).name
+        from .parameters_arq import load_defaults
+        d = load_defaults(_document(self.ctx))["wall"]
+        self.height = float(d["height"])
+        self.level = d.get("level") or "Planta baja"
+        self.use = ""
+        self.next_name = None
+        self.pending = None
+        self._prompt()
+
+    def _prompt(self):
+        self.prompt("RECINTO: haga clic dentro de la estancia o [Nombre/Altura/Uso]:")
+
+    def _count(self):
+        return sum(1 for e in _document(self.ctx).doc.modelspace()
+                   if (metadata(e) or {}).get("kind") == "space")
+
+    def on_option(self, text):
+        raw = str(text).strip()
+        txt = raw.lower()
+        if self.pending:
+            key, self.pending = self.pending, None
+            if key == "name":
+                self.next_name = raw
+            elif key == "use":
+                self.use = raw
+            else:
+                try:
+                    v = float(txt.replace(",", "."))
+                    if not (math.isfinite(v) and v > 0):
+                        raise ValueError
+                    self.height = v
+                except ValueError:
+                    self.ctx.echo("Altura no válida.")
+            self._prompt()
+            return True
+        if txt in ("n", "nombre"):
+            self.pending = "name"
+            self.prompt("Nombre del recinto:")
+            return True
+        if txt in ("a", "altura"):
+            self.pending = "height"
+            self.prompt(f"Altura libre del recinto (m) <{self.height:g}>:")
+            return True
+        if txt in ("u", "uso"):
+            self.pending = "use"
+            self.prompt("Uso del recinto (p. ej. habitable, no habitable):")
+            return True
+        return False
+
+    def on_enter(self):
+        if self.pending:
+            self.pending = None
+            self._prompt()
+            return
+        self.ctx.finish()
+
+    def on_point(self, p):
+        from .exchange import read_model
+        from .geom import junctions as J
+        from .geom import spaces as SP
+        doc = _document(self.ctx).doc
+        records, columns, _ops, _issues = read_model(doc, strict=False)
+        result = J.solve(J.walls_from_records(records), [(cid, m["polygon"]) for cid, m in columns])
+        room, why = SP.space_at(result, p)
+        if room is None:
+            self.ctx.echo("RECINTO: " + ("el punto está dentro de un muro o pilar."
+                                         if why == "muro" else
+                                         "la estancia no está cerrada (falta un muro o una separación)."))
+            return
+        for e in doc.modelspace():
+            m = metadata(e) or {}
+            if m.get("kind") == "space" and m.get("seed"):
+                other, _w = SP.space_at(result, m["seed"])
+                if other is not None and other["outer"] == room["outer"]:
+                    self.ctx.echo(f"RECINTO: esa estancia ya es el recinto {m.get('name')}.")
+                    return
+        n = self._count() + 1
+        name = self.next_name or f"Recinto {n}"
+        self.next_name = None
+        cmd, rec = create_space(p, room, name=name, number=n, height=self.height,
+                                level=self.level, use=self.use)
+        try:
+            apply(self.ctx, "ARQ RECINTO", [cmd], kind="space")
+        except Exception as exc:  # noqa: BLE001
+            self.ctx.echo(f"RECINTO: {type(exc).__name__}: {exc}")
+            return
+        islas = f", {len(room['holes'])} isla(s) descontada(s)" if room["holes"] else ""
+        num = lambda v: f"{v:.2f}".replace(".", ",")  # noqa: E731
+        self.ctx.echo(f"RECINTO: {name}: {num(room['area'])} m², perímetro {num(room['perimeter'])} m"
+                      f"{islas}; altura {num(self.height)} m.")
+        self._prompt()
+
+
+TOOLS = TOOLS + (RecintoTool,)

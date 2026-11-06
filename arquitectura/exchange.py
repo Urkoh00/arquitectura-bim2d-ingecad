@@ -27,7 +27,7 @@ FORMAT = "arqbim"
 VERSION = 1
 _GUID_CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_$"
 
-PSET = {"IfcWall": "Pset_WallCommon", "IfcColumn": "Pset_ColumnCommon"}
+PSET = {"IfcWall": "Pset_WallCommon", "IfcColumn": "Pset_ColumnCommon", "IfcSpace": "Pset_SpaceCommon"}
 
 
 def ifc_guid(hex_id):
@@ -88,11 +88,23 @@ def read_model(drawing, tol=1e-5, strict=True):
     return walls, columns, openings, issues
 
 
+def read_spaces(drawing):
+    """[(id, metadata, entity)] of the drawing's spaces (rooms)."""
+    out = []
+    for e in drawing.modelspace():
+        m = metadata(e) or {}
+        if m.get("kind") == "space" and m.get("id") and m.get("seed"):
+            out.append((m["id"], dict(m), e))
+    return out
+
+
 def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD"):
     walls, columns, openings, issues = read_model(drawing)
     specs = J.walls_from_records(walls)
     result = J.solve(specs, [(cid, m["polygon"]) for cid, m in columns])
     issues += result.warnings
+    from .geom import spaces as SP
+    external = SP.external_walls(result)
     by_wall = {}
     for o in openings:
         by_wall.setdefault(o.get("wall_id"), []).append(o)
@@ -106,6 +118,10 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD"):
         faces, volume = S.wall_solid(geo["pieces"], spec.a, spec.u,
                                      float(m.get("base", 0.0)), float(m["height"]), ops)
         el = _element(ident, "IfcWall", m, faces, volume, geo["area"], level)
+        # envelope: a face on the outer boundary of the building (calculated)
+        el["psets"].setdefault("Pset_WallCommon", {})["IsExternal"] = ident in external
+        el["psets"]["ARQ_IngeCAD"]["IsExternalSource"] = "calculado"
+        el["is_external"] = ident in external
         el["footprint"] = [[list(map(list, o)), [list(map(list, h)) for h in hs]]
                            for o, hs in geo["loops"]]
         el["params"].update(a=list(spec.a), b=list(spec.b), thickness=spec.thickness,
@@ -135,6 +151,32 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD"):
         el["quantities"] = {"Length": float(m["height"]), "CrossSectionArea": volume / float(m["height"]),
                             "GrossVolume": volume, "NetVolume": volume}
         elements.append(el)
+    comps = SP.components(result) if columns or specs else []
+    for ident, m, ent in read_spaces(drawing):
+        level = m.get("level") or "Planta baja"
+        levels.setdefault(level, float(m.get("base", 0.0)))
+        room, why = SP.space_at(result, m["seed"], comps)
+        name = m.get("name") or "Recinto"
+        if room is None:
+            issues.append(f"Recinto {name}: " + ("su punto interior queda dentro de un muro o pilar"
+                          if why == "muro" else "no está cerrado") + "; no se exporta")
+            continue
+        base, height = float(m.get("base", 0.0)), float(m["height"])
+        faces, volume = S.wall_solid(room["pieces"], (0.0, 0.0), (1.0, 0.0), base, height, ())
+        el = _element(ident, "IfcSpace", m, faces, volume, room["area"], level)
+        el["psets"] = {"Pset_SpaceCommon": {k: v for k, v in (("Reference", m.get("number") or None),
+                                                               ("IsExternal", False)) if v is not None},
+                       "ARQ_Recinto": {k: v for k, v in (("Uso", m.get("use") or None),
+                                                         ("Acondicionado", m.get("conditioned")),
+                                                         ("SourceId", ident),
+                                                         ("CriterioSuperficie", "libre entre caras de muros y pilares"))
+                                       if v is not None}}
+        el["params"].update(seed=list(map(float, m["seed"])))
+        el["footprint"] = [[[list(q) for q in room["outer"]], [[list(q) for q in h] for h in room["holes"]]]]
+        el["quantities"] = {"Height": height, "GrossFloorArea": room["area"], "NetFloorArea": room["area"],
+                            "GrossPerimeter": room["perimeter"], "NetPerimeter": room["perimeter"],
+                            "GrossVolume": volume, "NetVolume": volume}
+        elements.append(el)
     return {
         "format": FORMAT, "version": VERSION, "units": "m",
         "generator": generator, "project": {"name": project},
@@ -154,7 +196,7 @@ def _faces_json(faces):
 
 
 def _element(ident, cls, m, faces, volume, plan_area, level):
-    name = m.get("name") or ("Muro" if cls == "IfcWall" else "Pilar")
+    name = m.get("name") or {"IfcWall": "Muro", "IfcColumn": "Pilar", "IfcSpace": "Recinto"}.get(cls, cls)
     material = m.get("material") or ""
     type_name = m.get("type_name") or ""
     psets = {PSET[cls]: {"Reference": type_name or None, "LoadBearing": None, "IsExternal": None}}

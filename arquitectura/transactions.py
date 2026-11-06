@@ -48,6 +48,8 @@ def apply_architectural_change(ctx, change, *, kind='wall'):
     if kind == 'column':
         from .columns import PILLAR_LAYER
         needed.insert(0, (PILLAR_LAYER, 4))
+    if kind == 'space':
+        needed.append(('ARQ-RECINTOS', 3))
     commands = [NewLayerCommand(name, color=color)
                 for name, color in needed if name not in doc.doc.layers]
     commands += [change, DeferredCommand('ARQ encuentros derivados',

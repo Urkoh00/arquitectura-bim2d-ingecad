@@ -25,7 +25,7 @@ from core.commands import Command
 
 from .architectural import _xdata, metadata
 
-KINDS = ("wall", "column")
+KINDS = ("wall", "column", "space")
 
 
 def _fingerprint(e):

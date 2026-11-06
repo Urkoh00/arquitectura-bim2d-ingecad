@@ -199,7 +199,9 @@ class RegenerateContoursCommand(Command):
        axes/columns update a/b/center) -- see ``sync.sync_changes``;
     2. solves the junctions and redraws the plan outline (ARQ-MUROS);
     3. rebuilds one selectable group per wall (axis + its plan lines), so a
-       pick on any visible line selects the whole wall.
+       pick on any visible line selects the whole wall;
+    4. recomputes every space (room) from its seed point: outline, area and
+       label follow the walls.
 
     Like IngeCAD's own ERASE, old lines are UNLINKED and kept, never
     destroyed: undo/redo put back the very same entities. That matters when
@@ -220,9 +222,63 @@ class RegenerateContoursCommand(Command):
         self.issues=[]
         self.new_count=0
         self.removed_handles=[]
-    def _current(self,msp):
+        self.space_edits=[]     # [(entity, old_meta, new_meta, old_pts, new_pts)]
+        self.added_labels=[]
+        self.space_count=0
+    def _current(self,msp,kind='junction_edge'):
         from .architectural import metadata
-        return [e for e in msp if (metadata(e) or {}).get('kind')=='junction_edge']
+        return [e for e in msp if (metadata(e) or {}).get('kind')==kind]
+    def _plan_spaces(self,document,result):
+        """Space outlines/areas from their seeds (first do only)."""
+        import copy
+        from .architectural import metadata
+        from .geom import spaces as SP
+        comps=SP.components(result)
+        seen={}
+        for e in self._current(document.doc.modelspace(),'space'):
+            m=metadata(e)
+            label=m.get('name') or 'Recinto'
+            room,why=SP.space_at(result,m['seed'],comps)
+            if room is None:
+                self.issues.append(f'Recinto {label}: '+('su punto interior queda dentro de un muro o pilar'
+                                   if why=='muro' else 'no está cerrado (falta un muro o una separación)')
+                                   +'; se conserva su contorno anterior')
+                continue
+            key=tuple(P_key(q) for q in room['outer'])
+            if key in seen:
+                self.issues.append(f'Recintos {seen[key]} y {label} ocupan la misma estancia')
+            seen.setdefault(key,label)
+            new=copy.deepcopy(m)
+            new.update(area=room['area'],perimeter=room['perimeter'],
+                       islands=[[list(q) for q in h] for h in room['holes']],
+                       ref_vertex=list(room['outer'][0]))
+            pts=[tuple(q) for q in room['outer']]
+            old_pts=[tuple(map(float,q)) for q in e.get_points('xy')]
+            if new!=m or old_pts!=pts:
+                self.space_edits.append((e,copy.deepcopy(m),new,old_pts,pts))
+        self.space_count=len(self._current(document.doc.modelspace(),'space'))
+    def _apply_spaces(self,document,which):
+        from .architectural import _xdata
+        msp=document.doc.modelspace()
+        items=self.space_edits if which=='new' else list(reversed(self.space_edits))
+        for e,old,new,old_pts,new_pts in items:
+            if not e.is_alive:
+                continue
+            e.set_points(new_pts if which=='new' else old_pts,format='xy')
+            e.closed=True
+            _xdata(msp,e,new if which=='new' else old)
+    def _new_labels(self,document):
+        from .architectural import metadata,_xdata
+        msp=document.doc.modelspace()
+        made=[]
+        for e in self._current(msp,'space'):
+            m=metadata(e)
+            text=f"{m.get('name') or 'Recinto'}  {float(m.get('area',0)):.2f} m²".replace('.',',')
+            t=msp.add_text(text,dxfattribs={'layer':e.dxf.layer,'height':0.20})
+            t.set_placement((float(m['seed'][0]),float(m['seed'][1])),align=_MIDDLE_CENTER())
+            _xdata(msp,t,{'kind':'space_label','schema':1,'space_id':m['id']})
+            made.append(t)
+        return made
     def _new_lines(self,msp,segments):
         from .architectural import _xdata
         made=[]
@@ -258,6 +314,7 @@ class RegenerateContoursCommand(Command):
             self.old_groups=SY.snapshot_groups(document.doc)
             self.old_layer_off=document.doc.layers.get(WALL_LAYER).is_off() if WALL_LAYER in document.doc.layers else False
             self.sync=[(e,copy.deepcopy(metadata(e)),new) for e,new in SY.sync_changes(document.doc)]
+            self.removed_labels=self._current(msp,'space_label')
         self._write_meta(document,'new')
         try:
             if first:
@@ -275,15 +332,21 @@ class RegenerateContoursCommand(Command):
                 if walls and not segments:
                     raise ValueError('No se obtuvo contorno exterior: se conserva la geometría original')
                 self.has_walls = bool(walls)
+                self._plan_spaces(document,result)
             from . import sync as SY
             SY.delete_groups(document.doc)
             for e in self.removed:
                 if e.is_alive and e.dxf.owner is not None:
                     msp.unlink_entity(e)
+            for e in self.removed_labels:
+                if e.is_alive and e.dxf.owner is not None:
+                    msp.unlink_entity(e)
+            self._apply_spaces(document,'new')
             if first:
                 self.added=self._new_lines(msp,segments)
+                self.added_labels=self._new_labels(document)
             else:
-                for e in self.added:
+                for e in self.added+self.added_labels:
                     msp.add_entity(e)
             self._group_lines(document)
             if self.has_walls and WALL_LAYER in document.doc.layers:
@@ -303,12 +366,13 @@ class RegenerateContoursCommand(Command):
         from . import sync as SY
         msp=self.space(document)
         SY.delete_groups(document.doc)
-        for e in self.added:
+        for e in self.added+self.added_labels:
             if e.is_alive and e.dxf.owner is not None:
                 msp.unlink_entity(e)
-        for e in self.removed or []:
+        for e in (self.removed or [])+getattr(self,'removed_labels',[]):
             if e.is_alive and e.dxf.owner is None:
                 msp.add_entity(e)
+        self._apply_spaces(document,'old')
         db=document.doc.entitydb
         for name,handles,desc in self.old_groups or []:
             SY.create_group(document.doc,name,[db.get(h) for h in handles],desc)
@@ -321,6 +385,15 @@ class RegenerateContoursCommand(Command):
         document.dirty=True
     def undo(self,document):
         self._revert(document)
+
+def P_key(q, nd=7):
+    return (round(float(q[0]), nd), round(float(q[1]), nd))
+
+
+def _MIDDLE_CENTER():
+    from ezdxf.enums import TextEntityAlignment
+    return TextEntityAlignment.MIDDLE_CENTER
+
 
 def regenerate_wall_outline(ctx):
     """Refresh joined wall boundary through normal IngeCAD undo history."""

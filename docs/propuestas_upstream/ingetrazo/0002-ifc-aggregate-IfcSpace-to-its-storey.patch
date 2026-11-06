@@ -1,0 +1,56 @@
+From 0024acecdf77b711bfe0560f9117c68da4f747bf Mon Sep 17 00:00:00 2001
+From: Urkoh00 <Urkoh00@users.noreply.github.com>
+Date: Fri, 6 Nov 2026 01:15:55 +0100
+Subject: [PATCH] ifc: aggregate IfcSpace to its storey instead of containing
+ it
+
+IfcRelContainedInSpatialStructure may not hold spatial elements (IFC4,
+WR31); a space decomposes its storey through IfcRelAggregates. Exporting
+a model with two IfcSpace gave 3 rule errors in IfcOpenShell; 0 after.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_017fBpUQNC2Xfc8fP2ZQTBto
+---
+ formats/ifc.py | 12 +++++++++++-
+ 1 file changed, 11 insertions(+), 1 deletion(-)
+
+diff --git a/formats/ifc.py b/formats/ifc.py
+index c0a9ade..a1eaaa4 100644
+--- a/formats/ifc.py
++++ b/formats/ifc.py
+@@ -193,6 +193,7 @@ def save_ifc(scene, path, project_name: str = "IngeTrazo project") -> int:
+     types: dict = {}
+ 
+     element_ids = []
++    spaces_of = {}          # storey name -> IfcSpace ids
+     for obj in objects:
+         faces = obj.get("faces") or list(obj["group"].mesh.faces)
+         if not faces:
+@@ -240,7 +241,13 @@ def save_ifc(scene, path, project_name: str = "IngeTrazo project") -> int:
+         attrs += ["$"] * (total - len(attrs))
+         elem = w.add(cls.upper(), *attrs)
+         element_ids.append(elem)
+-        storeys[storey_of(tag)][1].append(elem)
++        if cls == "IfcSpace":
++            # a space is a spatial element: it DECOMPOSES its storey
++            # (IfcRelAggregates); IfcRelContainedInSpatialStructure may not
++            # hold spatial elements (IFC4 rule WR31 of that relationship)
++            spaces_of.setdefault(storey_of(tag), []).append(elem)
++        else:
++            storeys[storey_of(tag)][1].append(elem)
+ 
+         # Property sets given by the author tool: {"Pset_WallCommon": {...}}
+         for pset_name, props in (tag.get("psets") or {}).items():
+@@ -296,6 +303,9 @@ def save_ifc(scene, path, project_name: str = "IngeTrazo project") -> int:
+         raise ValueError("No tagged BIM objects to export")
+     w.add("IFCRELAGGREGATES", _s(ifc_guid()), "$", "$", "$", f"#{building}",
+           "(" + ",".join(f"#{sid}" for sid, _e in storeys.values()) + ")")
++    for name, elems in spaces_of.items():
++        w.add("IFCRELAGGREGATES", _s(ifc_guid()), "$", "$", "$", f"#{storeys[name][0]}",
++              "(" + ",".join(f"#{e}" for e in elems) + ")")
+     for sid, elems in storeys.values():
+         if elems:
+             w.add("IFCRELCONTAINEDINSPATIALSTRUCTURE", _s(ifc_guid()), "$", "$",
+-- 
+2.43.0
+

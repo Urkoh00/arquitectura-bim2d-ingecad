@@ -59,9 +59,15 @@ def exportar_bim(ctx, *args):
         return None
     walls = sum(1 for e in data['elements'] if e['ifc_class'] == 'IfcWall')
     cols = sum(1 for e in data['elements'] if e['ifc_class'] == 'IfcColumn')
-    vol = sum(e['volume'] for e in data['elements'])
-    ctx.echo(f'EXPORTARBIM: {dest.name} — {walls} muros, {cols} pilares, '
-             f'volumen {vol:.3f} m³. Ábralo en IngeTrazo (extensión arquitectura_bim).')
+    spaces = sum(1 for e in data['elements'] if e['ifc_class'] == 'IfcSpace')
+    vol = sum(e['volume'] for e in data['elements'] if e['ifc_class'] in ('IfcWall', 'IfcColumn'))
+    rec = f', {spaces} recintos' if spaces else ''
+    ctx.echo(f'EXPORTARBIM: {dest.name} — {walls} muros, {cols} pilares{rec}, '
+             f'volumen construido {vol:.3f} m³. Ábralo en IngeTrazo (extensión arquitectura_bim).')
+    if spaces:
+        ctx.echo('  Nota: el exportador IFC actual de IngeTrazo coloca los recintos (IfcSpace) dentro de '
+                 'la planta en lugar de agregarlos a ella; IfcOpenShell lo marca como error de reglas '
+                 'IFC4. La corrección está preparada para proponerla a su desarrollador.')
     for issue in data['issues']:
         ctx.echo('  Aviso: ' + issue)
     return data

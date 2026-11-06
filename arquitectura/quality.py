@@ -80,6 +80,7 @@ def audit_architecture(document):
             if ident not in wall_ids:
                 issues.append(f'Contorno referido a muro inexistente: {ident}')
     issues += _outline_issues(drawing, sources, outlines)
+    issues += _space_issues(drawing)
     if any(e.dxftype()=='LWPOLYLINE' and e.closed for e,_ in sources):
         issues.append('Hay muros de versiones antiguas con geometría duplicada; ejecutar ARQMIGRAR')
     if sources and not outlines:
@@ -149,4 +150,40 @@ def _outline_issues(drawing, sources, outlines):
     if loose:
         out.append(f'{loose} muro(s) sin grupo de selección (al pinchar su contorno no se selecciona el muro): '
                    'ejecute UNIONESARQ')
+    return out
+
+
+def _space_issues(drawing):
+    """Spaces whose seed no longer lies in a closed room, or whose outline is
+    out of date with the walls (UNIONESARQ recomputes them)."""
+    spaces = [(e, d) for e in drawing.modelspace()
+              if (d := metadata(e)) and d.get('kind') == 'space']
+    if not spaces:
+        return []
+    from .exchange import read_model
+    from .geom import junctions as J
+    from .geom import spaces as SP
+    try:
+        records, columns, _ops, _issues = read_model(drawing, strict=False)
+        result = J.solve(J.walls_from_records(records),
+                         [(cid, m['polygon']) for cid, m in columns])
+        comps = SP.components(result)
+    except Exception as exc:  # noqa: BLE001
+        return [f'No se pudieron comprobar los recintos ({type(exc).__name__}: {exc})']
+    out, seen = [], {}
+    for e, d in spaces:
+        name = d.get('name') or 'Recinto'
+        room, why = SP.space_at(result, d.get('seed') or (0, 0), comps)
+        if room is None:
+            out.append(f'Recinto {name}: ' + ('su punto interior queda dentro de un muro o pilar'
+                       if why == 'muro' else 'no está cerrado (falta un muro o una separación)'))
+            continue
+        key = tuple(_segment_key(q, q)[0] for q in room['outer'])
+        if key in seen:
+            out.append(f'Recintos {seen[key]} y {name} ocupan la misma estancia')
+        seen.setdefault(key, name)
+        now = [(round(float(q[0]), 6), round(float(q[1]), 6)) for q in e.get_points('xy')]
+        want = [(round(float(q[0]), 6), round(float(q[1]), 6)) for q in room['outer']]
+        if now != want or abs(float(d.get('area', 0)) - room['area']) > 1e-6:
+            out.append(f'Recinto {name}: contorno o superficie desactualizados: ejecute UNIONESARQ')
     return out
