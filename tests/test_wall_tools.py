@@ -51,6 +51,14 @@ class Services:
             elif e.dxftype() == 'LWPOLYLINE':
                 pts = [tuple(p) for p in e.get_points('xy')]
                 segs = list(zip(pts, pts[1:] + (pts[:1] if e.closed else [])))
+            elif e.dxftype() == 'ARC':
+                c, r = e.dxf.center, e.dxf.radius
+                ang = math.degrees(math.atan2(point[1] - c.y, point[0] - c.x)) % 360
+                t0, t1 = e.dxf.start_angle % 360, e.dxf.end_angle % 360
+                inside = (t0 <= ang <= t1) if t0 <= t1 else (ang >= t0 or ang <= t1)
+                d = abs(math.dist(point, (c.x, c.y)) - r)
+                if inside and d <= radius and (best is None or d < best[0]):
+                    best = (d, e)
             for a, b in segs:
                 d = _dist(point, a, b)
                 if d <= radius and (best is None or d < best[0]):

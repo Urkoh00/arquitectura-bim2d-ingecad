@@ -40,6 +40,8 @@ def walls_in(drawing):
         m = metadata(e) or {}
         if m.get("kind") != "wall" or e.dxftype() != "LWPOLYLINE" or e.closed or len(e) != 2:
             continue
+        if float(m.get("bulge") or 0.0):
+            continue                      # curved: not a straight reference for the drawing aids
         a, b = [tuple(map(float, p)) for p in e.get_points("xy")]
         geo[m["id"]] = (a, b, float(m["thickness"]), m.get("reference", "eje"))
         ents[m["id"]] = e
@@ -59,6 +61,15 @@ def wall_from_pick(ctx, point):
     if entity is None or (metadata(entity) or {}).get("kind") != "wall":
         return None, None
     return entity, line_of(picked, point)
+
+
+def refuse_curved(ctx, tool, entity):
+    """True (and a message) when ``entity`` is a curved wall, which this
+    tool does not handle yet."""
+    if entity is not None and float((metadata(entity) or {}).get("bulge") or 0.0):
+        ctx.echo(f"{tool}: aún no trabaja con muros curvos (use CURVAMURO con 0 para enderezarlo).")
+        return True
+    return False
 
 
 def line_of(entity, point=None):
@@ -586,6 +597,8 @@ class _EndTool(Tool):
         if entity is None:
             self.ctx.echo(f"{self.name}: designe un muro (su contorno).")
             return False
+        if refuse_curved(self.ctx, self.name, entity):
+            return False
         m = metadata(entity)
         self.wall = entity
         self.end = D.nearest_end(m["a"], m["b"], p)
@@ -829,6 +842,8 @@ class BorraTramoTool(Tool):
         if entity is None:
             self.ctx.echo("BORRATRAMO: designe un muro por su contorno.")
             return
+        if refuse_curved(self.ctx, "BORRATRAMO", entity):
+            return
         f = _wall_frame(metadata(entity))
         sp, _o = f.local(p)
         cuts = crossing_params(entity, _document(self.ctx).doc)
@@ -860,6 +875,8 @@ class ParteMuroTool(Tool):
             entity, _line = wall_from_pick(self.ctx, p)
             if entity is None:
                 self.ctx.echo("PARTEMURO: designe un muro por su contorno.")
+                return
+            if refuse_curved(self.ctx, "PARTEMURO", entity):
                 return
             self.wall = entity
             self.prompt("PARTEMURO: primer punto del vano:")
@@ -898,6 +915,8 @@ class UnirMuroTool(Tool):
         entity, _line = wall_from_pick(self.ctx, p)
         if entity is None:
             self.ctx.echo("UNIRMURO: designe un muro por su contorno.")
+            return
+        if refuse_curved(self.ctx, "UNIRMURO", entity):
             return
         if self.first is None:
             self.first = entity

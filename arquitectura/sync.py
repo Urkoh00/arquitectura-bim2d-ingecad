@@ -66,6 +66,15 @@ def sync_changes(drawing, tol=1e-9):
                 if math.dist(pts[0], m["a"][:2]) > tol or math.dist(pts[1], m["b"][:2]) > tol:
                     new["a"], new["b"] = list(pts[0]), list(pts[1])
                     changed = True
+                # a curved axis keeps its curve as the polyline's bulge (a
+                # MIRROR reverses it): the drawing is the authority here too
+                bulge = float(e.get_points("xyb")[0][2])
+                if abs(bulge - float(m.get("bulge") or 0.0)) > 1e-9:
+                    if abs(bulge) > 1e-12:
+                        new["bulge"] = bulge
+                    else:
+                        new.pop("bulge", None)
+                    changed = True
             elif m["kind"] == "space" and pts and m.get("ref_vertex") and m.get("seed"):
                 # the outline was moved/copied: its seed travels with it
                 dx = pts[0][0] - float(m["ref_vertex"][0])

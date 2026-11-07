@@ -1372,6 +1372,13 @@ class AyudaArqTool(ArchitectureTool):
         self.ctx.echo("                        antes del primer punto, un número es el ESPESOR TOTAL (ofrece los tipos que lo tienen);")
         self.ctx.echo("                        T elige un tipo del catálogo (Termoarcilla, PYL, multicapa...; ver TIPOSMURO)")
         self.ctx.echo("                        terminar en la cara próxima de otro muro = T; en la alejada = L (lo recorta)")
+        self.ctx.echo("MUROCURVO             — muro curvo: punto inicial, punto final y punto de paso (o flecha en m);")
+        self.ctx.echo("                        encadena el siguiente desde el final; E/A/C/R como MURO")
+        self.ctx.echo("CURVAMURO             — curva un muro existente por un punto de paso o una flecha; 0 lo endereza;")
+        self.ctx.echo("                        sus extremos y encuentros se mantienen (hasta media circunferencia);")
+        self.ctx.echo("                        un muro con carpinterías no se curva: retírelas y vuelva a insertarlas")
+        self.ctx.echo("                        En un muro curvo las puertas y ventanas son planas, sobre la cuerda entre")
+        self.ctx.echo("                        sus jambas radiales; su ancho es el de la carpintería (la cuerda)")
         self.ctx.echo("MUROPARALELO          — distancia, línea base, lado y lado del espesor; un clic en vacío encadena otro")
         self.ctx.echo("ESTIRAMURO            — alarga o acorta un muro hasta un punto, una línea o la cara de otro muro (T/L)")
         self.ctx.echo("PIVOTAMURO            — mueve un extremo de un muro")
@@ -1446,13 +1453,14 @@ def diagnostico_arq(ctx, *args):
 from .wall_tools import MuroCarasTool, MuroParaleloTool, EstiraMuroTool, PivotaMuroTool, RecintoTool, DivideMuroTool, BorraTramoTool, ParteMuroTool, UnirMuroTool
 from .column_tools import PilarTool as PilarPerfilesTool
 from .convert_tools import LineasAMuroTool
+from .curve_tools import CurvaMuroTool, MuroCurvoTool
 from .opening_tools import (CarpinteriaTool as CarpinteriaArqTool, PuertaTool as PuertaArqTool,
                             VentanaTool as VentanaArqTool2, HuecoTool as HuecoArqTool)
-TOOL_CLASSES = tuple(MuroCarasTool if t.name == "MURO" else PilarPerfilesTool if t.name == "PILAR" else t for t in TOOL_CLASSES) + (LineasAMuroTool, CarpinteriaArqTool, PuertaArqTool, VentanaArqTool2, HuecoArqTool, EditarArqTool, ArqPropiedadesTool, MuroParaleloTool, EstiraMuroTool, PivotaMuroTool, RecintoTool, DivideMuroTool, BorraTramoTool, ParteMuroTool, UnirMuroTool)
+TOOL_CLASSES = tuple(MuroCarasTool if t.name == "MURO" else PilarPerfilesTool if t.name == "PILAR" else t for t in TOOL_CLASSES) + (LineasAMuroTool, MuroCurvoTool, CurvaMuroTool, CarpinteriaArqTool, PuertaArqTool, VentanaArqTool2, HuecoArqTool, EditarArqTool, ArqPropiedadesTool, MuroParaleloTool, EstiraMuroTool, PivotaMuroTool, RecintoTool, DivideMuroTool, BorraTramoTool, ParteMuroTool, UnirMuroTool)
 
 def arqdiag(ctx, *args):
     """Diagnóstico sin mutar el dibujo y sin depender de PySide6."""
-    ctx.echo('ARQDIAG — Arquitectura 1.12.0-dev (motor de nodos, huella única 2D/3D, exportación .arqbim)')
+    ctx.echo('ARQDIAG — Arquitectura 1.13.0-dev (motor de nodos, huella única 2D/3D, exportación .arqbim)')
     try:
         from .wall_tools import MuroCarasTool as MuroTool
         ctx.echo(f'Herramienta MURO: {MuroTool.__module__}.{MuroTool.__name__}')
@@ -1505,7 +1513,7 @@ def plugin_spec() -> PluginSpec:
         **extra,
         id="arquitectura",
         name="Arquitectura",
-        version="1.12.0-dev",
+        version="1.13.0-dev",
         description="Dibujo arquitectónico 2D con objetos BIM (muros, pilares, carpinterías) y exportación a IngeTrazo/IFC",
         tools={tool.name: tool for tool in (*TOOL_CLASSES, Muro3DTool, Hueco3DTool)},
         commands={"EXPORTARBIM": exportar_bim, "EXPORTARIGZ": exportar_igz, "CONFIGIGZ": configurar_igz, "DIAGNOSTICOARQ": diagnostico_arq, "ARQDIAG": arqdiag, "UNIONESARQ": unionesarq, "ARQVALIDAR": validar_arq, "ARQMIGRAR": migrar_arq, "PARAMETROSARQ": parametros_arq, "TIPOSMURO": tipos_muro, "SUPERFICIES": superficies, "USOSARQ": usos_arq},
@@ -1518,6 +1526,8 @@ def plugin_spec() -> PluginSpec:
             SEPARATOR,
             Submenu("Construcción", (
                 MenuItem("Muro 2D arquitectónico", "MURO", icon=glyph / "muro.svg"),
+                MenuItem("Muro curvo (inicio, fin y punto de paso)", "MUROCURVO", icon=glyph / "murocurvo.svg"),
+                MenuItem("Curvar o enderezar un muro", "CURVAMURO", icon=glyph / "curvamuro.svg"),
                 MenuItem("Muro paralelo a una cara", "MUROPARALELO", icon=glyph / "muroparalelo.svg"),
                 MenuItem("Alargar o acortar muro hasta una línea", "ESTIRAMURO", icon=glyph / "estiramuro.svg"),
                 MenuItem("Mover un extremo de muro", "PIVOTAMURO", icon=glyph / "pivotamuro.svg"),
@@ -1573,6 +1583,7 @@ def plugin_spec() -> PluginSpec:
         ),
         toolbar=(
             ToolbarItem("Muro", "MURO", icon=glyph / "muro.svg"),
+            ToolbarItem("Muro curvo", "MUROCURVO", icon=glyph / "murocurvo.svg"),
             ToolbarItem("Muro paralelo", "MUROPARALELO", icon=glyph / "muroparalelo.svg"),
             ToolbarItem("Alargar o acortar muro", "ESTIRAMURO", icon=glyph / "estiramuro.svg"),
             ToolbarItem("Convertir líneas en muros", "LINEASAMURO", icon=glyph / "lineasamuro.svg"),

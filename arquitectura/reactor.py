@@ -30,7 +30,7 @@ KINDS = ("wall", "column", "space")
 
 def _fingerprint(e):
     try:
-        return tuple(tuple(round(c, 9) for c in p) for p in e.get_points("xy")) + (e.closed,)
+        return tuple(tuple(round(c, 9) for c in p) for p in e.get_points("xyb")) + (e.closed,)
     except Exception:  # noqa: BLE001
         return None
 
@@ -80,6 +80,13 @@ class ArquitecturaReactor:
                     if math.dist(pts[0], m["a"]) > 1e-9 or math.dist(pts[1], m["b"]) > 1e-9:
                         m["a"], m["b"] = list(pts[0]), list(pts[1])
                         changed = True
+                    bulge = float(e.get_points("xyb")[0][2])
+                    if abs(bulge - float(m.get("bulge") or 0.0)) > 1e-9:
+                        if abs(bulge) > 1e-12:
+                            m["bulge"] = bulge
+                        else:
+                            m.pop("bulge", None)
+                        changed = True
                 elif m["kind"] == "column" and pts:
                     cx = sum(p[0] for p in pts) / len(pts)
                     cy = sum(p[1] for p in pts) / len(pts)
@@ -97,7 +104,7 @@ class ArquitecturaReactor:
 
 def _has_outline(document):
     for e in document.doc.modelspace():
-        if e.dxftype() == "LINE" and (metadata(e) or {}).get("kind") == "junction_edge":
+        if e.dxftype() in ("LINE", "ARC") and (metadata(e) or {}).get("kind") == "junction_edge":
             return True
     return False
 

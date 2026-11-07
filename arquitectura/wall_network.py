@@ -304,11 +304,13 @@ class RegenerateContoursCommand(Command):
                 before=olds.get(new['wall_id'],host)
                 same=before is not None and all(math.dist(p,q)<1e-6 for p,q in zip(pts,OP.carrier_points(before,new)))
                 if not same:
-                    mid=((pts[0][0]+pts[1][0])/2,(pts[0][1]+pts[1][1])/2)
                     best=None
                     for w in specs.values():
-                        s,o=w.local(mid)
-                        d=abs(o-(w.lo+w.hi)/2)
+                        # both ends of the carrier lie on the wall's middle line
+                        # (a chord of it on a curved wall)
+                        (sa,oa),(sb,ob)=w.local(pts[0]),w.local(pts[1])
+                        s=(sa+sb)/2
+                        d=max(abs(oa-(w.lo+w.hi)/2),abs(ob-(w.lo+w.hi)/2))
                         if d<=(w.hi-w.lo)/2+1e-6 and -1e-6<=s<=w.length+1e-6:
                             key=(0 if w.id==new['wall_id'] else 1,d)
                             if best is None or key<best[0]:
@@ -415,8 +417,13 @@ class RegenerateContoursCommand(Command):
     def _new_lines(self,msp,segments):
         from .architectural import _xdata
         made=[]
-        for a,b,ids in segments:
-            e=msp.add_line(a,b,dxfattribs={'layer':'ARQ-MUROS'})
+        for item in segments:
+            if item[0]=='arc':
+                _k,c,r,t0,t1,ids=item[:6]
+                e=msp.add_arc(c,r,t0,t1,dxfattribs={'layer':'ARQ-MUROS'})
+            else:
+                _k,a,b,ids=item
+                e=msp.add_line(a,b,dxfattribs={'layer':'ARQ-MUROS'})
             _xdata(msp,e,{'kind':'junction_edge','schema':3,'wall_ids':ids})
             made.append(e)
         return made
@@ -509,7 +516,7 @@ class RegenerateContoursCommand(Command):
                 self.result = result
                 walls = [w for w in result.walls.values() if w["area"] > 0]
                 self._plan_openings(document,records)
-                segments = J.plan_outline(result, self._opening_cuts())
+                segments = J.plan_items(result, self._opening_cuts())
                 if walls and not segments:
                     raise ValueError('No se obtuvo contorno exterior: se conserva la geometría original')
                 self.has_walls = bool(walls)

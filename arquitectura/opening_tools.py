@@ -310,7 +310,7 @@ class CarpinteriaTool(Tool):
         span, other, usable = OP.free_span(spec, segs.get(spec.id, []), s, side)
         if usable is None:
             raise ValueError("no se encuentra la cara libre del muro")
-        width = self._width()
+        width = OP.span_of(spec, self._width())       # along the wall (a curved one: its arc)
         if self.mode == "libre":
             if toward is None:
                 toward = 1 if usable[1] - s >= s - usable[0] else -1
@@ -329,7 +329,7 @@ class CarpinteriaTool(Tool):
         v = dict(self.v)
         v.update(offset=s0, width=width, hinge=hinge, side=side)
         if v["type"] == "door" and self.mode == "maxima":
-            v["leaf"] = width - 2 * v["frame_width"]
+            v["leaf"] = OP.chord_of(spec, width) - 2 * v["frame_width"]
         return v
 
     # --- actions -------------------------------------------------------------------
@@ -351,8 +351,10 @@ class CarpinteriaTool(Tool):
                            + " para itinerario accesible (DB-SUA: 0,80 y 0,78 m; depende del cerco real).")
                           .replace(".", ",", 2))
         what = {"door": "puerta insertada", "window": "ventana insertada", "gap": "hueco abierto"}[v["type"]]
+        real = OP.chord_of(spec, width)
         self.ctx.echo(f"CARPINTERIA: {what} en el muro "
-                      f"({width:.3f} m a {s0:.3f} m de su inicio).".replace(".", ",", 2))
+                      f"({real:.3f} m a {s0:.3f} m de su inicio".replace(".", ",", 2)
+                      + (", plana sobre la cuerda del muro curvo)." if spec.curved else ")."))
 
     def _edit(self, entity, changes, what):
         from .architectural_v10 import edit_opening
@@ -369,7 +371,9 @@ class CarpinteriaTool(Tool):
     def _replace(self, entity):
         """Current model on an existing opening: same identity and centre."""
         m = metadata(entity)
-        width = self._width() if (self.width_given or m.get("type") != self.v["type"]) else float(m["width"])
+        spec = self._model()[0].get(m.get("wall_id"))
+        width = (OP.span_of(spec, self._width()) if spec is not None else self._width()) \
+            if (self.width_given or m.get("type") != self.v["type"]) else float(m["width"])
         centre = float(m["offset"]) + float(m["width"]) / 2
         changes = {k: self.v[k] for k in OP.V3_KEYS if k in self.v and k not in ("side", "hinge")}
         changes.update(type=self.v["type"], offset=centre - width / 2, width=width,

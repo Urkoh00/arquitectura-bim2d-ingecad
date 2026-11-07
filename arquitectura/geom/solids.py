@@ -21,15 +21,22 @@ from . import polygon as P
 R = 9
 
 
-def _cells(pieces, wall_frame, base, height, openings):
-    """[(convex_polygon, [(z0, z1), ...])] for one wall."""
+def _cells(pieces, wall_frame, base, height, openings, spec=None):
+    """[(convex_polygon, [(z0, z1), ...])] for one wall (``spec``: the
+    junctions.Wall, needed for a curved wall: its jambs are radial)."""
     a, u = wall_frame
+    curved = getattr(spec, "curved", False)
     cuts = sorted({float(o["offset"]) for o in openings} |
                   {float(o["offset"]) + float(o["width"]) for o in openings})
     regions = list(pieces)
     for s in cuts:
-        p = (a[0] + u[0] * s, a[1] + u[1] * s)
-        d = (-u[1], u[0])                      # line across the axis
+        if curved:
+            p = spec.point(s, 0.0)
+            t = spec.tangent(s)
+            d = (-t[1], t[0])                  # the radius through the jamb
+        else:
+            p = (a[0] + u[0] * s, a[1] + u[1] * s)
+            d = (-u[1], u[0])                  # line across the axis
         nxt = []
         for reg in regions:
             left = P.clip_halfplane(reg, p, d)                 # s <= cut
@@ -40,7 +47,7 @@ def _cells(pieces, wall_frame, base, height, openings):
     for reg in regions:
         cx = sum(q[0] for q in reg) / len(reg)
         cy = sum(q[1] for q in reg) / len(reg)
-        s_mid = (cx - a[0]) * u[0] + (cy - a[1]) * u[1]
+        s_mid = spec.local((cx, cy))[0] if curved else (cx - a[0]) * u[0] + (cy - a[1]) * u[1]
         intervals = [(0.0, height)]
         for o in openings:
             s0 = float(o["offset"])
@@ -199,9 +206,9 @@ def _newell(loop):
     return (nx / ln, ny / ln, nz / ln), ln / 2.0
 
 
-def wall_solid(pieces, a, u, base, height, openings=()):
+def wall_solid(pieces, a, u, base, height, openings=(), spec=None):
     """(faces, exact_volume) of one wall from its junction footprint."""
-    cells = _cells(pieces, (a, u), float(base), float(height), list(openings))
+    cells = _cells(pieces, (a, u), float(base), float(height), list(openings), spec)
     vol = sum(P.area(reg) * (z1 - z0) for reg, (z0, z1) in cells)
     return boundary(cells), vol
 

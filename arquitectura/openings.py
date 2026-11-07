@@ -96,9 +96,12 @@ def normalise(rec):
         out["operation"] = ops[0]
     if typ == "door":
         out["leaves"] = 2 if out["leaves"] >= 2 else 1
-        clear = float(out["width"]) - 2 * float(out["frame_width"])
+        # on a curved wall the carpentry is planar: its width is the chord
+        # between the jambs (``chord``), the record's ``width`` runs along the wall
+        real = float(out.get("chord") or out["width"])
+        clear = real - 2 * float(out["frame_width"])
         if clear <= 0:
-            out["frame_width"], clear = 0.0, float(out["width"])
+            out["frame_width"], clear = 0.0, real
         if out["leaves"] == 1:
             out["leaf"], out["leaf2"] = clear, 0.0
         else:
@@ -157,6 +160,48 @@ def frame_band(spec, rec):
     return (spec.hi - depth, spec.hi) if toward_hi else (spec.lo, spec.lo + depth)
 
 
+# --- curved walls: the carpentry is planar, on the chord between the jambs ---------
+
+def span_of(spec, chord):
+    """Length along the wall's reference line of a planar carpentry of
+    width ``chord`` (the same on a straight wall)."""
+    if not getattr(spec, "curved", False):
+        return float(chord)
+    r = spec.r
+    if float(chord) >= 2 * r - 1e-9:
+        raise ValueError("la carpintería es más ancha que el diámetro del muro curvo")
+    return 2 * r * math.asin(float(chord) / (2 * r))
+
+
+def chord_of(spec, width):
+    """Planar width of a carpentry that takes ``width`` along the wall."""
+    if not getattr(spec, "curved", False):
+        return float(width)
+    return 2 * spec.r * math.sin(float(width) / (2 * spec.r))
+
+
+def proxy(spec, rec):
+    """(straight wall, record) on which a carpentry of a curved wall is drawn
+    and built: the chord between its jambs on the reference line, with the
+    band across the thickness that is wall at both jambs AND at mid span (a
+    planar frame must fit in the curved wall). A straight wall is returned
+    as it is."""
+    if not getattr(spec, "curved", False):
+        return spec, rec
+    from .geom.junctions import Wall
+    s0 = float(rec["offset"])
+    s1 = s0 + float(rec["width"])
+    a, b = spec.point(s0, 0.0), spec.point(s1, 0.0)
+    pw = Wall(spec.id, a, b, spec.thickness, spec.reference)
+    shift = pw.local(spec.point((s0 + s1) / 2, 0.0))[1]      # rise of the arc at mid span
+    lo, hi = pw.lo + max(0.0, shift), pw.hi + min(0.0, shift)
+    if hi - lo < 0.02:
+        raise ValueError("la carpintería es demasiado ancha para la curvatura del muro: "
+                         "no cabe un cerco plano en su espesor")
+    pw.lo, pw.hi = lo, hi
+    return pw, {**rec, "offset": 0.0, "width": math.dist(a, b)}
+
+
 def carrier_points(spec, rec):
     mid = (spec.lo + spec.hi) / 2
     s0 = float(rec["offset"])
@@ -164,10 +209,14 @@ def carrier_points(spec, rec):
 
 
 def cut_polygon(spec, rec, extra=1e-3):
-    """The hole in plan: the strip s0..s1 across the whole thickness."""
+    """The hole in plan: the strip s0..s1 across the whole thickness (on a
+    curved wall the jambs are radial and the faces arcs)."""
     s0 = float(rec["offset"])
     s1 = s0 + float(rec["width"])
     lo, hi = spec.lo - extra, spec.hi + extra
+    if getattr(spec, "curved", False):
+        return (spec.run(lo, spec.point(s0, lo), spec.point(s1, lo))
+                + spec.run(hi, spec.point(s1, hi), spec.point(s0, hi)))
     return [spec.point(s0, lo), spec.point(s1, lo), spec.point(s1, hi), spec.point(s0, hi)]
 
 
@@ -201,6 +250,8 @@ def plan_symbol(spec, rec):
     """Derived plan drawing of an opening, in world coordinates:
     [('line', p, q) | ('poly', [pts], closed) | ('arc', c, r, a0, a1)]."""
     rec = normalise(rec)
+    if getattr(spec, "curved", False):
+        return plan_symbol(*proxy(spec, rec))
     s0 = float(rec["offset"])
     s1 = s0 + float(rec["width"])
     pt = spec.point
@@ -277,8 +328,10 @@ def plan_symbol(spec, rec):
 
 def filling_box(spec, rec, base):
     """(s0, s1, f0, f1, z0, z1) of the door/window body (frame + leaves as
-    one solid filling the hole across the frame depth)."""
+    one solid filling the hole across the frame depth). On a curved wall the
+    values are on its ``proxy`` (the planar carpentry on the chord)."""
     rec = normalise(rec)
+    spec, rec = proxy(spec, rec)
     f0, f1 = frame_band(spec, rec)
     s0 = float(rec["offset"])
     z0 = float(base) + float(rec["sill"])

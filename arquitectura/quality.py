@@ -114,6 +114,21 @@ def _segment_key(a, b, nd=6):
     return (a, b) if a <= b else (b, a)
 
 
+def _item_key(it, nd=5):
+    if it[0] == 'arc':
+        _k, c, r, _t0, _t1, _ids, a, b = it
+        return ('arc', round(c[0], nd), round(c[1], nd), round(r, nd)) + _segment_key(a, b, nd)
+    return _segment_key(it[1], it[2])
+
+
+def _entity_key(e, nd=5):
+    if e.dxftype() == 'ARC':
+        c, r = e.dxf.center, float(e.dxf.radius)
+        a, b = e.start_point, e.end_point
+        return ('arc', round(c.x, nd), round(c.y, nd), round(r, nd)) + _segment_key((a.x, a.y), (b.x, b.y), nd)
+    return _segment_key((e.dxf.start.x, e.dxf.start.y), (e.dxf.end.x, e.dxf.end.y))
+
+
 def _outline_issues(drawing, sources, outlines):
     """Compare the plan lines in the drawing with the outline the current
     walls produce. Lines left over are what a COPY/MOVE of the visible lines
@@ -129,12 +144,12 @@ def _outline_issues(drawing, sources, outlines):
         specs = J.walls_from_records(records)
         result = J.solve(specs, [(cid, m['polygon']) for cid, m in columns])
         cuts = opening_cuts({w.id: w for w in specs}, ops)
-        expected = {_segment_key(a, b) for a, b, _w in J.plan_outline(result, cuts)}
+        expected = {_item_key(it) for it in J.plan_items(result, cuts)}
     except Exception as exc:  # noqa: BLE001
         return [f'No se pudo comprobar el contorno ({type(exc).__name__}: {exc})']
     present = {}
     for e, _d in outlines:
-        k = _segment_key((e.dxf.start.x, e.dxf.start.y), (e.dxf.end.x, e.dxf.end.y))
+        k = _entity_key(e)
         present[k] = present.get(k, 0) + 1
     extra = sum(n for k, n in present.items() if k not in expected) + \
         sum(n - 1 for k, n in present.items() if k in expected and n > 1)

@@ -30,7 +30,22 @@ def wall_corners(a, b, thickness, reference='eje'):
             (bx+nx*lo,by+ny*lo),(ax+nx*lo,ay+ny*lo)]
 
 
-def create_wall(a, b, thickness=0.15, height=2.7, base=0.0, reference='eje', **bim):
+def axis_points(rec):
+    """Vertices (x, y, bulge) of a wall's CAD axis: a curved wall keeps its
+    curve as the polyline's own bulge, so the drawing shows a true arc."""
+    bulge=float(rec.get('bulge') or 0.0)
+    return [(float(rec['a'][0]),float(rec['a'][1]),bulge),(float(rec['b'][0]),float(rec['b'][1]),0.0)]
+
+
+def check_curve(rec):
+    """Raise ValueError if the wall's curve cannot be built (too tight for
+    its thickness, more than half a circle)."""
+    if float(rec.get('bulge') or 0.0):
+        from .geom import junctions as J
+        J.walls_from_records([(rec.get('id') or 'muro',rec)])
+
+
+def create_wall(a, b, thickness=0.15, height=2.7, base=0.0, reference='eje', bulge=0.0, **bim):
     from core.actions import AddEntityCommand
     import uuid
     corners=wall_corners(a,b,thickness,reference)
@@ -39,11 +54,14 @@ def create_wall(a, b, thickness=0.15, height=2.7, base=0.0, reference='eje', **b
          'b':list(map(float,b[:2])),'thickness':float(thickness),
          'height':height,'base':base,'reference':reference,
          'ifc_class':'IfcWall',**{k:v for k,v in bim.items() if k in ('name','type_name','material','level','layers')}}
+    if abs(finite(bulge))>1e-9:
+        rec['bulge']=float(bulge)
+        check_curve(rec)
     def factory(msp):
         # Native CAD axis (as in Carreteras): single authoritative, open
-        # polyline. The visible wall footprint is derived, never a second
-        # independent source footprint. Earlier POINT walls remain readable.
-        e=msp.add_lwpolyline([rec['a'], rec['b']])
+        # polyline (with its bulge when curved). The visible wall footprint
+        # is derived, never a second independent source footprint.
+        e=msp.add_lwpolyline(axis_points(rec),format='xyb')
         return _xdata(msp,e,rec)
     return AddEntityCommand('ARQ MURO',factory,layer=WALL_LAYER)
 
@@ -62,7 +80,9 @@ def opening_record(wall, offset, width, sill, height, kind, existing=None, **bim
     typ=OP.kind_of(kind)
     if typ is None:
         raise ValueError('Tipo de carpintería no admitido')
-    length=math.dist(meta['a'],meta['b'])
+    from .geom import junctions as J
+    spec=J.walls_from_records([(meta['id'],meta)])[0]
+    length=spec.length
     offset=finite(offset);width=finite(width,True)
     sill=finite(sill);height=finite(height,True)
     if offset < -1e-8 or offset+width>length+1e-8:
@@ -74,13 +94,15 @@ def opening_record(wall, offset, width, sill, height, kind, existing=None, **bim
          'wall_id':meta['id'],'offset':offset,'width':width,'sill':sill,
          'height':height,'type':typ,
          **{k:v for k,v in bim.items() if k in ('name','type_name','material','operation')+OP.V3_KEYS}}
+    if spec.curved:
+        rec['chord']=OP.chord_of(spec,width)    # the planar carpentry between its jambs
+    else:
+        rec.pop('chord',None)
     rec=OP.normalise(rec)
     drawing=wall.doc
     openings=[p for p in _find_openings(drawing,meta['id']) if p.get('id')!=rec['id']]
     validate_wall({**meta,'openings':sorted(openings+[rec],key=lambda o:o['offset'])})
-    t=(offset+width/2)/length
-    pt=(meta['a'][0]+(meta['b'][0]-meta['a'][0])*t,
-        meta['a'][1]+(meta['b'][1]-meta['a'][1])*t)
+    pt=spec.point(offset+width/2,0.0)
     return rec,pt
 
 
@@ -127,11 +149,14 @@ class EditArchitecturalCommand:
         self.new_position=position
         self.old_record=copy.deepcopy(metadata(entity))
         if self.old_record is None:raise ValueError('Entidad sin datos ARQ')
-        self.old_points=list(entity.get_points('xy')) if entity.dxftype()=='LWPOLYLINE' else None
+        self.old_points=list(entity.get_points('xyb')) if entity.dxftype()=='LWPOLYLINE' else None
         self.old_position=tuple(entity.dxf.location) if entity.dxftype()=='POINT' else None
     def _apply(self,document,record,points,position):
         from .architectural import _xdata
-        if points is not None:self.entity.set_points(points,format='xy')
+        if points is not None:
+            pts=[tuple(p) for p in points]
+            fmt='xyb' if any(len(p)>2 for p in pts) else 'xy'
+            self.entity.set_points([p if fmt=='xy' or len(p)>2 else (*p[:2],0.0) for p in pts],format=fmt)
         if position is not None:self.entity.dxf.location=position
         _xdata(document.doc.modelspace(),self.entity,record)
         document.dirty=True
@@ -151,11 +176,12 @@ def edit_wall(entity,*,thickness=None,height=None,base=None,reference=None,
     for k,v in (('name',name),('type_name',type_name),('material',material),('level',level)):
         if v is not None:d[k]=str(v)
     pts=wall_corners(d['a'],d['b'],d['thickness'],d.get('reference','eje'))
+    check_curve(d)
     for hole in _find_openings(entity.doc,d['id']):
         validate_wall({**d,'openings':[hole]})
     if entity.dxftype() == 'POINT':
         return EditArchitecturalCommand(entity,d)
-    return EditArchitecturalCommand(entity,d,points=[d['a'],d['b']] if (entity.dxftype()=='LWPOLYLINE' and not entity.closed and len(entity)==2) else pts)
+    return EditArchitecturalCommand(entity,d,points=axis_points(d) if (entity.dxftype()=='LWPOLYLINE' and not entity.closed and len(entity)==2) else pts)
 
 
 def edit_opening(entity,*,offset=None,width=None,sill=None,height=None,

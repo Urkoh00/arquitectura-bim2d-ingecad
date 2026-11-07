@@ -55,6 +55,12 @@ def hwall(x0, x1, y, t=4, c=INK, ends=True):
 ICONS = {
     # MURO: an L of wall drawn by its faces, the pen at its end
     "muro": svg(path("M3 21 V3 H21 M7 21 V7 H21 M3 21 H7 M21 3 V7"), dot(21, 5)),
+    # MUROCURVO: a curved wall by its two concentric faces, the pen at its end
+    "murocurvo": svg(path("M3 21 A18 18 0 0 1 21 3 M7 21 A14 14 0 0 1 21 7 M3 21 H7 M21 3 V7"),
+                     dot(21, 5), dot(7.8, 9.3, 1.3, ACC)),
+    # CURVAMURO: a straight wall bent through a point
+    "curvamuro": svg(hwall(2, 22, 17, t=3.5), path("M2 13 Q12 1 22 13 M2 9 Q12 -3 22 9 M2 9 V13 M22 9 V13", ACC, 1.3),
+                     dot(12, 5, 1.6, ACC)),
     # MUROPARALELO: an existing wall and the new one parallel to its face
     "muroparalelo": svg(hwall(3, 21, 3), hwall(3, 21, 16, c=ACC), arrow(12, 8.5, 12, 14.5)),
     # ESTIRAMURO: a wall run up to a line

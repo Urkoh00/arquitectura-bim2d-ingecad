@@ -122,6 +122,10 @@ def collect(document):
 
 def validate_wall(w):
     length=math.dist(w['a'],w['b']); prev=0.0
+    bulge=float(w.get('bulge') or 0.0)
+    if bulge:                       # a curved wall: the length along its arc
+        sweep=4*math.atan(bulge)
+        length=length/(2*math.sin(abs(sweep)/2))*abs(sweep)
     finite(w['thickness'],True); finite(w['height'],True)
     for o in w.get('openings',[]):
         x=finite(o['offset']); width=finite(o['width'],True)

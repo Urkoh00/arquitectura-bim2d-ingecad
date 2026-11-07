@@ -2,6 +2,37 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.13.0-dev — 2026-11-07
+
+### Añadido
+- **Muros curvos.** Un muro curvo es el mismo muro BIM que uno recto, con su curvatura (`bulge`) en el
+  registro y en el eje CAD (un arco de polilínea). Sus caras son arcos concéntricos verdaderos.
+  - El motor de encuentros los resuelve con los mismos tres pasos que los rectos. Las esquinas se calculan
+    donde se cruzan de verdad las caras: recta con circunferencia o dos circunferencias. Valen para L, T
+    contra un muro curvo, cruces, nudos de tres muros y referencia por una cara.
+  - La huella se sigue en cuerdas de 1 mm como máximo. Planta, recintos, 3D e IFC usan los mismos polígonos.
+  - En planta las caras curvas se dibujan como arcos (ARC). ARQVALIDAR las compara igual que las rectas.
+  - Los recintos se cierran contra caras curvas, con su superficie.
+  - El IFC lleva la longitud desarrollada y, en los parámetros, el radio y el centro.
+  - **MUROCURVO** dibuja un muro curvo: punto inicial, punto final y punto de paso (o la flecha en metros).
+    Encadena el siguiente muro desde el final.
+  - **CURVAMURO** curva un muro existente por un punto de paso o una flecha. Con 0 lo endereza.
+    Sus extremos, y por tanto sus encuentros, no cambian.
+  - Una simetría u otra edición del eje en IngeCAD se recoge en UNIONESARQ y en el reactor: el dibujo manda.
+- **Carpinterías en muros curvos:** puertas, ventanas y huecos.
+  - El hueco tiene jambas radiales y caras curvas, en planta, en 3D y en el vacío IFC.
+  - La carpintería es plana y va sobre la cuerda entre sus jambas, dentro de la banda que es muro en las
+    jambas y en el centro. Si no cabe un cerco plano en el espesor, se avisa.
+  - El ancho que se pide es el de la carpintería (la cuerda); el registro guarda además su desarrollo
+    sobre el muro.
+- Iconos MUROCURVO y CURVAMURO; MUROCURVO entra en la barra.
+
+### Limitaciones conocidas
+- Hasta media circunferencia por muro: no hay muros circulares completos.
+- ESTIRAMURO, PIVOTAMURO, BORRATRAMO, PARTEMURO y UNIRMURO aún no trabajan con muros curvos (lo dicen
+  al designarlos). Un muro con carpinterías no se curva.
+- LINEASAMURO no reconoce todavía arcos como caras de muro.
+
 ## 1.12.0-dev — 2026-11-07
 
 ### Añadido

@@ -119,7 +119,7 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD"):
         ops = sorted(by_wall.get(ident, []), key=lambda o: float(o["offset"]))
         geo = result.walls[ident]
         faces, volume = S.wall_solid(geo["pieces"], spec.a, spec.u,
-                                     float(m.get("base", 0.0)), float(m["height"]), ops)
+                                     float(m.get("base", 0.0)), float(m["height"]), ops, spec)
         el = _element(ident, "IfcWall", m, faces, volume, geo["area"], level)
         # envelope: a face on the outer boundary of the building (calculated)
         el["psets"].setdefault("Pset_WallCommon", {})["IsExternal"] = ident in external
@@ -129,6 +129,8 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD"):
                            for o, hs in geo["loops"]]
         el["params"].update(a=list(spec.a), b=list(spec.b), thickness=spec.thickness,
                             reference=spec.reference)
+        if spec.curved:
+            el["params"].update(bulge=spec.bulge, center=list(spec.c), radius=spec.r)
         layers = m.get("layers") or []
         if layers:
             # from the drawn face (reference line) toward the body; for an IFC
@@ -148,8 +150,12 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD"):
         fillings = []
         for o in ops:
             o = OP.normalise(o)
-            box = S.opening_box(spec.a, spec.u, spec.n, spec.lo - 0.01, spec.hi + 0.01,
-                                o, float(m.get("base", 0.0)))
+            if spec.curved:          # the radial jambs and curved faces of the hole
+                box = S.prism_solid(OP.cut_polygon(spec, o, 0.01),
+                                    float(m.get("base", 0.0)) + float(o["sill"]), float(o["height"]))[0]
+            else:
+                box = S.opening_box(spec.a, spec.u, spec.n, spec.lo - 0.01, spec.hi + 0.01,
+                                    o, float(m.get("base", 0.0)))
             filled = o["type"] in ("door", "window")
             # the void is derived from the door/window: the door keeps the
             # record's identity, its hole gets a stable one of its own
@@ -331,6 +337,7 @@ def _filling(o, spec, wall_meta, level, void_guid, wall_id):
     from . import openings as OP
     base = float(wall_meta.get("base", 0.0))
     s0, s1, f0, f1, z0, z1 = OP.filling_box(spec, o, base)
+    spec, _o = OP.proxy(spec, o)          # a curved wall: the planar carpentry on its chord
     fake = {"offset": s0, "width": s1 - s0, "sill": z0 - base, "height": z1 - z0}
     faces = S.opening_box(spec.a, spec.u, spec.n, f0, f1, fake, base)
     cls = OP.IFC[o["type"]]
@@ -342,7 +349,7 @@ def _filling(o, spec, wall_meta, level, void_guid, wall_id):
     el["host"] = wall_id
     el["params"].update({k: o.get(k) for k in ("offset", "width", "sill", "leaves", "leaf", "leaf2",
                                               "side", "hinge", "face", "frame_width", "frame_depth",
-                                              "sill_kind")})
+                                              "sill_kind", "chord")})
     common = el["psets"].setdefault(PSET[cls], {})
     common["IsExternal"] = bool(wall_meta.get("_external"))
     arq = el["psets"]["ARQ_IngeCAD"]

@@ -26,6 +26,12 @@ Pipeline (each step explicit and testable):
    The loser is clipped. Result: footprints that tile without overlap, so
    areas and volumes add up and nothing is counted twice.
 
+Curved walls (``bulge`` ≠ 0) go through the same three steps: their
+faces are concentric circles, a corner is where two faces really cross (a
+line and a circle, or two circles: ``geom.curves``), and the footprint
+follows each curved face between its corners in chords of at most
+``curves.CHORD`` from the arc.
+
 Units are metres; the wall axis stored in BIM is never modified.
 """
 from __future__ import annotations
@@ -33,6 +39,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 
+from . import curves as CV
 from . import polygon as P
 
 DEFAULT_TOL = 1e-3          # m: same-point tolerance (1 mm)
@@ -58,32 +65,102 @@ class Wall:
     reference: str = "eje"
     priority: int = 0
     order: int = 0
+    bulge: float = 0.0
 
     def __post_init__(self):
         self.a = (float(self.a[0]), float(self.a[1]))
         self.b = (float(self.b[0]), float(self.b[1]))
         d = P.sub(self.b, self.a)
-        self.length = math.hypot(*d)
-        if self.length < 1e-6:
+        chord = math.hypot(*d)
+        if chord < 1e-6:
             raise ValueError(f"Muro {self.id}: extremos coincidentes")
-        self.u = (d[0] / self.length, d[1] / self.length)
+        self.u = (d[0] / chord, d[1] / chord)     # of the chord, for a curved wall
         self.n = (-self.u[1], self.u[0])
         self.lo, self.hi = offsets(self.thickness, self.reference)
+        self.bulge = float(self.bulge or 0.0)
+        if abs(self.bulge) < 1e-9:
+            self.bulge = 0.0
+            self.length = chord
+            return
+        if abs(self.bulge) > CV.MAX_BULGE + 1e-9:
+            raise ValueError(f"Muro {self.id}: curvatura mayor que media circunferencia")
+        self.c, self.r, self.t0, self.sweep = CV.arc_of(self.a, self.b, self.bulge)
+        self.d = 1.0 if self.bulge > 0 else -1.0
+        self.length = self.r * abs(self.sweep)
+        if min(self.r - self.d * self.lo, self.r - self.d * self.hi) <= 1e-6:
+            raise ValueError(f"Muro {self.id}: la curva es demasiado cerrada para su espesor")
+
+    @property
+    def curved(self):
+        return self.bulge != 0.0
+
+    def _angle(self, s):
+        return self.t0 + self.d * s / self.r
 
     def point(self, s, off):
-        return (self.a[0] + self.u[0] * s + self.n[0] * off,
-                self.a[1] + self.u[1] * s + self.n[1] * off)
+        if not self.bulge:
+            return (self.a[0] + self.u[0] * s + self.n[0] * off,
+                    self.a[1] + self.u[1] * s + self.n[1] * off)
+        t = self._angle(s)
+        rr = self.r - self.d * off
+        return (self.c[0] + rr * math.cos(t), self.c[1] + rr * math.sin(t))
 
     def local(self, p):
-        r = P.sub(p, self.a)
-        return P.dot(r, self.u), P.dot(r, self.n)
+        """(distance along the reference line, offset to its left)."""
+        if not self.bulge:
+            r = P.sub(p, self.a)
+            return P.dot(r, self.u), P.dot(r, self.n)
+        v = P.sub(p, self.c)
+        delta = self.d * (math.atan2(v[1], v[0]) - self.t0)
+        mid = abs(self.sweep) / 2.0
+        while delta <= mid - math.pi:
+            delta += 2 * math.pi
+        while delta > mid + math.pi:
+            delta -= 2 * math.pi
+        return delta * self.r, self.d * (self.r - math.hypot(*v))
+
+    def tangent(self, s):
+        if not self.bulge:
+            return self.u
+        t = self._angle(s)
+        return (-self.d * math.sin(t), self.d * math.cos(t))
+
+    def face(self, off):
+        """The face at ``off``: ("line", point, direction) | ("circle", centre, radius)."""
+        if not self.bulge:
+            return ("line", self.point(0.0, off), self.u)
+        return ("circle", self.c, self.r - self.d * off)
 
     def face_line(self, off):
         return self.point(0.0, off), self.u
 
+    def run(self, off, p, q, through=()):
+        """Points along the face ``off`` from p to q (both on it), ends
+        included, passing exactly through the ``through`` points that lie
+        between them (where the end of another wall meets this face)."""
+        if not self.bulge:
+            return [p, q]
+        rr = self.r - self.d * off
+        s0, s1 = self.local(p)[0], self.local(q)[0]
+        lo_s, hi_s = min(s0, s1), max(s0, s1)
+        stops = sorted((x for x in through if lo_s + 1e-7 < self.local(x)[0] < hi_s - 1e-7),
+                       key=lambda x: self.local(x)[0], reverse=s1 < s0)
+        out = [p]
+        for a, b in zip([p] + stops, stops + [q]):
+            ta = math.atan2(a[1] - self.c[1], a[0] - self.c[0])
+            tb = ta + self.d * (self.local(b)[0] - self.local(a)[0]) / self.r
+            seg = CV.run(self.c, rr, ta, tb)
+            out.extend(seg[1:-1])
+            out.append(b)
+        return out
+
     def strip(self):
-        return [self.point(0, self.lo), self.point(self.length, self.lo),
-                self.point(self.length, self.hi), self.point(0, self.hi)]
+        if not self.bulge:
+            return [self.point(0, self.lo), self.point(self.length, self.lo),
+                    self.point(self.length, self.hi), self.point(0, self.hi)]
+        right = self.run(self.lo, self.point(0, self.lo), self.point(self.length, self.lo))
+        left = self.run(self.hi, self.point(self.length, self.hi), self.point(0, self.hi))
+        return right + left
 
 
 @dataclass
@@ -102,6 +179,7 @@ class Result:
     tees: list = field(default_factory=list)
     clips: list = field(default_factory=list)
     warnings: list = field(default_factory=list)
+    specs: dict = field(default_factory=dict)      # id -> Wall
 
 
 def walls_from_records(records):
@@ -110,7 +188,7 @@ def walls_from_records(records):
     for i, (ident, info) in enumerate(records):
         out.append(Wall(ident, tuple(info["a"][:2]), tuple(info["b"][:2]),
                         float(info["thickness"]), info.get("reference", "eje") or "eje",
-                        int(info.get("join_priority", 0) or 0), i))
+                        int(info.get("join_priority", 0) or 0), i, float(info.get("bulge") or 0.0)))
     return out
 
 
@@ -136,11 +214,13 @@ def solve(walls, columns=(), tol=DEFAULT_TOL, min_angle=DEFAULT_MIN_ANGLE,
           miter_limit=DEFAULT_MITER_LIMIT):
     """Compute non-overlapping footprints. ``columns`` = [(id, polygon)]."""
     res = Result()
+    res.specs = {w.id: w for w in walls}
     sin_min = math.sin(math.radians(min_angle))
     ends = []
     for i, w in enumerate(walls):
-        ends.append(End(i, 0, w.a, w.u))
-        ends.append(End(i, 1, w.b, (-w.u[0], -w.u[1])))
+        t1 = w.tangent(w.length)
+        ends.append(End(i, 0, w.a, w.tangent(0.0)))
+        ends.append(End(i, 1, w.b, (-t1[0], -t1[1])))
 
     # ---- 1. topology -------------------------------------------------------------------
     dsu = _DSU(len(ends))
@@ -161,7 +241,7 @@ def solve(walls, columns=(), tol=DEFAULT_TOL, min_angle=DEFAULT_MIN_ANGLE,
             if ei.w == ej.w or dsu.find(i) == dsu.find(j):
                 continue
             wi, wj = walls[ei.w], walls[ej.w]
-            s = _sin(wi.u, wj.u)
+            s = _sin(ei.e, ej.e)
             if s < sin_min:
                 continue
             reach = (wi.thickness + wj.thickness) / s + tol
@@ -187,16 +267,19 @@ def solve(walls, columns=(), tol=DEFAULT_TOL, min_angle=DEFAULT_MIN_ANGLE,
                           "degree": len(members)})
 
     tee_host = {}
+    through = {}
     for k, en in enumerate(ends):
         if k in node_of:
             continue
         w = walls[en.w]
         best = None
         for v_i, v in enumerate(walls):
-            if v_i == en.w or _sin(w.u, v.u) < sin_min:
+            if v_i == en.w:
                 continue
             s, off = v.local(en.p)
             if not (v.lo - tol <= off <= v.hi + tol and -tol <= s <= v.length + tol):
+                continue
+            if _sin(en.e, v.tangent(min(max(s, 0.0), v.length))) < sin_min:
                 continue
             corners = _tee_corners(en, w, v, miter_limit)
             if corners is None:
@@ -207,6 +290,14 @@ def solve(walls, columns=(), tol=DEFAULT_TOL, min_angle=DEFAULT_MIN_ANGLE,
         if best is not None:
             _rank, v_i, (left, right) = best
             cap[(en.w, en.which)] = {"left": left, "right": right, "hub": []}
+            host = walls[v_i]
+            if host.curved:
+                # the host's curved face passes through the stem's corners, so
+                # that the stem stops exactly on it (no sliver beyond a chord)
+                s_h = min(max(host.local(en.p)[0], 0.0), host.length)
+                t = host.tangent(s_h)
+                far = host.lo if P.dot(en.e, (-t[1], t[0])) > 0 else host.hi
+                through.setdefault((v_i, far), []).extend([left, right])
             tee_host[(en.w, en.which)] = v_i
             res.tees.append({"wall": w.id, "end": en.which, "host": walls[v_i].id})
 
@@ -216,7 +307,8 @@ def solve(walls, columns=(), tol=DEFAULT_TOL, min_angle=DEFAULT_MIN_ANGLE,
         c0 = cap.get((i, 0)) or {"left": w.point(0, w.hi), "right": w.point(0, w.lo), "hub": []}
         c1 = cap.get((i, 1)) or {"left": w.point(w.length, w.hi),
                                  "right": w.point(w.length, w.lo), "hub": []}
-        poly = [c0["right"], c1["right"], *c1["hub"], c1["left"], c0["left"], *c0["hub"]]
+        poly = [*w.run(w.lo, c0["right"], c1["right"], through.get((i, w.lo), ())), *c1["hub"],
+                *w.run(w.hi, c1["left"], c0["left"], through.get((i, w.hi), ())), *c0["hub"]]
         poly = P.dedupe(poly)
         if len(poly) < 3 or P.area(poly) <= P.EPS_AREA or not _simple(poly):
             res.warnings.append(f"Muro {w.id}: encuentro degenerado, se usa corte recto")
@@ -281,23 +373,31 @@ def _node_point(members, walls, tol, sin_min):
         return pts[0]
     for x in range(len(members)):
         for y in range(x + 1, len(members)):
-            wx, wy = walls[members[x].w], walls[members[y].w]
-            if _sin(wx.u, wy.u) >= sin_min:
+            mx, my = members[x], members[y]
+            wx, wy = walls[mx.w], walls[my.w]
+            if _sin(mx.e, my.e) >= sin_min:
                 # The hub is where the AXES cross, never where the reference
                 # lines cross: with a face reference that point lies ON a
                 # face, the cap folds back along it and the footprint breaks
                 # (found 2026-11-06 with an L drawn by its faces).
-                q = P.line_intersection(wx.point(0, (wx.lo + wx.hi) / 2), wx.u,
-                                        wy.point(0, (wy.lo + wy.hi) / 2), wy.u)
+                q = P.line_intersection(_axis_end(mx, wx), mx.e, _axis_end(my, wy), my.e)
                 if q is not None:
                     return q
     return pts[0]
+
+
+def _axis_end(en, w):
+    return w.point(0.0 if en.which == 0 else w.length, (w.lo + w.hi) / 2)
 
 
 def _faces_in_end_frame(en, w, node):
     """(m, left_line_point, right_line_point) in the frame looking from the
     node INTO the wall body; left/right are the wall's own hi/lo faces."""
     e = en.e
+    if w.curved:
+        s_end = 0.0 if en.which == 0 else w.length
+        left_off, right_off = (w.hi, w.lo) if en.which == 0 else (w.lo, w.hi)
+        return e, w.point(s_end, left_off), w.point(s_end, right_off)
     m = (-e[1], e[0])                      # left of e
     c0 = P.dot(m, P.sub(w.a, node))        # axis offset from the node, along m
     # m == n at the start of the wall and m == -n at its end
@@ -322,7 +422,7 @@ def _node_corners(members, walls, node, miter_limit, cap):
         _ang2, en_j, w_j, e_j, _l, right_j = frames[(idx + 1) % n]
         if en_k is en_j:
             continue
-        q = P.line_intersection(left_k, e_k, right_j, e_j)
+        q = _corner(en_k, w_k, left_k, e_k, "left", en_j, w_j, right_j, e_j, node)
         limit = miter_limit * max(w_k.thickness, w_j.thickness)
         if q is None or math.dist(q, node) > limit:
             corner_left[id(en_k)] = left_k
@@ -340,20 +440,51 @@ def _node_corners(members, walls, node, miter_limit, cap):
             cap[(en.w, 1)] = {"left": rgt, "right": lft, "hub": [node]}
 
 
+def _end_face(en, w, side, point, e):
+    """The face of the end ``en`` on its ``side`` (in the end frame), as a
+    line through ``point`` along ``e`` or the wall's own circle."""
+    if not w.curved:
+        return ("line", point, e)
+    off = (w.hi if side == "left" else w.lo) if en.which == 0 else (w.lo if side == "left" else w.hi)
+    return w.face(off)
+
+
+def _corner(en_k, w_k, left_k, e_k, _side, en_j, w_j, right_j, e_j, node):
+    if not (w_k.curved or w_j.curved):
+        return P.line_intersection(left_k, e_k, right_j, e_j)
+    f = _end_face(en_k, w_k, "left", left_k, e_k)
+    g = _end_face(en_j, w_j, "right", right_j, e_j)
+    return CV.nearest(CV.intersect(f, g), node)
+
+
 def _tee_corners(en, w, host, miter_limit):
     """Extend the end of ``w`` to the far face of ``host`` (returned in the
     wall's u-frame as (left=hi, right=lo)), or None if too oblique."""
-    side = P.dot(en.e, host.n)
+    s_host = min(max(host.local(en.p)[0], 0.0), host.length)
+    t = host.tangent(s_host)
+    side = P.dot(en.e, (-t[1], t[0]))
     far = host.lo if side > 0 else host.hi
-    q0, d = host.face_line(far)
-    left = P.line_intersection(w.point(0, w.hi), w.u, q0, d)
-    right = P.line_intersection(w.point(0, w.lo), w.u, q0, d)
+    if not (w.curved or host.curved):
+        q0, d = host.face_line(far)
+        left = P.line_intersection(w.point(0, w.hi), w.u, q0, d)
+        right = P.line_intersection(w.point(0, w.lo), w.u, q0, d)
+    else:
+        s_end = 0.0 if en.which == 0 else w.length
+        hf = host.face(far)
+        left = CV.nearest(CV.intersect(_own_face(w, w.hi, s_end), hf), w.point(s_end, w.hi))
+        right = CV.nearest(CV.intersect(_own_face(w, w.lo, s_end), hf), w.point(s_end, w.lo))
     if left is None or right is None:
         return None
     limit = miter_limit * max(w.thickness, host.thickness)
     if math.dist(left, en.p) > limit + host.thickness or math.dist(right, en.p) > limit + host.thickness:
         return None
     return left, right
+
+
+def _own_face(w, off, s_end):
+    if w.curved:
+        return w.face(off)
+    return ("line", w.point(s_end, off), w.u)
 
 
 def _simple(poly):
@@ -380,6 +511,18 @@ def _seg_cross(a, b, c, d):
 
 
 # -- plan outline --------------------------------------------------------------------------
+
+def plan_items(result, cuts=None):
+    """The plan outline as it is drawn: ("line", a, b, ids) items, and the
+    chords of a curved face joined back into ("arc", centre, r, start°,
+    end°, ids, a, b) items (``curves.arcs_in``)."""
+    segments = plan_outline(result, cuts)
+    circles = {w.id: [(w.c, w.r - w.d * w.lo), (w.c, w.r - w.d * w.hi)]
+               for w in result.specs.values() if w.curved}
+    if not circles:
+        return [("line", a, b, ids) for a, b, ids in segments]
+    return CV.arcs_in(segments, circles)
+
 
 def plan_outline(result, cuts=None):
     """Visible plan lines: boundary of walls+columns, minus column edges
