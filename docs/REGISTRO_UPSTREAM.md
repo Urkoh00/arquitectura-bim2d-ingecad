@@ -37,10 +37,17 @@ El 6-11-2026 no había commits nuevos en ninguno de los dos.
 | T-02 | Carencia | El exportador IFC no usa las claves extra de `group.ifc` (GUID estable, planta, Psets, material, tipo, cantidades, huecos `IfcOpeningElement` + `IfcRelVoidsElement`) | [A] | **Enviada** [#1222](https://github.com/ingelibre/ingetrazo/issues/1222) (5-11-2026). Abierta, sin respuesta (6-11-2026) | `ingetrazo/0001-…` (parte `formats/ifc.py`) | Ninguno posible: sin el parche, el IFC pierde esa información |
 | T-03 | Error | `IfcSpace` se escribe dentro de `IfcRelContainedInSpatialStructure` en vez de agregarse a la planta con `IfcRelAggregates`: 3 errores de reglas IFC4 en IfcOpenShell con 2 recintos | [A] | Preparada | `ingetrazo/0002-…` | Aviso en `EXPORTARBIM` |
 | T-04 | Carencia | Las puertas y ventanas no se relacionan con su hueco (`IfcRelFillsElement`) | [A] | Preparada | `ingetrazo/0003-…` | Clave `group.ifc['fills']` ya exportada |
-| T-05 | Carencia | Los atributos enumerados se escriben siempre `$`: un falso techo no puede ser `IfcCovering .CEILING.` ni una puerta indicar `OperationType`, ni una ventana `PartitioningType` | [A] | Preparada | `ingetrazo/0004-…` | Clave `group.ifc['enums']` ya exportada; Pset `ARQ_IngeCAD` |
+| T-05 | Carencia | Los atributos enumerados se escriben siempre `$`: un falso techo no puede ser `IfcCovering .CEILING.` ni una puerta indicar `OperationType`, ni una ventana `PartitioningType`. Otra extensión, cad2ingetrazo, ya escribe `group.ifc['predefined']`, `['object_type']` y `['load_bearing']`, que el exportador ignora. **Antes de enviar hay que acordar unos nombres de clave comunes** (`predefined` frente a `enums`) | [A] | Preparada; nombres de clave por acordar | `ingetrazo/0004-…` | Clave `group.ifc['enums']` ya exportada; Pset `ARQ_IngeCAD` |
 | T-06 | Carencia | No se escriben capas de material (`IfcMaterialLayerSet` / `IfcMaterialLayerSetUsage`): un muro multicapa llega con un único material | [B] | Documentada | — | Pset `ARQ_Capas` con espesores y materiales |
 | T-07 | Carencia | No se escriben límites de espacio (`IfcRelSpaceBoundary`, 1.º/2.º nivel), útiles para el análisis térmico | [B] | Documentada | — | Recintos coplanarios con muros y falso techo, de los que pueden deducirse |
 | T-08 | Carencia | Solo se escriben tipos (`IfcRelDefinesByType`) para muro, pilar, losa, viga y miembro; puertas, ventanas y revestimientos quedan sin tipo (`_TYPE_CLASSES` en `formats/ifc.py`) | [B] | Documentada | — | Nombre del tipo en el Pset |
+
+### Otras extensiones de IngeTrazo con las mismas necesidades (estudio del 7-11-2026)
+
+- **cad2ingetrazo 3.x** (GPL-3.0-or-later): marca sus grupos con `group.ifc` (clase, nombre, `predefined`, `object_type`, `load_bearing`). No escribe `IfcSpace`, plantas ni huecos relacionados: le afectan T-02, T-03, T-04 y T-05.
+- **ArchXQ IT Lite 0.11** (GPL-3.0-or-later): guarda su modelo en `scene.plugin_data`, la ranura de datos que IngeTrazo reserva a cada extensión dentro del IGZ, y no marca clases IFC. Su IFC sale sin semántica BIM.
+
+Las correcciones propuestas son generales: servirían a todas las extensiones de arquitectura, no solo a este plugin. Es un argumento a favor cuando se presenten.
 
 ## IngeCAD
 
@@ -83,6 +90,7 @@ que `EraseCommand` guarde la pertenencia a grupos y la restaure en `undo`.
 
 ## Historial
 
+- **7-11-2026:** se estudian las extensiones ArchXQ IT Lite, cad2ingetrazo y BlackFox-CAD. T-05 queda pendiente de acordar los nombres de clave con lo que ya usa cad2ingetrazo.
 - **6-11-2026:** se crea el registro. Se añade C-02 (reproducido) y se comprueba que #1221 y #1222
   siguen sin respuesta.
 - **6-11-2026:** se preparan T-04 (v1.10.0) y T-05 (v1.10.2).
