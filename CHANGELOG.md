@@ -2,6 +2,26 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.12.0-dev — 2026-11-07
+
+### Añadido
+- **LINEASAMURO**: convierte las líneas de un plano antiguo (dos clics enmarcan la zona) en muros con su
+  espesor, y los huecos con giro o acristalamiento dibujados en puertas, ventanas o vanos, en un solo paso
+  de deshacer. Las líneas de origen pasan a la capa apagada ARQ-PLANO-ORIGEN (o se borran / conservan).
+  Lectura geométrica de `cad2ingetrazo` (GPL-3.0-or-later), incorporada sin cambios en `arquitectura/vendor/`.
+- **USOSARQ**: tres clasificaciones independientes del edificio: tipo para la certificación energética,
+  uso DB-HE (residencial / otros, con carga interna y horario) y uso DB-SI. Se exportan al proyecto IFC
+  y a cada espacio (`ARQ_Usos`).
+- Paso libre DB-SUA de cada puerta (≥ 0,80 m en el marco y ≥ 0,78 m abierta), en el eco al crearla y en el IFC.
+- Altura habitable por tipo de estancia: 2,50 m en general y 2,20 m en baños, aseos, vestíbulos, pasillos
+  y distribuidores (Decreto 10/2019, Anexo I).
+- La hoja de 925 mm se avisa como medida comercial (UNE 56803 normaliza 625, 725 y 825).
+- IngeTrazo: la definición arquitectónica completa viaja en `scene.plugin_data` y se conserva en el IGZ.
+- **Iconos nuevos** (25) para menús y barra de herramientas, dibujados como un plano: un muro son sus dos
+  caras, una puerta su hoja y su giro, un pilar un cuadrado aspado. Siguen la paleta de IngeCAD (trazo
+  claro, acento azul acero, amarillo solo para lo que se borra) y se generan con `scripts/iconos.py`.
+  La barra queda con 15 órdenes.
+
 ## Qué cambia
 
 1. **`geom/` (nuevo, Python puro, sin dependencias):**

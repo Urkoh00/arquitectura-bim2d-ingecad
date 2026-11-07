@@ -30,7 +30,13 @@ CRITERIA = {
         "min_free_height": 1.50,        # m: lower floor is not useful area
         "exterior_factor": 0.50,        # covered private exterior spaces
         "exterior_min_depth": 0.50,     # m
-        "habitable_height": 2.50,       # m (setting; see the decree's annex)
+        # Anexo I, apartado 2, 2.1.B (DOE 18/02/2019, checked by the user on
+        # 07/11/2026): 2,50 m; drops to 2,20 m on up to 40 % of each room
+        # (not modelled: one height per room); 100 % at 2,20 m in baños,
+        # aseos, vestíbulos y pasillos.
+        "habitable_height": 2.50,
+        "low_rooms_height": 2.20,
+        "low_rooms": ("baño", "bano", "aseo", "vestíbulo", "vestibulo", "pasillo", "distribuidor"),
     },
 }
 DEFAULT = "extremadura_2019"
@@ -100,8 +106,13 @@ def evaluate(meta, room, room_useful=None, crit=None):
                          "no computa".replace(".", ",", 1))
     if room_useful is not None and abs(useful - float(room["area"])) > 1e-9:
         notes.append("pilares o conductos de hasta 100 cm² no descontados")
+    words = f"{meta.get('name') or ''} {meta.get('use') or ''}".lower()
+    low_room = any(k in words for k in c.get("low_rooms", ()))
+    needed = c["low_rooms_height"] if low_room else c["habitable_height"]
+    if enclosure == "interior" and factor > 0 and height + 1e-9 < needed:
+        notes.append(f"altura libre por debajo de {needed:.2f} m: no es superficie útil habitable".replace(".", ","))
     return {"useful": useful, "factor": factor, "computable": useful * factor,
-            "habitable": enclosure == "interior" and factor > 0 and height + 1e-9 >= c["habitable_height"],
+            "habitable": enclosure == "interior" and factor > 0 and height + 1e-9 >= needed,
             "notes": notes, "criterion": c["label"]}
 
 
@@ -162,7 +173,10 @@ def superficies(ctx, *args):
     if totals["exterior_computable"]:
         ctx.echo(f"Espacios exteriores cubiertos (50 %): {_m2(totals['exterior_computable'])} m²")
     ctx.echo(f"Superficie útil computable: {_m2(totals['computable'])} m²")
-    ctx.echo(f"Superficie útil habitable (altura ≥ {_m2(criterion()['habitable_height'])} m): "
+    ctx.echo(f"Superficie útil habitable (altura ≥ {_m2(criterion()['habitable_height'])} m; "
+             f"≥ {_m2(criterion()['low_rooms_height'])} m en baños, aseos, vestíbulos y pasillos): "
              f"{_m2(totals['habitable'])} m²")
+    ctx.echo("Los descuelgues parciales hasta 2,20 m en el 40 % de una estancia no se modelan "
+             "(cada recinto tiene una sola altura).")
     ctx.echo("Escaleras interiores: aún no se modelan; descuéntelas si las hay.")
     return rows, totals

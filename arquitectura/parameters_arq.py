@@ -11,6 +11,8 @@ import math
 from core.commands import Command
 
 KEY = 'ARQUITECTURA_PARAMETROS'
+TIPOS_EDIFICIO_CEE = ('ViviendaUnifamiliar', 'BloqueDeViviendaCompleto', 'ViviendaIndividualEnBloque',
+                      'EdificioUsoTerciario', 'LocalUsoTerciario')
 DEFAULTS = {
     'schema': 1,
     'wall': {'thickness': 0.30, 'height': 2.70, 'base': 0.0,
@@ -21,6 +23,16 @@ DEFAULTS = {
                'type_name': 'Pilar genérico', 'material': 'Hormigón armado',
                'level': 'Planta baja'},
     'door': {'width': 0.90, 'height': 2.10, 'sill': 0.0},
+    # Three classifications that must not be mixed (user's notes 07/11/2026):
+    #   tipo_edificio_cee: <TipoDeEdificio> of the energy certificate XML
+    #     (ViviendaUnifamiliar, BloqueDeViviendaCompleto, ViviendaIndividualEnBloque,
+    #     EdificioUsoTerciario, LocalUsoTerciario; v2.1/v2.2, to check against v3.0);
+    #   uso_dbhe: «residencial privado» or «otros usos» (DB-HE, Anejo D), the
+    #     latter with load (baja/media/alta) and hours (8/12/16/24);
+    #   uso_dbsi: DB-SI use (Residencial Vivienda, Administrativo, Docente, ...),
+    #     never deduced from the other two.
+    'usos': {'tipo_edificio_cee': 'ViviendaUnifamiliar', 'uso_dbhe': 'residencial privado',
+             'carga_dbhe': '', 'horario_dbhe': '', 'uso_dbsi': 'Residencial Vivienda'},
     'window': {'width': 1.20, 'height': 1.20, 'sill': 1.00},
     # Wall types (IfcWallType). Each one is a list of layers, from the
     # DRAWN face (the reference line) toward the body of the wall; its
@@ -67,7 +79,7 @@ def load_defaults(document):
         payload = json.loads(saved)
         if not isinstance(payload, dict):
             raise ValueError('Configuración ARQ mal formada')
-        for key in ('wall','column','door','window'):
+        for key in ('wall','column','door','window','usos'):
             data = payload.get(key, {})
             if isinstance(data,dict):
                 result[key].update({k:v for k,v in data.items() if k in result[key]})
@@ -91,6 +103,14 @@ def validate_defaults(values):
             raise ValueError('Referencia de muro no válida')
         if d.get('shape','rect') not in ('rect','circ','hex','oct'):
             raise ValueError('Sección de pilar no válida')
+    u = values.get('usos')
+    if u and u.get('tipo_edificio_cee') not in TIPOS_EDIFICIO_CEE:
+        raise ValueError('Tipo de edificio del certificado no válido: ' + str(u.get('tipo_edificio_cee')))
+    if u and u.get('uso_dbhe') not in ('residencial privado', 'otros usos'):
+        raise ValueError('Uso DB-HE: «residencial privado» u «otros usos»')
+    if u and u.get('uso_dbhe') == 'otros usos':
+        if u.get('carga_dbhe') not in ('baja', 'media', 'alta') or str(u.get('horario_dbhe')) not in ('8', '12', '16', '24'):
+            raise ValueError('Otros usos DB-HE: carga baja/media/alta y horario 8/12/16/24 h')
     names = set()
     for t in values.get('wall_types', []):
         t = normalise_type(t)
@@ -314,3 +334,49 @@ def _is_number(text):
         return math.isfinite(v)
     except ValueError:
         return False
+
+
+def usos_arq(ctx, *args):
+    """USOSARQ: classification of the building (one undo step):
+      USOSARQ                                  shows it
+      USOSARQ edificio ViviendaUnifamiliar     <TipoDeEdificio> of the energy certificate
+      USOSARQ dbhe residencial                 DB-HE: residencial privado
+      USOSARQ dbhe otros media 12              DB-HE: otros usos, load and hours
+      USOSARQ dbsi Docente                     DB-SI / DB-SUA use (free text)"""
+    try:
+        current = load_defaults(ctx.document)
+        u = current['usos']
+        words = ' '.join(str(a) for a in args).split()
+        if not words:
+            ctx.echo('USOSARQ — clasificaciones independientes del edificio:')
+            ctx.echo(f"  Certificado energético <TipoDeEdificio>: {u['tipo_edificio_cee']}")
+            dbhe = u['uso_dbhe'] + (f", carga {u['carga_dbhe']}, {u['horario_dbhe']} h" if u['uso_dbhe'] == 'otros usos' else '')
+            ctx.echo(f'  DB-HE: {dbhe}')
+            ctx.echo(f"  DB-SI / DB-SUA: {u['uso_dbsi']}")
+            ctx.echo('  Cambiar: USOSARQ edificio <' + '|'.join(TIPOS_EDIFICIO_CEE) + '>, '
+                     'USOSARQ dbhe residencial | otros <baja|media|alta> <8|12|16|24>, USOSARQ dbsi <uso>')
+            return u
+        key, rest = words[0].lower(), words[1:]
+        new = copy.deepcopy(current)
+        nu = new['usos']
+        if key == 'edificio' and rest:
+            match = [t for t in TIPOS_EDIFICIO_CEE if t.lower() == rest[0].lower()]
+            if not match:
+                raise ValueError('valores admitidos: ' + ', '.join(TIPOS_EDIFICIO_CEE))
+            nu['tipo_edificio_cee'] = match[0]
+        elif key == 'dbhe' and rest:
+            if rest[0].lower().startswith('res'):
+                nu.update(uso_dbhe='residencial privado', carga_dbhe='', horario_dbhe='')
+            else:
+                if len(rest) < 3:
+                    raise ValueError('otros usos: indique carga (baja/media/alta) y horario (8/12/16/24)')
+                nu.update(uso_dbhe='otros usos', carga_dbhe=rest[1].lower(), horario_dbhe=rest[2])
+        elif key == 'dbsi' and rest:
+            nu['uso_dbsi'] = ' '.join(rest)
+        else:
+            raise ValueError('use USOSARQ edificio|dbhe|dbsi ...')
+        ctx.execute(SetArchitecturalDefaults(new))
+        ctx.echo('USOSARQ: clasificación guardada en este DXF; se exporta con el modelo BIM.')
+        return nu
+    except Exception as exc:
+        ctx.echo(f'USOSARQ: {type(exc).__name__}: {exc}')

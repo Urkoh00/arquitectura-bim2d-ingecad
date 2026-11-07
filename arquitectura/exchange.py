@@ -232,7 +232,9 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD"):
         room_u = SP.space_at(res_u, m["seed"])[0] if res_u is not None else None
         ev = SU.evaluate(m, room, room_u)
         exterior = (m.get("enclosure") or "interior") != "interior"
-        el["psets"] = {"Pset_SpaceCommon": {k: v for k, v in (("Reference", m.get("number") or None),
+        usos = _usos(drawing)
+        el["psets"] = {"ARQ_Usos": {k: v for k, v in usos.items() if k != "TipoDeEdificio"},
+                       "Pset_SpaceCommon": {k: v for k, v in (("Reference", m.get("number") or None),
                                                                ("IsExternal", exterior)) if v is not None},
                        "ARQ_Recinto": {k: v for k, v in (("Uso", m.get("use") or None),
                                                          ("Acondicionado", m.get("conditioned")),
@@ -258,7 +260,7 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD"):
             elements.append(_ceiling(ident, m, room, base + height, level))
     return {
         "format": FORMAT, "version": VERSION, "units": "m",
-        "generator": generator, "project": {"name": project},
+        "generator": generator, "project": {"name": project, **_usos(drawing)},
         "levels": [{"name": n, "elevation": z} for n, z in sorted(levels.items(), key=lambda kv: kv[1])],
         "elements": elements,
         "joins": {"nodes": [{"walls": n["walls"], "point": list(n["point"])} for n in result.nodes],
@@ -275,6 +277,19 @@ def _faces_json(faces):
 
 
 CEILING_THICKNESS = 0.015     # one plasterboard sheet
+
+
+def _usos(drawing):
+    """The building's three classifications (USOSARQ), never mixed."""
+    try:
+        from .parameters_arq import load_defaults
+        u = load_defaults(drawing)["usos"]
+    except Exception:  # noqa: BLE001
+        return {}
+    out = {"TipoDeEdificio": u["tipo_edificio_cee"], "UsoDBHE": u["uso_dbhe"], "UsoDBSI": u["uso_dbsi"]}
+    if u["uso_dbhe"] == "otros usos":
+        out.update(CargaInternaDBHE=u["carga_dbhe"], HorarioDBHE=u["horario_dbhe"] + " h")
+    return out
 
 
 def _ceiling(space_id, m, room, z, level):
@@ -337,6 +352,9 @@ def _filling(o, spec, wall_meta, level, void_guid, wall_id):
     arq["Apertura"] = OP.OPERATION_NAMES.get(o.get("operation"), "")
     arq["Ajuste"] = {"centrada": "medio"}.get(o.get("face"), o.get("face"))
     if o["type"] == "door":
+        frame, opened = OP.clear_width(o)
+        arq.update({"PasoLibreMarco": round(frame, 4), "PasoLibreAbierta": round(opened, 4),
+                    "ItinerarioAccesibleSUA": OP.sua_accessible(o)})
         arq.update({"Hojas": o["leaves"], "Hoja": round(o["leaf"], 4),
                     "Cerco": round(float(o["frame_width"]), 4)})
         if o["leaves"] == 2:

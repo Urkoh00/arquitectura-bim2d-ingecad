@@ -29,6 +29,9 @@ from pathlib import Path
 
 SUFFIX = ".arqbim"
 SUPPORTED = (1,)
+#: key of this extension's data in the document (``scene.plugin_data``):
+#: never the loader's file name, which the host would use by default
+DATA_KEY = "arquitectura"
 
 
 def read_contract(path):
@@ -38,6 +41,26 @@ def read_contract(path):
     if data.get("units") != "m":
         raise ValueError("Unidades no soportadas: %r" % data.get("units"))
     return data
+
+
+def definition(data, source=""):
+    """The architectural definition kept in the IGZ (``plugin_data``): every
+    element's identity, class, parameters, properties and relations, and the
+    building's classifications — everything but the faces, which are the
+    meshes themselves. JSON-safe, so IngeTrazo saves it with the document
+    and another tool can read the model without rebuilding it."""
+    keep = ("id", "guid", "ifc_class", "name", "storey", "type_name", "material", "params",
+            "psets", "quantities", "openings_ids", "fills", "host", "enums")
+    elements = []
+    for el in data.get("elements", []):
+        rec = {k: el[k] for k in keep if k in el}
+        if el.get("openings"):
+            rec["openings"] = [{k: o[k] for k in ("id", "guid", "name", "kind", "params") if k in o}
+                               for o in el["openings"]]
+        elements.append(rec)
+    return {"schema": 1, "format": data.get("format"), "version": data.get("version"),
+            "generator": data.get("generator"), "project": data.get("project"),
+            "levels": data.get("levels"), "source": str(source), "elements": elements}
 
 
 def build_scene(data):
@@ -99,6 +122,8 @@ def build_scene(data):
         record = {k: v for k, v in el.items() if k not in ("faces",)}
         g.ext = {"arquitectura": {"schema": 3, "source_id": el["id"], **record}}
         scene.groups.append(g)
+    scene.plugin_data = {DATA_KEY: {"models": {data.get("project", {}).get("name") or "modelo":
+                                                definition(data)}}}
     return scene
 
 
@@ -163,10 +188,18 @@ def to_igz(contract_path, igz_path):
 # -- inside IngeTrazo ----------------------------------------------------------------------
 
 def setup(app):
+    app.key = DATA_KEY              # our data under our own key, whatever file loaded us
+
     def open_arqbim(path):
         tmp = Path(tempfile.mkdtemp(prefix="arqbim_")) / (Path(path).stem + ".igz")
-        to_igz(path, tmp)
+        data, _scene, _report = to_igz(path, tmp)
         app.import_igz(tmp, at=(0.0, 0.0, 0.0))
+        # an inserted component does not bring its document data along: keep
+        # the definition in the open document (one more undo step)
+        stored = app.document_data({}) or {}
+        models = dict(stored.get("models") or {})
+        models[Path(path).stem] = definition(data, Path(path).name)
+        app.set_document_data({**stored, "models": models})
         return True
 
     def ask_and_open():

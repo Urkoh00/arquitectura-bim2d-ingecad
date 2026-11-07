@@ -184,6 +184,8 @@ class CarpinteriaTool(Tool):
         if key == "ancho":
             if v["type"] == "door" and t in OP.DOOR_LEAVES:
                 w = OP.DOOR_LEAVES[t]
+                if t in OP.COMMERCIAL_LEAVES:
+                    self.ctx.echo("CARPINTERIA: hoja de 925 mm: medida comercial, no recogida en la UNE 56803.")
             else:
                 w = _num(raw)
                 if w > 10:                             # typed in cm
@@ -340,6 +342,14 @@ class CarpinteriaTool(Tool):
         apply_architectural_change(self.ctx, cmd, kind="opening")
         self.last = getattr(cmd, "entity", None)
         self._cache = None
+        if v["type"] == "door" and self.last is not None:
+            rec = metadata(self.last) or {}
+            frame, opened = OP.clear_width(rec)
+            ok = OP.sua_accessible(rec)
+            self.ctx.echo((f"CARPINTERIA: paso libre {frame:.3f} m en el marco y {opened:.3f} m abierta: "
+                           + ("válida" if ok else "NO válida")
+                           + " para itinerario accesible (DB-SUA: 0,80 y 0,78 m; depende del cerco real).")
+                          .replace(".", ",", 2))
         what = {"door": "puerta insertada", "window": "ventana insertada", "gap": "hueco abierto"}[v["type"]]
         self.ctx.echo(f"CARPINTERIA: {what} en el muro "
                       f"({width:.3f} m a {s0:.3f} m de su inicio).".replace(".", ",", 2))

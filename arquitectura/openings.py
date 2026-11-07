@@ -37,13 +37,22 @@ FACES = ("interior", "centrada", "exterior")
 SILLS = ("alfeizar", "vierteaguas", "ventanal")
 SYMBOL_LAYER = "ARQ-CARPINTERIA"
 V3_KEYS = ("leaves", "leaf", "leaf2", "frame_width", "frame_depth", "side", "hinge",
-           "angle", "face", "sill_kind", "operation")
+           "angle", "face", "sill_kind", "operation", "leaf_thickness")
 # opening type (IFC names, as in the properties dialog)
 OPERATIONS = {"door": ("SWINGING", "SLIDING"), "window": ("SIDEHUNG", "SLIDING", "FIXED"), "gap": ("",)}
 OPERATION_NAMES = {"SWINGING": "abatible", "SLIDING": "corredera", "SIDEHUNG": "abatible",
                    "FIXED": "fija", "": ""}
-# usual single-leaf doors (leaf width, m): standard leaves 625/725/825/925 mm
+# usual single-leaf doors (leaf width, m): UNE 56803 interior leaves 625, 725
+# and 825 mm (entrance 825); 925 mm is a usual COMMERCIAL size, not in the
+# standard's table (user's notes, 07/11/2026)
 DOOR_LEAVES = {"62": 0.625, "72": 0.725, "82": 0.825, "92": 0.925}
+COMMERCIAL_LEAVES = {"92"}
+# DB-SUA, Anejo A, accessible route: clear width >= 0,80 m measured in the
+# frame, given by one leaf; at its widest opening, reduced by the leaf's
+# thickness, >= 0,78 m. Leaf thickness 35/40/45 mm (UNE 56803): 40 mm default.
+SUA_FRAME_MIN = 0.80
+SUA_OPEN_MIN = 0.78
+LEAF_THICKNESS = 0.040
 
 DEFAULTS = {
     "door": {"leaves": 1, "leaf": 0.825, "leaf2": 0.0, "frame_width": 0.03, "frame_depth": 0.0,
@@ -104,6 +113,26 @@ def normalise(rec):
     out["ifc_class"] = IFC[typ] if typ != "gap" else "IfcOpeningElement"
     out["schema"] = 3
     return out
+
+
+def clear_width(rec):
+    """(in the frame, at the widest opening) of a door, for DB-SUA: the
+    widest single leaf between the frame's jambs, and that less the leaf's
+    thickness when it swings (a sliding leaf leaves the frame free). The
+    real figures depend on the frame (rebates): the manufacturer's data
+    rule; ``frame_width`` and ``leaf_thickness`` let it be matched."""
+    rec = normalise(rec)
+    if rec["type"] != "door":
+        return None
+    frame = max(float(rec["leaf"]), float(rec.get("leaf2") or 0.0))
+    t = float(rec.get("leaf_thickness") or LEAF_THICKNESS)
+    opened = frame if rec.get("operation") == "SLIDING" else frame - t
+    return frame, opened
+
+
+def sua_accessible(rec):
+    cw = clear_width(rec)
+    return cw is not None and cw[0] + 1e-9 >= SUA_FRAME_MIN and cw[1] + 1e-9 >= SUA_OPEN_MIN
 
 
 def door_width(leaf, leaves=1, leaf2=0.0, frame_width=0.03):

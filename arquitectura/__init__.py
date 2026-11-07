@@ -1382,6 +1382,10 @@ class AyudaArqTool(ArchitectureTool):
         self.ctx.echo("                        F falso techo (altura libre bajo él; 0 = hasta el forjado),")
         self.ctx.echo("                        T tipo: interior / exterior cubierto (terraza, balcón, porche: 50 %)")
         self.ctx.echo("SUPERFICIES           — cuadro de superficies útiles (Decreto 10/2019 de Extremadura)")
+        self.ctx.echo("USOSARQ               — usos del edificio: certificado energético, DB-HE y DB-SI (por separado)")
+        self.ctx.echo("LINEASAMURO           — convierte las líneas de un plano antiguo en muros, puertas, ventanas y vanos:")
+        self.ctx.echo("                        dos clics enmarcan la zona; E espesores mín./máx., A altura,")
+        self.ctx.echo("                        O líneas de origen (ocultar en capa apagada / borrar / conservar)")
         self.ctx.echo("PILAR                 — S sección (0,30x0,30 · D0,35 · IPE/IPN/HEA/HEB/UPN · 2UPN cajon/empresillado),")
         self.ctx.echo("                        E enganche 1-9, G girar 90°, A autorrotación, P a distancia de dos paramentos,")
         self.ctx.echo("                        U de un paramento, C recubrimiento")
@@ -1441,13 +1445,14 @@ def diagnostico_arq(ctx, *args):
 
 from .wall_tools import MuroCarasTool, MuroParaleloTool, EstiraMuroTool, PivotaMuroTool, RecintoTool, DivideMuroTool, BorraTramoTool, ParteMuroTool, UnirMuroTool
 from .column_tools import PilarTool as PilarPerfilesTool
+from .convert_tools import LineasAMuroTool
 from .opening_tools import (CarpinteriaTool as CarpinteriaArqTool, PuertaTool as PuertaArqTool,
                             VentanaTool as VentanaArqTool2, HuecoTool as HuecoArqTool)
-TOOL_CLASSES = tuple(MuroCarasTool if t.name == "MURO" else PilarPerfilesTool if t.name == "PILAR" else t for t in TOOL_CLASSES) + (CarpinteriaArqTool, PuertaArqTool, VentanaArqTool2, HuecoArqTool, EditarArqTool, ArqPropiedadesTool, MuroParaleloTool, EstiraMuroTool, PivotaMuroTool, RecintoTool, DivideMuroTool, BorraTramoTool, ParteMuroTool, UnirMuroTool)
+TOOL_CLASSES = tuple(MuroCarasTool if t.name == "MURO" else PilarPerfilesTool if t.name == "PILAR" else t for t in TOOL_CLASSES) + (LineasAMuroTool, CarpinteriaArqTool, PuertaArqTool, VentanaArqTool2, HuecoArqTool, EditarArqTool, ArqPropiedadesTool, MuroParaleloTool, EstiraMuroTool, PivotaMuroTool, RecintoTool, DivideMuroTool, BorraTramoTool, ParteMuroTool, UnirMuroTool)
 
 def arqdiag(ctx, *args):
     """Diagnóstico sin mutar el dibujo y sin depender de PySide6."""
-    ctx.echo('ARQDIAG — Arquitectura 1.11.0-dev (motor de nodos, huella única 2D/3D, exportación .arqbim)')
+    ctx.echo('ARQDIAG — Arquitectura 1.12.0-dev (motor de nodos, huella única 2D/3D, exportación .arqbim)')
     try:
         from .wall_tools import MuroCarasTool as MuroTool
         ctx.echo(f'Herramienta MURO: {MuroTool.__module__}.{MuroTool.__name__}')
@@ -1487,6 +1492,7 @@ def plugin_spec() -> PluginSpec:
     glyph = Path(__file__).parent / "icons"
     from .quality import validar_arq
     from .superficies import superficies
+    from .parameters_arq import usos_arq
     from .bim_export import exportar_bim
     import dataclasses
     extra = {}
@@ -1499,36 +1505,38 @@ def plugin_spec() -> PluginSpec:
         **extra,
         id="arquitectura",
         name="Arquitectura",
-        version="1.11.0-dev",
+        version="1.12.0-dev",
         description="Dibujo arquitectónico 2D con objetos BIM (muros, pilares, carpinterías) y exportación a IngeTrazo/IFC",
         tools={tool.name: tool for tool in (*TOOL_CLASSES, Muro3DTool, Hueco3DTool)},
-        commands={"EXPORTARBIM": exportar_bim, "EXPORTARIGZ": exportar_igz, "CONFIGIGZ": configurar_igz, "DIAGNOSTICOARQ": diagnostico_arq, "ARQDIAG": arqdiag, "UNIONESARQ": unionesarq, "ARQVALIDAR": validar_arq, "ARQMIGRAR": migrar_arq, "PARAMETROSARQ": parametros_arq, "TIPOSMURO": tipos_muro, "SUPERFICIES": superficies},
+        commands={"EXPORTARBIM": exportar_bim, "EXPORTARIGZ": exportar_igz, "CONFIGIGZ": configurar_igz, "DIAGNOSTICOARQ": diagnostico_arq, "ARQDIAG": arqdiag, "UNIONESARQ": unionesarq, "ARQVALIDAR": validar_arq, "ARQMIGRAR": migrar_arq, "PARAMETROSARQ": parametros_arq, "TIPOSMURO": tipos_muro, "SUPERFICIES": superficies, "USOSARQ": usos_arq},
         menu=(
-            MenuItem("Parámetros iniciales de Arquitectura...", "PARAMETROSARQ"),
-            MenuItem("Tipos de muro (espesor total y capas)...", "TIPOSMURO"),
+            MenuItem("Parámetros iniciales de Arquitectura...", "PARAMETROSARQ", icon=glyph / "parametros.svg"),
+            MenuItem("Tipos de muro (espesor total y capas)...", "TIPOSMURO", icon=glyph / "tiposmuro.svg"),
+            MenuItem("Usos del edificio (certificado energético, DB-HE, DB-SI)...", "USOSARQ", icon=glyph / "usos.svg"),
             MenuItem("Crear capas ARQ", "CAPASARQ"),
             MenuItem("Distribuir en capas", "CAPASAUTO"),
             SEPARATOR,
             Submenu("Construcción", (
                 MenuItem("Muro 2D arquitectónico", "MURO", icon=glyph / "muro.svg"),
-                MenuItem("Muro paralelo a una cara", "MUROPARALELO"),
-                MenuItem("Alargar o acortar muro hasta una línea", "ESTIRAMURO"),
-                MenuItem("Mover un extremo de muro", "PIVOTAMURO"),
-                MenuItem("Dividir un tramo en partes iguales con muros", "DIVIDEMURO"),
-                MenuItem("Borrar un tramo de muro (entre cruces)", "BORRATRAMO"),
-                MenuItem("Abrir un vano en un muro (partirlo)", "PARTEMURO"),
-                MenuItem("Unir dos muros alineados", "UNIRMURO"),
-                MenuItem("Recinto (espacio BIM) por clic", "RECINTO"),
+                MenuItem("Muro paralelo a una cara", "MUROPARALELO", icon=glyph / "muroparalelo.svg"),
+                MenuItem("Alargar o acortar muro hasta una línea", "ESTIRAMURO", icon=glyph / "estiramuro.svg"),
+                MenuItem("Mover un extremo de muro", "PIVOTAMURO", icon=glyph / "pivotamuro.svg"),
+                MenuItem("Dividir un tramo en partes iguales con muros", "DIVIDEMURO", icon=glyph / "dividemuro.svg"),
+                MenuItem("Borrar un tramo de muro (entre cruces)", "BORRATRAMO", icon=glyph / "borratramo.svg"),
+                MenuItem("Abrir un vano en un muro (partirlo)", "PARTEMURO", icon=glyph / "partemuro.svg"),
+                MenuItem("Unir dos muros alineados", "UNIRMURO", icon=glyph / "unirmuro.svg"),
+                MenuItem("Convertir líneas de un plano en muros y huecos", "LINEASAMURO", icon=glyph / "lineasamuro.svg"),
+                MenuItem("Recinto (espacio BIM) por clic", "RECINTO", icon=glyph / "recinto.svg"),
                 MenuItem("Puerta vinculada", "PUERTAARQ", icon=glyph / "puerta.svg"),
                 MenuItem("Ventana vinculada", "VENTANAARQ", icon=glyph / "ventana.svg"),
-                MenuItem("Hueco (vano)", "HUECOARQ"),
-                MenuItem("Carpintería (puertas, ventanas, huecos)", "CARPINTERIA"),
+                MenuItem("Hueco (vano)", "HUECOARQ", icon=glyph / "hueco.svg"),
+                MenuItem("Carpintería (puertas, ventanas, huecos)", "CARPINTERIA", icon=glyph / "carpinteria.svg"),
                 MenuItem("Editar entidad arquitectónica", "EDITARARQ", icon=glyph / "editar.svg"),
-                MenuItem("Propiedades BIM del elemento", "PROPIEDADESARQ", icon=glyph / "editar.svg"),
-                MenuItem("Regenerar uniones de muros y pilares", "UNIONESARQ"),
-                MenuItem("Diagnosticar encuentros", "DIAGNOSTICOARQ"),
-                MenuItem("Validar integridad CAD y BIM", "ARQVALIDAR"),
-                MenuItem("Cuadro de superficies útiles", "SUPERFICIES"),
+                MenuItem("Propiedades BIM del elemento", "PROPIEDADESARQ", icon=glyph / "propiedades.svg"),
+                MenuItem("Regenerar uniones de muros y pilares", "UNIONESARQ", icon=glyph / "uniones.svg"),
+                MenuItem("Diagnosticar encuentros", "DIAGNOSTICOARQ", icon=glyph / "diagnostico.svg"),
+                MenuItem("Validar integridad CAD y BIM", "ARQVALIDAR", icon=glyph / "validar.svg"),
+                MenuItem("Cuadro de superficies útiles", "SUPERFICIES", icon=glyph / "superficies.svg"),
                 MenuItem("Convertir muros de versiones anteriores", "ARQMIGRAR"),
                 MenuItem("Muro arquitectónico 3D", "MURO3D"),
                 MenuItem("Hueco en muro 3D", "HUECO3D"),
@@ -1548,7 +1556,7 @@ def plugin_spec() -> PluginSpec:
                 MenuItem("Listado de textos", "LISTATEXTOS"),
             )),
             Submenu("Intercambio 3D", (
-                MenuItem("Exportar modelo BIM para IngeTrazo (.arqbim)", "EXPORTARBIM", icon=glyph / "igz.svg"),
+                MenuItem("Exportar modelo BIM para IngeTrazo (.arqbim)", "EXPORTARBIM", icon=glyph / "exportarbim.svg"),
                 SEPARATOR,
                 MenuItem("Configurar IngeTrazo (puente antiguo)...", "CONFIGIGZ"),
                 MenuItem("Exportar IGZ (puente antiguo, requiere fuentes)", "EXPORTARIGZ"),
@@ -1565,17 +1573,20 @@ def plugin_spec() -> PluginSpec:
         ),
         toolbar=(
             ToolbarItem("Muro", "MURO", icon=glyph / "muro.svg"),
-            ToolbarItem("Puerta ARQ", "PUERTAARQ", icon=glyph / "puerta.svg"),
-            ToolbarItem("Ventana ARQ", "VENTANAARQ", icon=glyph / "ventana.svg"),
+            ToolbarItem("Muro paralelo", "MUROPARALELO", icon=glyph / "muroparalelo.svg"),
+            ToolbarItem("Alargar o acortar muro", "ESTIRAMURO", icon=glyph / "estiramuro.svg"),
+            ToolbarItem("Convertir líneas en muros", "LINEASAMURO", icon=glyph / "lineasamuro.svg"),
             ToolbarItem("Pilar", "PILAR", icon=glyph / "pilar.svg"),
-            ToolbarItem("Superficie", "SUPERFICIE"),
-            ToolbarItem("Selección por atributos", "SELATRIB"),
-            ToolbarItem("Hipervínculo", "HIPERVINCULO"),
-            ToolbarItem("Curvas 3D", "CURVAS3D"),
-            ToolbarItem("Editar ARQ", "EDITARARQ", icon=glyph / "editar.svg"),
-            ToolbarItem("Propiedades BIM", "PROPIEDADESARQ", icon=glyph / "editar.svg"),
-            ToolbarItem("Exportar BIM", "EXPORTARBIM", icon=glyph / "igz.svg"),
-            ToolbarItem("Vértices", "VERTPOLY"),
+            ToolbarItem("Carpintería", "CARPINTERIA", icon=glyph / "carpinteria.svg"),
+            ToolbarItem("Puerta", "PUERTAARQ", icon=glyph / "puerta.svg"),
+            ToolbarItem("Ventana", "VENTANAARQ", icon=glyph / "ventana.svg"),
+            ToolbarItem("Hueco", "HUECOARQ", icon=glyph / "hueco.svg"),
+            ToolbarItem("Recinto", "RECINTO", icon=glyph / "recinto.svg"),
+            ToolbarItem("Cuadro de superficies", "SUPERFICIES", icon=glyph / "superficies.svg"),
+            ToolbarItem("Propiedades BIM", "PROPIEDADESARQ", icon=glyph / "propiedades.svg"),
+            ToolbarItem("Regenerar uniones", "UNIONESARQ", icon=glyph / "uniones.svg"),
+            ToolbarItem("Validar CAD y BIM", "ARQVALIDAR", icon=glyph / "validar.svg"),
+            ToolbarItem("Exportar BIM", "EXPORTARBIM", icon=glyph / "exportarbim.svg"),
         ),
     )
 
