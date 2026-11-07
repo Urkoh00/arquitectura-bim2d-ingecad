@@ -49,12 +49,12 @@ def criterion(name=None):
 
 def small_columns(columns, crit=None):
     """Ids of columns whose plan section does not exceed the kept limit."""
-    from shapely.geometry import Polygon
+    from .geom import polygon as P
     c = criterion(crit)
     out = set()
     for cid, m in columns:
         try:
-            if Polygon(m["polygon"]).area <= c["max_section_kept"] + 1e-12:
+            if abs(P.area([tuple(map(float, q[:2])) for q in m["polygon"]])) <= c["max_section_kept"] + 1e-12:
                 out.add(cid)
         except Exception:  # noqa: BLE001
             pass
@@ -72,15 +72,46 @@ def useful_result(specs, columns, crit=None):
 
 
 def depth(room):
-    """Shortest side of the minimum rotated rectangle of the room."""
-    from shapely.geometry import Polygon
-    poly = Polygon(room["outer"], room.get("holes") or [])
-    rect = poly.minimum_rotated_rectangle
-    pts = list(rect.exterior.coords)[:4]
-    if len(pts) < 4:
-        return 0.0
+    """Shortest side of the minimum-area rectangle around the room (its
+    outer outline; one side of that rectangle lies on a convex hull edge).
+    Pure Python: IngeCAD does not ship shapely."""
     import math
-    return min(math.dist(pts[0], pts[1]), math.dist(pts[1], pts[2]))
+    pts = _hull([tuple(map(float, q[:2])) for q in room["outer"]])
+    if len(pts) < 3:
+        return 0.0
+    best = None
+    for i in range(len(pts)):
+        (x0, y0), (x1, y1) = pts[i], pts[(i + 1) % len(pts)]
+        ln = math.hypot(x1 - x0, y1 - y0)
+        if ln < 1e-12:
+            continue
+        ux, uy = (x1 - x0) / ln, (y1 - y0) / ln
+        us = [x * ux + y * uy for x, y in pts]
+        ns = [-x * uy + y * ux for x, y in pts]
+        a, b = max(us) - min(us), max(ns) - min(ns)
+        if best is None or a * b < best[0] - 1e-15:
+            best = (a * b, min(a, b))
+    return best[1] if best else 0.0
+
+
+def _hull(pts):
+    """Convex hull, counter-clockwise (monotone chain)."""
+    pts = sorted(set(pts))
+    if len(pts) < 3:
+        return pts
+
+    def cross(o, a, b):
+        return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+    lower, upper = [], []
+    for p in pts:
+        while len(lower) >= 2 and cross(lower[-2], lower[-1], p) <= 0:
+            lower.pop()
+        lower.append(p)
+    for p in reversed(pts):
+        while len(upper) >= 2 and cross(upper[-2], upper[-1], p) <= 0:
+            upper.pop()
+        upper.append(p)
+    return lower[:-1] + upper[:-1]
 
 
 def evaluate(meta, room, room_useful=None, crit=None):

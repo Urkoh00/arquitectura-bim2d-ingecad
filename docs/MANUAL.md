@@ -1,12 +1,12 @@
 # Manual de Arquitectura para IngeCAD
 
-Versión 1.14.0-dev · 7-11-2026
+Versión 1.14.1-dev · 7-11-2026
 
 > Copia del manual publicado como documento en claude.ai; se regenera con cada versión.
 
 ## Qué es
 
-Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.14.0-dev** y se actualiza con cada versión.
+Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.14.1-dev** y se actualiza con cada versión.
 
 Cada elemento guarda su identidad persistente, su clase IFC, su geometría editable en planta, sus parámetros 3D (altura, espesor, cota), sus propiedades constructivas (tipo, material, capas) y su nivel. Las carpinterías conocen su muro y los recintos siguen a los muros que los cierran.
 
@@ -23,7 +23,7 @@ El plugin se instala copiando una carpeta en IngeCAD, y la extensión copiando u
 
 **En IngeCAD**
 
-1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.14.0-dev.zip`.
+1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.14.1-dev.zip`.
 2. Copie la carpeta `arquitectura` en la carpeta de plugins de IngeCAD.
 3. Reinicie IngeCAD. Aparece el menú *Arquitectura* y su barra de herramientas.
 4. Escriba `ARQDIAG` en la línea de órdenes para comprobar que la versión cargada es la que acaba de copiar.
@@ -335,7 +335,7 @@ El modelo pasa a IngeTrazo como un fichero `.arqbim` que ya lleva la geometría 
 
 ## Limitaciones conocidas
 
-Estas son las limitaciones conocidas de la versión 1.14.0-dev; cada versión actualiza esta lista.
+Estas son las limitaciones conocidas de la versión 1.14.1-dev; cada versión actualiza esta lista.
 
 - **Plataforma:** desde la v1.8.1 no se ha vuelto a probar en Windows; las pruebas automáticas se ejecutan en Linux con IngeCAD oficial.
 - **Muros curvos:** cada muro llega como mucho a media circunferencia (un muro redondo son dos). MUROPARALELO y DIVIDEMURO solo toman líneas rectas como referencia. El gesto de esquina en L al terminar un MURO solo recorta muros rectos.
@@ -349,6 +349,7 @@ Estas son las limitaciones conocidas de la versión 1.14.0-dev; cada versión ac
 
 | Fecha | Versión | Novedades |
 | --- | --- | --- |
+| 7-11-2026 | 1.14.1-dev | Corrige que MURO y las demás órdenes no crearan elementos en IngeCAD («No module named 'shapely'»); el plugin ya solo usa lo que instala IngeCAD |
 | 7-11-2026 | 1.14.0-dev | Edición de muros curvos (estirar, pivotar, borrar tramo, partir, unir); CURVAMURO lleva las carpinterías; muro circular; LINEASAMURO reconoce arcos; sólidos estancos también en precisión simple; este manual |
 | 7-11-2026 | 1.13.0-dev | Muros curvos (MUROCURVO, CURVAMURO) y carpinterías planas en ellos |
 | 7-11-2026 | 1.12.0-dev | LINEASAMURO, USOSARQ, paso libre DB-SUA, altura habitable por tipo de estancia, iconos nuevos |

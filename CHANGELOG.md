@@ -2,6 +2,19 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.14.1-dev — 2026-11-07
+
+### Corregido
+- **MURO no creaba ningún tramo en IngeCAD** («No module named 'shapely'»). El cálculo de superficie útil,
+  añadido en la v1.11, usaba la biblioteca shapely, que IngeCAD no instala. Como se ejecuta en cada
+  regeneración, fallaba cualquier orden que creara o cambiara un elemento. Las pruebas no lo detectaron
+  porque su entorno sí tiene shapely. Ahora ese cálculo usa solo Python (casco convexo y rectángulo mínimo).
+- Pruebas nuevas (`tests/test_sin_dependencias.py`):
+  - el código del plugin y de la extensión solo puede importar la biblioteca estándar, IngeCAD y lo que
+    instala su `requirements.txt`;
+  - una sesión completa (muros, pilar, muro curvo, ventana, recinto, SUPERFICIES y exportación) se ejecuta
+    con shapely bloqueado.
+
 ## 1.14.0-dev — 2026-11-07
 
 ### Añadido
