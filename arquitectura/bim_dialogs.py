@@ -230,3 +230,212 @@ def architectural_defaults_dialog(ctx, current):
         else:data[kind][key]=editor.text().strip()
     from .parameters_arq import validate_defaults
     return validate_defaults(data)
+
+
+# --- carpentry (doors, windows, plain holes) ---------------------------------
+
+def _int_spin(value, lo, hi):
+    from PySide6.QtWidgets import QSpinBox
+    w = QSpinBox()
+    w.setRange(lo, hi)
+    w.setValue(int(value))
+    return w
+
+
+def carpentry_form(ctx, record, *, editing=False):
+    """(dialog, read) of the carpentry sheet: the model (type, opening, leaves,
+    sizes, frame, sill) and its BIM identity; ``editing`` adds the position
+    in the wall and the side it opens to. ``read()`` returns the values."""
+    from PySide6.QtWidgets import QLabel, QLineEdit
+    from . import openings as OP
+    QDialog, _, _, QFormLayout, QGroupBox, *_ = _widgets()
+    d = OP.normalise({"type": record.get("type", "door"), "width": record.get("width", 0.9),
+                      "sill": record.get("sill", 0.0), "height": record.get("height", 2.1),
+                      "offset": record.get("offset", 0.0),
+                      **{k: v for k, v in record.items() if k not in ("width", "sill", "height", "offset")}})
+    dlg, layout, buttons = _dialog(ctx, "Arquitectura — Carpintería",
+                                   "Modelo de puerta, ventana o hueco. Las medidas de hoja son las de la "
+                                   "hoja; el hueco se calcula con el cerco.")
+    model = QGroupBox("Modelo", dlg)
+    f = QFormLayout(model)
+    typ = _choice([("Puerta", "door"), ("Ventana", "window"), ("Hueco (sin carpintería)", "gap")], d["type"])
+    operation = _choice([], None)
+    leaves = _int_spin(d.get("leaves") or 1, 1, 6)
+    preset = _choice([("625 mm (UNE 56803)", 0.625), ("725 mm (UNE 56803)", 0.725),
+                      ("825 mm (UNE 56803)", 0.825), ("925 mm (comercial)", 0.925),
+                      ("Otra medida", None)], None)
+    leaf = _spin(d.get("leaf") or 0.825, positive=True)
+    leaf2 = _spin(d.get("leaf2") or 0.0)
+    width = _spin(float(record.get("chord") or d["width"]), positive=True)
+    height = _spin(d["height"], positive=True)
+    sill = _spin(d["sill"])
+    face = _choice([("Interior (plano hacia el que abre)", "interior"), ("Medio", "centrada"),
+                    ("Exterior", "exterior")], d.get("face", "interior"))
+    frame_w = _spin(d.get("frame_width") or 0.0)
+    frame_d = _spin(d.get("frame_depth") or 0.0)
+    sill_kind = _choice([("Alféizar", "alfeizar"), ("Vierteaguas", "vierteaguas"), ("Ventanal", "ventanal")],
+                        d.get("sill_kind") or "alfeizar")
+    clear = QLabel("")
+    rows = [("Tipo:", typ), ("Apertura:", operation), ("Hojas:", leaves), ("Hoja normalizada:", preset),
+            ("Hoja principal:", leaf), ("Segunda hoja (0 = igual):", leaf2), ("Ancho del hueco:", width),
+            ("Altura:", height), ("Antepecho:", sill), ("Ajuste del cerco:", face),
+            ("Cerco, ancho de jamba:", frame_w), ("Cerco, profundidad (0 = automática):", frame_d),
+            ("Remate inferior:", sill_kind), ("Paso libre (DB-SUA):", clear)]
+    for label, w in rows:
+        f.addRow(label, w)
+    layout.addWidget(model)
+    place = None
+    if editing:
+        place = QGroupBox("Posición en el muro", dlg)
+        pf = QFormLayout(place)
+        offset = _spin(d.get("offset", 0.0))
+        side = _choice([("Hacia la cara izquierda del muro", 1), ("Hacia la cara derecha del muro", -1)],
+                       d.get("side", 1))
+        hinge = _choice([("En la jamba del inicio", 0), ("En la jamba del final", 1)], d.get("hinge", 0))
+        pf.addRow("Distancia desde el inicio:", offset)
+        pf.addRow("Abre:", side)
+        pf.addRow("Bisagra:", hinge)
+        layout.addWidget(place)
+    ident = QGroupBox("Identificación BIM", dlg)
+    g = QFormLayout(ident)
+    name = QLineEdit(str(record.get("name") or ""))
+    type_name = QLineEdit(str(record.get("type_name") or ""))
+    material = QLineEdit(str(record.get("material") or ""))
+    ifc = QLineEdit("")
+    ifc.setReadOnly(True)
+    for label, w in (("Nombre:", name), ("Tipo:", type_name), ("Material:", material), ("Clase IFC:", ifc)):
+        g.addRow(label, w)
+    layout.addWidget(ident)
+    layout.addWidget(buttons)
+
+    def show(widget, on):
+        widget.setVisible(on)
+        lab = f.labelForField(widget)
+        if lab is not None:
+            lab.setVisible(on)
+
+    def fill_operations():
+        kind = typ.currentData()
+        current = operation.currentData() or d.get("operation")
+        operation.blockSignals(True)
+        operation.clear()
+        for op in OP.OPERATIONS[kind]:
+            if op:
+                operation.addItem(OP.OPERATION_NAMES.get(op, op).capitalize(), op)
+        pos = operation.findData(current)
+        operation.setCurrentIndex(pos if pos >= 0 else 0)
+        operation.blockSignals(False)
+
+    def refresh(*_):
+        kind = typ.currentData()
+        door, window = kind == "door", kind == "window"
+        show(operation, kind != "gap")
+        show(leaves, kind != "gap")
+        leaves.setMaximum(2 if door else 6)
+        for w in (preset, leaf, leaf2):
+            show(w, door)
+        show(leaf2, door and leaves.value() == 2)
+        show(width, not door)
+        show(sill_kind, window)
+        show(frame_w, kind != "gap")
+        show(frame_d, kind != "gap")
+        show(face, kind != "gap")
+        show(clear, door)
+        ifc.setText(OP.IFC[kind] if kind != "gap" else "IfcOpeningElement")
+        if door:
+            v = read()
+            fr, op = OP.clear_width(v)
+            ok = OP.sua_accessible(v)
+            clear.setText(f"{fr:.3f} m en el marco, {op:.3f} m abierta: "
+                          f"{'válida' if ok else 'NO válida'} para itinerario accesible".replace(".", ","))
+
+    def on_preset(*_):
+        val = preset.currentData()
+        if val is not None:
+            leaf.setValue(val)
+
+    def read():
+        kind = typ.currentData()
+        v = {"type": kind, "operation": operation.currentData() or "", "height": height.value(),
+             "sill": sill.value(), "face": face.currentData(), "frame_width": frame_w.value(),
+             "frame_depth": frame_d.value(), "name": name.text().strip(),
+             "type_name": type_name.text().strip(), "material": material.text().strip()}
+        if kind == "door":
+            v.update(leaves=leaves.value(), leaf=leaf.value(),
+                     leaf2=leaf2.value() if leaves.value() == 2 else 0.0)
+            v["width"] = OP.door_width(v["leaf"], v["leaves"], v["leaf2"], v["frame_width"])
+            v["leaf2"] = v["leaf2"] or (v["leaf"] if v["leaves"] == 2 else 0.0)
+        else:
+            v.update(leaves=leaves.value() if kind == "window" else 0, width=width.value())
+            if kind == "window":
+                v["sill_kind"] = sill_kind.currentData()
+            if kind == "gap":
+                v.update(face="centrada", frame_width=0.0, frame_depth=0.0, operation="")
+        if place is not None:
+            v.update(offset=offset.value(), side=side.currentData(), hinge=hinge.currentData())
+        return v
+
+    fill_operations()
+    typ.currentIndexChanged.connect(lambda *_: (fill_operations(), refresh()))
+    for w in (leaves, leaf, leaf2, frame_w):
+        w.valueChanged.connect(refresh)
+    operation.currentIndexChanged.connect(refresh)
+    preset.currentIndexChanged.connect(on_preset)
+    refresh()
+    dlg._arq = dict(typ=typ, operation=operation, leaves=leaves, preset=preset, leaf=leaf, leaf2=leaf2,
+                    width=width, height=height, sill=sill, face=face, sill_kind=sill_kind, name=name,
+                    clear=clear, ifc=ifc)
+    return dlg, read
+
+
+def carpentry_properties(ctx, record, *, editing=False):
+    """The carpentry sheet; the values, or None on Cancel."""
+    QDialog = _widgets()[0]
+    dlg, read = carpentry_form(ctx, record, editing=editing)
+    return read() if dlg.exec() == QDialog.Accepted else None
+
+
+# --- spaces -----------------------------------------------------------------------
+
+def space_form(ctx, record):
+    """(dialog, read) of the space (IfcSpace) sheet."""
+    from PySide6.QtWidgets import QCheckBox, QLineEdit
+    QDialog, _, _, QFormLayout, QGroupBox, *_ = _widgets()
+    d = record or {}
+    dlg, layout, buttons = _dialog(ctx, "Arquitectura — Recinto",
+                                   "Espacio BIM (IfcSpace). Su contorno lo dan los muros que lo cierran; "
+                                   "aquí se definen su nombre, uso y alturas.")
+    group = QGroupBox("Recinto", dlg)
+    f = QFormLayout(group)
+    name = QLineEdit(str(d.get("name") or ""))
+    name.setPlaceholderText("Recinto n (automático)")
+    number = QLineEdit(str(d.get("number") or ""))
+    use = QLineEdit(str(d.get("use") or ""))
+    use.setPlaceholderText("Dormitorio, Baño, Pasillo, Cocina…")
+    enclosure = _choice([("Interior", "interior"),
+                         ("Exterior cubierto (terraza, balcón, porche): computa el 50 %", "exterior_cubierto")],
+                        d.get("enclosure") or "interior")
+    height = _spin(d.get("height", 2.70), positive=True)
+    ceiling = QCheckBox("Hay falso techo (la altura es la libre bajo él)")
+    ceiling.setChecked(bool(d.get("ceiling")))
+    level = QLineEdit(str(d.get("level") or "Planta baja"))
+    ifc = QLineEdit("IfcSpace")
+    ifc.setReadOnly(True)
+    for label, w in (("Nombre:", name), ("Número:", number), ("Uso:", use), ("Tipo:", enclosure),
+                     ("Altura libre:", height), ("", ceiling), ("Nivel:", level), ("Clase IFC:", ifc)):
+        f.addRow(label, w)
+    layout.addWidget(group)
+    layout.addWidget(buttons)
+
+    def read():
+        return {"name": name.text().strip(), "number": number.text().strip(), "use": use.text().strip(),
+                "enclosure": enclosure.currentData(), "height": height.value(),
+                "ceiling": ceiling.isChecked(), "level": level.text().strip() or "Planta baja"}
+    dlg._arq = dict(name=name, number=number, use=use, enclosure=enclosure, height=height, ceiling=ceiling)
+    return dlg, read
+
+
+def space_properties(ctx, record):
+    QDialog = _widgets()[0]
+    dlg, read = space_form(ctx, record)
+    return read() if dlg.exec() == QDialog.Accepted else None

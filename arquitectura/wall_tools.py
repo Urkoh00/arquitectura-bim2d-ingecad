@@ -1221,15 +1221,50 @@ class RecintoTool(Tool):
         self.level = d.get("level") or "Planta baja"
         self.use = ""
         self.next_name = None
+        self.number = None
         self.pending = None
+        if not self._sheet(first=True):
+            return
         self._prompt()
+
+    def _sheet(self, first=False):
+        """The space sheet for the next rooms; False if cancelled at the start."""
+        from . import bim_dialogs
+        try:
+            if not bim_dialogs.available(self.ctx):
+                return True
+            values = bim_dialogs.space_properties(self.ctx, {
+                "name": self.next_name or "", "use": self.use, "enclosure": self.enclosure,
+                "height": self.height, "ceiling": self.ceiling, "level": self.level})
+        except Exception as exc:  # noqa: BLE001
+            self.ctx.echo(f"RECINTO: ficha no disponible ({type(exc).__name__}: {exc}).")
+            return True
+        if values is None:
+            if first:
+                self.ctx.echo("RECINTO: cancelado.")
+                self.ctx.finish()
+                return False
+            return True
+        self.apply_sheet(values)
+        return True
+
+    def apply_sheet(self, values):
+        self.next_name = values.get("name") or None
+        self.number = values.get("number") or None
+        self.use = values.get("use") or ""
+        self.enclosure = values.get("enclosure") or "interior"
+        self.height = float(values.get("height") or self.height)
+        self.ceiling = bool(values.get("ceiling"))
+        if not self.ceiling:
+            self.slab_height = self.height
+        self.level = values.get("level") or self.level
 
     def _prompt(self):
         top = (f"falso techo a {self.height:g} m" if self.ceiling
                else f"hasta el forjado, {self.height:g} m").replace(".", ",")
         kind = "" if self.enclosure == "interior" else "exterior cubierto, "
         self.prompt(f"RECINTO ({kind}{top}): haga clic dentro de la estancia o "
-                    "[Nombre/Altura/Falso techo/Tipo/Uso]:")
+                    "[Nombre/Altura/Falso techo/Tipo/Uso/D ficha]:")
 
     def _count(self):
         return sum(1 for e in _document(self.ctx).doc.modelspace()
@@ -1283,6 +1318,10 @@ class RecintoTool(Tool):
             self.pending = "ceiling"
             self.prompt("Altura libre bajo el falso techo (m; 0 = sin falso techo, hasta el forjado):")
             return True
+        if txt in ("d", "ficha", "dialogo", "diálogo"):
+            self._sheet()
+            self._prompt()
+            return True
         if txt in ("u", "uso"):
             self.pending = "use"
             self.prompt("Uso del recinto (p. ej. habitable, no habitable):")
@@ -1318,8 +1357,9 @@ class RecintoTool(Tool):
                     return
         n = self._count() + 1
         name = self.next_name or f"Recinto {n}"
-        self.next_name = None
-        cmd, rec = create_space(p, room, name=name, number=n, height=self.height,
+        number = self.number or n
+        self.next_name = self.number = None
+        cmd, rec = create_space(p, room, name=name, number=number, height=self.height,
                                 level=self.level, use=self.use, ceiling=self.ceiling,
                                 enclosure=self.enclosure)
         try:

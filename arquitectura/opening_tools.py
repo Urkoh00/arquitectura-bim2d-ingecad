@@ -72,7 +72,47 @@ class CarpinteriaTool(Tool):
         self.first = None              # libre: (wall entity, spec, s, side, span info)
         self.last = None               # last inserted/modified opening entity
         self._cache = None
+        self.bim = {}                  # name, type_name, material from the sheet
+        if not self._sheet(first=True):
+            return
         self._prompt()
+
+    def _sheet(self, first=False):
+        """The carpentry sheet (as MURO and PILAR have theirs). False when it
+        was cancelled at the start: the command ends, as MURO does."""
+        from . import bim_dialogs
+        try:
+            if not bim_dialogs.available(self.ctx):
+                return True
+            values = bim_dialogs.carpentry_properties(self.ctx, {**self.v, **self.bim})
+        except Exception as exc:  # noqa: BLE001  (never lose the command for a Qt problem)
+            self.ctx.echo(f"CARPINTERIA: ficha no disponible ({type(exc).__name__}: {exc}); "
+                          "use las opciones de la línea de órdenes.")
+            return True
+        if values is None:
+            if first:
+                self.ctx.echo("CARPINTERIA: cancelado.")
+                self.ctx.finish()
+                return False
+            return True
+        self.apply_sheet(values)
+        return True
+
+    def apply_sheet(self, values):
+        values = dict(values)
+        kind = values.pop("type")
+        if kind != self.v["type"]:
+            self.v = self._defaults(kind)
+            if kind == "door" and self.mode == "maxima":
+                self.mode = "libre"
+        for k in ("name", "type_name", "material"):
+            text = values.pop(k, "")
+            if text:
+                self.bim[k] = text
+            else:
+                self.bim.pop(k, None)
+        self.v.update({k: v for k, v in values.items() if k not in ("offset",)})
+        self.width_given = True
 
     # --- settings ------------------------------------------------------------
     @staticmethod
@@ -118,7 +158,7 @@ class CarpinteriaTool(Tool):
             return
         self.prompt(f"CARPINTERIA ({self._summary()}): clic en la cara del muro hacia la que abre o "
                     "[Puerta/Ventana/Hueco/aNcho/Hojas/Tipo de apertura/aLtura/Antepecho/Modo/"
-                    "punto de Inserción/ajuste Cerco/cErco/Remate/Bisagra/Sentido/Fin]:")
+                    "punto de Inserción/ajuste Cerco/cErco/Remate/Bisagra/Sentido/D ficha/Fin]:")
 
     def on_option(self, text):
         raw = str(text).strip()
@@ -165,6 +205,10 @@ class CarpinteriaTool(Tool):
             return True
         if t in ("b", "bisagra", "s", "sentido"):
             self._flip("hinge" if t[0] == "b" else "side")
+            return True
+        if t in ("d", "ficha", "dialogo", "diálogo"):
+            self._sheet()
+            self._prompt()
             return True
         if t in ("f", "fin"):
             self.ctx.finish()
@@ -338,6 +382,7 @@ class CarpinteriaTool(Tool):
         from .transactions import apply_architectural_change
         v = self._record(spec, s0, hinge, width, side)
         extra = {k: v[k] for k in OP.V3_KEYS if k in v}
+        extra.update(getattr(self, "bim", {}))
         cmd = create_opening(wall, s0, width, v["sill"], v["height"], kind=v["type"], **extra)
         apply_architectural_change(self.ctx, cmd, kind="opening")
         self.last = getattr(cmd, "entity", None)

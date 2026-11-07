@@ -32,7 +32,7 @@ import os
 from collections import defaultdict
 from pathlib import Path
 
-_VERSION = "1.14.1-dev"
+_VERSION = "1.15.0-dev"
 
 from core.plugins import SEPARATOR, MenuItem, PluginSpec, Submenu, ToolbarItem
 from tools.base import Tool
@@ -1392,7 +1392,8 @@ class AyudaArqTool(ArchitectureTool):
         self.ctx.echo("                        circunferencia); BORRATRAMO y PARTEMURO también en muros curvos")
         self.ctx.echo("RECINTO               — espacio BIM (IfcSpace) con un clic dentro de la estancia; sigue a los muros;")
         self.ctx.echo("                        F falso techo (altura libre bajo él; 0 = hasta el forjado),")
-        self.ctx.echo("                        T tipo: interior / exterior cubierto (terraza, balcón, porche: 50 %)")
+        self.ctx.echo("                        T tipo: interior / exterior cubierto (terraza, balcón, porche: 50 %);")
+        self.ctx.echo("                        al empezar se abre su ficha; D la vuelve a abrir")
         self.ctx.echo("SUPERFICIES           — cuadro de superficies útiles (Decreto 10/2019 de Extremadura)")
         self.ctx.echo("USOSARQ               — usos del edificio: certificado energético, DB-HE y DB-SI (por separado)")
         self.ctx.echo("LINEASAMURO           — convierte las líneas de un plano antiguo en muros, puertas, ventanas y vanos:")
@@ -1411,7 +1412,11 @@ class AyudaArqTool(ArchitectureTool):
         self.ctx.echo("                        Exterior (centrada en la otra cara) / Máxima; C ajuste interior/medio/exterior,")
         self.ctx.echo("                        E cerco (ancho y profundidad), R alféizar/vierteaguas/ventanal, B bisagra y S sentido")
         self.ctx.echo("                        de la última; pinchar una carpintería sustituye su modelo (misma identidad)")
+        self.ctx.echo("                        al empezar se abre su ficha (modelo, hojas, cerco, remate, identificación);")
+        self.ctx.echo("                        D la vuelve a abrir")
         self.ctx.echo("PUERTAARQ / VENTANAARQ / HUECOARQ — CARPINTERIA con ese tipo de partida")
+        self.ctx.echo("PROPIEDADESARQ        — ficha BIM de muros, pilares, carpinterías y recintos (designe su contorno,")
+        self.ctx.echo("                        su símbolo o su rótulo)")
         self.ctx.echo("ARMARIO               — armarios (pendiente)")
         self.ctx.echo("SUPERFICIE            — área m² + etiqueta")
         self.ctx.echo("CAMARA                — eje / cámara de muro")

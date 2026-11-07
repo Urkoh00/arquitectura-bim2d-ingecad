@@ -60,8 +60,12 @@ def exportar_bim(ctx, *args):
     walls = sum(1 for e in data['elements'] if e['ifc_class'] == 'IfcWall')
     cols = sum(1 for e in data['elements'] if e['ifc_class'] == 'IfcColumn')
     spaces = sum(1 for e in data['elements'] if e['ifc_class'] == 'IfcSpace')
+    doors = sum(1 for e in data['elements'] if e['ifc_class'] == 'IfcDoor')
+    windows = sum(1 for e in data['elements'] if e['ifc_class'] == 'IfcWindow')
+    gaps = sum(1 for e in data['elements'] for o in e.get('openings', []) if o.get('kind') == 'gap')
     vol = sum(e['volume'] for e in data['elements'] if e['ifc_class'] in ('IfcWall', 'IfcColumn'))
     rec = f', {spaces} recintos' if spaces else ''
+    rec += f', {doors} puertas, {windows} ventanas y {gaps} huecos' if doors or windows or gaps else ''
     ctx.echo(f'EXPORTARBIM: {dest.name} — {walls} muros, {cols} pilares{rec}, '
              f'volumen construido {vol:.3f} m³. Ábralo en IngeTrazo (extensión arquitectura_bim).')
     if spaces:

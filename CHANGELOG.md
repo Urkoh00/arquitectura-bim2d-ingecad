@@ -2,6 +2,26 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.15.0-dev — 2026-11-07
+
+### Añadido
+- **Ficha de carpintería.** CARPINTERIA, PUERTAARQ, VENTANAARQ y HUECOARQ abren al empezar una ficha, como
+  MURO y PILAR. La ficha recoge:
+  - el tipo (puerta, ventana o hueco), la apertura y el número de hojas;
+  - la hoja, con las medidas UNE 56803 o la comercial de 925 mm, y la segunda hoja;
+  - el ancho del hueco, la altura, el antepecho, el ajuste del cerco, el cerco y el remate;
+  - el nombre, el tipo, el material y la clase IFC.
+
+  En las puertas muestra al momento el paso libre según DB-SUA. La opción `D` la vuelve a abrir.
+- **Ficha de recinto.** RECINTO abre al empezar una ficha con el nombre, el número, el uso, si es interior
+  o exterior cubierto, la altura libre, el falso techo y el nivel. La opción `D` la vuelve a abrir.
+- **PROPIEDADESARQ y EDITARARQ reconocen carpinterías, huecos y recintos.** Se designan por su símbolo, su
+  portador, su contorno o su rótulo, y se editan en su ficha conservando su identidad.
+  - Una carpintería puede cambiar de modelo, de medidas y de posición.
+  - En un muro curvo, el ancho de la carpintería es el plano.
+- EXPORTARBIM informa también de cuántas puertas, ventanas y huecos ha exportado. Antes solo contaba muros,
+  pilares y recintos, aunque las carpinterías ya se exportaban.
+
 ## 1.14.1-dev — 2026-11-07
 
 ### Corregido

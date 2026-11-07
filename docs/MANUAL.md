@@ -1,12 +1,12 @@
 # Manual de Arquitectura para IngeCAD
 
-Versión 1.14.1-dev · 7-11-2026
+Versión 1.15.0-dev · 7-11-2026
 
 > Copia del manual publicado como documento en claude.ai; se regenera con cada versión.
 
 ## Qué es
 
-Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.14.1-dev** y se actualiza con cada versión.
+Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.15.0-dev** y se actualiza con cada versión.
 
 Cada elemento guarda su identidad persistente, su clase IFC, su geometría editable en planta, sus parámetros 3D (altura, espesor, cota), sus propiedades constructivas (tipo, material, capas) y su nivel. Las carpinterías conocen su muro y los recintos siguen a los muros que los cierran.
 
@@ -23,7 +23,7 @@ El plugin se instala copiando una carpeta en IngeCAD, y la extensión copiando u
 
 **En IngeCAD**
 
-1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.14.1-dev.zip`.
+1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.15.0-dev.zip`.
 2. Copie la carpeta `arquitectura` en la carpeta de plugins de IngeCAD.
 3. Reinicie IngeCAD. Aparece el menú *Arquitectura* y su barra de herramientas.
 4. Escriba `ARQDIAG` en la línea de órdenes para comprobar que la versión cargada es la que acaba de copiar.
@@ -126,7 +126,7 @@ El catálogo inicial trae tabiques de placa de yeso laminado y fábricas de term
 
 Si una edición dejaría una carpintería fuera del muro, la orden se detiene y no cambia nada.
 
-**Propiedades.** `PROPIEDADESARQ` abre la ficha BIM del muro, pilar o carpintería designado: nombre, tipo, material, nivel, espesor, altura y cota. `EDITARARQ` edita esos datos por la línea de órdenes.
+**Propiedades.** `PROPIEDADESARQ` abre la ficha BIM del muro, pilar, carpintería o recinto designado; se designa por su contorno, su símbolo o su rótulo. Los cambios conservan la identidad del elemento y se deshacen en un paso. `EDITARARQ` hace lo mismo y, sin ficha disponible, edita los datos del muro por la línea de órdenes.
 
 ## Muros curvos
 
@@ -210,6 +210,10 @@ Cada pilar es un solo paso de `Deshacer`, con los muros y recintos ya actualizad
 
 `CARPINTERIA` inserta puertas (IfcDoor), ventanas (IfcWindow) y huecos sin carpintería en un muro o tabique. Cada una abre su hueco en el muro, en planta y en 3D, y lo acompaña si el muro se mueve. `PUERTAARQ`, `VENTANAARQ` y `HUECOARQ` son la misma orden con ese tipo de partida.
 
+**Ficha de carpintería.** Al empezar la orden se abre una ficha, como en MURO y PILAR, con el modelo que se va a insertar: tipo (puerta, ventana o hueco), apertura, hojas, hoja normalizada o a medida, segunda hoja, ancho del hueco, altura, antepecho, ajuste y medidas del cerco, remate, nombre, tipo, material y clase IFC. En las puertas muestra al momento el paso libre según el DB-SUA. Si se cancela, la orden termina. La opción `D` la vuelve a abrir durante la orden; las opciones de la tabla siguen sirviendo para cambios rápidos.
+
+**Editar una carpintería existente.** `PROPIEDADESARQ` sobre su símbolo abre la misma ficha, con su posición en el muro: distancia desde el inicio, cara hacia la que abre y bisagra. Conserva su identidad.
+
 **Uso básico.** Haga clic en la cara del muro hacia la que abre la carpintería. En modo *Libre*, un segundo clic indica hacia dónde se extiende desde ese punto; `Intro` la extiende hacia el lado más largo. Si hace clic sobre una carpintería existente, se sustituye su modelo y se conserva su identidad.
 
 **Opciones.**
@@ -239,6 +243,8 @@ En planta, el símbolo (hoja y giro, cerco, vidrio, alféizar) se dibuja en la c
 ## Recintos y superficies útiles
 
 Un recinto (IfcSpace) se crea con un clic dentro de la estancia y sigue a los muros: si se mueve un muro, su contorno y su superficie se recalculan al regenerar.
+
+**Ficha de recinto.** Al empezar RECINTO se abre una ficha para los recintos que se van a crear: nombre, número, uso, tipo (interior o exterior cubierto), altura libre, falso techo y nivel. La opción `D` la vuelve a abrir. Para cambiar un recinto existente, use `PROPIEDADESARQ` sobre su contorno o su rótulo.
 
 **RECINTO.** Haga clic dentro de una estancia cerrada por muros, tabiques o pilares. Opciones:
 
@@ -335,7 +341,7 @@ El modelo pasa a IngeTrazo como un fichero `.arqbim` que ya lleva la geometría 
 
 ## Limitaciones conocidas
 
-Estas son las limitaciones conocidas de la versión 1.14.1-dev; cada versión actualiza esta lista.
+Estas son las limitaciones conocidas de la versión 1.15.0-dev; cada versión actualiza esta lista.
 
 - **Plataforma:** desde la v1.8.1 no se ha vuelto a probar en Windows; las pruebas automáticas se ejecutan en Linux con IngeCAD oficial.
 - **Muros curvos:** cada muro llega como mucho a media circunferencia (un muro redondo son dos). MUROPARALELO y DIVIDEMURO solo toman líneas rectas como referencia. El gesto de esquina en L al terminar un MURO solo recorta muros rectos.
@@ -349,6 +355,7 @@ Estas son las limitaciones conocidas de la versión 1.14.1-dev; cada versión ac
 
 | Fecha | Versión | Novedades |
 | --- | --- | --- |
+| 7-11-2026 | 1.15.0-dev | Fichas de carpintería y de recinto; PROPIEDADESARQ y EDITARARQ editan carpinterías, huecos y recintos; EXPORTARBIM cuenta puertas, ventanas y huecos |
 | 7-11-2026 | 1.14.1-dev | Corrige que MURO y las demás órdenes no crearan elementos en IngeCAD («No module named 'shapely'»); el plugin ya solo usa lo que instala IngeCAD |
 | 7-11-2026 | 1.14.0-dev | Edición de muros curvos (estirar, pivotar, borrar tramo, partir, unir); CURVAMURO lleva las carpinterías; muro circular; LINEASAMURO reconoce arcos; sólidos estancos también en precisión simple; este manual |
 | 7-11-2026 | 1.13.0-dev | Muros curvos (MUROCURVO, CURVAMURO) y carpinterías planas en ellos |

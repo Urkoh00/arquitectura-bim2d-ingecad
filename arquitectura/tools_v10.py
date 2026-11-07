@@ -167,10 +167,26 @@ class EditarArqTool(Tool):
         services=getattr(self.ctx,'services',None)
         ent=services.pick_entity(p) if services else None
         dat=metadata(ent) if ent is not None else None
-        if not dat or dat.get('kind') not in ('wall','opening'):
+        from .arq_properties import resolve_arch_entity
+        from .compat import require_document
+        ent,_why=resolve_arch_entity(require_document(self.ctx),ent)
+        dat=metadata(ent) if ent is not None else None
+        if not dat or dat.get('kind') not in ('wall','opening','space'):
             self.ctx.echo('No se seleccionó una entidad ARQ editable.');return
         self.entity=ent
         from . import bim_dialogs
+        if bim_dialogs.available(self.ctx) and dat['kind'] in ('opening','space'):
+            from .arq_properties import opening_change, space_change
+            values=(bim_dialogs.carpentry_properties(self.ctx,dat,editing=True) if dat['kind']=='opening'
+                    else bim_dialogs.space_properties(self.ctx,dat))
+            if values is not None:
+                try:
+                    from .transactions import apply_architectural_change
+                    cmd=opening_change(ent,values) if dat['kind']=='opening' else space_change(ent,values)
+                    apply_architectural_change(self.ctx, cmd, kind=dat['kind'])
+                    self.ctx.echo('Propiedades BIM actualizadas en una operación.')
+                except ValueError as ex:self.ctx.echo('No se pudo editar: '+str(ex))
+            self.ctx.finish();return
         if bim_dialogs.available(self.ctx):
             if dat['kind']=='wall':
                 values=bim_dialogs.wall_properties(self.ctx,dat)

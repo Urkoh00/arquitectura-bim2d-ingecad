@@ -16,10 +16,11 @@ def resolve_arch_entity(doc, picked):
     if picked is None:
         return None, 'No se ha seleccionado una entidad.'
     data=metadata(picked) or {}
-    if data.get('kind') in ('wall','column','opening'):
+    if data.get('kind') in ('wall','column','opening','space'):
         return picked, ''
-    if data.get('kind') in ('opening_symbol','column_detail'):
-        key,want=(('opening_id','opening') if data['kind']=='opening_symbol' else ('column_id','column'))
+    if data.get('kind') in ('opening_symbol','column_detail','space_label'):
+        key,want={'opening_symbol':('opening_id','opening'),'column_detail':('column_id','column'),
+                  'space_label':('space_id','space')}[data['kind']]
         for entity in doc.doc.modelspace():
             info=metadata(entity) or {}
             if info.get('kind')==want and info.get('id')==data.get(key):
@@ -39,13 +40,56 @@ def resolve_arch_entity(doc, picked):
     return None, 'No se encuentra el muro BIM original.'
 
 
+def opening_change(entity, values):
+    """The undoable edit of a carpentry from the values of its sheet: same
+    identity; its model, size and position change (on a curved wall the
+    width given is the planar one, the chord)."""
+    from . import openings as OP
+    from .architectural_v10 import edit_opening
+    from .geom import junctions as J
+    d=metadata(entity)
+    wall=next((e for e in entity.doc.modelspace() if (metadata(e) or {}).get('id')==d.get('wall_id')
+               and (metadata(e) or {}).get('kind')=='wall'),None)
+    if wall is None:
+        raise ValueError('No se encuentra el muro de la carpintería')
+    w=metadata(wall)
+    spec=J.walls_from_records([(w['id'],w)])[0]
+    v=dict(values)
+    real=float(v.pop('width'))
+    width=OP.span_of(spec,real)
+    offset=float(v.pop('offset',d['offset']))
+    if 'offset' not in values:          # keep its centre
+        offset=float(d['offset'])+float(d['width'])/2-width/2
+    keys=('name','type_name','material','operation')
+    return edit_opening(entity,offset=offset,width=width,sill=v.pop('sill'),height=v.pop('height'),
+                        **{k:v.pop(k) for k in keys if k in v},
+                        **{k:val for k,val in v.items() if k in OP.V3_KEYS or k=='type'})
+
+
+def space_change(entity, values):
+    """The undoable edit of a space's record (its outline follows the walls)."""
+    import copy
+    from .architectural_v10 import EditArchitecturalCommand
+    d=copy.deepcopy(metadata(entity))
+    for k in ('name','number','use','enclosure','height','ceiling','level'):
+        if k in values and values[k] not in (None,''):
+            d[k]=values[k]
+    if values.get('name')=='':
+        d['name']=d.get('name') or 'Recinto'
+    if float(d['height'])<=0:
+        raise ValueError('La altura del recinto debe ser positiva')
+    cmd=EditArchitecturalCommand(entity,d)
+    cmd.name='ARQ RECINTO'
+    return cmd
+
+
 class ArqPropiedadesTool(Tool):
     name='PROPIEDADESARQ'
     entity_picker=True
 
     def start(self):
         self.name='PROPIEDADESARQ'
-        self.prompt('Seleccione un muro, pilar o contorno ARQ para editar sus propiedades:')
+        self.prompt('Seleccione un muro, pilar, carpintería o recinto para editar sus propiedades BIM:')
 
     def on_point(self, point):
         try:
@@ -69,10 +113,12 @@ class ArqPropiedadesTool(Tool):
                 from .columns import EditColumnCommand
                 values=bim_dialogs.column_properties(self.ctx,data)
                 command=EditColumnCommand(entity,values) if values is not None else None
+            elif data['kind']=='opening':
+                values=bim_dialogs.carpentry_properties(self.ctx,data,editing=True)
+                command=opening_change(entity,values) if values is not None else None
             else:
-                self.ctx.echo('La edición de carpinterías continuará en una revisión posterior.')
-                self.ctx.finish()
-                return
+                values=bim_dialogs.space_properties(self.ctx,data)
+                command=space_change(entity,values) if values is not None else None
             if command is not None:
                 from .transactions import apply_architectural_change
                 apply_architectural_change(self.ctx, command, kind=data['kind'])
