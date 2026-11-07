@@ -2,6 +2,36 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.14.0-dev — 2026-11-07
+
+### Añadido
+- **Manual de uso** (`docs/MANUAL.md`, también en el ZIP): se actualiza con cada versión. Una prueba
+  comprueba que corresponde a la versión del plugin y que documenta todas las órdenes de la barra.
+- **Edición de muros curvos:**
+  - ESTIRAMURO los alarga o acorta siguiendo su circunferencia, hasta un punto o hasta el corte con una línea;
+  - PIVOTAMURO mueve un extremo y conserva el ángulo de arco;
+  - BORRATRAMO borra el tramo entre cruces con muros rectos o curvos;
+  - PARTEMURO abre un vano y deja dos muros sobre la misma circunferencia;
+  - UNIRMURO une dos muros curvos de la misma circunferencia.
+- **CURVAMURO con carpinterías:** al curvar o enderezar un muro, sus puertas y ventanas conservan su ancho
+  real y su posición relativa. Si alguna deja de caber, no se aplica nada.
+- **Muro circular:** opción `O` de MUROCURVO, con centro y punto o radio. Son dos medias circunferencias.
+- **LINEASAMURO reconoce arcos:** dos arcos concéntricos (ARC o tramos curvos de polilínea) separados un
+  espesor de muro son un muro curvo.
+
+### Corregido
+- Sólidos 3D: los vértices separados menos de 1 µm se funden en uno. Una jamba que caía a una fracción de
+  micra de un vértice de una cara curva dejaba dos puntos que la precisión simple de IngeTrazo fundía, y el
+  muro dejaba de ser estanco (encontrado con una ventana en un muro circular). Lo cubre una prueba.
+- ARQVALIDAR distingue los arcos por su punto medio. Las dos mitades de un muro circular comparten
+  extremos y se contaban como líneas sobrantes.
+- La ayuda (AYUDAARQ) mostraba «v0.8»; ahora muestra la versión real, definida en un solo sitio.
+
+### Limitaciones conocidas
+- MUROPARALELO y DIVIDEMURO solo toman referencias rectas.
+- El gesto de esquina en L al terminar un MURO solo recorta muros rectos.
+- LINEASAMURO no reconoce puertas ni ventanas en muros curvos.
+
 ## 1.13.0-dev — 2026-11-07
 
 ### Añadido

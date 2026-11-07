@@ -56,6 +56,8 @@ class MuroCurvoTool(Tool):
         self.base, self.reference = float(d["base"]), d["reference"]
         self.bim = {k: d[k] for k in ("name", "type_name", "material", "level")}
         self.a = self.b = None
+        self.circle = None              # None | "centre" | "radius"
+        self.centre = None
         self.pending = None
         self.last_point = None
         self._prompt()
@@ -65,8 +67,13 @@ class MuroCurvoTool(Tool):
                 f"referencia {self.reference}")
 
     def _prompt(self):
-        if self.a is None:
-            self.prompt(f"MUROCURVO ({self._label()}): punto inicial o [Espesor/Altura/Cota/Referencia/Fin]:")
+        if self.circle == "centre":
+            self.prompt("MUROCURVO circular: centro:")
+        elif self.circle == "radius":
+            self.prompt("MUROCURVO circular: punto de la línea de referencia (o radio en m):")
+        elif self.a is None:
+            self.prompt(f"MUROCURVO ({self._label()}): punto inicial o "
+                        "[Espesor/Altura/Cota/Referencia/circular (O)/Fin]:")
         elif self.b is None:
             self.prompt("MUROCURVO: punto final del muro:")
         else:
@@ -92,6 +99,20 @@ class MuroCurvoTool(Tool):
                 self.ctx.echo(f"MUROCURVO: {self._label()}")
             except ValueError as exc:
                 self.ctx.echo(f"MUROCURVO: {exc}")
+            self._prompt()
+            return True
+        if self.circle == "radius":
+            try:
+                r = _num(t)
+                if r <= 0:
+                    raise ValueError("radio positivo")
+                self._make_circle((self.centre[0] + r, self.centre[1]))
+            except ValueError as exc:
+                self.ctx.echo(f"MUROCURVO: {exc}")
+            self._prompt()
+            return True
+        if t in ("o", "circular") and self.a is None and not self.circle:
+            self.circle = "centre"
             self._prompt()
             return True
         if self.b is not None:
@@ -122,7 +143,15 @@ class MuroCurvoTool(Tool):
         if self.pending:
             self.ctx.echo("Termine primero la opción.")
             return
-        if self.a is None:
+        if self.circle == "centre":
+            self.centre = self.last_point = p
+            self.circle = "radius"
+        elif self.circle == "radius":
+            try:
+                self._make_circle(p)
+            except ValueError as exc:
+                self.ctx.echo(f"MUROCURVO: {exc}")
+        elif self.a is None:
             self.a = self.last_point = p
         elif self.b is None:
             if math.dist(self.a, p) < 1e-6:
@@ -150,8 +179,27 @@ class MuroCurvoTool(Tool):
         self.a, self.b = self.b, None
         self.last_point = self.a
 
+    def _make_circle(self, p):
+        """A round wall: two half circles meeting end to end (each one is an
+        ordinary curved wall, so every tool works on them)."""
+        from core.commands import CompositeCommand
+        from .architectural_v10 import create_wall
+        from .transactions import apply_architectural_change
+        c = self.centre
+        if math.dist(c, p) < 1e-6:
+            raise ValueError("el punto coincide con el centro")
+        q = (2 * c[0] - p[0], 2 * c[1] - p[1])
+        cmds = [create_wall(p, q, self.thickness, self.height, self.base, self.reference, bulge=1.0, **self.bim),
+                create_wall(q, p, self.thickness, self.height, self.base, self.reference, bulge=1.0, **self.bim)]
+        apply_architectural_change(self.ctx, CompositeCommand("ARQ MURO CIRCULAR", cmds), kind="wall")
+        self.ctx.echo(f"MUROCURVO: muro circular de radio {_fmt(round(math.dist(c, p), 3))} m "
+                      "(dos medias circunferencias).")
+        self.circle = self.centre = self.last_point = None
+
     def on_enter(self):
-        if self.pending:
+        if self.circle:
+            self.circle = self.centre = self.last_point = None
+        elif self.pending:
             self.pending = None
         elif self.b is not None:
             self.b = None
@@ -163,6 +211,14 @@ class MuroCurvoTool(Tool):
         self._prompt()
 
     def preview_segments(self, cursor):
+        if self.circle == "radius":
+            try:
+                c = self.centre
+                q = (2 * c[0] - cursor[0], 2 * c[1] - cursor[1])
+                return (outline(tuple(cursor), q, 1.0, self.thickness, self.reference)
+                        + outline(q, tuple(cursor), 1.0, self.thickness, self.reference))
+            except (ValueError, ZeroDivisionError):
+                return []
         if self.a is None or self.pending:
             return []
         try:
@@ -176,6 +232,36 @@ class MuroCurvoTool(Tool):
 
 
 # --- CURVAMURO -------------------------------------------------------------------
+
+def carried_openings(entity, old, new):
+    """[(opening entity, new offset, new width)] keeping each carpentry (its
+    real, planar width) at the same relative position along the wall when
+    its curve changes. Raises ValueError when one no longer fits."""
+    from . import openings as OP
+    from .geom import junctions as J
+    w0 = J.walls_from_records([(old["id"], old)])[0]
+    w1 = J.walls_from_records([(new["id"], new)])[0]
+    out, spans = [], []
+    for e in entity.doc.modelspace():
+        d = metadata(e) or {}
+        if d.get("kind") != "opening" or d.get("wall_id") != old["id"]:
+            continue
+        chord = float(d.get("chord") or d["width"])
+        centre = (float(d["offset"]) + float(d["width"]) / 2) * w1.length / w0.length
+        width = OP.span_of(w1, chord)
+        off = centre - width / 2
+        label = d.get("name") or OP.NAMES.get(d.get("type"), "Carpintería")
+        if off < -1e-9 or off + width > w1.length + 1e-9:
+            raise ValueError(f"{label} no cabe en el muro con esa curvatura")
+        OP.proxy(w1, {**OP.normalise(d), "offset": off, "width": width, "chord": chord})  # planar fit
+        spans.append((off, off + width, label))
+        out.append((e, max(0.0, off), width))
+    spans.sort()
+    for (a0, a1, la), (b0, _b1, lb) in zip(spans, spans[1:]):
+        if a1 > b0 + 1e-9:
+            raise ValueError(f"{la} y {lb} se solaparían con esa curvatura")
+    return out
+
 
 class CurvaMuroTool(Tool):
     name = "CURVAMURO"
@@ -191,11 +277,6 @@ class CurvaMuroTool(Tool):
             self.ctx.echo("CURVAMURO: designe un muro por su contorno.")
             return
         m = metadata(entity)
-        from .architectural_v10 import _find_openings
-        if _find_openings(entity.doc, m["id"]):
-            self.ctx.echo("CURVAMURO: el muro tiene carpinterías; las carpinterías en muros curvos aún "
-                          "no están disponibles.")
-            return
         self.wall = entity
         self.last_point = tuple(m["a"])
         self.prompt("CURVAMURO: punto de paso del eje (o de la cara de referencia), o flecha en m "
@@ -230,17 +311,24 @@ class CurvaMuroTool(Tool):
         return True
 
     def _apply(self, bulge):
-        from .architectural_v10 import EditArchitecturalCommand, axis_points, check_curve
+        from core.commands import CompositeCommand, DeferredCommand
+        from .architectural_v10 import (EditArchitecturalCommand, _find_openings, axis_points,
+                                        check_curve, edit_opening)
         from .transactions import apply_architectural_change
-        m = copy.deepcopy(metadata(self.wall))
+        old = metadata(self.wall)
+        m = copy.deepcopy(old)
         if abs(bulge) > 1e-9:
             m["bulge"] = float(bulge)
         else:
             m.pop("bulge", None)
         check_curve(m)
-        cmd = EditArchitecturalCommand(self.wall, m, points=axis_points(m))
-        cmd.name = "ARQ CURVAR MURO"
-        apply_architectural_change(self.ctx, cmd, kind="wall")
+        cmds = [EditArchitecturalCommand(self.wall, m, points=axis_points(m))]
+        moves = carried_openings(self.wall, old, m)          # raises if one does not fit
+        for e, off, width in moves:
+            cmds.append(DeferredCommand("ARQ hueco", lambda _d, e=e, off=off, w=width:
+                                        edit_opening(e, offset=off, width=w)))
+        cmd = CompositeCommand("ARQ CURVAR MURO", cmds)
+        apply_architectural_change(self.ctx, cmd, kind="opening" if moves else "wall")
         self.ctx.echo("CURVAMURO: muro enderezado." if "bulge" not in m else
                       f"CURVAMURO: muro curvado ({_fmt(round(math.degrees(4 * math.atan(abs(bulge))), 1))}°).")
         self.wall = None

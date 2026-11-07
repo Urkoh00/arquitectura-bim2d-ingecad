@@ -99,17 +99,45 @@ def _dist_seg(p, a, b):
     return math.dist(p, (a[0] + ab[0] * t, a[1] + ab[1] * t))
 
 
-def reshape_wall(entity, a, b, end_moved):
-    """Commands that set a wall's reference line to a-b keeping its identity,
-    and move its openings so they keep their distance from the fixed end."""
+def spec_of(m):
+    """The junction-engine wall (straight or curved) of a wall record."""
+    from .geom import junctions as J
+    return J.walls_from_records([(m["id"], m)])[0]
+
+
+def sub_wall(m, s1, s2):
+    """(a, b, bulge) of the part of a wall between s1 and s2 (metres along its
+    reference line; beyond its ends too: a curved wall goes on along its
+    circle). A straight wall: bulge 0."""
+    w = spec_of(m)
+    a, b = w.point(s1, 0.0), w.point(s2, 0.0)
+    if not w.curved:
+        return a, b, 0.0
+    sweep = w.sweep * (s2 - s1) / w.length
+    if abs(sweep) > math.pi + 1e-9:
+        raise ValueError("El muro curvo pasaría de media circunferencia")
+    return a, b, math.tan(sweep / 4.0)
+
+
+def reshape_wall(entity, a, b, end_moved, bulge=None):
+    """Commands that set a wall's reference line to a-b (and its curve to
+    ``bulge``, when given) keeping its identity, and move its openings so
+    they keep their distance from the fixed end."""
+    from .architectural_v10 import axis_points, check_curve
     m = copy.deepcopy(metadata(entity))
-    old_len = math.dist(m["a"], m["b"])
-    new_len = math.dist(a, b)
+    old_len = spec_of(m).length
+    m["a"], m["b"] = list(a), list(b)
+    if bulge is not None:
+        if abs(bulge) > 1e-9:
+            m["bulge"] = float(bulge)
+        else:
+            m.pop("bulge", None)
+    check_curve(m)
+    new_len = spec_of(m).length
     ops = _find_openings(entity.doc, m["id"])
     ds = (old_len - new_len) if end_moved == 0 else 0.0
     shifted = D.shift_openings(ops, ds, new_len)          # raises if one falls out
-    m["a"], m["b"] = list(a), list(b)
-    commands = [EditArchitecturalCommand(entity, m, points=[tuple(a), tuple(b)])]
+    commands = [EditArchitecturalCommand(entity, m, points=axis_points(m))]
     by_id = {o["id"]: o for o in shifted}
     for e in entity.doc.modelspace():
         rec = metadata(e) or {}
@@ -597,8 +625,6 @@ class _EndTool(Tool):
         if entity is None:
             self.ctx.echo(f"{self.name}: designe un muro (su contorno).")
             return False
-        if refuse_curved(self.ctx, self.name, entity):
-            return False
         m = metadata(entity)
         self.wall = entity
         self.end = D.nearest_end(m["a"], m["b"], p)
@@ -633,6 +659,8 @@ class EstiraMuroTool(_EndTool):
         m = metadata(self.wall)
         a, b = tuple(m["a"]), tuple(m["b"])
         fixed = b if self.end == 0 else a
+        if float(m.get("bulge") or 0.0):
+            return self._target_curved(m, p)
         services = getattr(self.ctx, "services", None)
         picked = services.pick_entity(p) if services else None
         own = picked is not None and (picked is self.wall or
@@ -663,14 +691,44 @@ class EstiraMuroTool(_EndTool):
             return na, nb, [], "en T contra el muro designado"
         return na, nb, [], "hasta la línea designada"
 
+    def _target_curved(self, m, p):
+        """A curved wall goes on (or back) along its own circle: to the point
+        (seen from its centre) or to the crossing with the picked line."""
+        w = spec_of(m)
+        services = getattr(self.ctx, "services", None)
+        picked = services.pick_entity(p) if services else None
+        own = picked is not None and (picked is self.wall or
+                                      m["id"] in ((metadata(picked) or {}).get("wall_ids") or []))
+        line = None if (picked is None or own) else line_of(picked, p)
+        moving = w.point(0.0 if self.end == 0 else w.length, 0.0)
+        if line is None:
+            s = w.local(p)[0]
+            how = "hasta el punto indicado"
+        else:
+            from .geom import curves as CV
+            q0, q1 = line
+            d = (q1[0] - q0[0], q1[1] - q0[1])
+            ln = math.hypot(*d)
+            hits = CV.intersect(w.face(0.0), ("line", q0, (d[0] / ln, d[1] / ln)))
+            x = CV.nearest(hits, moving)
+            if x is None:
+                raise ValueError("La línea no corta la circunferencia del muro")
+            s = w.local(x)[0]
+            how = "hasta la línea designada"
+        s0, s1 = (s, w.length) if self.end == 0 else (0.0, s)
+        if s1 - s0 < 1e-6:
+            raise ValueError("El punto queda al otro lado del extremo que se conserva")
+        a, b, bulge = sub_wall(m, s0, s1)
+        return a, b, [], how, bulge
+
     def on_point(self, p):
         if self.wall is None:
             if self._pick_wall(p):
                 self.prompt("ESTIRAMURO: nuevo extremo (punto, línea o cara de otro muro) o longitud:")
             return
         try:
-            a, b, extra, how = self._target(p)
-            apply(self.ctx, "ARQ ESTIRAMURO", extra + reshape_wall(self.wall, a, b, self.end))
+            a, b, extra, how, *bulge = self._target(p)
+            apply(self.ctx, "ARQ ESTIRAMURO", extra + reshape_wall(self.wall, a, b, self.end, *bulge))
             self.ctx.echo(f"ESTIRAMURO: muro modificado {how}; conserva su identidad BIM.")
         except Exception as exc:  # noqa: BLE001
             self.ctx.echo(f"ESTIRAMURO: {exc}")
@@ -684,6 +742,10 @@ class EstiraMuroTool(_EndTool):
             return []
         m = metadata(self.wall)
         try:
+            if float(m.get("bulge") or 0.0):
+                from .curve_tools import outline
+                a, b, _x, _how, bulge = self._target_curved(m, cursor)
+                return outline(a, b, bulge, float(m["thickness"]), m.get("reference", "eje"))
             f = D.Frame(m["a"], m["b"], float(m["thickness"]), m.get("reference", "eje"))
             s, _o = f.local(cursor)
             x = f.point(s)
@@ -721,6 +783,9 @@ class PivotaMuroTool(_EndTool):
         m = metadata(self.wall)
         try:
             a, b = D.move_end(tuple(m["a"]), tuple(m["b"]), self.end, cursor)
+            if float(m.get("bulge") or 0.0):
+                from .curve_tools import outline
+                return outline(a, b, float(m["bulge"]), float(m["thickness"]), m.get("reference", "eje"))
             from .architectural_v10 import wall_corners
             c = wall_corners(a, b, float(m["thickness"]), m.get("reference", "eje"))
             return list(zip(c, c[1:] + c[:1]))
@@ -774,8 +839,9 @@ def split_wall(entity, s1, s2):
     any, is a new wall that takes the openings lying on it. An opening in
     the removed stretch stops the operation."""
     from core.actions import EraseCommand
+    from .architectural_v10 import axis_points
     m = copy.deepcopy(metadata(entity))
-    f = _wall_frame(m)
+    f = spec_of(m)
     L = f.length
     s1, s2 = max(0.0, min(s1, s2)), min(L, max(s1, s2))
     if s2 - s1 < _EPS:
@@ -791,13 +857,19 @@ def split_wall(entity, s1, s2):
         from .sync import DropGroupsCommand
         return [DropGroupsCommand([entity]), EraseCommand([entity, *ops])], "muro completo borrado"
     if not keep_after:
-        return reshape_wall(entity, f.a, f.point(s1), 1), "tramo final quitado"
+        a, b, bulge = sub_wall(m, 0.0, s1)
+        return reshape_wall(entity, a, b, 1, bulge), "tramo final quitado"
     if not keep_before:
-        return reshape_wall(entity, f.point(s2), f.b, 0), "tramo inicial quitado"
-    m["b"] = list(f.point(s1))
-    cmds = [EditArchitecturalCommand(entity, m, points=[tuple(f.a), f.point(s1)])]
-    new = create_wall(f.point(s2), f.b, float(m["thickness"]), float(m["height"]),
-                      float(m.get("base", 0.0)), m.get("reference", "eje"), **_props(m))
+        a, b, bulge = sub_wall(m, s2, L)
+        return reshape_wall(entity, a, b, 0, bulge), "tramo inicial quitado"
+    a1, b1, bulge1 = sub_wall(m, 0.0, s1)
+    a2, b2, bulge2 = sub_wall(m, s2, L)
+    m["b"] = list(b1)
+    if bulge1:
+        m["bulge"] = bulge1
+    cmds = [EditArchitecturalCommand(entity, m, points=axis_points(m))]
+    new = create_wall(a2, b2, float(m["thickness"]), float(m["height"]),
+                      float(m.get("base", 0.0)), m.get("reference", "eje"), bulge=bulge2, **_props(m))
     cmds.append(new)
     for o in ops:
         d = metadata(o)
@@ -808,22 +880,24 @@ def split_wall(entity, s1, s2):
 
 def crossing_params(entity, drawing):
     """Positions (m along the wall) where other walls cross it or end on it."""
+    from .geom import curves as CV
     m = metadata(entity)
-    f = _wall_frame(m)
-    geo, _ents = walls_in(drawing)
+    f = spec_of(m)
     out = []
-    for wid, (a, b, t, ref) in geo.items():
-        if wid == m["id"]:
+    for e in drawing.modelspace():
+        mg = metadata(e) or {}
+        if mg.get("kind") != "wall" or mg.get("id") == m["id"] or e.dxftype() != "LWPOLYLINE":
             continue
-        g = D.Frame(a, b, t, ref)
-        x = D.line_intersection(f.axis_point(0.0), f.u, g.axis_point(0.0), g.u)
-        if x is None:
+        try:
+            g = spec_of(mg)
+        except (ValueError, KeyError):
             continue
-        s, _o = f.local(f.reference_point_from_axis(x))
-        sg, _og = g.local(g.reference_point_from_axis(x))
-        reach = f.t / 2.0 + 1e-6
-        if _EPS < s < f.length - _EPS and -reach <= sg <= g.length + reach:
-            out.append(s)
+        reach = f.thickness / 2.0 + 1e-6
+        for x in CV.intersect(f.face((f.lo + f.hi) / 2), g.face((g.lo + g.hi) / 2)):
+            s = f.local(x)[0]
+            sg = g.local(x)[0]
+            if _EPS < s < f.length - _EPS and -reach <= sg <= g.length + reach:
+                out.append(s)
     return sorted(out)
 
 
@@ -842,9 +916,7 @@ class BorraTramoTool(Tool):
         if entity is None:
             self.ctx.echo("BORRATRAMO: designe un muro por su contorno.")
             return
-        if refuse_curved(self.ctx, "BORRATRAMO", entity):
-            return
-        f = _wall_frame(metadata(entity))
+        f = spec_of(metadata(entity))
         sp, _o = f.local(p)
         cuts = crossing_params(entity, _document(self.ctx).doc)
         s1 = max([c for c in cuts if c < sp], default=0.0)
@@ -876,8 +948,6 @@ class ParteMuroTool(Tool):
             if entity is None:
                 self.ctx.echo("PARTEMURO: designe un muro por su contorno.")
                 return
-            if refuse_curved(self.ctx, "PARTEMURO", entity):
-                return
             self.wall = entity
             self.prompt("PARTEMURO: primer punto del vano:")
             return
@@ -886,7 +956,7 @@ class ParteMuroTool(Tool):
             self.last_point = self.p1
             self.prompt("PARTEMURO: segundo punto del vano (o longitud):")
             return
-        f = _wall_frame(metadata(self.wall))
+        f = spec_of(metadata(self.wall))
         s1, s2 = f.local(self.p1)[0], f.local(p)[0]
         try:
             cmds, how = split_wall(self.wall, s1, s2)
@@ -916,8 +986,6 @@ class UnirMuroTool(Tool):
         if entity is None:
             self.ctx.echo("UNIRMURO: designe un muro por su contorno.")
             return
-        if refuse_curved(self.ctx, "UNIRMURO", entity):
-            return
         if self.first is None:
             self.first = entity
             self.prompt("UNIRMURO: designe el segundo muro:")
@@ -927,6 +995,10 @@ class UnirMuroTool(Tool):
             m1, m2 = copy.deepcopy(metadata(first)), metadata(entity)
             if m1["id"] == m2["id"]:
                 raise ValueError("Designe dos muros distintos")
+            if float(m1.get("bulge") or 0.0) or float(m2.get("bulge") or 0.0):
+                self._join_curved(first, entity, m1, m2)
+                self.prompt("UNIRMURO: designe el primer muro de otra pareja o Intro para terminar:")
+                return
             f1, f2 = _wall_frame(m1), _wall_frame(m2)
             if abs(f1.t - f2.t) > 1e-6:
                 raise ValueError("Los muros tienen distinto espesor")
@@ -959,6 +1031,46 @@ class UnirMuroTool(Tool):
         except Exception as exc:  # noqa: BLE001
             self.ctx.echo(f"UNIRMURO: {exc}")
         self.prompt("UNIRMURO: designe el primer muro de otra pareja o Intro para terminar:")
+
+    def _join_curved(self, first, entity, m1, m2):
+        """Two curved walls on the same circle (same centre, axis radius and
+        thickness) become one arc, if it is not more than half a circle."""
+        from core.actions import EraseCommand
+        from .architectural_v10 import axis_points
+        try:
+            f1, f2 = spec_of(m1), spec_of(m2)
+            if not (f1.curved and f2.curved):
+                raise ValueError("Un muro recto y uno curvo no se pueden unir")
+            if abs(f1.thickness - f2.thickness) > 1e-6:
+                raise ValueError("Los muros tienen distinto espesor")
+            r1 = f1.r - f1.d * (f1.lo + f1.hi) / 2
+            r2 = f2.r - f2.d * (f2.lo + f2.hi) / 2
+            if math.dist(f1.c, f2.c) > 1e-3 or abs(r1 - r2) > 1e-3:
+                raise ValueError("Los muros no están sobre la misma circunferencia")
+            mid = (f2.lo + f2.hi) / 2
+            ss = [0.0, f1.length] + [f1.local(f2.point(q, mid))[0] for q in (0.0, f2.length)]
+            smin, smax = min(ss), max(ss)
+            a, b, bulge = sub_wall(m1, smin, smax)
+            m1["a"], m1["b"], m1["bulge"] = list(a), list(b), bulge
+            cmds = [EditArchitecturalCommand(first, m1, points=axis_points(m1))]
+            for o in _openings_of(first, m1["id"]):
+                if abs(smin) > 1e-12:
+                    cmds.append(DeferredCommand("ARQ hueco", lambda _d, o=o, ds=smin: edit_opening(
+                        o, offset=float(metadata(o)["offset"]) - ds)))
+
+            class _Done:
+                entity = first
+            for o in _openings_of(entity, m2["id"]):
+                d = metadata(o)
+                ends = [f1.local(f2.point(float(d["offset"]) + k, 0.0))[0] - smin
+                        for k in (0.0, float(d["width"]))]
+                cmds.append(_rehost(o, _Done, min(ends)))
+            from .sync import DropGroupsCommand
+            cmds += [DropGroupsCommand([entity]), EraseCommand([entity])]
+            apply(self.ctx, "ARQ UNIRMURO", cmds)
+            self.ctx.echo(f"UNIRMURO: un solo muro curvo de {smax - smin:.3f} m de desarrollo.")
+        except Exception as exc:  # noqa: BLE001
+            self.ctx.echo(f"UNIRMURO: {exc}")
 
 
 # --- DIVIDEMURO ------------------------------------------------------------------

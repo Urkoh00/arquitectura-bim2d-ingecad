@@ -138,16 +138,150 @@ def test_curvamuro_curva_endereza_y_deshace(plugin):
     assert wall.get_points("xyb")[0][2] == pytest.approx(-0.4)
 
 
-def test_edicion_de_extremos_rechazada_en_curvos(plugin):
-    s = Session(plugin)
+def _arc6(s, sagitta="1"):
     c = s.tool("MUROCURVO")
     c.on_point((0, 0))
     c.on_point((6, 0))
-    c.on_option("1")
-    assert len(s.walls()) == 1
+    c.on_option(sagitta)                    # axis through (3, 1); thickness 0,30
+    return next(iter(s.walls().values()))
+
+
+def _spec(s, wall):
+    m = s.meta(wall)
+    return J.walls_from_records([(m["id"], m)])[0]
+
+
+def test_estiramuro_sigue_la_circunferencia(plugin):
+    s = Session(plugin)
+    wall = _arc6(s)
+    w0 = _spec(s, wall)
     e = s.tool("ESTIRAMURO")
-    e.on_point((3, 0.85))
-    assert any("ESTIRAMURO: aún no trabaja con muros curvos" in o for o in s.out)
+    e.on_point(w0.point(w0.length - 0.2, w0.hi))            # near its end b
+    e.on_point(w0.point(w0.length + 1.0, 0.0))              # 1 m further along the circle
+    w1 = _spec(s, wall)
+    assert w1.c == pytest.approx(w0.c) and w1.r == pytest.approx(w0.r)
+    assert w1.length == pytest.approx(w0.length + 1.0, abs=1e-6)
+    assert tuple(s.meta(wall)["a"]) == pytest.approx((0, 0))
+    s.history.undo()
+    assert _spec(s, wall).length == pytest.approx(w0.length)
+
+
+def test_pivotamuro_conserva_la_curvatura(plugin):
+    s = Session(plugin)
+    wall = _arc6(s)
+    bulge = s.meta(wall)["bulge"]
+    w0 = _spec(s, wall)
+    t = s.tool("PIVOTAMURO")
+    t.on_point(w0.point(w0.length - 0.2, w0.hi))
+    t.on_point((8, 0))
+    assert s.meta(wall)["b"] == pytest.approx([8, 0]) and s.meta(wall)["bulge"] == pytest.approx(bulge)
+
+
+def test_partemuro_y_unirmuro_en_curvos(plugin):
+    s = Session(plugin)
+    wall = _arc6(s)
+    w0 = _spec(s, wall)
+    t = s.tool("PARTEMURO")
+    t.on_point(w0.point(2.0, w0.hi))
+    t.on_point(w0.point(3.0, 0.0))
+    t.on_point(w0.point(4.0, 0.0))
+    walls = list(s.walls().values())
+    assert len(walls) == 2
+    specs = [_spec(s, w) for w in walls]
+    assert all(sp.curved and sp.c == pytest.approx(w0.c) for sp in specs)
+    assert sum(sp.length for sp in specs) == pytest.approx(w0.length - 1.0, abs=1e-6)
+    assert not s.issues()
+    u = s.tool("UNIRMURO")
+    first, second = walls
+    sp1, sp2 = specs
+    u.on_point(sp1.point(sp1.length / 2, sp1.hi))
+    u.on_point(sp2.point(sp2.length / 2, sp2.hi))
+    walls = list(s.walls().values())
+    assert len(walls) == 1 and _spec(s, walls[0]).length == pytest.approx(w0.length, abs=1e-6)
+
+
+def test_borratramo_entre_cruces_de_un_curvo(plugin):
+    s = Session(plugin)
+    wall = _arc6(s)
+    m = s.tool("MURO")
+    m.thickness = 0.2
+    draw(m, (3, -1), (3, 3))                               # crosses the arc at (3, 1)
+    w0 = _spec(s, wall)
+    t = s.tool("BORRATRAMO")
+    t.on_point(w0.point(w0.length * 0.8, w0.hi))           # the stretch after the crossing
+    curved = [e for e in s.walls().values() if s.meta(e).get("bulge")]
+    assert len(curved) == 1
+    assert _spec(s, curved[0]).length == pytest.approx(w0.length / 2, abs=1e-6)
+
+
+def test_curvamuro_lleva_sus_carpinterias(plugin):
+    s = Session(plugin)
+    m = s.tool("MURO")
+    m.thickness, m.reference = 0.3, "eje"
+    draw(m, (0, 0), (6, 0))
+    wall = next(iter(s.walls().values()))
+    v = s.tool("VENTANAARQ")
+    v.on_option("m")
+    v.on_option("c")
+    v.on_point((3, 0.15))
+    win = next(e for e in s.document.doc.modelspace() if (s.meta(e) or {}).get("kind") == "opening")
+    t = s.tool("CURVAMURO")
+    t.on_point((1, 0.15))
+    t.on_option("0,8")
+    rec = s.meta(win)
+    w = _spec(s, wall)
+    assert w.curved and rec["chord"] == pytest.approx(1.20)
+    assert rec["offset"] + rec["width"] / 2 == pytest.approx(w.length / 2)     # still centred
+    assert not s.issues()
+    t.on_point(w.point(1.0, w.hi))
+    t.on_option("0")                                       # straight again: the same window
+    rec = s.meta(win)
+    assert "chord" not in rec and rec["width"] == pytest.approx(1.20) and rec["offset"] == pytest.approx(2.4)
+
+
+def test_muro_circular(plugin):
+    s = Session(plugin)
+    c = s.tool("MUROCURVO")
+    c.thickness = 0.2
+    c.on_option("o")
+    c.on_point((0, 0))
+    c.on_option("3")                                       # radius 3 on the axis
+    walls = list(s.walls().values())
+    assert len(walls) == 2 and all(abs(s.meta(w)["bulge"]) == pytest.approx(1.0) for w in walls)
+    assert not s.issues()
+    r = s.tool("RECINTO")
+    r.on_point((0, 0))
+    data = s.export(None)
+    sp = next(e for e in data["elements"] if e["ifc_class"] == "IfcSpace")
+    assert sp["quantities"]["NetFloorArea"] == pytest.approx(math.pi * 2.9 ** 2, rel=1e-3)
+    walls_el = [e for e in data["elements"] if e["ifc_class"] == "IfcWall"]
+    assert sum(e["quantities"]["GrossFootprintArea"] for e in walls_el) == pytest.approx(
+        math.pi * (3.1 ** 2 - 2.9 ** 2), rel=1e-3)
+
+
+def test_lineasamuro_reconoce_arcos(plugin):
+    """A bay drawn with lines and two concentric arcs becomes a curved wall
+    joined to the straight ones."""
+    s = Session(plugin)
+    msp = s.document.doc.modelspace()
+    for a, b in (((0, -0.15), (6.15, -0.15)), ((0, 0.15), (5.85, 0.15)),
+                 ((6.15, -0.15), (6.15, 4.15)), ((5.85, 0.15), (5.85, 3.85)),
+                 ((6.15, 4.15), (0, 4.15)), ((5.85, 3.85), (0, 3.85))):
+        msp.add_line(a, b)
+    msp.add_arc((0, 2), 2.15, 90, 270)                      # outer face of the bay
+    msp.add_lwpolyline([(0, 3.85, 1.0), (0, 0.15, 0)], format="xyb")   # inner face (a bulged polyline)
+    t = s.tool("LINEASAMURO")
+    t.on_point((-3, -1))
+    t.on_point((7, 5))
+    curved = [e for e in s.walls().values() if s.meta(e).get("bulge")]
+    assert len(curved) == 1, s.out[-3:]
+    w = _spec(s, curved[0])
+    assert w.thickness == pytest.approx(0.30) and w.c == pytest.approx((0, 2))
+    assert len(s.walls()) == 4
+    assert not s.issues(), s.issues()
+    r = s.tool("RECINTO")
+    r.on_point((2, 2))
+    assert any("Recinto" in o for o in s.out[-3:])
 
 
 def _curved_room(s):
@@ -240,3 +374,28 @@ def test_simetria_del_eje_invierte_la_curva(plugin):
 def _ctx(s):
     from tests.test_recintos import _cmd_ctx
     return _cmd_ctx(s)
+
+
+def test_solidos_estancos_en_precision_simple(plugin):
+    """IngeTrazo keeps positions in float32: two vertices a fraction of a
+    micrometre apart become one. Every exported body must stay closed after
+    that rounding (found with a window in a round wall, 2026-11-07)."""
+    import numpy as np
+    s = Session(plugin)
+    c = s.tool("MUROCURVO")
+    c.thickness = 0.25
+    c.on_option("o")
+    c.on_point((0, 0))
+    c.on_option("4")
+    m = s.tool("MURO")
+    m.thickness = 0.1
+    draw(m, (-4, 0), (4, 0))
+    v = s.tool("VENTANAARQ")
+    v.on_point((0, 4.125))
+    v.on_point((1, 4.1))
+    data = s.export(None)
+    assert any(e["ifc_class"] == "IfcWindow" for e in data["elements"])
+    for el in data["elements"]:
+        faces = [([tuple(np.float32(c) for c in p) for p in f["outer"]],
+                  [[tuple(np.float32(c) for c in p) for p in h] for h in f["holes"]]) for f in el["faces"]]
+        assert watertight(faces), el["ifc_class"]

@@ -114,18 +114,28 @@ def _segment_key(a, b, nd=6):
     return (a, b) if a <= b else (b, a)
 
 
+def _arc_key(cx, cy, r, t0, t1, nd=5):
+    """An arc by its circle and three of its points (two half circles of
+    one round wall share their ends: the middle tells them apart)."""
+    import math
+    sweep = (t1 - t0) % 360.0
+    pts = [(cx + r * math.cos(math.radians(t)), cy + r * math.sin(math.radians(t)))
+           for t in (t0, t0 + sweep / 2, t1)]
+    rnd = [(round(x, nd) + 0.0, round(y, nd) + 0.0) for x, y in pts]
+    return ('arc', round(cx, nd) + 0.0, round(cy, nd) + 0.0, round(r, nd), rnd[1]) + _segment_key(rnd[0], rnd[2], nd)
+
+
 def _item_key(it, nd=5):
     if it[0] == 'arc':
-        _k, c, r, _t0, _t1, _ids, a, b = it
-        return ('arc', round(c[0], nd), round(c[1], nd), round(r, nd)) + _segment_key(a, b, nd)
+        _k, c, r, t0, t1 = it[:5]
+        return _arc_key(c[0], c[1], r, t0, t1, nd)
     return _segment_key(it[1], it[2])
 
 
 def _entity_key(e, nd=5):
     if e.dxftype() == 'ARC':
-        c, r = e.dxf.center, float(e.dxf.radius)
-        a, b = e.start_point, e.end_point
-        return ('arc', round(c.x, nd), round(c.y, nd), round(r, nd)) + _segment_key((a.x, a.y), (b.x, b.y), nd)
+        c = e.dxf.center
+        return _arc_key(c.x, c.y, float(e.dxf.radius), float(e.dxf.start_angle), float(e.dxf.end_angle), nd)
     return _segment_key((e.dxf.start.x, e.dxf.start.y), (e.dxf.end.x, e.dxf.end.y))
 
 

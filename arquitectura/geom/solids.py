@@ -206,9 +206,36 @@ def _newell(loop):
     return (nx / ln, ny / ln, nz / ln), ln / 2.0
 
 
+SNAP = 1e-6     # m: vertices closer than this are one (IngeTrazo keeps float32 positions)
+
+
+def _snap(cells, tol=SNAP):
+    """Merge the vertices of the cells that lie closer than ``tol``: a cut
+    (a jamb) landing a fraction of a micrometre from a vertex of a curved
+    face would otherwise leave two points that single precision fuses,
+    and the solid would no longer be closed."""
+    grid = {}
+
+    def rep(q):
+        gx, gy = int(math.floor(q[0] / tol)), int(math.floor(q[1] / tol))
+        for dx in (-1, 0, 1):
+            for dy in (-1, 0, 1):
+                for r in grid.get((gx + dx, gy + dy), ()):
+                    if math.dist(r, q) <= tol:
+                        return r
+        grid.setdefault((gx, gy), []).append(q)
+        return q
+    out = []
+    for reg, z in cells:
+        poly = P.dedupe([rep(tuple(q)) for q in reg])
+        if len(poly) >= 3 and abs(P.area(poly)) > 1e-12:
+            out.append((poly, z))
+    return out
+
+
 def wall_solid(pieces, a, u, base, height, openings=(), spec=None):
     """(faces, exact_volume) of one wall from its junction footprint."""
-    cells = _cells(pieces, (a, u), float(base), float(height), list(openings), spec)
+    cells = _snap(_cells(pieces, (a, u), float(base), float(height), list(openings), spec))
     vol = sum(P.area(reg) * (z1 - z0) for reg, (z0, z1) in cells)
     return boundary(cells), vol
 

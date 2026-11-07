@@ -8,7 +8,7 @@ import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-version = re.search(r'version\s*=\s*"([^"]+)"', (ROOT / "arquitectura" / "__init__.py").read_text(encoding="utf-8")).group(1)
+version = re.search(r'_VERSION\s*=\s*"([^"]+)"', (ROOT / "arquitectura" / "__init__.py").read_text(encoding="utf-8")).group(1)
 out = ROOT / "dist" / f"Arquitectura_IngeCAD_v{version}.zip"
 out.parent.mkdir(exist_ok=True)
 with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
@@ -18,4 +18,5 @@ with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
                 z.write(f, f.relative_to(ROOT))
     for f in ("LICENSE", "README.md", "CHANGELOG.md"):
         z.write(ROOT / f, f)
+    z.write(ROOT / "docs" / "MANUAL.md", "MANUAL.md")        # the user manual of this version
 print(out)

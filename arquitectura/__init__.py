@@ -32,6 +32,8 @@ import os
 from collections import defaultdict
 from pathlib import Path
 
+_VERSION = "1.14.0-dev"
+
 from core.plugins import SEPARATOR, MenuItem, PluginSpec, Submenu, ToolbarItem
 from tools.base import Tool
 from .compat import require_document, document_of
@@ -1366,25 +1368,28 @@ class AyudaArqTool(ArchitectureTool):
     name = "AYUDAARQ"
 
     def on_start(self):
-        self.ctx.echo("=== Plugin Arquitectura v0.8 — comandos ===")
+        self.ctx.echo(f"=== Plugin Arquitectura {_VERSION} — comandos (manual: docs/MANUAL.md) ===")
         self.ctx.echo("CAPASARQ / CAPASAUTO  — capas ARQ-*")
         self.ctx.echo("MURO                  — muro BIM encadenado; I o F5 cambia la cara, G toma las propiedades de otro muro,")
         self.ctx.echo("                        antes del primer punto, un número es el ESPESOR TOTAL (ofrece los tipos que lo tienen);")
         self.ctx.echo("                        T elige un tipo del catálogo (Termoarcilla, PYL, multicapa...; ver TIPOSMURO)")
         self.ctx.echo("                        terminar en la cara próxima de otro muro = T; en la alejada = L (lo recorta)")
         self.ctx.echo("MUROCURVO             — muro curvo: punto inicial, punto final y punto de paso (o flecha en m);")
-        self.ctx.echo("                        encadena el siguiente desde el final; E/A/C/R como MURO")
+        self.ctx.echo("                        encadena el siguiente desde el final; E/A/C/R como MURO;")
+        self.ctx.echo("                        O circular: centro y punto (o radio) = dos medias circunferencias")
         self.ctx.echo("CURVAMURO             — curva un muro existente por un punto de paso o una flecha; 0 lo endereza;")
         self.ctx.echo("                        sus extremos y encuentros se mantienen (hasta media circunferencia);")
-        self.ctx.echo("                        un muro con carpinterías no se curva: retírelas y vuelva a insertarlas")
+        self.ctx.echo("                        sus carpinterías conservan su ancho real y su posición relativa")
         self.ctx.echo("                        En un muro curvo las puertas y ventanas son planas, sobre la cuerda entre")
         self.ctx.echo("                        sus jambas radiales; su ancho es el de la carpintería (la cuerda)")
         self.ctx.echo("MUROPARALELO          — distancia, línea base, lado y lado del espesor; un clic en vacío encadena otro")
-        self.ctx.echo("ESTIRAMURO            — alarga o acorta un muro hasta un punto, una línea o la cara de otro muro (T/L)")
-        self.ctx.echo("PIVOTAMURO            — mueve un extremo de un muro")
+        self.ctx.echo("ESTIRAMURO            — alarga o acorta un muro hasta un punto, una línea o la cara de otro muro (T/L);")
+        self.ctx.echo("                        un muro curvo sigue su circunferencia")
+        self.ctx.echo("PIVOTAMURO            — mueve un extremo de un muro (un curvo conserva su ángulo de arco)")
         self.ctx.echo("DIVIDEMURO            — divide un tramo en N partes iguales con muros perpendiculares")
         self.ctx.echo("BORRATRAMO            — borra el tramo de muro entre cruces (o hasta su extremo)")
-        self.ctx.echo("PARTEMURO / UNIRMURO  — abre un vano en un muro / une dos muros alineados")
+        self.ctx.echo("PARTEMURO / UNIRMURO  — abre un vano en un muro / une dos muros alineados (o curvos de la misma")
+        self.ctx.echo("                        circunferencia); BORRATRAMO y PARTEMURO también en muros curvos")
         self.ctx.echo("RECINTO               — espacio BIM (IfcSpace) con un clic dentro de la estancia; sigue a los muros;")
         self.ctx.echo("                        F falso techo (altura libre bajo él; 0 = hasta el forjado),")
         self.ctx.echo("                        T tipo: interior / exterior cubierto (terraza, balcón, porche: 50 %)")
@@ -1392,7 +1397,8 @@ class AyudaArqTool(ArchitectureTool):
         self.ctx.echo("USOSARQ               — usos del edificio: certificado energético, DB-HE y DB-SI (por separado)")
         self.ctx.echo("LINEASAMURO           — convierte las líneas de un plano antiguo en muros, puertas, ventanas y vanos:")
         self.ctx.echo("                        dos clics enmarcan la zona; E espesores mín./máx., A altura,")
-        self.ctx.echo("                        O líneas de origen (ocultar en capa apagada / borrar / conservar)")
+        self.ctx.echo("                        O líneas de origen (ocultar en capa apagada / borrar / conservar);")
+        self.ctx.echo("                        dos arcos concéntricos a un espesor de muro = muro curvo")
         self.ctx.echo("PILAR                 — S sección (0,30x0,30 · D0,35 · IPE/IPN/HEA/HEB/UPN · 2UPN cajon/empresillado),")
         self.ctx.echo("                        E enganche 1-9, G girar 90°, A autorrotación, P a distancia de dos paramentos,")
         self.ctx.echo("                        U de un paramento, C recubrimiento")
@@ -1460,7 +1466,7 @@ TOOL_CLASSES = tuple(MuroCarasTool if t.name == "MURO" else PilarPerfilesTool if
 
 def arqdiag(ctx, *args):
     """Diagnóstico sin mutar el dibujo y sin depender de PySide6."""
-    ctx.echo('ARQDIAG — Arquitectura 1.13.0-dev (motor de nodos, huella única 2D/3D, exportación .arqbim)')
+    ctx.echo(f'ARQDIAG — Arquitectura {_VERSION} (motor de nodos, huella única 2D/3D, exportación .arqbim)')
     try:
         from .wall_tools import MuroCarasTool as MuroTool
         ctx.echo(f'Herramienta MURO: {MuroTool.__module__}.{MuroTool.__name__}')
@@ -1513,7 +1519,7 @@ def plugin_spec() -> PluginSpec:
         **extra,
         id="arquitectura",
         name="Arquitectura",
-        version="1.13.0-dev",
+        version=_VERSION,
         description="Dibujo arquitectónico 2D con objetos BIM (muros, pilares, carpinterías) y exportación a IngeTrazo/IFC",
         tools={tool.name: tool for tool in (*TOOL_CLASSES, Muro3DTool, Hueco3DTool)},
         commands={"EXPORTARBIM": exportar_bim, "EXPORTARIGZ": exportar_igz, "CONFIGIGZ": configurar_igz, "DIAGNOSTICOARQ": diagnostico_arq, "ARQDIAG": arqdiag, "UNIONESARQ": unionesarq, "ARQVALIDAR": validar_arq, "ARQMIGRAR": migrar_arq, "PARAMETROSARQ": parametros_arq, "TIPOSMURO": tipos_muro, "SUPERFICIES": superficies, "USOSARQ": usos_arq},
