@@ -67,6 +67,18 @@ Probado con el plano 563 del usuario.
 - La opción `P` fija la tolerancia de paralelismo para muros antiguos.
 - Las líneas de muro que se quedan sin pareja no se ocultan: quedan seleccionadas para revisarlas.
 
+### IngeCAD 0.8: lo oficial, cuando existe
+IngeCAD 0.8.0 (9-11-2026) incorpora lo que este plugin había pedido. Se usa cuando está presente; con un
+IngeCAD anterior todo sigue como antes.
+- **Reactores.** Tras mover, girar, escalar, hacer una simetría o copiar con IngeCAD, el plano se regenera
+  solo, en el mismo paso de deshacer; ya no hace falta `UNIONESARQ`.
+- **Doble clic.** Sobre un muro arranca MURO con sus propiedades; sobre una carpintería, CARPINTERIA con su
+  modelo; sobre un pilar, PILAR con su sección; sobre un recinto, abre su ficha.
+- **F5.** Llega a MURO por la vía oficial (`Tool.on_key`); el atajo provisional queda solo para versiones
+  anteriores. Con IngeCAD 0.8 los dos a la vez cambiaban la cara dos veces: era el fallo de la integración
+  continua.
+- **Selección.** La selección y el encuadre de los elementos con problemas usan las funciones oficiales.
+
 ### Opciones generales (PARAMETROSARQ, pestaña General)
 - Trabajar con usos de recinto (0025): con usos, la ficha pide el uso y es el uso el que clasifica el recinto;
   sin usos, lo clasifica el nombre.

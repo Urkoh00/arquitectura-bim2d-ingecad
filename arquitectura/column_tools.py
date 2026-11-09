@@ -47,6 +47,16 @@ class PilarTool(Tool):
         self.d1 = self.d2 = 0.05
         self.picks = []
         self.pending = None
+        from .double_click import preset
+        taken = preset("PILAR")
+        if taken:
+            # a double-click on a column: its section, no sheet
+            self.values.update({k: taken[k] for k in ("shape", "width", "depth", "radius", "rotation",
+                                                      "profile", "cover", "height", "base", "name",
+                                                      "type_name", "material", "level") if k in taken})
+            self.ctx.echo("PILAR: con la sección de " + (taken.get("name") or "el pilar") + ".")
+            self._prompt()
+            return
         try:
             from . import bim_dialogs
             if bim_dialogs.available(self.ctx):

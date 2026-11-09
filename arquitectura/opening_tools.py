@@ -73,7 +73,15 @@ class CarpinteriaTool(Tool):
         self.last = None               # last inserted/modified opening entity
         self._cache = None
         self.bim = {}                  # name, type_name, material from the sheet
-        if not self._sheet(first=True):
+        from .double_click import preset
+        taken = preset(self.name)
+        if taken:
+            # a double-click on a carpentry: its model, no sheet (D opens it)
+            keys = ("type", "operation", "leaves", "leaf", "leaf2", "width", "height", "sill", "face",
+                    "frame_width", "frame_depth", "sill_kind", "name", "type_name", "material")
+            self.apply_sheet({k: taken[k] for k in keys if k in taken})
+            self.ctx.echo(f"{self.name}: con el modelo de {taken.get('name') or 'la carpintería'}.")
+        elif not self._sheet(first=True):
             return
         self._prompt()
 

@@ -22,6 +22,19 @@ class MuroTool(Tool):
         # Prompt FIRST. No drawing mutation while ToolController.start_tool is
         # still activating this tool (some IngeCAD versions reset tools on edits).
         self.prompt('MURO: configurando propiedades arquitectónicas...')
+        from .double_click import preset
+        taken=preset('MURO')
+        if taken:
+            # a double-click on a wall: its properties, no sheet
+            self.thickness=float(taken['thickness']);self.height=float(taken['height'])
+            self.base=float(taken.get('base',0.0));self.reference=taken.get('reference',self.reference)
+            self.bim={k:taken.get(k,self.bim.get(k,'')) for k in ('name','type_name','material','level')}
+            if taken.get('layers'):
+                self.bim['layers']=[list(l) for l in taken['layers']]
+            self.ctx.echo('MURO: con las propiedades de '+(taken.get('name') or 'muro')
+                          +f" (espesor {self.thickness:g} m)".replace('.',','))
+            self.prompt('MURO: primer punto o [Espesor/Altura/Cota/Referencia/Fin]:')
+            return
         try:
             from . import bim_dialogs
             if bim_dialogs.available(self.ctx):

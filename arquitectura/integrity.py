@@ -190,15 +190,20 @@ def summary(problems):
 
 
 def highlight(ctx, handles):
-    """Select (and frame) the entities in IngeCAD, when its window offers it.
-    Uses only what the official IngeCAD already has; without it, nothing."""
+    """Select (and frame) the entities in IngeCAD.  IngeCAD 0.8 offers it
+    (``select_entities``, ``zoom_to_window``); on an older one, the same
+    through its selection set; without a window, nothing."""
     services = getattr(ctx, "services", None)
     document = getattr(ctx, "document", None)
     if services is None or document is None:
         return False
     handles = [h for h in handles if h]
     try:
-        if hasattr(services, "selection"):
+        db = document.doc.entitydb
+        ents = [e for e in (db.get(h) for h in handles) if e is not None and e.is_alive]
+        if hasattr(services, "select_entities"):
+            services.select_entities(ents)
+        elif hasattr(services, "selection"):
             services.selection = set(handles)
             for attr in ("_highlight_cache", "_grips_cache"):
                 if hasattr(services, attr):
@@ -206,17 +211,17 @@ def highlight(ctx, handles):
             changed = getattr(services, "changed", None)
             if changed is not None and hasattr(changed, "emit"):
                 changed.emit()
-        window = getattr(services, "window", None)
-        if window is not None and hasattr(window, "zoom_to_entity") and handles:
+        if ents:
             from ezdxf import bbox
-            ents = [document.doc.entitydb.get(h) for h in handles]
-            ents = [e for e in ents if e is not None]
-            if ents:
-                box = bbox.extents(ents, fast=True)
-                if box.has_data:
-                    pad = max(box.size.x, box.size.y, 1.0) * 0.6
-                    window.viewport.view.zoom_extents(box.extmin.x - pad, box.extmin.y - pad,
-                                                      box.extmax.x + pad, box.extmax.y + pad)
+            box = bbox.extents(ents, fast=True)
+            if box.has_data:
+                pad = max(box.size.x, box.size.y, 1.0) * 0.6
+                rect = (box.extmin.x - pad, box.extmin.y - pad, box.extmax.x + pad, box.extmax.y + pad)
+                window = getattr(services, "window", None)
+                if hasattr(services, "zoom_to_window"):
+                    services.zoom_to_window(rect)
+                elif window is not None and hasattr(window, "viewport"):
+                    window.viewport.view.zoom_extents(*rect)
                     window.viewport.update()
         return True
     except Exception:

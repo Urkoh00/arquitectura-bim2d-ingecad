@@ -1531,11 +1531,15 @@ def plugin_spec() -> PluginSpec:
     from .bim_export import exportar_bim
     import dataclasses
     extra = {}
-    # Follow-up reactor: only on an IngeCAD that offers the hook (proposal
-    # sent upstream); on older hosts the plugin works as before.
-    if "reactors" in {f.name for f in dataclasses.fields(PluginSpec)}:
+    # IngeCAD 0.8 hooks (asked for by this plugin), used when present; on
+    # an older IngeCAD the plugin works as before (UNIONESARQ, MURO G).
+    fields = {f.name for f in dataclasses.fields(PluginSpec)}
+    if "reactors" in fields:
         from .reactor import ArquitecturaReactor
         extra["reactors"] = (ArquitecturaReactor(),)
+    if "on_double_click" in fields:
+        from .double_click import on_double_click
+        extra["on_double_click"] = on_double_click
     return PluginSpec(
         **extra,
         id="arquitectura",

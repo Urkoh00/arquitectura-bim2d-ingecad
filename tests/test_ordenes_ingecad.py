@@ -188,3 +188,59 @@ def test_copia_y_rehacer_conservan_anfitrion():                            # 000
     after = E.build(d.doc)
     assert {x['id'] for x in before['elements']} == {x['id'] for x in after['elements']}
     assert sorted(len(x['openings']) for x in after['elements'] if x['ifc_class'] == 'IfcWall') == [1, 1]
+
+
+def test_con_reactores_la_simetria_se_sincroniza_al_momento():
+    """IngeCAD 0.8: the plugin's reactor regenerates after IngeCAD's own
+    order, in its undo step: no UNIONESARQ needed, one undo restores all."""
+    from core import commands
+    if not hasattr(commands, 'register_reactor'):
+        pytest.skip('IngeCAD sin reactores para plugins (anterior a 0.8)')
+    from arquitectura.reactor import ArquitecturaReactor
+    commands.register_reactor(ArquitecturaReactor(), 'arq-prueba')
+    try:
+        d, h = document()
+        w = wall(h, reference='izquierda')
+        o = door(d, w)
+        h.execute(RegenerateContoursCommand())
+        h.execute(actions.mirror_entities(bim(d), (-1, 1), (6, 1), False))
+        assert metadata(w)['reference'] == 'derecha' and metadata(o)['side'] == -1
+        h.undo()
+        assert metadata(w)['reference'] == 'izquierda' and metadata(o)['side'] == 1
+        assert metadata(w)['a'] == pytest.approx([0, 0])
+    finally:
+        commands.unregister_reactors('arq-prueba')
+
+
+from tests.test_ingecad_integration import plugin  # noqa: E402,F401  (fixture)
+
+
+def test_doble_clic_arranca_la_orden_con_sus_propiedades(plugin):
+    """IngeCAD 0.8 on_double_click: a wall's outline line -> MURO with its
+    thickness and type; a carpentry symbol -> CARPINTERIA with its model."""
+    from tests.test_recintos import _vivienda
+    from tests.test_wall_tools import Session
+    from importlib import import_module
+    s = Session(plugin)
+    _vivienda(s)
+    p = s.tool('PUERTAARQ')
+    p.on_point((2, 0.15))
+    p.on_point((3, 0.15))
+    dc = import_module(s.plugin.tools['PILAR'].__module__.rsplit('.', 1)[0] + '.double_click')
+    started = []
+    ctx = type('C', (), {'document': s.document, 'start_tool': lambda self, n: started.append(n)})()
+    edge = next(e for e in s.document.doc.modelspace() if (s.meta(e) or {}).get('kind') == 'junction_edge'
+                and len((s.meta(e) or {}).get('wall_ids') or []) == 1)
+    assert dc.on_double_click(ctx, edge) and started == ['MURO']
+    wall_meta = dc.preset('MURO')
+    assert wall_meta['kind'] == 'wall'
+    symbol = next(e for e in s.document.doc.modelspace() if (s.meta(e) or {}).get('kind') == 'opening_symbol')
+    assert dc.on_double_click(ctx, symbol) and started[-1] == 'CARPINTERIA'
+    dc._PRESETS['MURO'] = wall_meta                       # the tool reads it at start
+    t = s.tool('MURO')
+    assert t.thickness == pytest.approx(wall_meta['thickness'])
+    assert dc.preset('MURO') is None                      # taken once
+    t2 = s.tool('CARPINTERIA')                            # with the door's model
+    assert t2.v['type'] == 'door'
+    other = s.document.doc.modelspace().add_line((50, 50), (51, 50))
+    assert not dc.on_double_click(ctx, other)             # IngeCAD's own double-click

@@ -260,11 +260,18 @@ class MuroCarasTool(WallTypeChoice, _MuroV10):
     #: the single F5 shortcut of the main window while MURO is active
     _shortcut = None
 
-    # F5 swaps the face, as typed "I"/"F5" does. IngeCAD binds nothing to F5
-    # (Ctrl+F5 is the sidebar, F8 is ORTHO) and offers plugin tools no key
-    # hook yet, so a window shortcut lives only while MURO is the active
-    # tool; any Qt problem leaves the typed option as the way to do it.
+    # F5 swaps the face, as typed "I"/"F5" does. IngeCAD 0.8 gives the free
+    # function keys to the running tool (Tool.on_key), which is used when
+    # present. Older IngeCAD offered no key hook: there a window shortcut
+    # lives only while MURO is the active tool; any Qt problem leaves the
+    # typed option as the way to do it.
     def _install_f5(self):
+        from tools.base import Tool as _HostTool
+        if "F5" in getattr(_HostTool, "FREE_KEYS", ()):
+            # IngeCAD 0.8+ hands the free function keys to the running tool
+            # (Tool.on_key): the official way; no window shortcut of ours
+            MuroCarasTool._drop_f5()
+            return
         try:
             from PySide6.QtCore import Qt
             from PySide6.QtGui import QKeySequence, QShortcut
@@ -289,6 +296,13 @@ class MuroCarasTool(WallTypeChoice, _MuroV10):
                 sc.deleteLater()
             except Exception:  # noqa: BLE001
                 pass
+
+    def on_key(self, key):
+        """IngeCAD 0.8+: F5 pressed while MURO runs swaps the face."""
+        if key == "F5":
+            self.on_option("F5")
+            return True
+        return False
 
     def _on_f5(self):
         services = getattr(self.ctx, "services", None)

@@ -154,3 +154,22 @@ def test_ventana_de_problemas_resalta(plugin):
     assert lst.count() == 1
     lst.setCurrentRow(0)
     assert ctx.services.selection == {door.dxf.handle}
+
+
+def test_resaltar_con_la_seleccion_oficial_de_ingecad(plugin):
+    """IngeCAD 0.8: select_entities and zoom_to_window, when they exist."""
+    s = Session(plugin)
+    _vivienda(s)
+    door = _door(s)
+    seen = {}
+
+    class Services:
+        def select_entities(self, ents):
+            seen['sel'] = [e.dxf.handle for e in ents]
+            return len(ents)
+
+        def zoom_to_window(self, rect):
+            seen['zoom'] = rect
+    ctx = type('C', (), {'document': s.document, 'services': Services()})()
+    assert _mod(s, 'integrity').highlight(ctx, [door.dxf.handle])
+    assert seen['sel'] == [door.dxf.handle] and len(seen['zoom']) == 4

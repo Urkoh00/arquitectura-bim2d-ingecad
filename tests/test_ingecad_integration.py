@@ -105,7 +105,7 @@ def test_move_uses_cad_axis(plugin, tmp_path):
     assert any('eje CAD' in i for i in data['issues'])
 
 
-# -- with the upstream reactor hook (IngeCAD branch arquitectura-reactores) ----------
+# -- with IngeCAD's plugin reactors (IngeCAD 0.8: core.commands.register_reactor) ---
 
 def _arch():
     return sys.modules[[m for m in sys.modules if m.endswith('.architectural') and 'arquitectura' in m][0]]
@@ -113,11 +113,12 @@ def _arch():
 @pytest.fixture
 def reactor_on(plugin):
     from core import commands
-    if not hasattr(commands, 'REACTORS'):
-        pytest.skip('IngeCAD sin el gancho de reactores')
-    commands.REACTORS[:] = list(plugin.reactors)
+    if not hasattr(commands, 'register_reactor'):
+        pytest.skip('IngeCAD sin reactores para plugins (anterior a 0.8)')
+    for r in plugin.reactors:
+        commands.register_reactor(r, 'arquitectura-pruebas')
     yield
-    commands.REACTORS.clear()
+    commands.unregister_reactors('arquitectura-pruebas')
 
 def _walls(document):
     a = _arch()

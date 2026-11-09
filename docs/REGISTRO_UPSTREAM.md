@@ -53,10 +53,10 @@ Las correcciones propuestas son generales: servirían a todas las extensiones de
 
 | Ref. | Tipo | Asunto | Evidencia | Estado | Parche | Rodeo en el plugin |
 |---|---|---|---|---|---|---|
-| C-01 | Carencia | No hay reactores para plugins tras órdenes genéricas (COPY, MOVE, MIRROR, ROTATE, ERASE). Solo existe el reactor interno de cotas asociativas | [A] | Preparada | `ingecad/0001-…` (generaliza el reactor DIMASSOC, 72 líneas) | `UNIONESARQ` sincroniza al final, en un solo paso de deshacer |
-| C-02 | Inconsistencia | Al borrar una entidad que pertenece a un grupo, el grupo sigue apuntando a ella. Al guardar, el miembro desaparece del grupo; si después se deshace el borrado, la entidad vuelve sin su grupo (`EraseCommand` desvincula, pero no toca los grupos) | [A] (script de reproducción abajo) | Documentada | — | `DropGroupsCommand` quita y restaura los grupos del plugin alrededor de cada borrado |
-| C-03 | Carencia | Las herramientas de plugin no reciben el doble clic (`MainWindow.on_canvas_double_click` no tiene gancho) | [A] | Documentada | — | Editar con `EDITARARQ` |
-| C-04 | Carencia | Las herramientas de plugin no reciben teclas de función (F5 está libre en IngeCAD) | [A] | Documentada | — | Atajo de ventana temporal mientras la herramienta está activa; opción tecleada I |
+| C-01 | Carencia | No hay reactores para plugins tras órdenes genéricas (COPY, MOVE, MIRROR, ROTATE, ERASE). Solo existe el reactor interno de cotas asociativas | [A] | **Resuelta en IngeCAD 0.8.0** (9-11-2026: `PluginSpec.reactors`, «proposed by the architecture plugin») | `ingecad/0001-…` (ya no hace falta) | El plugin usa el reactor oficial si existe; sin él, `UNIONESARQ` |
+| C-02 | Inconsistencia | Al borrar una entidad que pertenece a un grupo, el grupo sigue apuntando a ella. Al guardar, el miembro desaparece del grupo; si después se deshace el borrado, la entidad vuelve sin su grupo (`EraseCommand` desvincula, pero no toca los grupos) | [A] (script de reproducción abajo) | **Resuelta en IngeCAD 0.8.0** («ERASE takes a member out of its group, U puts it back») | — | `DropGroupsCommand` se mantiene para versiones anteriores |
+| C-03 | Carencia | Las herramientas de plugin no reciben el doble clic (`MainWindow.on_canvas_double_click` no tiene gancho) | [A] | **Resuelta en IngeCAD 0.8.0** (`PluginSpec.on_double_click`) | — | Doble clic en muro, carpintería, pilar o recinto (v1.17); `EDITARARQ` en versiones anteriores |
+| C-04 | Carencia | Las herramientas de plugin no reciben teclas de función (F5 está libre en IngeCAD) | [A] | **Resuelta en IngeCAD 0.8.0** (`Tool.on_key`, teclas F4, F5 y F6) | — | F5 por `on_key`; atajo de ventana solo en versiones anteriores |
 | C-05 | Carencia | El modo ortogonal solo sigue el ángulo del SCP; no hay ortogonal relativo a un elemento, que es lo útil para dibujar muros oblicuos | [A] | Documentada | — | Ninguno |
 | C-06 | Inconsistencia | Deshacer una SIMETRÍA (`TransformCommand` con `upright`) de una entidad OCS, por ejemplo una polilínea, restaura sus propiedades y vértices pero no su XDATA, aunque la simetría sí transformó los puntos y vectores de XDATA (1011/1012). Las demás órdenes se deshacen con la matriz inversa y dejan la XDATA bien. Reproducción: polilínea con XDATA 1011; SIMETRÍA sin conservar el original; deshacer: los vértices vuelven y el punto 1011 queda reflejado | [A] | Documentada | — | El marco de referencia del plugin guarda también el contorno y se ignora si la geometría volvió a su sitio (`frame.read_frame`) |
 
@@ -90,6 +90,8 @@ que `EraseCommand` guarde la pertenencia a grupos y la restaure en `undo`.
 ---
 
 ## Historial
+
+- **9-11-2026 (noche, 2):** IngeCAD publica la 0.8.0 con un nivel 2 del contrato de plugins. Resuelve C-01 (reactores; el código cita la propuesta de este plugin), C-02 (grupos tras borrar y deshacer), C-03 (doble clic) y C-04 (teclas de función para la herramienta activa). Además añade transacciones, selección y encuadre para plugins, pinzamientos propios, filtros de entrada y `api_version`. La v1.17 los usa cuando existen y mantiene sus rodeos para versiones anteriores. Siguen abiertas C-05 (ortogonal por elemento) y C-06 (deshacer SIMETRÍA y XDATA).
 
 - **9-11-2026 (noche):** al aceptar las órdenes de IngeCAD sobre elementos BIM, se encuentra C-06. Se adopta la regla oficial de IngeTrazo para coordenadas lejanas (`formats/recenter.py`) en la extensión. La auditoría independiente de la v1.15 trae parches para IngeCAD (reactores, grupos tras borrar y deshacer) e IngeTrazo (GUID estables, `IfcSpace`, `IfcRelFillsElement`, atributos enumerados, volumen, importación en un paso). Se consolidarán con T-03 a T-05 y C-01 a C-02. No se envía nada hasta que respondan #1221 y #1222.
 

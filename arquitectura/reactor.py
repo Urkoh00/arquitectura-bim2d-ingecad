@@ -1,44 +1,49 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Keeps BIM data true after edits made with IngeCAD's own commands.
 
-Uses the follow-up hook proposed upstream (``PluginSpec.reactors`` ->
-``core.commands.REACTORS``, the generalisation of the associative-dimension
-reactor). After any recorded command:
+IngeCAD 0.8 runs plugin reactors (``PluginSpec.reactors``, the
+generalisation of its associative-dimension reactor, proposed by this
+plugin) after every recorded command, in the same undo step.  After a
+MOVE, ROTATE, SCALE, MIRROR, COPY, STRETCH or grip edit that touched a BIM
+element, the plan is regenerated: the regeneration reads each element's
+frame (frame.py) and brings its data into line, gives copies their own
+identity and redraws the outline.  One undo restores everything.
 
-* an architectural entity that appeared carrying an ID that already exists
-  (COPY, MIRROR keeping the source, ARRAY, paste) gets a NEW identity — the
-  original keeps its own;
-* a wall whose CAD axis moved (MOVE, ROTATE, MIRROR, STRETCH, grips) gets its
-  XDATA ``a``/``b`` rewritten from the axis; a column its ``center``;
-* if the plan outline exists, it is regenerated.
-
-Everything happens in ONE follow-up command joined to the user's command:
-one undo restores geometry, identities, XDATA and outline together.
-Without the upstream hook this module is inert (ARQVALIDAR still reports).
+On an IngeCAD without reactors this module is not used: the same happens
+at the next plugin order or UNIONESARQ.
 """
 from __future__ import annotations
 
-import math
-import uuid
-
 from core.commands import Command
 
-from .architectural import _xdata, metadata
+from .architectural import APPID, metadata
+from .frame import FRAME_APPID
 
-KINDS = ("wall", "column", "space")
+KINDS = ("wall", "column", "space", "opening")
 
 
 def _fingerprint(e):
     try:
-        return tuple(tuple(round(c, 9) for c in p) for p in e.get_points("xyb")) + (e.closed,)
+        pts = tuple(tuple(round(c, 9) for c in p) for p in e.get_points("xyb")) + (e.closed,)
     except Exception:  # noqa: BLE001
         return None
+    try:
+        frame = tuple(tuple(t.value) if hasattr(t.value, "__len__") else t.value
+                      for t in e.get_xdata(FRAME_APPID)) if e.has_xdata(FRAME_APPID) else None
+    except Exception:  # noqa: BLE001
+        frame = None
+    return pts, frame
 
 
 def _snapshot(drawing):
     out = {}
     for e in drawing.modelspace():
         if e.dxftype() != "LWPOLYLINE":
+            continue
+        try:
+            if not e.has_xdata(APPID):
+                continue
+        except Exception:  # noqa: BLE001
             continue
         m = metadata(e)
         if m and m.get("kind") in KINDS:
@@ -50,98 +55,41 @@ class ArquitecturaReactor:
     name = "arquitectura"
 
     def before(self, document):
+        if getattr(document, "_arq_reacting", False):
+            return None
         snap = _snapshot(document.doc)
         return snap or None
 
     def react(self, document, state):
         if getattr(document, "_arq_reacting", False):
             return None
-        now = _snapshot(document.doc)
-        ids_before = {v[0] for v in state.values()}
-        changes = []                    # (entity, new_metadata)
-        db = document.doc.entitydb
-        seen_ids = {}
-        for handle, (ident, fp) in now.items():
-            e = db.get(handle)
-            old = state.get(handle)
-            m = dict(metadata(e))
-            changed = False
-            if old is None and ident in ids_before:
-                m["id"] = uuid.uuid4().hex             # a copy: new identity
-                m["copied_from"] = ident
-                changed = True
-            elif ident in seen_ids:                     # duplicate created otherwise
-                m["id"] = uuid.uuid4().hex
-                changed = True
-            seen_ids[m["id"]] = handle
-            if old is None or old[1] != fp or changed:
-                pts = [tuple(map(float, p)) for p in e.get_points("xy")]
-                if m["kind"] == "wall" and not e.closed and len(pts) == 2:
-                    if math.dist(pts[0], m["a"]) > 1e-9 or math.dist(pts[1], m["b"]) > 1e-9:
-                        m["a"], m["b"] = list(pts[0]), list(pts[1])
-                        changed = True
-                    bulge = float(e.get_points("xyb")[0][2])
-                    if abs(bulge - float(m.get("bulge") or 0.0)) > 1e-9:
-                        if abs(bulge) > 1e-12:
-                            m["bulge"] = bulge
-                        else:
-                            m.pop("bulge", None)
-                        changed = True
-                elif m["kind"] == "column" and pts:
-                    cx = sum(p[0] for p in pts) / len(pts)
-                    cy = sum(p[1] for p in pts) / len(pts)
-                    if math.dist((cx, cy), m.get("center", (cx, cy))) > 1e-9:
-                        m["center"] = [cx, cy]
-                        changed = True
-            if changed:
-                changes.append((e, m))
-        geometry_moved = any(state.get(h, (None, None))[1] != v[1] for h, v in now.items()) \
-            or set(now) != set(state)
-        if not changes and not geometry_moved:
+        if _snapshot(document.doc) == state:
             return None
-        return SyncCommand(changes, regenerate=geometry_moved and _has_outline(document))
-
-
-def _has_outline(document):
-    for e in document.doc.modelspace():
-        if e.dxftype() in ("LINE", "ARC") and (metadata(e) or {}).get("kind") == "junction_edge":
-            return True
-    return False
+        return SyncCommand()
 
 
 class SyncCommand(Command):
+    """The plan regenerated after a generic edit, as a follow-up of it."""
     name = "ARQ SINCRONIZAR BIM"
     needs_regen = True
 
-    def __init__(self, changes, regenerate):
-        self.changes = changes
-        self.regenerate = regenerate
-        self._old = []
+    def __init__(self):
         self._regen = None
 
-    @property
-    def entities(self):
-        return [e for e, _m in self.changes]
-
     def do(self, document):
-        msp = document.doc.modelspace()
-        self._old = []
-        for e, m in self.changes:
-            self._old.append((e, metadata(e)))
-            _xdata(msp, e, m)
-        if self.regenerate:
-            from .wall_network import RegenerateContoursCommand
-            document._arq_reacting = True
-            try:
-                if self._regen is None:
-                    self._regen = RegenerateContoursCommand()
-                self._regen.do(document)
-            finally:
-                document._arq_reacting = False
+        from .wall_network import RegenerateContoursCommand
+        document._arq_reacting = True
+        try:
+            if self._regen is None:
+                self._regen = RegenerateContoursCommand()
+            self._regen.do(document)
+        finally:
+            document._arq_reacting = False
 
     def undo(self, document):
         if self._regen is not None:
-            self._regen.undo(document)
-        msp = document.doc.modelspace()
-        for e, m in reversed(self._old):
-            _xdata(msp, e, m)
+            document._arq_reacting = True
+            try:
+                self._regen.undo(document)
+            finally:
+                document._arq_reacting = False
