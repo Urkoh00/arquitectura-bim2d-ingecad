@@ -68,8 +68,9 @@ Probado con el plano 563 del usuario.
 - Las líneas de muro que se quedan sin pareja no se ocultan: quedan seleccionadas para revisarlas.
 
 ### IngeCAD 0.8: lo oficial, cuando existe
-IngeCAD 0.8.0 (9-11-2026) incorpora lo que este plugin había pedido. Se usa cuando está presente; con un
-IngeCAD anterior todo sigue como antes.
+IngeCAD 0.8.0, todavía en desarrollo (la versión publicada es la 0.7.0), incorpora lo que este plugin había
+pedido. Se usa cuando está presente; con IngeCAD 0.7, la versión instalable hoy, todo sigue como antes y está
+probado.
 - **Reactores.** Tras mover, girar, escalar, hacer una simetría o copiar con IngeCAD, el plano se regenera
   solo, en el mismo paso de deshacer; ya no hace falta `UNIONESARQ`.
 - **Doble clic.** Sobre un muro arranca MURO con sus propiedades; sobre una carpintería, CARPINTERIA con su

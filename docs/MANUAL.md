@@ -69,9 +69,9 @@ Cada elemento es un objeto BIM con identidad propia; las líneas que se ven en p
 
 Nada se rechaza. Si algo no se puede representar exactamente, se avisa: por ejemplo, un perfil metálico escalado pasa a sección rectangular genérica. Una copia recibe un identificador nuevo y el original conserva el suyo.
 
-**Con IngeCAD 0.8 o posterior** el ajuste es inmediato. Tras la orden de IngeCAD, el plugin regenera el plano en el mismo paso de deshacer, sin necesidad de `UNIONESARQ`, y un solo `Deshacer` lo devuelve todo a como estaba. Con versiones anteriores, el ajuste se hace en la siguiente orden del plugin o con `UNIONESARQ`.
+**Con IngeCAD 0.8 o posterior (en desarrollo; la versión publicada hoy es la 0.7)** el ajuste es inmediato. Tras la orden de IngeCAD, el plugin regenera el plano en el mismo paso de deshacer, sin necesidad de `UNIONESARQ`, y un solo `Deshacer` lo devuelve todo a como estaba. Con versiones anteriores, el ajuste se hace en la siguiente orden del plugin o con `UNIONESARQ`.
 
-**Doble clic (IngeCAD 0.8 o posterior).** Al hacer doble clic sobre un elemento:
+**Doble clic (IngeCAD 0.8 o posterior; con la 0.7, use EDITARARQ).** Al hacer doble clic sobre un elemento:
 
 - **un muro** (cualquiera de sus líneas): arranca `MURO` con su espesor, altura, cota, cara, tipo y capas;
 - **una puerta o ventana**: arranca `CARPINTERIA` con su modelo;
@@ -402,7 +402,7 @@ Si encuentra alguno, abre un cuadro con la lista. Al seleccionar un problema, su
 
 Estas son las limitaciones conocidas de la versión 1.17.0-dev; cada versión actualiza esta lista.
 
-- **Plataforma:** las pruebas automáticas se ejecutan en Linux y en Windows con IngeCAD oficial (0.8.0 y la versión anterior), pero sin pantalla. El plugin no se ha vuelto a probar en el IngeCAD instalado en Windows desde la v1.8.1.
+- **Plataforma:** las pruebas automáticas se ejecutan en Linux y en Windows con IngeCAD oficial (la 0.7.0 publicada y la 0.8.0 en desarrollo), pero sin pantalla. El plugin no se ha vuelto a probar en el IngeCAD instalado en Windows desde la v1.8.1.
 - **Muros curvos:** cada muro llega como mucho a media circunferencia (un muro redondo son dos). MUROPARALELO y DIVIDEMURO solo toman líneas rectas como referencia. El gesto de esquina en L al terminar un MURO solo recorta muros rectos.
 - **Carpinterías:** en muros curvos son planas; no hay carpintería curva. Faltan armarios, memoria de carpintería, catálogo de modelos, lucernarios y borrar la carpintería dejando el vano.
 - **LINEASAMURO:** no reconoce puertas ni ventanas en muros curvos. Las medianeras toman el espesor hasta la línea paralela más próxima de otra capa: revise su espesor.
@@ -414,7 +414,7 @@ Estas son las limitaciones conocidas de la versión 1.17.0-dev; cada versión ac
 
 | Fecha | Versión | Novedades |
 | --- | --- | --- |
-| 9-11-2026 | 1.17.0-dev | Auditoría independiente integrada: comprobación antes de exportar con elementos resaltados; órdenes de IngeCAD aceptadas; encuentros por alturas; extensión que valida el contrato y admite coordenadas UTM; LINEASAMURO para planos reales (capas, bloques, medianeras, pilares); opciones generales; con IngeCAD 0.8, sincronización inmediata, doble clic y F5 por la vía oficial |
+| 9-11-2026 | 1.17.0-dev | Auditoría independiente integrada: comprobación antes de exportar con elementos resaltados; órdenes de IngeCAD aceptadas; encuentros por alturas; extensión que valida el contrato y admite coordenadas UTM; LINEASAMURO para planos reales (capas, bloques, medianeras, pilares); opciones generales; con IngeCAD 0.8 (en desarrollo), sincronización inmediata, doble clic y F5 por la vía oficial |
 | 9-11-2026 | 1.16.0-dev | La importación en IngeTrazo ya no falla en planos lejos del origen; SUPERFICIES dibuja el cuadro en la planta; COTAMUROS (cotas automáticas); símbolos de puertas y ventanas más detallados; menú «Herramientas antiguas»; pruebas también en Windows y dentro del ZIP |
 | 7-11-2026 | 1.15.0-dev | Fichas de carpintería y de recinto; PROPIEDADESARQ y EDITARARQ editan carpinterías, huecos y recintos; EXPORTARBIM cuenta puertas, ventanas y huecos |
 | 7-11-2026 | 1.14.1-dev | Corrige que MURO y las demás órdenes no crearan elementos en IngeCAD («No module named 'shapely'»); el plugin ya solo usa lo que instala IngeCAD |
