@@ -1,12 +1,12 @@
 # Manual de Arquitectura para IngeCAD
 
-Versión 1.16.0-dev · 9-11-2026
+Versión 1.17.0-dev · 9-11-2026
 
 > Copia del manual publicado como documento en claude.ai; se regenera con cada versión.
 
 ## Qué es
 
-Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.16.0-dev** y se actualiza con cada versión.
+Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.17.0-dev** y se actualiza con cada versión.
 
 Cada elemento guarda su identidad persistente, su clase IFC, su geometría editable en planta, sus parámetros 3D (altura, espesor, cota), sus propiedades constructivas (tipo, material, capas) y su nivel. Las carpinterías conocen su muro y los recintos siguen a los muros que los cierran.
 
@@ -23,7 +23,7 @@ El plugin se instala copiando una carpeta en IngeCAD, y la extensión copiando u
 
 **En IngeCAD**
 
-1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.16.0-dev.zip`.
+1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.17.0-dev.zip`.
 2. Copie la carpeta `arquitectura` en la carpeta de plugins de IngeCAD.
 3. Reinicie IngeCAD. Aparece el menú *Arquitectura* y su barra de herramientas.
 4. Escriba `ARQDIAG` en la línea de órdenes para comprobar que la versión cargada es la que acaba de copiar.
@@ -60,7 +60,14 @@ Cada elemento es un objeto BIM con identidad propia; las líneas que se ven en p
 
 **Regeneración.** Cada orden del plugin recalcula los encuentros y el contorno en el mismo paso, y se deshace con un solo `Deshacer`. Tras editar con órdenes genéricas de IngeCAD (desplazar, copiar, simetría, estirar el eje), ejecute `UNIONESARQ`: lee el dibujo, actualiza los datos y regenera.
 
-**El dibujo manda.** Si se desplaza, gira, copia o refleja un elemento con IngeCAD, el plugin toma la nueva geometría del eje como verdadera. Una copia recibe un identificador nuevo; el original conserva el suyo.
+**El dibujo manda, y las órdenes de IngeCAD valen.** Los elementos BIM se pueden desplazar, girar, escalar, reflejar y copiar con las órdenes de IngeCAD. Cada elemento lleva un marco de referencia invisible que IngeCAD transforma con él. Al regenerar (cualquier orden del plugin o `UNIONESARQ`) o al exportar, el plugin lee la transformación y ajusta los datos BIM:
+
+- espesores y capas al escalar;
+- sección de los pilares;
+- lado del muro y cara hacia la que abre la puerta en una simetría;
+- punto interior de los recintos.
+
+Nada se rechaza. Si algo no se puede representar exactamente, se avisa: por ejemplo, un perfil metálico escalado pasa a sección rectangular genérica. Una copia recibe un identificador nuevo y el original conserva el suyo.
 
 **Selección.** Cada muro forma un grupo con su eje y sus líneas de contorno: al designar cualquiera de sus líneas se designa el muro entero. No borre ni mueva solo las líneas del contorno; `ARQVALIDAR` avisa si quedan líneas sin muro.
 
@@ -71,6 +78,13 @@ Cada elemento es un objeto BIM con identidad propia; las líneas que se ven en p
 Los valores por defecto, el catálogo de tipos de muro y los usos se guardan dentro del propio DXF; cambiarlos no modifica los elementos ya dibujados.
 
 **PARAMETROSARQ** abre una ficha con los valores de partida: espesor 0,30 m, altura 2,70 m, cota 0 y referencia por el eje para los muros; pilar de 0,30 × 0,30 m; puerta de 2,10 m de altura; ventana de 1,20 × 1,20 m con antepecho de 1,00 m. Se deshace con `Deshacer`.
+
+**Opciones generales.** La pestaña *General* de la misma ficha elige la forma de trabajar con el dibujo:
+
+- **Trabajar con usos de recinto.** Si se activa, la ficha de recinto pide el uso y es el uso el que decide la clasificación; el nombre es libre y no la cambia. Si no se activa, la decide el nombre y la ficha no pide el uso. La clasificación determina, por ejemplo, la altura habitable de 2,20 m en baños y pasillos.
+- **Cota mínima.** `COTAMUROS` no acota distancias menores que esta y las suma a la siguiente.
+
+Aquí se guardan también las capas y la tolerancia que usa `LINEASAMURO`.
 
 **TIPOSMURO** gestiona el catálogo. Cada tipo es una lista de capas, contadas desde la cara dibujada hacia el cuerpo del muro; su espesor total es la suma de las capas.
 
@@ -177,6 +191,16 @@ Un muro curvo es el mismo muro BIM que uno recto: sus caras son arcos concéntri
 | `E` | Espesor mínimo y máximo de muro | 0,07 y 0,50 m |
 | `A` | Altura de los muros | 2,70 m |
 | `O` | Qué hacer con las líneas de origen: ocultar (en la capa apagada ARQ-PLANO-ORIGEN), borrar o conservar | ocultar |
+| `K / L / R` | Capas de las caras de muro, de los pilares y de la carpintería; se guardan en el dibujo | reconocidas por su nombre |
+| `P` | Desviación admitida entre las dos caras de un muro antiguo | 0,005 m (0,03 en levantamientos) |
+
+**Planos reales.** LINEASAMURO está pensado también para planos de estudio dibujados por capas:
+
+- **Capas por nombre.** Reconoce las capas por su nombre: *pared* o *muro* para las caras, *pilar* para los pilares, *carp*, *puerta* o *ventana* para la carpintería. Las opciones `K`, `L` y `R` las fijan. Así, las escaleras, las cotas, el mobiliario y las líneas de cámara (capas con *cámara* o *aislamiento*) no se leen como muros.
+- **Bloques.** Si la planta está dentro de un bloque, la lee sin modificarlo.
+- **Medianeras.** Una medianera dibujada con su cara interior se cierra con la línea paralela más próxima de otra capa, normalmente el límite con el vecino.
+- **Pilares.** Los dibujados como contorno cerrado se convierten en `PILAR`.
+- **Líneas sin pareja.** Las líneas de muro que se quedan sin pareja no se ocultan: quedan seleccionadas para revisarlas o dibujar esos muros con `MURO`.
 
 Las puertas se crean de 2,10 m de altura; las ventanas, de 1,20 m con antepecho de 0,90 m. Los muros se crean por su eje. Ajuste tipos, alturas y carpinterías después.
 
@@ -265,7 +289,7 @@ El rótulo muestra el nombre y la superficie útil, y «(computa X)» cuando la 
 - **Superficie útil:** la cerrada por la cara interior de los cerramientos. No incluye tabiques ni puertas, ni pilares o conductos de más de 100 cm² de sección; los de hasta 100 cm² sí se cuentan.
 - **Altura libre menor de 1,50 m:** no computa.
 - **Espacio exterior cubierto** de 0,50 m de fondo o más: computa el 50 %; con menos fondo, nada.
-- **Superficie útil habitable:** la de altura libre de al menos 2,50 m; en baños, aseos, vestíbulos, pasillos y distribuidores basta con 2,20 m (el tipo de estancia se reconoce por su nombre o su uso).
+- **Superficie útil habitable:** la de altura libre de al menos 2,50 m; en baños, aseos, vestíbulos, pasillos y distribuidores basta con 2,20 m (el tipo de estancia se reconoce por su uso o por su nombre, según las opciones generales).
 
 El cuadro da la superficie útil interior, la de espacios exteriores al 50 %, la computable total y la habitable. Cada recinto exporta estos valores en el grupo de propiedades `ARQ_Recinto` del IFC.
 
@@ -298,6 +322,16 @@ Que `ARQVALIDAR` no avise de nada no garantiza que el 3D o el IFC sean válidos:
 
 El modelo pasa a IngeTrazo como un fichero `.arqbim` que ya lleva la geometría 3D de cada elemento; IngeTrazo no la recalcula, solo la representa y la escribe en IFC.
 
+**Comprobación antes de exportar.** `EXPORTARBIM` revisa antes el dibujo y busca:
+
+- datos BIM ilegibles;
+- elementos sin identidad o con la identidad de otro (una copia);
+- puertas y ventanas sin muro;
+- huecos que no caben en su muro o se solapan;
+- medidas imposibles.
+
+Si encuentra alguno, abre un cuadro con la lista. Al seleccionar un problema, sus elementos se resaltan en el dibujo. Usted decide entre exportar sin los elementos marcados o cancelar para corregirlos. `ARQVALIDAR` informa de lo mismo sin exportar.
+
 1. En IngeCAD, ejecute `EXPORTARBIM` y elija dónde guardar el `.arqbim`. El dibujo debe estar en metros. Al terminar, el programa resume cuántos muros, pilares, puertas, ventanas, huecos y recintos ha exportado y el volumen construido.
 2. En IngeTrazo, use *Importar arquitectura IngeCAD (.arqbim)…*. Cada elemento llega como un grupo con su clase IFC, nombre, identificador estable (GlobalId), planta, material, tipo, propiedades, cantidades y huecos. La extensión comprueba que cada sólido sea estanco y que su volumen coincida con el exportado; si algo falla, lo explica en un diálogo.
 3. Guarde en IGZ: la definición arquitectónica completa viaja dentro del archivo y se conserva al volver a abrirlo.
@@ -314,7 +348,7 @@ El modelo pasa a IngeTrazo como un fichero `.arqbim` que ya lleva la geometría 
 | Recinto | IfcSpace | Superficie útil y computable, si es habitable, usos |
 | Falso techo | IfcCovering | Placa de 15 mm bajo el techo del recinto |
 
-**Estado.** Con la versión oficial actual de IngeTrazo, el IFC no relaciona aún las puertas y ventanas con su hueco ni escribe sus tipos de apertura, y coloca los recintos de una forma que el validador marca como error. Las correcciones están preparadas para proponerlas a su desarrollador. Con ellas, los modelos de prueba dan 0 errores en IfcOpenShell.
+**Estado.** Con la versión oficial actual de IngeTrazo, el IFC no relaciona aún las puertas y ventanas con su hueco ni escribe sus tipos de apertura, y coloca los recintos de una forma que el validador marca como error. Las correcciones están preparadas para proponerlas a su desarrollador. Con ellas, los modelos de prueba dan 0 errores en IfcOpenShell. La extensión valida el fichero completo antes de importarlo. Los modelos a más de 100 km del origen (coordenadas UTM) se desplazan cerca del origen con la misma regla que IngeTrazo aplica a cualquier fichero, y se avisa del desplazamiento.
 
 ## Referencia rápida de órdenes
 
@@ -355,20 +389,21 @@ El modelo pasa a IngeTrazo como un fichero `.arqbim` que ya lleva la geometría 
 
 ## Limitaciones conocidas
 
-Estas son las limitaciones conocidas de la versión 1.16.0-dev; cada versión actualiza esta lista.
+Estas son las limitaciones conocidas de la versión 1.17.0-dev; cada versión actualiza esta lista.
 
 - **Plataforma:** las pruebas automáticas se ejecutan en Linux y en Windows con IngeCAD oficial, pero sin pantalla. El plugin no se ha vuelto a probar en el IngeCAD instalado en Windows desde la v1.8.1.
 - **Muros curvos:** cada muro llega como mucho a media circunferencia (un muro redondo son dos). MUROPARALELO y DIVIDEMURO solo toman líneas rectas como referencia. El gesto de esquina en L al terminar un MURO solo recorta muros rectos.
 - **Carpinterías:** en muros curvos son planas; no hay carpintería curva. Faltan armarios, memoria de carpintería, catálogo de modelos, lucernarios y borrar la carpintería dejando el vano.
-- **LINEASAMURO:** no reconoce puertas ni ventanas en muros curvos.
+- **LINEASAMURO:** no reconoce puertas ni ventanas en muros curvos. Las medianeras toman el espesor hasta la línea paralela más próxima de otra capa: revise su espesor.
 - **Recintos:** una sola altura por recinto (no calcula descuelgues parciales); las escaleras no se descuentan todavía.
-- **Edificio:** aún no hay plantas múltiples, forjados, escaleras ni barandillas. Las cotas de COTAMUROS no son asociativas: si se mueve un muro, hay que volver a acotar.
+- **Edificio:** aún no hay plantas múltiples, forjados, escaleras ni barandillas. Las cotas de COTAMUROS no son asociativas: si se mueve un muro, hay que volver a acotar. Una simetría de un muro respecto de su propio eje no cambia su lado; para eso use la cara (I o F5) o su ficha.
 - **IFC con IngeTrazo oficial:** ver *Exportación a IngeTrazo e IFC*.
 
 ## Novedades por versión
 
 | Fecha | Versión | Novedades |
 | --- | --- | --- |
+| 9-11-2026 | 1.17.0-dev | Auditoría independiente integrada: comprobación antes de exportar con elementos resaltados; órdenes de IngeCAD aceptadas; encuentros por alturas; extensión que valida el contrato y admite coordenadas UTM; LINEASAMURO para planos reales (capas, bloques, medianeras, pilares); opciones generales |
 | 9-11-2026 | 1.16.0-dev | La importación en IngeTrazo ya no falla en planos lejos del origen; SUPERFICIES dibuja el cuadro en la planta; COTAMUROS (cotas automáticas); símbolos de puertas y ventanas más detallados; menú «Herramientas antiguas»; pruebas también en Windows y dentro del ZIP |
 | 7-11-2026 | 1.15.0-dev | Fichas de carpintería y de recinto; PROPIEDADESARQ y EDITARARQ editan carpinterías, huecos y recintos; EXPORTARBIM cuenta puertas, ventanas y huecos |
 | 7-11-2026 | 1.14.1-dev | Corrige que MURO y las demás órdenes no crearan elementos en IngeCAD («No module named 'shapely'»); el plugin ya solo usa lo que instala IngeCAD |

@@ -32,7 +32,7 @@ import os
 from collections import defaultdict
 from pathlib import Path
 
-_VERSION = "1.16.0-dev"
+_VERSION = "1.17.0-dev"
 
 from core.plugins import SEPARATOR, MenuItem, PluginSpec, Submenu, ToolbarItem
 from tools.base import Tool
@@ -1404,7 +1404,16 @@ class AyudaArqTool(ArchitectureTool):
         self.ctx.echo("LINEASAMURO           — convierte las líneas de un plano antiguo en muros, puertas, ventanas y vanos:")
         self.ctx.echo("                        dos clics enmarcan la zona; E espesores mín./máx., A altura,")
         self.ctx.echo("                        O líneas de origen (ocultar en capa apagada / borrar / conservar);")
-        self.ctx.echo("                        dos arcos concéntricos a un espesor de muro = muro curvo")
+        self.ctx.echo("                        dos arcos concéntricos a un espesor de muro = muro curvo;")
+        self.ctx.echo("                        reconoce las capas por su nombre (pared/muro, pilar, carpintería) o K/L/R las")
+        self.ctx.echo("                        fija; lee dentro de los bloques sin cambiarlos; medianeras con una sola cara;")
+        self.ctx.echo("                        P paralelismo de muros antiguos; las líneas sin pareja quedan seleccionadas")
+        self.ctx.echo("PARAMETROSARQ         — opciones generales (trabajar con usos de recinto, cota mínima) y valores")
+        self.ctx.echo("                        de partida de muros, pilares, puertas y ventanas")
+        self.ctx.echo("EXPORTARBIM           — modelo para IngeTrazo (.arqbim); antes comprueba el dibujo y, si hay")
+        self.ctx.echo("                        problemas, los muestra resaltados y usted decide exportar sin ellos o corregir")
+        self.ctx.echo("Órdenes de IngeCAD    — mover, girar, escalar, simetría y copiar valen para los elementos BIM:")
+        self.ctx.echo("                        sus datos se ajustan al regenerar (cualquier orden del plugin o UNIONESARQ)")
         self.ctx.echo("PILAR                 — S sección (0,30x0,30 · D0,35 · IPE/IPN/HEA/HEB/UPN · 2UPN cajon/empresillado),")
         self.ctx.echo("                        E enganche 1-9, G girar 90°, A autorrotación, P a distancia de dos paramentos,")
         self.ctx.echo("                        U de un paramento, C recubrimiento")

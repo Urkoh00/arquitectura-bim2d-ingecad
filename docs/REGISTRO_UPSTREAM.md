@@ -58,6 +58,7 @@ Las correcciones propuestas son generales: servirían a todas las extensiones de
 | C-03 | Carencia | Las herramientas de plugin no reciben el doble clic (`MainWindow.on_canvas_double_click` no tiene gancho) | [A] | Documentada | — | Editar con `EDITARARQ` |
 | C-04 | Carencia | Las herramientas de plugin no reciben teclas de función (F5 está libre en IngeCAD) | [A] | Documentada | — | Atajo de ventana temporal mientras la herramienta está activa; opción tecleada I |
 | C-05 | Carencia | El modo ortogonal solo sigue el ángulo del SCP; no hay ortogonal relativo a un elemento, que es lo útil para dibujar muros oblicuos | [A] | Documentada | — | Ninguno |
+| C-06 | Inconsistencia | Deshacer una SIMETRÍA (`TransformCommand` con `upright`) de una entidad OCS, por ejemplo una polilínea, restaura sus propiedades y vértices pero no su XDATA, aunque la simetría sí transformó los puntos y vectores de XDATA (1011/1012). Las demás órdenes se deshacen con la matriz inversa y dejan la XDATA bien. Reproducción: polilínea con XDATA 1011; SIMETRÍA sin conservar el original; deshacer: los vértices vuelven y el punto 1011 queda reflejado | [A] | Documentada | — | El marco de referencia del plugin guarda también el contorno y se ignora si la geometría volvió a su sitio (`frame.read_frame`) |
 
 ---
 
@@ -89,6 +90,8 @@ que `EraseCommand` guarde la pertenencia a grupos y la restaure en `undo`.
 ---
 
 ## Historial
+
+- **9-11-2026 (noche):** al aceptar las órdenes de IngeCAD sobre elementos BIM, se encuentra C-06. Se adopta la regla oficial de IngeTrazo para coordenadas lejanas (`formats/recenter.py`) en la extensión. La auditoría independiente de la v1.15 trae parches para IngeCAD (reactores, grupos tras borrar y deshacer) e IngeTrazo (GUID estables, `IfcSpace`, `IfcRelFillsElement`, atributos enumerados, volumen, importación en un paso). Se consolidarán con T-03 a T-05 y C-01 a C-02. No se envía nada hasta que respondan #1221 y #1222.
 
 - **9-11-2026:** T-01 impedía importar en IngeTrazo 0.6.1 un plano lejos del origen (lo vio el usuario). Rodeo en la extensión: volumen en doble precisión. #1221 y #1222 siguen sin respuesta; no se envía nada nuevo.
 - **7-11-2026:** se estudian las extensiones ArchXQ IT Lite, cad2ingetrazo y BlackFox-CAD. T-05 queda pendiente de acordar los nombres de clave con lo que ya usa cad2ingetrazo.

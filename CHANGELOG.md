@@ -2,6 +2,76 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.17.0-dev — 2026-11-09
+
+Integra la auditoría independiente de la v1.15 (25 hallazgos), con las decisiones del usuario: el plugin
+funciona siempre con IngeCAD e IngeTrazo oficiales, nada se bloquea sin explicación y las órdenes de
+IngeCAD se aceptan.
+
+### Comprobación antes de exportar
+- EXPORTARBIM revisa el dibujo antes de escribir el modelo:
+  - datos BIM ilegibles;
+  - elementos sin identidad o con identidad copiada (también recintos);
+  - puertas y ventanas sin muro;
+  - huecos que no caben o se solapan;
+  - medidas imposibles.
+- Si encuentra algo, abre un cuadro con la lista. Al seleccionar un problema se resaltan sus elementos en el
+  dibujo. El operador decide entre exportar sin ellos o cancelar y corregir. Antes, esos elementos se perdían
+  sin aviso o se exportaba un modelo con identidades repetidas.
+- ARQVALIDAR informa de lo mismo.
+- Hallazgos de la auditoría: ARQ-AUD-0001, 0005, 0013 y 0024.
+
+### Órdenes de IngeCAD sobre elementos BIM
+- Mover, girar, escalar, simetría y copiar funcionan con el IngeCAD oficial y sin parches. Cada elemento lleva
+  un marco de referencia invisible que IngeCAD transforma con él. Al regenerar o exportar, el plugin lee la
+  transformación y ajusta los datos BIM:
+  - espesores y capas de los muros;
+  - sección de los pilares;
+  - lado del muro y cara hacia la que abre la puerta (en la simetría);
+  - punto interior del recinto.
+- Nada se rechaza. Lo que no se puede representar exactamente se avisa: un perfil metálico escalado pasa a
+  sección rectangular genérica.
+- Hallazgos de la auditoría: ARQ-AUD-0003, 0015, 0021 y 0022.
+
+### Geometría e historial
+- Los encuentros se resuelven por bandas de altura: dos muros que no comparten altura no se recortan (0002).
+- La curvatura de un muro se toma del dibujo (0004).
+- Áreas y volúmenes no dependen de la distancia al origen (0016).
+- Una regeneración que falla no deja restos (0006).
+- Rehacer no acumula contornos (0023).
+
+### Extensión de IngeTrazo
+- Valida el contrato entero antes de importar (0012):
+  - identidades y GlobalId únicos;
+  - sólidos cerrados;
+  - huecos dentro de su muro;
+  - relaciones hueco–relleno;
+  - cada clase solo con sus atributos (por ejemplo, un recinto no puede llevar capas de muro).
+- Las coordenadas lejanas siguen la regla oficial de IngeTrazo (`formats/recenter.py`): a más de 100 km, el
+  modelo se desplaza cerca del origen en metros enteros, se avisa y se guarda el desplazamiento. Un segundo
+  modelo usa el mismo desplazamiento.
+- Si IngeTrazo ofrece importar geometría y datos en un solo paso, se usa; si no, se importa como hasta ahora.
+- La definición guardada conserva la planta y las capas de material (0014).
+- Probado con IngeTrazo 0.6.1 oficial con 12 modelos (el plano del usuario, coordenadas UTM, 3 km, 100 huecos,
+  muros curvos…): 0 errores en IfcOpenShell. El IFC de IngeTrazo oficial todavía no escribe los huecos ni sus
+  relaciones; las propuestas para IngeTrazo están preparadas.
+
+### LINEASAMURO para planos reales
+Probado con el plano 563 del usuario.
+- Reconoce las capas por su nombre: muros (pared/muro), pilares y carpintería. Las opciones `K`, `L` y `R` las
+  fijan y quedan guardadas en el dibujo. Escaleras, cotas y cámaras ya no se leen como muros.
+- Lee las plantas que están dentro de un bloque, sin modificarlo.
+- Reconoce las medianeras dibujadas con una sola cara: las cierra con la línea paralela más próxima de otra
+  capa, normalmente el límite con el vecino.
+- Los pilares dibujados como contorno cerrado pasan a PILAR.
+- La opción `P` fija la tolerancia de paralelismo para muros antiguos.
+- Las líneas de muro que se quedan sin pareja no se ocultan: quedan seleccionadas para revisarlas.
+
+### Opciones generales (PARAMETROSARQ, pestaña General)
+- Trabajar con usos de recinto (0025): con usos, la ficha pide el uso y es el uso el que clasifica el recinto;
+  sin usos, lo clasifica el nombre.
+- Cota mínima de COTAMUROS.
+
 ## 1.16.0-dev — 2026-11-09
 
 ### Corregido

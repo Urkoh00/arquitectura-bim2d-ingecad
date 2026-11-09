@@ -40,7 +40,11 @@ DEFAULTS = {
     #     their name, and the use is not asked for.
     #   cota_minima: COTAMUROS leaves out of the chain the distances shorter
     #     than this (0 = all), as the user's old CT order did with 0,15.
-    'general': {'usar_usos': False, 'cota_minima': 0.0},
+    #   lineas: LINEASAMURO's reading of old plans: the layers of wall faces,
+    #     columns and carpentry ([] = recognised by their names) and how far
+    #     the faces of an old wall may stray from parallel (m).
+    'general': {'usar_usos': False, 'cota_minima': 0.0,
+                'lineas': {'muros': [], 'pilares': [], 'carpinteria': [], 'paralelismo': 0.005}},
     # Wall types (IfcWallType). Each one is a list of layers, from the
     # DRAWN face (the reference line) toward the body of the wall; its
     # thickness is the sum of the layers. MURO asks for the TOTAL thickness
@@ -90,6 +94,10 @@ def load_defaults(document):
             data = payload.get(key, {})
             if isinstance(data,dict):
                 result[key].update({k:v for k,v in data.items() if k in result[key]})
+        lineas = (payload.get('general') or {}).get('lineas')
+        if isinstance(lineas, dict):
+            result['general']['lineas'] = {**DEFAULTS['general']['lineas'],
+                                           **{k: v for k, v in lineas.items() if k in DEFAULTS['general']['lineas']}}
         types = payload.get('wall_types')
         if isinstance(types, list):
             result['wall_types'] = [t for t in types if isinstance(t, dict)]
@@ -125,6 +133,14 @@ def validate_defaults(values):
     cm = g.get('cota_minima', 0.0)
     if isinstance(cm, bool) or not isinstance(cm, (int, float)) or not math.isfinite(cm) or cm < 0:
         raise ValueError('general.cota_minima: debe ser cero o positiva')
+    ln = g.get('lineas', {})
+    if not isinstance(ln, dict) or any(not isinstance(ln.get(k, []), list) or
+                                       not all(isinstance(x, str) for x in ln.get(k, []))
+                                       for k in ('muros', 'pilares', 'carpinteria')):
+        raise ValueError('general.lineas: listas de nombres de capa')
+    pt = ln.get('paralelismo', 0.005)
+    if isinstance(pt, bool) or not isinstance(pt, (int, float)) or not math.isfinite(pt) or not 0 <= pt <= 0.5:
+        raise ValueError('general.lineas.paralelismo: entre 0 y 0,5 m')
     u = values.get('usos')
     if u and u.get('tipo_edificio_cee') not in TIPOS_EDIFICIO_CEE:
         raise ValueError('Tipo de edificio del certificado no válido: ' + str(u.get('tipo_edificio_cee')))
