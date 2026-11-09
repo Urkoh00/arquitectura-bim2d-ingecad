@@ -144,15 +144,33 @@ def check_scene(scene, data):
     for obj in collect_objects(scene):
         g = obj["group"]
         el = want[g.ext["arquitectura"]["source_id"]]
-        vol = obj["volume"]
-        if vol is None:
+        if obj["volume"] is None:
             raise RuntimeError("Sólido no estanco en IngeTrazo: %s" % el["id"])
         # IngeTrazo keeps positions in single precision (QVector3D): allow
-        # float32 rounding, never a geometric difference.
+        # their float32 rounding, never a geometric difference. The volume
+        # is measured here in double precision about the solid's own first
+        # vertex: IngeTrazo's takeoff sums the triple products in float32
+        # with world coordinates, which loses ~1e-4 m3 on a door 35 m from
+        # the origin (REGISTRO_UPSTREAM T-09); that is not the model's error.
+        vol = _volume64(obj["group"])
         if abs(vol - el["volume"]) > _float32_volume_tolerance(el):
             raise RuntimeError("Volumen distinto en %s: %.6f != %.6f" % (el["id"], vol, el["volume"]))
         report.append((el["ifc_class"], el["id"], vol, el["volume"]))
     return report
+
+
+def _volume64(group):
+    """Enclosed volume of a top-level group's mesh, in double precision,
+    with the coordinates taken from its first vertex (no cancellation)."""
+    total, ref = 0.0, None
+    for f in group.mesh.faces:
+        for tri in f.triangulate():
+            pts = [(float(p.x()), float(p.y()), float(p.z())) for p in tri]
+            if ref is None:
+                ref = pts[0]
+            (ax, ay, az), (bx, by, bz), (cx, cy, cz) = [(x - ref[0], y - ref[1], z - ref[2]) for x, y, z in pts]
+            total += (ax * (by * cz - bz * cy) - ay * (bx * cz - bz * cx) + az * (bx * cy - by * cx)) / 6.0
+    return abs(total)
 
 
 def _float32_volume_tolerance(el):
@@ -207,7 +225,14 @@ def setup(app):
         path, _ = QFileDialog.getOpenFileName(app.window, "Importar arquitectura IngeCAD",
                                               "", "Arquitectura BIM (*.arqbim)")
         if path:
-            open_arqbim(path)
+            try:
+                open_arqbim(path)
+            except Exception as exc:  # noqa: BLE001  (tell the user, do not fail silently)
+                from PySide6.QtWidgets import QMessageBox
+                QMessageBox.warning(app.window, "Importar arquitectura IngeCAD",
+                                    "No se pudo importar %s:\n\n%s: %s" % (Path(path).name,
+                                                                           type(exc).__name__, exc))
+                raise
 
     app.add_file_opener(SUFFIX, open_arqbim)
     app.add_menu_action("Importar arquitectura IngeCAD (.arqbim)…", ask_and_open)

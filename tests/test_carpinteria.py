@@ -64,8 +64,13 @@ def test_puerta_libre_corta_el_muro_con_mochetas_y_dibuja_la_hoja(plugin):
     arcs = [e for e in sym if e.dxftype() == 'ARC']
     assert len(arcs) == 1 and arcs[0].dxf.radius == pytest.approx(0.825)
     assert (arcs[0].dxf.center.x, arcs[0].dxf.center.y) == pytest.approx((1.03, 0.15))
-    leaf = [e for e in sym if e.dxftype() == 'LINE'][0]
-    assert (leaf.dxf.end.x, leaf.dxf.end.y) == pytest.approx((1.03, 0.975))
+    # la hoja es un tablero de 4 cm abierto a 90°: de la bisagra (1,03; 0,15) a (1,03; 0,975)
+    leaf = [e for e in sym if e.dxftype() == 'LWPOLYLINE' and len(e) == 4][0]
+    pts = sorted((round(x, 6), round(y, 6)) for x, y in leaf.get_points('xy'))
+    assert [c for p in pts for c in p] == pytest.approx([1.03, 0.15, 1.03, 0.975, 1.07, 0.15, 1.07, 0.975])
+    # las jambas del cerco con su galce (6 vértices), a ambos lados
+    jambs = [e for e in sym if e.dxftype() == 'LWPOLYLINE' and len(e) == 6]
+    assert len(jambs) == 2
     # el portador está en la capa oculta y forma grupo con su símbolo
     assert s.document.doc.layers.get(door.dxf.layer).is_off()
     pick = s.services.pick_entity((1.03, 0.6))
@@ -108,9 +113,10 @@ def test_ventana_a_distancia_fija_centrada_y_maxima(plugin):
     assert xs[1] == pytest.approx(5.95)
     assert by_x[xs[1]]['width'] == pytest.approx(3.80)
     assert len(ops) == 3 and all(o['type'] == 'window' for o in ops)
-    # una ventana dibuja marco, vidrio, la división de sus dos hojas y el alféizar exterior
+    # una ventana de dos hojas: dos jambas del marco y dos hojas (perfiles), el vidrio de
+    # cada hoja, la marca donde se encuentran y el alféizar exterior que cierra el hueco
     kinds = sorted(e.dxftype() for e in _symbols(s, by_x[xs[0]]['id']))
-    assert kinds == ['LINE', 'LINE', 'LWPOLYLINE', 'LWPOLYLINE']
+    assert kinds == ['LINE'] * 3 + ['LWPOLYLINE'] * 5
     assert not [i for i in s.issues() if 'Contorno' in i]
 
 
@@ -139,9 +145,9 @@ def test_puerta_en_tabique_ocupa_su_espesor_y_sigue_al_tabique(plugin):
     tab = [w for w in s.walls().values() if s.meta(w)['thickness'] == 0.1][0]
     assert m['wall_id'] == s.meta(tab)['id']
     assert m['offset'] + m['width'] / 2 == pytest.approx(4.7 / 2)
-    frames = [e for e in _symbols(s, m['id']) if e.dxftype() == 'LWPOLYLINE']
+    frames = [e for e in _symbols(s, m['id']) if e.dxftype() == 'LWPOLYLINE' and len(e) == 6]
     xs = sorted({round(p[0], 6) for e in frames for p in e.get_points('xy')})
-    assert xs == pytest.approx([3.95, 4.05])                 # cerco = espesor del tabique
+    assert (xs[0], xs[-1]) == pytest.approx((3.95, 4.05))    # cerco = espesor del tabique
     r = s.tool('RECINTO')
     r.on_point((2, 2))
     r.on_point((6, 2))
@@ -151,8 +157,8 @@ def test_puerta_en_tabique_ocupa_su_espesor_y_sigue_al_tabique(plugin):
     _regen(s)
     pts = door.get_points('xy')
     assert pts[0][0] == pytest.approx(5.0) and s.meta(door)['offset'] == pytest.approx(m['offset'])
-    assert all(abs(p[0] - 5.0) < 0.051 for e in _symbols(s, m['id']) if e.dxftype() == 'LWPOLYLINE'
-               for p in e.get_points('xy'))
+    assert all(abs(p[0] - 5.0) < 0.051 for e in _symbols(s, m['id'])
+               if e.dxftype() == 'LWPOLYLINE' and len(e) == 6 for p in e.get_points('xy'))
 
 
 def test_mover_copiar_y_borrar_con_el_muro(plugin):

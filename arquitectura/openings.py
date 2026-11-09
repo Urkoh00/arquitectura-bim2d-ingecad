@@ -261,12 +261,12 @@ def plan_symbol(spec, rec):
     f0, f1 = frame_band(spec, rec)
     fw = float(rec.get("frame_width") or 0.0)
     sg = rec["side"]
+    lt = float(rec.get("leaf_thickness") or LEAF_THICKNESS)
     if rec["type"] == "door":
+        h = f1 if sg > 0 else f0            # the face of the frame it opens to
         if fw > 0:
-            for a, b in ((s0, s0 + fw), (s1 - fw, s1)):
-                out.append(("poly", [pt(a, f0), pt(b, f0), pt(b, f1), pt(a, f1)], True))
+            out += _jambs(pt, s0, s1, fw, f0, f1, h, lt)
         c0, c1 = s0 + fw, s1 - fw
-        h = f1 if sg > 0 else f0            # hinge on the swing face of the frame
         if rec["operation"] == "SLIDING":
             # leaves in their closed position on the face it opens to, each
             # overlapping the next one by 5 cm, and the direction it runs
@@ -292,37 +292,74 @@ def plan_symbol(spec, rec):
         else:
             leaves.append((c0, 1, float(rec["leaf"])))
             leaves.append((c1, -1, float(rec["leaf2"])))
-        for s, direction, length in leaves:
-            hinge = pt(s, h)
-            closed = (direction, 0.0)
-            opened = (direction * math.cos(ang), sg * math.sin(ang))
-            tip = _world_dir(spec, *opened)
-            out.append(("line", hinge, (hinge[0] + tip[0] * length, hinge[1] + tip[1] * length)))
-            out.append(_arc(spec, hinge, length, closed, opened))
+        for sh, direction, length in leaves:
+            # the leaf is a board ``lt`` thick: opened ``ang`` about its hinge,
+            # its thickness on the side that faces the opening
+            dx, dy = direction * math.cos(ang), sg * math.sin(ang)
+            qx, qy = direction * math.sin(ang), -sg * math.cos(ang)
+
+            def at(u, v, sh=sh, dx=dx, dy=dy, qx=qx, qy=qy):
+                return pt(sh + dx * u + qx * v, h + dy * u + qy * v)
+            out.append(("poly", [at(0, 0), at(length, 0), at(length, lt), at(0, lt)], True))
+            out.append(_arc(spec, pt(sh, h), length, (direction, 0.0), (dx, dy)))
         return out
-    # window: frame, glazing, leaf divisions and the sill on the exterior face
-    out.append(("poly", [pt(s0, f0), pt(s1, f0), pt(s1, f1), pt(s0, f1)], True))
+    # window: frame jambs, the leaves (profiles with their glass), the mark
+    # where two leaves meet, the sill on the exterior face closing the hole
+    if fw > 0:
+        for a, b in ((s0, s0 + fw), (s1 - fw, s1)):
+            out.append(("poly", [pt(a, f0), pt(b, f0), pt(b, f1), pt(a, f1)], True))
+    c0, c1 = s0 + fw, s1 - fw
     mid = (f0 + f1) / 2
+    band = f1 - f0
     n = max(1, int(rec["leaves"]))
     if rec["operation"] == "SLIDING" and n > 1:
         # leaves on two tracks, overlapping 5 cm
-        lap, step = 0.05, (s1 - s0 - 2 * fw) / n
+        lap, step = 0.05, (c1 - c0) / n
+        d = band / 3
         for k in range(n):
-            a = s0 + fw + k * step - (lap / 2 if k else 0)
-            b = s0 + fw + (k + 1) * step + (lap / 2 if k < n - 1 else 0)
-            off = f0 + (f1 - f0) * (1 if k % 2 == 0 else 2) / 3
-            out.append(("line", pt(a, off), pt(b, off)))
+            a = c0 + k * step - (lap / 2 if k else 0)
+            b = c0 + (k + 1) * step + (lap / 2 if k < n - 1 else 0)
+            o0 = f0 + (d * 0.25 if k % 2 == 0 else d * 1.75)
+            out.append(("poly", [pt(a, o0), pt(b, o0), pt(b, o0 + d), pt(a, o0 + d)], True))
+            out.append(("line", pt(a, o0 + d / 2), pt(b, o0 + d / 2)))
     else:
-        out.append(("line", pt(s0 + fw, mid), pt(s1 - fw, mid)))
+        dl = min(0.045, band * 0.8)
+        lo, hi = mid - dl / 2, mid + dl / 2
+        if rec["operation"] == "FIXED":
+            n = 1
+        step = (c1 - c0) / n
+        for k in range(n):
+            a, b = c0 + k * step, c0 + (k + 1) * step
+            out.append(("poly", [pt(a, lo), pt(b, lo), pt(b, hi), pt(a, hi)], True))
+            out.append(("line", pt(a, mid), pt(b, mid)))              # the glass
         for k in range(1, n):
-            s = s0 + (s1 - s0) * k / n
-            out.append(("line", pt(s, f0), pt(s, f1)))
+            sk = c0 + k * step
+            out.append(("line", pt(sk, f0 - 0.03), pt(sk, f1 + 0.03)))   # where two leaves meet
     proj = SILL_PROJECTION.get(rec.get("sill_kind"), 0.0)
     if proj > 0:
         ext, e = (spec.lo, -1) if sg > 0 else (spec.hi, 1)
         a, b = s0 - SILL_OVERHANG, s1 + SILL_OVERHANG
         out.append(("poly", [pt(a, ext), pt(a, ext + e * proj), pt(b, ext + e * proj),
-                             pt(b, ext)], False))
+                             pt(b, ext)], True))
+    return out
+
+
+def _jambs(pt, s0, s1, fw, f0, f1, h, lt, stop=0.01):
+    """The two jambs of a door frame, in plan: ``fw`` wide where the leaf
+    closes (its thickness ``lt``, on the face ``h`` it opens to) and a stop
+    of ``stop`` more on the rest of the frame depth (the rebate the leaf
+    closes against)."""
+    far = f0 if h == f1 else f1
+    sgn = 1 if h == f1 else -1
+    out = []
+    if abs(f1 - f0) <= lt + 0.005:
+        for a, b in ((s0, s0 + fw), (s1 - fw, s1)):
+            out.append(("poly", [pt(a, f0), pt(b, f0), pt(b, f1), pt(a, f1)], True))
+        return out
+    r = h - sgn * lt                     # the rebate line
+    for edge, d in ((s0, 1), (s1, -1)):
+        out.append(("poly", [pt(edge, far), pt(edge + d * (fw + stop), far), pt(edge + d * (fw + stop), r),
+                             pt(edge + d * fw, r), pt(edge + d * fw, h), pt(edge, h)], True))
     return out
 
 

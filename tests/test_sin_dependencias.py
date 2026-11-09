@@ -62,7 +62,8 @@ def test_sesion_completa_sin_shapely(plugin, monkeypatch):
     r.on_point((1, 1))
     bad = [o for o in s.out if "No module" in o or "ImportError" in o or "ModuleNotFound" in o]
     assert not bad, bad
-    s.plugin.commands["SUPERFICIES"](_ctx(s))
+    t = s.tool("SUPERFICIES")
+    t.on_point((20, 10))
     data = s.export(None)
     assert {e["ifc_class"] for e in data["elements"]} >= {"IfcWall", "IfcColumn", "IfcWindow", "IfcSpace"}
 

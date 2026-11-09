@@ -2,6 +2,47 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.16.0-dev — 2026-11-09
+
+### Corregido
+- **La importación en IngeTrazo fallaba** con «Volumen distinto … 0.278689 != 0.278775» en un plano real
+  situado a unos 35 m del origen. IngeTrazo 0.6.1 calcula el volumen con números de 32 bits en
+  coordenadas absolutas y, lejos del origen, pierde unas décimas de litro. La extensión ahora:
+  - exige a IngeTrazo solo que cada sólido sea estanco;
+  - comprueba el volumen con su propio cálculo de 64 bits, referido a un vértice del sólido;
+  - muestra el error en un diálogo si la importación falla, en vez de cerrarse en silencio.
+
+  Probado con el plano del usuario (`Pruebadwg.arqbim`) en IngeTrazo 0.6.1 sin cambios: 23 elementos,
+  todos estancos, e IFC escrito. Anotado como T-01 en `docs/REGISTRO_UPSTREAM.md`.
+
+### Añadido
+- **SUPERFICIES dibuja el cuadro de superficies en el plano**, en el punto que se indique. Columnas: Nº,
+  Recinto, Uso, superficie útil, coeficiente, superficie computable, altura y si es habitable. Incluye los
+  totales y el criterio de cómputo.
+  - Se dibuja en la capa `ARQ-CUADROS`. `A` actualiza el cuadro existente en su sitio y `T` cambia la
+    altura del texto.
+  - Se crea y se deshace en una sola operación.
+- **COTAMUROS: cotas automáticas.** Se dibuja una línea con dos clics:
+  - si atraviesa los muros, acota en cadena todas las caras, pilares y jambas que cruza;
+  - si va por fuera y paralela a una fachada, acota sus esquinas y sus huecos.
+
+  Añade la cota total; la opción `O` la quita. Los puntos salen del mismo contorno que el modelo 3D.
+  Son cotas normales de IngeCAD en la capa `ARQ-COTAS`, con el estilo `ARQ` (metros, dos decimales con
+  coma y trazo oblicuo).
+- **Símbolos de carpintería más detallados en planta:**
+  - puertas con jambas de cerco con rebaje y hoja dibujada con su grueso;
+  - ventanas con perfiles de hoja, vidrio, marca de encuentro entre hojas y alféizar cerrado;
+  - correderas con sus carriles.
+- **Pruebas en Windows.** La integración continua pasa las pruebas también en Windows. Es una prueba sin
+  pantalla, no la del IngeCAD instalado, que sigue pendiente.
+
+### Cambiado
+- **Menú.** Las órdenes que dibujan sin datos BIM se han pasado al submenú «Herramientas antiguas (sin
+  datos BIM)»: PUERTA, VENTANA, MURO3D, ESCALERA, TRAMA y otras. Los submenús principales son
+  Construcción, Documentación e Intercambio BIM, y solo contienen órdenes BIM.
+- **El ZIP de la versión incluye las pruebas** (`tests/`), `scripts/` y `docs/`, con las propuestas
+  enviadas a IngeCAD e IngeTrazo. Así, quien instala desde el ZIP puede pasar `python -m pytest -q`.
+
 ## 1.15.0-dev — 2026-11-07
 
 ### Añadido

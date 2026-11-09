@@ -9,7 +9,13 @@ on:
 
 jobs:
   pytest:
-    runs-on: ubuntu-latest
+    # Linux and Windows (the users' platform): the tests without a screen.
+    # This is NOT the installed IngeCAD on Windows: that smoke test is manual.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -22,6 +28,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Bibliotecas del sistema para Qt sin pantalla
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends libegl1 libgl1 libxkbcommon0 libdbus-1-3 libfontconfig1

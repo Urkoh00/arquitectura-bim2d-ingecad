@@ -11,7 +11,7 @@ IngeCAD + plugin Arquitectura  ──.arqbim──▶  IngeTrazo (extensión)  �
        (planta 2D BIM)                          (modelo 3D)
 ```
 
-**Estado: experimental (v1.15.0-dev).** No usar todavía en proyectos reales.
+**Estado: experimental (v1.16.0-dev).** No usar todavía en proyectos reales.
 
 **Manual de uso:** [`docs/MANUAL.md`](docs/MANUAL.md) (también dentro del ZIP), actualizado en cada versión.
 

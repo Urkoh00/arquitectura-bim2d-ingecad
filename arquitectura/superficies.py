@@ -183,8 +183,139 @@ def _m2(v):
 
 
 def superficies(ctx, *args):
-    """SUPERFICIES: cuadro de superficies útiles de los recintos (sin modificar el dibujo)."""
-    rows, totals = table(ctx.document.doc)
+    """The schedule in the command line only (kept for scripts and tests)."""
+    return report(ctx)
+
+
+# --- the schedule drawn in the plan -------------------------------------------------
+
+TABLE_LAYER = "ARQ-CUADROS"
+TABLE_KIND = "area_table"
+COLUMNS = (("Nº", 2), ("Recinto", 10), ("Uso", 6), ("Sup. útil (m²)", 8), ("Coef.", 4),
+           ("Computable (m²)", 8), ("Altura (m)", 6), ("Habitable", 6))
+
+
+def table_cells(rows, totals):
+    """The schedule as text rows (header first) and its total rows."""
+    body = []
+    n = 0
+    for r in rows:
+        n += 1
+        if "error" in r:
+            body.append([str(n), r["name"], "", "no cerrado", "", "", "", ""])
+            continue
+        body.append([str(n), r["name"], r.get("use") or "", _m2(r["useful"]), f"{r['factor']:g}".replace(".", ","),
+                     _m2(r["computable"]), _m2(r["height"]), "Sí" if r["habitable"] else "No"])
+    foot = [["", "Superficie útil interior", "", "", "", _m2(totals["useful_interior"]), "", ""]]
+    if totals["exterior_computable"]:
+        foot.append(["", "Exteriores cubiertos (50 %)", "", "", "", _m2(totals["exterior_computable"]), "", ""])
+    foot += [["", "Superficie útil computable", "", "", "", _m2(totals["computable"]), "", ""],
+             ["", "Superficie útil habitable", "", "", "", _m2(totals["habitable"]), "", ""]]
+    return [c for c, _w in COLUMNS], body, foot
+
+
+def layout(rows, totals, origin, h=0.20):
+    """Lines and texts of the schedule, its top-left corner at ``origin``:
+    ([(a, b)], [(text, (x, y), height, align)]). ``h``: text height (m)."""
+    header, body, foot = table_cells(rows, totals)
+    unit = 0.55 * h                                   # a character's width (sans serif)
+    widths = [max(w, len(header[i]), *(len(r[i]) for r in body + foot if i != 1 or r in body)) * unit + h
+              for i, (_c, w) in enumerate(COLUMNS)]
+    rh = 1.8 * h
+    x0, y0 = float(origin[0]), float(origin[1])
+    total_w = sum(widths)
+    texts = [("CUADRO DE SUPERFICIES ÚTILES", (x0, y0 + 0.9 * h), 1.25 * h, "left")]
+    lines = []
+    all_rows = [header] + body + foot
+    y = y0
+    ys = [y]
+    for k, r in enumerate(all_rows):
+        cy = y - rh / 2
+        x = x0
+        for i, cell in enumerate(r):
+            if cell:
+                right = i >= 3
+                texts.append((cell, (x + widths[i] - h / 2 if right else x + h / 2, cy), h,
+                              "right" if right else "left"))
+            x += widths[i]
+        y -= rh
+        ys.append(y)
+    for k, yy in enumerate(ys):
+        lines.append(((x0, yy), (x0 + total_w, yy)))
+    bottom = ys[-1]
+    foot_top = ys[1 + len(body)]
+    x = x0
+    for i, w in enumerate(widths + [0.0]):
+        top = y0
+        # in the total rows only the outer frame and the value column are drawn
+        lines.append(((x, top), (x, foot_top)))
+        if i in (0, 5, 6, len(widths)):
+            lines.append(((x, foot_top), (x, bottom)))
+        x += w
+    texts.append((f"Criterio: {criterion()['label']}", (x0, bottom - 0.9 * h), 0.8 * h, "left"))
+    return lines, texts
+
+
+class AreaTableCommand:
+    """Draw the schedule (and erase the previous one in the same step)."""
+    name = "ARQ CUADRO DE SUPERFICIES"
+
+    def __init__(self, lines, texts, old=()):
+        self.lines, self.texts, self.old = lines, texts, list(old)
+        self.made = []
+        self.erase = None
+
+    def do(self, document):
+        import uuid
+
+        from .architectural import _xdata
+        msp = document.doc.modelspace()
+        if TABLE_LAYER not in document.doc.layers:
+            document.doc.layers.add(TABLE_LAYER, color=7)
+        if self.old:
+            from core.actions import EraseCommand
+            self.erase = EraseCommand(self.old)
+            self.erase.do(document)
+        tag = {"kind": TABLE_KIND, "schema": 1, "table_id": uuid.uuid4().hex}
+        self.made = []
+        for a, b in self.lines:
+            e = msp.add_line(a, b, dxfattribs={"layer": TABLE_LAYER})
+            _xdata(msp, e, tag)
+            self.made.append(e)
+        from ezdxf.enums import TextEntityAlignment as A
+        align = {"left": A.MIDDLE_LEFT, "right": A.MIDDLE_RIGHT}
+        for text, p, h, al in self.texts:
+            t = msp.add_text(text, dxfattribs={"layer": TABLE_LAYER, "height": h})
+            t.set_placement(p, align=align[al])
+            _xdata(msp, t, tag)
+            self.made.append(t)
+
+    def undo(self, document):
+        msp = document.doc.modelspace()
+        for e in self.made:
+            if e.is_alive:
+                msp.delete_entity(e)
+        self.made = []
+        if self.erase is not None:
+            self.erase.undo(document)
+
+
+def existing_tables(drawing):
+    """The entities of the schedules already drawn, and the top-left corner
+    of the first one (its title's insertion, raised back to the frame)."""
+    from .architectural import metadata
+    ents = [e for e in drawing.modelspace() if (metadata(e) or {}).get("kind") == TABLE_KIND]
+    corner = None
+    for e in ents:
+        if e.dxftype() == "TEXT" and e.dxf.text.startswith("CUADRO DE SUPERFICIES"):
+            p = e.get_placement()[1] if hasattr(e, "get_placement") else e.dxf.insert
+            corner = (float(p[0]), float(p[1]) - 0.9 * float(e.dxf.height) / 1.25)
+    return ents, corner
+
+
+def report(ctx, drawing=None):
+    """The schedule as text in the command line (SUPERFICIES prints it first)."""
+    rows, totals = table(drawing if drawing is not None else ctx.document.doc)
     ctx.echo(f"SUPERFICIES — criterio: {criterion()['label']}")
     if not rows:
         ctx.echo("No hay recintos. Créelos con RECINTO.")
@@ -211,3 +342,75 @@ def superficies(ctx, *args):
              "(cada recinto tiene una sola altura).")
     ctx.echo("Escaleras interiores: aún no se modelan; descuéntelas si las hay.")
     return rows, totals
+
+
+def _tool_base():
+    from tools.base import Tool
+    return Tool
+
+
+class SuperficiesTool(_tool_base()):
+    """SUPERFICIES: the schedule in the command line and, at the point
+    given, drawn in the plan (A: update the one already drawn, in place)."""
+    name = "SUPERFICIES"
+
+    def start(self):
+        from .compat import require_document
+        self.doc = require_document(self.ctx)
+        self.h = 0.20
+        self.pending = False
+        self.rows, self.totals = report(self.ctx, self.doc.doc)
+        if not self.rows:
+            self.ctx.finish()
+            return
+        self._prompt()
+
+    def _prompt(self):
+        _ents, corner = existing_tables(self.doc.doc)
+        extra = "/Actualizar el cuadro existente" if corner is not None else ""
+        self.prompt(f"SUPERFICIES: esquina superior izquierda del cuadro (texto de {_m2(self.h)} m) o "
+                    f"[altura de Texto{extra}/Fin]:")
+
+    def _draw(self, origin):
+        from .transactions import SafeArchitecturalCommand
+        old, _c = existing_tables(self.doc.doc)
+        lines, texts = layout(self.rows, self.totals, origin, self.h)
+        self.ctx.execute(SafeArchitecturalCommand("ARQ CUADRO DE SUPERFICIES", [AreaTableCommand(lines, texts, old)]))
+        self.ctx.echo(f"SUPERFICIES: cuadro de {len(self.rows)} recintos dibujado en la capa {TABLE_LAYER}"
+                      + (" (sustituye al anterior)." if old else "."))
+        self.ctx.finish()
+
+    def on_point(self, p):
+        self._draw((float(p[0]), float(p[1])))
+
+    def on_option(self, text):
+        t = str(text).strip().lower()
+        if self.pending:
+            self.pending = False
+            try:
+                v = float(t.replace(",", "."))
+                if not (v > 0):
+                    raise ValueError
+                self.h = v
+            except ValueError:
+                self.ctx.echo("SUPERFICIES: altura de texto no válida.")
+            self._prompt()
+            return True
+        if t in ("t", "texto"):
+            self.pending = True
+            self.prompt("Altura del texto del cuadro (m; 0,20 a escala 1:100 = 2 mm):")
+            return True
+        if t in ("a", "actualizar"):
+            _ents, corner = existing_tables(self.doc.doc)
+            if corner is None:
+                self.ctx.echo("SUPERFICIES: no hay cuadro que actualizar; indique dónde dibujarlo.")
+                return True
+            self._draw(corner)
+            return True
+        if t in ("f", "fin"):
+            self.ctx.finish()
+            return True
+        return False
+
+    def on_enter(self):
+        self.ctx.finish()

@@ -33,8 +33,8 @@ El 6-11-2026 no había commits nuevos en ninguno de los dos.
 
 | Ref. | Tipo | Asunto | Evidencia | Estado | Parche | Rodeo en el plugin |
 |---|---|---|---|---|---|---|
-| T-01 | Error | El volumen BIM pierde precisión lejos del origen (`core.bim.face_set_volume` en float32): un pilar de 0,27 m³ da +0,5 % a 300 m y −73 % a 3 km | [A] | **Enviada** [#1221](https://github.com/ingelibre/ingetrazo/issues/1221) (5-11-2026). Abierta, sin respuesta (6-11-2026) | `ingetrazo/0001-…` (parte `core/bim.py`) | Cantidades exactas calculadas en el plugin |
-| T-02 | Carencia | El exportador IFC no usa las claves extra de `group.ifc` (GUID estable, planta, Psets, material, tipo, cantidades, huecos `IfcOpeningElement` + `IfcRelVoidsElement`) | [A] | **Enviada** [#1222](https://github.com/ingelibre/ingetrazo/issues/1222) (5-11-2026). Abierta, sin respuesta (6-11-2026) | `ingetrazo/0001-…` (parte `formats/ifc.py`) | Ninguno posible: sin el parche, el IFC pierde esa información |
+| T-01 | Error | El volumen BIM pierde precisión lejos del origen (`core.bim.face_set_volume` en float32): un pilar de 0,27 m³ da +0,5 % a 300 m y −73 % a 3 km | [A] | **Enviada** [#1221](https://github.com/ingelibre/ingetrazo/issues/1221) (5-11-2026). Abierta, sin respuesta (9-11-2026); IngeTrazo 0.6.1 (8-11-2026) sigue igual | `ingetrazo/0001-…` (parte `core/bim.py`) | Cantidades exactas calculadas en el plugin. **Efecto real el 9-11-2026:** la comprobación de la extensión comparaba ese volumen en float32 y rechazaba la importación de un plano dibujado a 35 m del origen (una puerta: 0,278689 frente a 0,278775 m³). La extensión mide ahora en doble precisión respecto a un vértice del sólido |
+| T-02 | Carencia | El exportador IFC no usa las claves extra de `group.ifc` (GUID estable, planta, Psets, material, tipo, cantidades, huecos `IfcOpeningElement` + `IfcRelVoidsElement`) | [A] | **Enviada** [#1222](https://github.com/ingelibre/ingetrazo/issues/1222) (5-11-2026). Abierta, sin respuesta (9-11-2026) | `ingetrazo/0001-…` (parte `formats/ifc.py`) | Ninguno posible: sin el parche, el IFC pierde esa información |
 | T-03 | Error | `IfcSpace` se escribe dentro de `IfcRelContainedInSpatialStructure` en vez de agregarse a la planta con `IfcRelAggregates`: 3 errores de reglas IFC4 en IfcOpenShell con 2 recintos | [A] | Preparada | `ingetrazo/0002-…` | Aviso en `EXPORTARBIM` |
 | T-04 | Carencia | Las puertas y ventanas no se relacionan con su hueco (`IfcRelFillsElement`) | [A] | Preparada | `ingetrazo/0003-…` | Clave `group.ifc['fills']` ya exportada |
 | T-05 | Carencia | Los atributos enumerados se escriben siempre `$`: un falso techo no puede ser `IfcCovering .CEILING.` ni una puerta indicar `OperationType`, ni una ventana `PartitioningType`. Otra extensión, cad2ingetrazo, ya escribe `group.ifc['predefined']`, `['object_type']` y `['load_bearing']`, que el exportador ignora. **Antes de enviar hay que acordar unos nombres de clave comunes** (`predefined` frente a `enums`) | [A] | Preparada; nombres de clave por acordar | `ingetrazo/0004-…` | Clave `group.ifc['enums']` ya exportada; Pset `ARQ_IngeCAD` |
@@ -90,6 +90,7 @@ que `EraseCommand` guarde la pertenencia a grupos y la restaure en `undo`.
 
 ## Historial
 
+- **9-11-2026:** T-01 impedía importar en IngeTrazo 0.6.1 un plano lejos del origen (lo vio el usuario). Rodeo en la extensión: volumen en doble precisión. #1221 y #1222 siguen sin respuesta; no se envía nada nuevo.
 - **7-11-2026:** se estudian las extensiones ArchXQ IT Lite, cad2ingetrazo y BlackFox-CAD. T-05 queda pendiente de acordar los nombres de clave con lo que ya usa cad2ingetrazo.
 - **6-11-2026:** se crea el registro. Se añade C-02 (reproducido) y se comprueba que #1221 y #1222
   siguen sin respuesta.

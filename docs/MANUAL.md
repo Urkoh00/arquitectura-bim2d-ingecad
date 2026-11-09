@@ -1,12 +1,12 @@
 # Manual de Arquitectura para IngeCAD
 
-Versión 1.15.0-dev · 7-11-2026
+Versión 1.16.0-dev · 9-11-2026
 
 > Copia del manual publicado como documento en claude.ai; se regenera con cada versión.
 
 ## Qué es
 
-Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.15.0-dev** y se actualiza con cada versión.
+Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.16.0-dev** y se actualiza con cada versión.
 
 Cada elemento guarda su identidad persistente, su clase IFC, su geometría editable en planta, sus parámetros 3D (altura, espesor, cota), sus propiedades constructivas (tipo, material, capas) y su nivel. Las carpinterías conocen su muro y los recintos siguen a los muros que los cierran.
 
@@ -23,7 +23,7 @@ El plugin se instala copiando una carpeta en IngeCAD, y la extensión copiando u
 
 **En IngeCAD**
 
-1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.15.0-dev.zip`.
+1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.16.0-dev.zip`.
 2. Copie la carpeta `arquitectura` en la carpeta de plugins de IngeCAD.
 3. Reinicie IngeCAD. Aparece el menú *Arquitectura* y su barra de herramientas.
 4. Escriba `ARQDIAG` en la línea de órdenes para comprobar que la versión cargada es la que acaba de copiar.
@@ -210,6 +210,8 @@ Cada pilar es un solo paso de `Deshacer`, con los muros y recintos ya actualizad
 
 `CARPINTERIA` inserta puertas (IfcDoor), ventanas (IfcWindow) y huecos sin carpintería en un muro o tabique. Cada una abre su hueco en el muro, en planta y en 3D, y lo acompaña si el muro se mueve. `PUERTAARQ`, `VENTANAARQ` y `HUECOARQ` son la misma orden con ese tipo de partida.
 
+**Representación en planta.** Las puertas se dibujan con las jambas del cerco con su rebaje, la hoja con su grueso (4 cm) y el arco de giro. Las ventanas se dibujan con las jambas, los perfiles de cada hoja con su vidrio, la marca de encuentro entre hojas y el alféizar cerrando el hueco. Las correderas muestran sus carriles. El símbolo se regenera con la carpintería: si cambia el muro o la ficha, cambia el dibujo.
+
 **Ficha de carpintería.** Al empezar la orden se abre una ficha, como en MURO y PILAR, con el modelo que se va a insertar: tipo (puerta, ventana o hueco), apertura, hojas, hoja normalizada o a medida, segunda hoja, ancho del hueco, altura, antepecho, ajuste y medidas del cerco, remate, nombre, tipo, material y clase IFC. En las puertas muestra al momento el paso libre según el DB-SUA. Si se cancela, la orden termina. La opción `D` la vuelve a abrir durante la orden; las opciones de la tabla siguen sirviendo para cambios rápidos.
 
 **Editar una carpintería existente.** `PROPIEDADESARQ` sobre su símbolo abre la misma ficha, con su posición en el muro: distancia desde el inicio, cara hacia la que abre y bisagra. Conserva su identidad.
@@ -258,7 +260,7 @@ Un recinto (IfcSpace) se crea con un clic dentro de la estancia y sigue a los mu
 
 El rótulo muestra el nombre y la superficie útil, y «(computa X)» cuando la superficie computable es distinta.
 
-**SUPERFICIES** escribe el cuadro de superficies sin modificar el dibujo. Aplica el Decreto 10/2019 de Extremadura (art. 2.3 y 2.4):
+**SUPERFICIES** escribe el cuadro de superficies en la línea de órdenes y lo dibuja en la planta, con la esquina superior izquierda en el punto que se indique. El cuadro tiene las columnas Nº, Recinto, Uso, superficie útil, coeficiente, superficie computable, altura y habitable, los totales y el criterio de cómputo, y va en la capa ARQ-CUADROS. La opción A actualiza en su sitio el cuadro ya dibujado y T cambia la altura del texto (0,20 m a escala 1:100). Dibujarlo se deshace en un paso. Aplica el Decreto 10/2019 de Extremadura (art. 2.3 y 2.4):
 
 - **Superficie útil:** la cerrada por la cara interior de los cerramientos. No incluye tabiques ni puertas, ni pilares o conductos de más de 100 cm² de sección; los de hasta 100 cm² sí se cuentan.
 - **Altura libre menor de 1,50 m:** no computa.
@@ -266,6 +268,17 @@ El rótulo muestra el nombre y la superficie útil, y «(computa X)» cuando la 
 - **Superficie útil habitable:** la de altura libre de al menos 2,50 m; en baños, aseos, vestíbulos, pasillos y distribuidores basta con 2,20 m (el tipo de estancia se reconoce por su nombre o su uso).
 
 El cuadro da la superficie útil interior, la de espacios exteriores al 50 %, la computable total y la habitable. Cada recinto exporta estos valores en el grupo de propiedades `ARQ_Recinto` del IFC.
+
+## Cotas automáticas: COTAMUROS
+
+`COTAMUROS` acota con dos clics:
+
+- **A través de los muros.** Si la línea atraviesa muros, acota en cadena todas las caras, pilares y jambas que cruza.
+- **Por fuera, junto a una fachada.** Si la línea va por fuera, paralela a una fachada y a menos de 3 m, acota las esquinas y los huecos de esa fachada. La línea de cota queda donde se dibujó.
+
+Añade la cota total más allá de la cadena; la opción `O` la quita o la vuelve a poner. La opción `T` cambia la altura del texto (0,20 m a escala 1:100). La orden sigue pidiendo líneas hasta pulsar Intro, y cada línea se deshace en un paso.
+
+Los puntos salen del mismo contorno que el modelo 3D, así que las cotas miden las caras reales. Son cotas normales de IngeCAD, que se editan con sus herramientas. Van en la capa `ARQ-COTAS` con el estilo `ARQ`: metros, dos decimales con coma y trazo oblicuo. No son asociativas: si se mueve un muro, hay que volver a acotar.
 
 ## Comprobaciones y reparación
 
@@ -285,8 +298,8 @@ Que `ARQVALIDAR` no avise de nada no garantiza que el 3D o el IFC sean válidos:
 
 El modelo pasa a IngeTrazo como un fichero `.arqbim` que ya lleva la geometría 3D de cada elemento; IngeTrazo no la recalcula, solo la representa y la escribe en IFC.
 
-1. En IngeCAD, ejecute `EXPORTARBIM` y elija dónde guardar el `.arqbim`. El dibujo debe estar en metros. Al terminar, el programa resume cuántos muros, pilares y recintos ha exportado y el volumen construido.
-2. En IngeTrazo, use *Importar arquitectura IngeCAD (.arqbim)…*. Cada elemento llega como un grupo con su clase IFC, nombre, identificador estable (GlobalId), planta, material, tipo, propiedades, cantidades y huecos.
+1. En IngeCAD, ejecute `EXPORTARBIM` y elija dónde guardar el `.arqbim`. El dibujo debe estar en metros. Al terminar, el programa resume cuántos muros, pilares, puertas, ventanas, huecos y recintos ha exportado y el volumen construido.
+2. En IngeTrazo, use *Importar arquitectura IngeCAD (.arqbim)…*. Cada elemento llega como un grupo con su clase IFC, nombre, identificador estable (GlobalId), planta, material, tipo, propiedades, cantidades y huecos. La extensión comprueba que cada sólido sea estanco y que su volumen coincida con el exportado; si algo falla, lo explica en un diálogo.
 3. Guarde en IGZ: la definición arquitectónica completa viaja dentro del archivo y se conserva al volver a abrirlo.
 4. Exporte a IFC desde IngeTrazo.
 
@@ -325,6 +338,7 @@ El modelo pasa a IngeTrazo como un fichero `.arqbim` que ya lleva la geometría 
 | `PUERTAARQ` / `VENTANAARQ` / `HUECOARQ` | CARPINTERIA con ese tipo | Sí |
 | `RECINTO` | Espacio BIM con un clic | Sí |
 | `SUPERFICIES` | Cuadro de superficies útiles | Sí |
+| `COTAMUROS` | Cotas automáticas a través de los muros o de una fachada | Sí |
 | `PROPIEDADESARQ` | Ficha BIM del elemento | Sí |
 | `EDITARARQ` | Editar datos por línea de órdenes | No |
 | `PARAMETROSARQ` | Valores de partida | No |
@@ -337,24 +351,25 @@ El modelo pasa a IngeTrazo como un fichero `.arqbim` que ya lleva la geometría 
 | `EXPORTARBIM` | Exportar a IngeTrazo (.arqbim) | Sí |
 | `ARQDIAG` / `AYUDAARQ` | Diagnóstico y ayuda | No |
 
-**Órdenes heredadas.** El menú conserva utilidades de versiones antiguas que dibujan geometría sin datos BIM y no se exportan al modelo: PUERTA, VENTANA, ARMARIO, CAMARA, ESCALERA, MURO3D, HUECO3D, SUPERFICIE, BLOQUE, TRAMA, MEMORIACARP, VERTPOLY, LISTATEXTOS, SELATRIB, ELEMENTOS, HIPERVINCULO, CURVAS3D, CAPASARQ, CAPASAUTO, y el puente antiguo CONFIGIGZ / EXPORTARIGZ. Para el modelo BIM use las órdenes de la tabla.
+**Órdenes heredadas.** El submenú «Herramientas antiguas (sin datos BIM)» reúne utilidades de versiones antiguas que dibujan geometría sin datos BIM y no se exportan al modelo: PUERTA, VENTANA, ARMARIO, CAMARA, ESCALERA, MURO3D, HUECO3D, SUPERFICIE, BLOQUE, TRAMA, MEMORIACARP, VERTPOLY, LISTATEXTOS, SELATRIB, ELEMENTOS, HIPERVINCULO, CURVAS3D y el puente antiguo CONFIGIGZ / EXPORTARIGZ. Para el modelo BIM use las órdenes de la tabla.
 
 ## Limitaciones conocidas
 
-Estas son las limitaciones conocidas de la versión 1.15.0-dev; cada versión actualiza esta lista.
+Estas son las limitaciones conocidas de la versión 1.16.0-dev; cada versión actualiza esta lista.
 
-- **Plataforma:** desde la v1.8.1 no se ha vuelto a probar en Windows; las pruebas automáticas se ejecutan en Linux con IngeCAD oficial.
+- **Plataforma:** las pruebas automáticas se ejecutan en Linux y en Windows con IngeCAD oficial, pero sin pantalla. El plugin no se ha vuelto a probar en el IngeCAD instalado en Windows desde la v1.8.1.
 - **Muros curvos:** cada muro llega como mucho a media circunferencia (un muro redondo son dos). MUROPARALELO y DIVIDEMURO solo toman líneas rectas como referencia. El gesto de esquina en L al terminar un MURO solo recorta muros rectos.
 - **Carpinterías:** en muros curvos son planas; no hay carpintería curva. Faltan armarios, memoria de carpintería, catálogo de modelos, lucernarios y borrar la carpintería dejando el vano.
 - **LINEASAMURO:** no reconoce puertas ni ventanas en muros curvos.
 - **Recintos:** una sola altura por recinto (no calcula descuelgues parciales); las escaleras no se descuentan todavía.
-- **Edificio:** aún no hay plantas múltiples, forjados, escaleras, barandillas ni cotas automáticas.
+- **Edificio:** aún no hay plantas múltiples, forjados, escaleras ni barandillas. Las cotas de COTAMUROS no son asociativas: si se mueve un muro, hay que volver a acotar.
 - **IFC con IngeTrazo oficial:** ver *Exportación a IngeTrazo e IFC*.
 
 ## Novedades por versión
 
 | Fecha | Versión | Novedades |
 | --- | --- | --- |
+| 9-11-2026 | 1.16.0-dev | La importación en IngeTrazo ya no falla en planos lejos del origen; SUPERFICIES dibuja el cuadro en la planta; COTAMUROS (cotas automáticas); símbolos de puertas y ventanas más detallados; menú «Herramientas antiguas»; pruebas también en Windows y dentro del ZIP |
 | 7-11-2026 | 1.15.0-dev | Fichas de carpintería y de recinto; PROPIEDADESARQ y EDITARARQ editan carpinterías, huecos y recintos; EXPORTARBIM cuenta puertas, ventanas y huecos |
 | 7-11-2026 | 1.14.1-dev | Corrige que MURO y las demás órdenes no crearan elementos en IngeCAD («No module named 'shapely'»); el plugin ya solo usa lo que instala IngeCAD |
 | 7-11-2026 | 1.14.0-dev | Edición de muros curvos (estirar, pivotar, borrar tramo, partir, unir); CURVAMURO lleva las carpinterías; muro circular; LINEASAMURO reconoce arcos; sólidos estancos también en precisión simple; este manual |

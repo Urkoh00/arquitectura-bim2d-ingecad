@@ -9,6 +9,11 @@ from tests.test_recintos import _cmd_ctx, _labels, _spaces, _vivienda
 from tests.test_wall_tools import Session
 
 
+def _mod_sup(s):
+    from importlib import import_module
+    return import_module(s.plugin.tools["PILAR"].__module__.rsplit(".", 1)[0] + ".superficies")
+
+
 def _column(s, center, side):
     cols = import_module(s.plugin.tools['PILAR'].__module__.rsplit('.', 1)[0] + '.columns')
     s.history.execute(cols.column_command(center, {'shape': 'rect', 'width': side, 'depth': side,
@@ -19,7 +24,7 @@ def _superficies(s):
     out = []
     ctx = _cmd_ctx(s)
     ctx.echo = out.append
-    rows, totals = s.plugin.commands['SUPERFICIES'](ctx)
+    rows, totals = _mod_sup(s).superficies(ctx)
     return rows, totals, out
 
 
@@ -85,3 +90,35 @@ def test_la_puerta_del_tabique_no_suma_superficie(plugin):
     r.on_point((6, 2))
     rows, totals, _out = _superficies(s)
     assert totals['useful_interior'] == pytest.approx(2 * 17.86)      # el paso de la puerta no computa
+
+
+def test_cuadro_de_superficies_en_el_dibujo(plugin):
+    from tests.test_recintos import _vivienda
+    from tests.test_wall_tools import Session
+    s = Session(plugin)
+    _vivienda(s)
+    r = s.tool('RECINTO')
+    r.on_point((2, 2))
+    r.on_point((6, 2))
+    sup = _mod_sup(s)
+    t = s.tool('SUPERFICIES')
+    t.on_point((10, 5))
+    ents = [e for e in s.document.doc.modelspace() if (s.meta(e) or {}).get('kind') == 'area_table']
+    texts = [e.dxf.text for e in ents if e.dxftype() == 'TEXT']
+    assert 'CUADRO DE SUPERFICIES ÚTILES' in texts and 'Recinto 1' in texts and 'Recinto 2' in texts
+    assert 'Superficie útil computable' in texts
+    total = sup.table(s.document.doc)[1]['computable']
+    assert f"{total:.2f}".replace('.', ',') in texts
+    assert all(e.dxf.layer == sup.TABLE_LAYER for e in ents)
+    n = len(ents)
+    # change the model, update the schedule in place: one schedule, new figures
+    r = s.tool('RECINTO')
+    r.on_option('n')
+    r.on_option('Salón')
+    s.tool('SUPERFICIES').on_option('a')
+    ents2 = [e for e in s.document.doc.modelspace() if (s.meta(e) or {}).get('kind') == 'area_table']
+    assert len(ents2) == n and any(e.dxftype() == 'TEXT' and e.dxf.text == 'Recinto 1' for e in ents2)
+    s.history.undo()
+    assert len([e for e in s.document.doc.modelspace() if (s.meta(e) or {}).get('kind') == 'area_table']) == n
+    s.history.undo()
+    assert not [e for e in s.document.doc.modelspace() if (s.meta(e) or {}).get('kind') == 'area_table']
