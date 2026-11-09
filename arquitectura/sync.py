@@ -41,9 +41,13 @@ def _points(entity):
     return [tuple(map(float, p)) for p in entity.get_points("xy")]
 
 
-def sync_changes(drawing, tol=1e-9):
+def sync_changes(drawing, tol=1e-9, notes=None):
     """[(entity, new_metadata)] needed to make XDATA true to the drawing.
-    Read-only: nothing is written here."""
+    Read-only: nothing is written here.  A generic IngeCAD transformation
+    (move, rotate, scale, mirror, copy) is read from the element's frame
+    (frame.py) and applied to its data; ``notes`` collects what could not
+    be represented exactly."""
+    from . import frame as FR
     tagged = []
     for e in drawing.modelspace():
         m = metadata(e)
@@ -53,8 +57,15 @@ def sync_changes(drawing, tol=1e-9):
     seen = set()
     changes = []
     for e, m in tagged:
-        new = copy.deepcopy(m)
-        changed = False
+        fr = FR.read_frame(e)
+        if FR.moved(fr):
+            new = FR.reconcile(e, m, notes)
+            m_ref = new                     # the checks below start from it
+            changed = True                  # also resets the frame
+        else:
+            new = copy.deepcopy(m)
+            m_ref = m
+            changed = False
         if m["id"] in seen:
             new["id"] = uuid.uuid4().hex
             new["copied_from"] = m["id"]
@@ -62,38 +73,38 @@ def sync_changes(drawing, tol=1e-9):
         seen.add(new["id"])
         if e.dxftype() == "LWPOLYLINE":
             pts = _points(e)
-            if m["kind"] == "wall" and not e.closed and len(pts) == 2 and "a" in m and "b" in m:
-                if math.dist(pts[0], m["a"][:2]) > tol or math.dist(pts[1], m["b"][:2]) > tol:
+            if m_ref["kind"] == "wall" and not e.closed and len(pts) == 2 and "a" in m_ref and "b" in m_ref:
+                if math.dist(pts[0], m_ref["a"][:2]) > tol or math.dist(pts[1], m_ref["b"][:2]) > tol:
                     new["a"], new["b"] = list(pts[0]), list(pts[1])
                     changed = True
                 # a curved axis keeps its curve as the polyline's bulge (a
                 # MIRROR reverses it): the drawing is the authority here too
                 bulge = float(e.get_points("xyb")[0][2])
-                if abs(bulge - float(m.get("bulge") or 0.0)) > 1e-9:
+                if abs(bulge - float(m_ref.get("bulge") or 0.0)) > 1e-9:
                     if abs(bulge) > 1e-12:
                         new["bulge"] = bulge
                     else:
                         new.pop("bulge", None)
                     changed = True
-            elif m["kind"] == "space" and pts and m.get("ref_vertex") and m.get("seed"):
+            elif m_ref["kind"] == "space" and pts and m_ref.get("ref_vertex") and m_ref.get("seed"):
                 # the outline was moved/copied: its seed travels with it
-                dx = pts[0][0] - float(m["ref_vertex"][0])
-                dy = pts[0][1] - float(m["ref_vertex"][1])
+                dx = pts[0][0] - float(m_ref["ref_vertex"][0])
+                dy = pts[0][1] - float(m_ref["ref_vertex"][1])
                 if math.hypot(dx, dy) > tol:
-                    new["seed"] = [float(m["seed"][0]) + dx, float(m["seed"][1]) + dy]
+                    new["seed"] = [float(m_ref["seed"][0]) + dx, float(m_ref["seed"][1]) + dy]
                     new["ref_vertex"] = list(pts[0])
                     changed = True
-            elif m["kind"] == "column" and pts:
+            elif m_ref["kind"] == "column" and pts:
                 c = [sum(p[0] for p in pts) / len(pts), sum(p[1] for p in pts) / len(pts)]
-                old = m.get("center") or c
+                old = m_ref.get("center") or c
                 if math.dist(c, old[:2]) > tol:
                     new["center"] = c
                     changed = True
-                if m.get("shape", "rect") in ("rect", "steel") and len(pts) == 4:
+                if m_ref.get("shape", "rect") in ("rect", "steel") and len(pts) == 4:
                     # a generic ROTATE turned the outline: its first edge is
                     # the local x axis (sections.local_footprint)
                     rot = math.degrees(math.atan2(pts[1][1] - pts[0][1], pts[1][0] - pts[0][0]))
-                    was = float(m.get("rotation") or 0.0)
+                    was = float(m_ref.get("rotation") or 0.0)
                     if abs(((rot - was + 180.0) % 360.0) - 180.0) > 1e-6:
                         new["rotation"] = rot
                         changed = True

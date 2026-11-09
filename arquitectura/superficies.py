@@ -61,13 +61,16 @@ def small_columns(columns, crit=None):
     return out
 
 
-def useful_result(specs, columns, crit=None):
+def useful_result(specs, columns, crit=None, records=None):
     """The junction solution without the columns that are not deducted
     (or None when there is none: then it is the ordinary solution)."""
     from .geom import junctions as J
     small = small_columns(columns, crit)
     if not small:
         return None
+    if records is not None:
+        from .geom.bands import solve_records
+        return solve_records(records, [(cid, m) for cid, m in columns if cid not in small])
     return J.solve(specs, [(cid, m["polygon"]) for cid, m in columns if cid not in small])
 
 
@@ -165,18 +168,20 @@ def table(drawing, crit=None):
     from .geom import spaces as SP
     records, columns, _ops, _issues = read_model(drawing, strict=False)
     specs = J.walls_from_records(records)
-    result = J.solve(specs, [(cid, m["polygon"]) for cid, m in columns])
-    res_u = useful_result(specs, columns, crit)
+    from .geom.bands import solve_records
+    result = solve_records(records, columns)
+    res_u = useful_result(specs, columns, crit, records=records)
     from .parameters_arq import general_options
     by_use = general_options(drawing)["usar_usos"]
     rows, totals = [], {"useful_interior": 0.0, "exterior_computable": 0.0, "computable": 0.0,
                         "habitable": 0.0}
     for _ident, m, _e in read_spaces(drawing):
-        room, _why = SP.space_at(result, m["seed"])
+        room, _why = SP.space_at(SP.network_at(result, float(m.get("base", 0))), m["seed"])
         if room is None:
             rows.append({"name": m.get("name") or "Recinto", "error": "no está cerrado"})
             continue
-        room_u = SP.space_at(res_u, m["seed"])[0] if res_u is not None else None
+        room_u = (SP.space_at(SP.network_at(res_u, float(m.get("base", 0))), m["seed"])[0]
+                  if res_u is not None else None)
         ev = evaluate(m, room, room_u, crit, by_use=by_use)
         rows.append({"name": m.get("name") or "Recinto", "use": m.get("use") or "",
                      "enclosure": m.get("enclosure") or "interior", "height": float(m.get("height") or 0),

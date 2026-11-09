@@ -55,6 +55,7 @@ def read_model(drawing, tol=1e-5, strict=True, skip=()):
     ``strict=False`` (plan regeneration) a duplicate is kept under a
     provisional key and reported, so the drawing can still be displayed."""
     msp = drawing.modelspace()
+    from . import frame as FR
     walls, columns, openings, issues, seen = [], [], [], [], {}
     for e in msp:
         if skip and e.dxf.handle in skip:
@@ -63,6 +64,9 @@ def read_model(drawing, tol=1e-5, strict=True, skip=()):
         kind = m.get("kind")
         if kind not in ("wall", "column", "opening"):
             continue
+        # an IngeCAD MOVE/ROTATE/SCALE/MIRROR not yet regenerated: read as
+        # it will be (frame.py); the drawing is not touched
+        m = FR.reconcile(e, m, issues)
         ident = m.get("id")
         if not ident:
             issues.append(f"{kind} sin identificador (entidad {e.dxf.handle})")
@@ -82,6 +86,12 @@ def read_model(drawing, tol=1e-5, strict=True, skip=()):
                 if math.dist(a, m["a"]) > tol or math.dist(b, m["b"]) > tol:
                     issues.append(f"Muro {ident}: el eje CAD no coincide con XDATA; se exporta el eje CAD")
                 m["a"], m["b"] = list(a), list(b)
+                # the curvature too comes from the drawing (ARQ-AUD-0004)
+                bulge = float(e.get_points("xyb")[0][2])
+                if abs(bulge) > 1e-9:
+                    m["bulge"] = bulge
+                else:
+                    m.pop("bulge", None)
             walls.append((ident, m))
         elif kind == "column":
             if e.dxftype() != "LWPOLYLINE":
@@ -99,7 +109,8 @@ def read_spaces(drawing, skip=()):
     for e in drawing.modelspace():
         if skip and e.dxf.handle in skip:
             continue
-        m = metadata(e) or {}
+        from .frame import reconcile
+        m = reconcile(e, metadata(e) or {})
         if m.get("kind") == "space" and m.get("id") and m.get("seed"):
             out.append((m["id"], dict(m), e))
     return out
@@ -117,10 +128,11 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD", problem
     walls, columns, openings, issues = read_model(drawing, skip=skip)
     issues = [p["text"] for p in problems] + issues
     specs = J.walls_from_records(walls)
-    result = J.solve(specs, [(cid, m["polygon"]) for cid, m in columns])
+    from .geom.bands import solve_records
+    result = solve_records(walls, columns)           # by height bands (0002)
     issues += result.warnings
     from .geom import spaces as SP
-    external = SP.external_walls(result)
+    external = set().union(*(SP.external_walls(part) for _z, part in result.vertical_networks))
     by_wall = {}
     for o in openings:
         by_wall.setdefault(o.get("wall_id"), []).append(o)
@@ -131,8 +143,7 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD", problem
         levels.setdefault(level, float(m.get("base", 0.0)))
         ops = sorted(by_wall.get(ident, []), key=lambda o: float(o["offset"]))
         geo = result.walls[ident]
-        faces, volume = S.wall_solid(geo["pieces"], spec.a, spec.u,
-                                     float(m.get("base", 0.0)), float(m["height"]), ops, spec)
+        faces, volume = S.layered_wall_solid(geo["bands"], spec, float(m.get("base", 0.0)), ops)
         el = _element(ident, "IfcWall", m, faces, volume, geo["area"], level)
         # envelope: a face on the outer boundary of the building (calculated)
         el["psets"].setdefault("Pset_WallCommon", {})["IsExternal"] = ident in external
@@ -157,7 +168,7 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD", problem
                                         for i, (t, mat) in enumerate(layers, 1)}
         el["quantities"] = {"Length": spec.length, "Height": float(m["height"]),
                             "Width": spec.thickness, "GrossFootprintArea": geo["area"],
-                            "GrossVolume": geo["area"] * float(m["height"]),
+                            "GrossVolume": math.fsum(g["area"] * (hi - lo) for lo, hi, g in geo["bands"]),
                             "NetVolume": volume}
         el["openings"] = []
         fillings = []
@@ -235,13 +246,13 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD", problem
             elements.append(ce)
     comps = SP.components(result) if columns or specs else []
     from . import superficies as SU
-    res_u = SU.useful_result(specs, columns)
+    res_u = SU.useful_result(specs, columns, records=walls)
     from .parameters_arq import general_options
     by_use = general_options(drawing)["usar_usos"]
     for ident, m, ent in read_spaces(drawing, skip=skip):
         level = m.get("level") or "Planta baja"
         levels.setdefault(level, float(m.get("base", 0.0)))
-        room, why = SP.space_at(result, m["seed"], comps)
+        room, why = SP.space_at(SP.network_at(result, float(m.get("base", 0))), m["seed"])
         name = m.get("name") or "Recinto"
         if room is None:
             issues.append(f"Recinto {name}: " + ("su punto interior queda dentro de un muro o pilar"
@@ -250,7 +261,7 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD", problem
         base, height = float(m.get("base", 0.0)), float(m["height"])
         faces, volume = S.wall_solid(room["pieces"], (0.0, 0.0), (1.0, 0.0), base, height, ())
         el = _element(ident, "IfcSpace", m, faces, volume, room["area"], level)
-        room_u = SP.space_at(res_u, m["seed"])[0] if res_u is not None else None
+        room_u = SP.space_at(SP.network_at(res_u, float(m.get("base", 0))), m["seed"])[0] if res_u is not None else None
         ev = SU.evaluate(m, room, room_u, by_use=by_use)
         exterior = (m.get("enclosure") or "interior") != "interior"
         usos = _usos(drawing)

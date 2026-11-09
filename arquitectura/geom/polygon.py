@@ -45,13 +45,14 @@ def dot(a, b):
 
 def area(poly):
     """Signed area (positive when counter-clockwise)."""
-    s = 0.0
-    n = len(poly)
-    for i in range(n):
-        x0, y0 = poly[i]
-        x1, y1 = poly[(i + 1) % n]
-        s += x0 * y1 - x1 * y0
-    return s / 2.0
+    if not poly:
+        return 0.0
+    ox, oy = poly[0]
+    terms = []
+    for i, (x0,y0) in enumerate(poly):
+        x1,y1 = poly[(i+1)%len(poly)]
+        terms.append((x0-ox)*(y1-oy) - (x1-ox)*(y0-oy))
+    return math.fsum(terms)/2.0
 
 
 def ccw(poly):

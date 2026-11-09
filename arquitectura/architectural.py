@@ -33,6 +33,11 @@ def _xdata(msp, entity, obj):
     payload = json.dumps(obj, ensure_ascii=True, separators=(',', ':'))
     parts = [payload[i:i+200] for i in range(0, len(payload), 200)]
     entity.set_xdata(APPID, [(1000, part) for part in parts])
+    if isinstance(obj, dict) and obj.get('kind') in ('wall', 'column', 'opening', 'space'):
+        # the data is current: reset the frame that records IngeCAD's own
+        # transformations of the element (frame.py)
+        from .frame import set_frame
+        set_frame(entity)
     return entity
 
 

@@ -532,6 +532,14 @@ def plan_outline(result, cuts=None):
     ``cuts`` {wall id: [polygon]}: the holes of its doors/windows. They are
     removed from that wall only, so its faces stop at the hole and the
     jambs («mochetas») appear; rooms and 3D keep the uncut footprint."""
+    networks=getattr(result,'vertical_networks',None)
+    if networks is not None:
+        edges={}
+        for _z,part in networks:
+            for a,b,owners in plan_outline(part,cuts):
+                k=(tuple(round(v,7) for v in a),tuple(round(v,7) for v in b),tuple(owners))
+                edges[k]=(a,b,owners)
+        return list(edges.values())
     pieces, tags = [], []
     cuts = cuts or {}
     for wid, g in result.walls.items():

@@ -25,6 +25,15 @@ def _all_pieces(result):
     return pieces
 
 
+def network_at(result, base):
+    networks=getattr(result,'vertical_networks',None)
+    if networks is None:return result
+    for (lo,hi),part in networks:
+        if lo-1e-9<=float(base)<hi-1e-9:return part
+    from .junctions import Result
+    return Result()
+
+
 def components(result):
     """[(outer_ccw, [holes_cw])] of the union of every footprint."""
     return P.merge(_all_pieces(result))

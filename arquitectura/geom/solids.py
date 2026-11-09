@@ -180,15 +180,19 @@ def _fix_tjunctions(faces):
 
 def face_volume(faces):
     """Divergence-theorem volume of closed faces with holes."""
-    vol = 0.0
+    faces = list(faces)
+    if not faces:
+        return 0.0
+    origin = faces[0][0][0]
+    terms = []
     for outer, holes in faces:
-        n, a = _newell(outer)
+        local = [[tuple(p[i]-origin[i] for i in range(3)) for p in loop] for loop in [outer]+holes]
+        n,a = _newell(local[0])
         if a < 1e-18:
             continue
-        net = a - sum(_newell(h)[1] for h in holes)
-        p0 = outer[0]
-        vol += (n[0] * p0[0] + n[1] * p0[1] + n[2] * p0[2]) * net / 3.0
-    return vol
+        net = a - math.fsum(_newell(h)[1] for h in local[1:])
+        terms.append(math.fsum(n[i]*local[0][0][i] for i in range(3))*net/3.0)
+    return math.fsum(terms)
 
 
 def _newell(loop):
@@ -238,6 +242,16 @@ def wall_solid(pieces, a, u, base, height, openings=(), spec=None):
     cells = _snap(_cells(pieces, (a, u), float(base), float(height), list(openings), spec))
     vol = sum(P.area(reg) * (z1 - z0) for reg, (z0, z1) in cells)
     return boundary(cells), vol
+
+
+def layered_wall_solid(bands, spec, base, openings=()):
+    """Boundary of one element with piecewise-constant sections in Z."""
+    cells=[]
+    for lo,hi,geometry in bands:
+        shifted=[dict(o,sill=float(base)+float(o['sill'])-lo) for o in openings]
+        cells.extend(_cells(geometry['pieces'],(spec.a,spec.u),lo,hi-lo,shifted,spec))
+    cells=_snap(cells)
+    return boundary(cells),math.fsum(P.area(poly)*(hi-lo) for poly,(lo,hi) in cells)
 
 
 def prism_solid(polygon, base, height):

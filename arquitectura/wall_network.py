@@ -241,7 +241,7 @@ class RegenerateContoursCommand(Command):
         for e in self._current(document.doc.modelspace(),'space'):
             m=metadata(e)
             label=m.get('name') or 'Recinto'
-            room,why=SP.space_at(result,m['seed'],comps)
+            room,why=SP.space_at(SP.network_at(result,float(m.get('base',0))),m['seed'])
             if room is None:
                 self.issues.append(f'Recinto {label}: '+('su punto interior queda dentro de un muro o pilar'
                                    if why=='muro' else 'no está cerrado (falta un muro o una separación)')
@@ -252,7 +252,7 @@ class RegenerateContoursCommand(Command):
                 self.issues.append(f'Recintos {seen[key]} y {label} ocupan la misma estancia')
             seen.setdefault(key,label)
             from . import superficies as SU
-            room_u=SP.space_at(self.useful,m['seed'])[0] if getattr(self,'useful',None) is not None else None
+            room_u=SP.space_at(SP.network_at(self.useful,float(m.get('base',0))),m['seed'])[0] if getattr(self,'useful',None) is not None else None
             ev=SU.evaluate(m,room,room_u,by_use=getattr(self,'by_use',None))
             new=copy.deepcopy(m)
             new.update(useful_area=ev['useful'],computable_area=ev['computable'])
@@ -280,7 +280,7 @@ class RegenerateContoursCommand(Command):
         from . import openings as OP
         specs={w.id:w for w in J.walls_from_records(records)}
         olds={}
-        for e,old,new in self.sync or []:
+        for e,old,new,_fr in self.sync or []:
             if (old or {}).get('kind')=='wall' and old.get('id')==new.get('id'):
                 try:
                     olds[old['id']]=J.walls_from_records([(old['id'],old)])[0]
@@ -424,16 +424,22 @@ class RegenerateContoursCommand(Command):
             else:
                 _k,a,b,ids=item
                 e=msp.add_line(a,b,dxfattribs={'layer':'ARQ-MUROS'})
+            self.added.append(e)        # journalled at once: a failure further on removes it
             _xdata(msp,e,{'kind':'junction_edge','schema':3,'wall_ids':ids})
             made.append(e)
         return made
     def _write_meta(self,document,which):
         from .architectural import _xdata
         msp=document.doc.modelspace()
+        from .frame import FRAME_APPID
         items=self.sync if which=='new' else list(reversed(self.sync))
-        for e,old,new in items:
+        for e,old,new,old_frame in items:
             if e.is_alive:
                 _xdata(msp,e,new if which=='new' else old)
+                if which!='new' and old_frame is not None:
+                    # back to the frame IngeCAD's transformation left, so its
+                    # own undo (it applies the inverse) finds it as it was
+                    e.set_xdata(FRAME_APPID,old_frame)
     def _group_lines(self,document):
         from .architectural import metadata
         from . import sync as SY
@@ -488,20 +494,31 @@ class RegenerateContoursCommand(Command):
         from .architectural import metadata,WALL_LAYER
         msp=self.space(document)
         first=self.removed is None
+        # what there was before, to leave it exactly so if anything fails (0006)
+        baseline_handles={e.dxf.handle for e in msp}
+        baseline_layers={layer.dxf.name for layer in document.doc.layers}
         if first:
             from . import sync as SY
             self.removed=self._current(msp)
             self.opening_edits=[];self.orphans=[]
             self.old_groups=SY.snapshot_groups(document.doc)
             self.old_layer_off=document.doc.layers.get(WALL_LAYER).is_off() if WALL_LAYER in document.doc.layers else False
-            self.sync=[(e,copy.deepcopy(metadata(e)),new) for e,new in SY.sync_changes(document.doc)]
+            self.sync_notes=[]
+            from .frame import FRAME_APPID
+            def _frame(e):
+                try:
+                    return [(t.code,tuple(t.value)) for t in e.get_xdata(FRAME_APPID)] if e.has_xdata(FRAME_APPID) else None
+                except Exception:
+                    return None
+            self.sync=[(e,copy.deepcopy(metadata(e)),new,_frame(e))
+                       for e,new in SY.sync_changes(document.doc,notes=self.sync_notes)]
             self.removed_labels=(self._current(msp,'space_label')+self._current(msp,'column_detail')
                                  +self._current(msp,'opening_symbol'))
             from .architectural import OPENING_LAYER
             self.old_opening_layer_off=(document.doc.layers.get(OPENING_LAYER).is_off()
                                         if OPENING_LAYER in document.doc.layers else None)
-        self._write_meta(document,'new')
         try:
+            self._write_meta(document,'new')
             if first:
                 # v1.6: one footprint per element from geom.junctions (the same
                 # polygons go to IngeTrazo through exchange.py). CAD axes first.
@@ -509,12 +526,13 @@ class RegenerateContoursCommand(Command):
                 from .geom import junctions as J
                 records, columns, _ops, issues = read_model(document.doc, strict=False)
                 specs = J.walls_from_records(records)
-                result = J.solve(specs, [(cid, m["polygon"]) for cid, m in columns])
+                from .geom.bands import solve_records
+                result = solve_records(records, columns)        # by height bands
                 from .superficies import useful_result
-                self.useful = useful_result(specs, columns)
+                self.useful = useful_result(specs, columns, records=records)
                 from .parameters_arq import general_options
                 self.by_use = general_options(document.doc)["usar_usos"]
-                self.issues = issues + result.warnings
+                self.issues = issues + result.warnings + getattr(self,'sync_notes',[])
                 self.result = result
                 walls = [w for w in result.walls.values() if w["area"] > 0]
                 self._plan_openings(document,records)
@@ -557,9 +575,24 @@ class RegenerateContoursCommand(Command):
             document.dirty=True
         except Exception:
             # A failed derived update must not leave the model invisible
-            # nor half-synchronised.
+            # nor half-synchronised: whatever was created before the failure
+            # goes too (also what a helper made but did not hand back).
+            for entity in list(msp):
+                if (entity.dxf.handle not in baseline_handles and entity not in self.added
+                        and entity not in self.added_labels):
+                    self.added_labels.append(entity)
             self._revert(document)
+            for layer in list(document.doc.layers):
+                if layer.dxf.name not in baseline_layers:
+                    try:
+                        document.doc.layers.remove(layer.dxf.name)
+                    except Exception:
+                        pass
             if first:
+                for entity in self.added+self.added_labels:
+                    if entity.is_alive and entity.dxf.get('owner') is None:
+                        document.doc.entitydb.delete_entity(entity)
+                self.added=[];self.added_labels=[]
                 self.removed=None
             raise
     def _revert(self,document):
@@ -618,6 +651,6 @@ def regenerate_wall_outline(ctx):
 
 def sync_report(cmd):
     """Human summary of what UNIONESARQ repaired before regenerating."""
-    copies=sum(1 for _e,o,n in (cmd.sync or []) if (o or {}).get('id')!=n.get('id'))
+    copies=sum(1 for _e,o,n,_f in (cmd.sync or []) if (o or {}).get('id')!=n.get('id'))
     moved=len(cmd.sync or [])-copies
     return copies, moved, len(getattr(cmd,'groups',[]) or [])

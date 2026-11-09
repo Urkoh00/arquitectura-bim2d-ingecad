@@ -5,11 +5,24 @@ Unlike CompositeCommand.do, this variant rolls already-applied member commands
 back if a later member fails. No private History calls or host patches.
 """
 from __future__ import annotations
-from core.commands import CompositeCommand, DeferredCommand
+from core.commands import CompositeCommand, Command
 from core.layers import NewLayerCommand
 from .compat import require_document
 from .wall_network import RegenerateContoursCommand
 from .architectural import WALL_LAYER
+
+
+class ArchitecturalRegeneration(Command):
+    """One derived command per history entry: redo reuses its entities."""
+    name = 'ARQ encuentros derivados'
+    needs_regen = True
+    def __init__(self):
+        self.inner = RegenerateContoursCommand()
+    def do(self, document):
+        self.inner.do(document)
+    def undo(self, document):
+        self.inner.undo(document)
+        self.removed_handles = self.inner.removed_handles
 
 
 class SafeArchitecturalCommand(CompositeCommand):
@@ -56,7 +69,6 @@ def apply_architectural_change(ctx, change, *, kind='wall'):
         needed += [(OPENING_LAYER, 3), (SYMBOL_LAYER, 6)]
     commands = [NewLayerCommand(name, color=color)
                 for name, color in needed if name not in doc.doc.layers]
-    commands += [change, DeferredCommand('ARQ encuentros derivados',
-                                         lambda _doc: RegenerateContoursCommand())]
+    commands += [change, ArchitecturalRegeneration()]
     ctx.execute(SafeArchitecturalCommand('ARQ elemento + encuentros', commands))
     return change
