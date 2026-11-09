@@ -71,8 +71,10 @@ def test_exportarbim(plugin, tmp_path):
     assert [e['guid'] for e in again['elements']] == [e['guid'] for e in data['elements']]
 
 def test_copy_blocks_export_until_unionesarq(plugin, tmp_path):
-    """A generic COPY duplicates the XDATA id: export refuses; UNIONESARQ gives
-    the copy (newest handle) a new identity and then export works."""
+    """A generic COPY duplicates the XDATA id: the export does not stop (the
+    operator decides, 9-11-2026) but leaves the copy out and says so;
+    UNIONESARQ gives the copy (newest handle) a new identity and then it is
+    exported too."""
     ctx, host, out = ctx_for('36.dxf', tmp_path)
     msp = host.document.doc.modelspace()
     arch = sys.modules[[m for m in sys.modules if m.endswith('.architectural') and 'arquitectura' in m][0]]
@@ -80,7 +82,8 @@ def test_copy_blocks_export_until_unionesarq(plugin, tmp_path):
     wall = walls[0]
     copy = wall.copy(); msp.add_entity(copy); copy.translate(0, 40, 0)
     data = plugin.commands['EXPORTARBIM'](ctx, str(tmp_path / 'x.arqbim'))
-    assert data is None and any('duplicado' in o.lower() for o in out)
+    assert any('duplicado' in o.lower() for o in out)
+    assert sum(e['ifc_class'] == 'IfcWall' for e in data['elements']) == len(walls)
     plugin.commands['UNIONESARQ'](ctx)
     assert any('identidad BIM nueva' in o for o in out), out
     assert arch.metadata(copy)['copied_from'] == arch.metadata(wall)['id']

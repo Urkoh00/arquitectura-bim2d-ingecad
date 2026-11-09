@@ -253,7 +253,7 @@ class RegenerateContoursCommand(Command):
             seen.setdefault(key,label)
             from . import superficies as SU
             room_u=SP.space_at(self.useful,m['seed'])[0] if getattr(self,'useful',None) is not None else None
-            ev=SU.evaluate(m,room,room_u)
+            ev=SU.evaluate(m,room,room_u,by_use=getattr(self,'by_use',None))
             new=copy.deepcopy(m)
             new.update(useful_area=ev['useful'],computable_area=ev['computable'])
             new.update(area=room['area'],perimeter=room['perimeter'],
@@ -512,6 +512,8 @@ class RegenerateContoursCommand(Command):
                 result = J.solve(specs, [(cid, m["polygon"]) for cid, m in columns])
                 from .superficies import useful_result
                 self.useful = useful_result(specs, columns)
+                from .parameters_arq import general_options
+                self.by_use = general_options(document.doc)["usar_usos"]
                 self.issues = issues + result.warnings
                 self.result = result
                 walls = [w for w in result.walls.values() if w["area"] > 0]

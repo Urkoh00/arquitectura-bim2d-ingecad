@@ -45,10 +45,26 @@ def exportar_bim(ctx, *args):
         return None
     if dest.suffix.lower() != '.arqbim':
         dest = dest.with_suffix('.arqbim')
+    from . import integrity as IG
+    problems = IG.audit(document.doc)
+    if problems:
+        # never blocked, never silent: the operator sees them and decides
+        from . import bim_dialogs as BD
+        if BD.available(ctx):
+            if not BD.problems_dialog(ctx, problems):
+                IG.highlight(ctx, [h for p in problems for h in p['handles']])
+                ctx.echo(f'EXPORTARBIM cancelado: {len(problems)} problemas por corregir '
+                         f'({IG.summary(problems)}); quedan seleccionados en el dibujo.')
+                return None
+        else:
+            ctx.echo(f'EXPORTARBIM: {len(problems)} problemas ({IG.summary(problems)}); '
+                     'se exporta sin los elementos afectados:')
+            for p in problems:
+                ctx.echo('  · ' + p['text'])
     try:
         tmp = dest.with_suffix('.arqbim.tmp')
         name = Path(getattr(document, 'path', '') or 'Proyecto').stem
-        data = write(document.doc, tmp, project=name)
+        data = write(document.doc, tmp, project=name, problems=problems)
         if not data['elements']:
             tmp.unlink(missing_ok=True)
             ctx.echo('No hay muros ni pilares BIM que exportar.')
@@ -72,6 +88,10 @@ def exportar_bim(ctx, *args):
         ctx.echo('  Nota: el exportador IFC actual de IngeTrazo coloca los recintos (IfcSpace) dentro de '
                  'la planta en lugar de agregarlos a ella; IfcOpenShell lo marca como error de reglas '
                  'IFC4. La corrección está preparada para proponerla a su desarrollador.')
+    shown = {p['text'] for p in problems}
     for issue in data['issues']:
-        ctx.echo('  Aviso: ' + issue)
+        if issue not in shown:
+            ctx.echo('  Aviso: ' + issue)
+    if problems:
+        ctx.echo(f'  Omitidos {len(IG.omitted_handles(problems))} elementos con problemas (ver arriba).')
     return data

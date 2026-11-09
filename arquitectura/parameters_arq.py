@@ -34,6 +34,13 @@ DEFAULTS = {
     'usos': {'tipo_edificio_cee': 'ViviendaUnifamiliar', 'uso_dbhe': 'residencial privado',
              'carga_dbhe': '', 'horario_dbhe': '', 'uso_dbsi': 'Residencial Vivienda'},
     'window': {'width': 1.20, 'height': 1.20, 'sill': 1.00},
+    # General options: the way of working (user, 9-11-2026).
+    #   usar_usos: True = rooms are classified by their «Uso» (the name is
+    #     free text and does not change the classification); False = by
+    #     their name, and the use is not asked for.
+    #   cota_minima: COTAMUROS leaves out of the chain the distances shorter
+    #     than this (0 = all), as the user's old CT order did with 0,15.
+    'general': {'usar_usos': False, 'cota_minima': 0.0},
     # Wall types (IfcWallType). Each one is a list of layers, from the
     # DRAWN face (the reference line) toward the body of the wall; its
     # thickness is the sum of the layers. MURO asks for the TOTAL thickness
@@ -79,7 +86,7 @@ def load_defaults(document):
         payload = json.loads(saved)
         if not isinstance(payload, dict):
             raise ValueError('Configuración ARQ mal formada')
-        for key in ('wall','column','door','window','usos'):
+        for key in ('wall','column','door','window','usos','general'):
             data = payload.get(key, {})
             if isinstance(data,dict):
                 result[key].update({k:v for k,v in data.items() if k in result[key]})
@@ -89,6 +96,15 @@ def load_defaults(document):
     result['wall_types'] = [normalise_type(t) for t in result['wall_types']]
     validate_defaults(result)
     return result
+
+def general_options(document):
+    """The drawing's general options; the defaults when there is no drawing
+    or its configuration cannot be read (never an error for a reader)."""
+    try:
+        return dict(load_defaults(document)['general'])
+    except Exception:
+        return dict(DEFAULTS['general'])
+
 
 def validate_defaults(values):
     for kind in ('wall','column','door','window'):
@@ -103,6 +119,12 @@ def validate_defaults(values):
             raise ValueError('Referencia de muro no válida')
         if d.get('shape','rect') not in ('rect','circ','hex','oct'):
             raise ValueError('Sección de pilar no válida')
+    g = values.get('general') or {}
+    if not isinstance(g.get('usar_usos', False), bool):
+        raise ValueError('general.usar_usos: sí o no')
+    cm = g.get('cota_minima', 0.0)
+    if isinstance(cm, bool) or not isinstance(cm, (int, float)) or not math.isfinite(cm) or cm < 0:
+        raise ValueError('general.cota_minima: debe ser cero o positiva')
     u = values.get('usos')
     if u and u.get('tipo_edificio_cee') not in TIPOS_EDIFICIO_CEE:
         raise ValueError('Tipo de edificio del certificado no válido: ' + str(u.get('tipo_edificio_cee')))

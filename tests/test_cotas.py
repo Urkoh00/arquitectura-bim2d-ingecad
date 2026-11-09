@@ -77,3 +77,28 @@ def test_cotas_de_fachada(plugin):
     total = next(d for d in dims if abs(d.get_measurement() - 8.30) < 1e-6)
     assert total.dxf.defpoint.y < -0.8                                  # beyond it
     assert all(abs(d.dxf.defpoint2.y + 0.15) < 1e-6 for d in dims)      # measured on the face
+
+
+def test_cota_minima_de_las_opciones_generales(plugin):
+    """General options: distances shorter than the minimum are merged with
+    the next one (the chain stays continuous), as the user's old CT did."""
+    from importlib import import_module
+    from arquitectura import cotas
+    pts = [(0, 0), (0.3, 0), (4.1, 0), (4.2, 0), (8, 0), (8.3, 0)]
+    assert cotas.thin_out(pts, 0) == pts
+    assert cotas.thin_out(pts, 0.15) == [(0, 0), (0.3, 0), (4.1, 0), (8, 0), (8.3, 0)]
+    assert cotas.thin_out(pts, 0.5) == [(0, 0), (4.1, 0), (8.3, 0)]
+    s = Session(plugin)
+    _vivienda(s)
+    pa = import_module(s.plugin.tools['PILAR'].__module__.rsplit('.', 1)[0] + '.parameters_arq')
+    values = pa.load_defaults(s.document)
+    values['general']['cota_minima'] = 0.15
+    s.history.execute(pa.SetArchitecturalDefaults(values))
+    assert pa.general_options(s.document)['cota_minima'] == pytest.approx(0.15)
+    t = s.tool('COTAMUROS')
+    t.on_option('o')
+    t.on_point((-1, 2.5))
+    t.on_point((9, 2.5))
+    values = sorted(round(d.get_measurement(), 3) for d in _dims(s))
+    # the 0,10 partition is merged into the next room: 0,30 3,80 3,90 0,30
+    assert values == pytest.approx(sorted([0.30, 3.80, 3.90, 0.30]))

@@ -219,13 +219,34 @@ def architectural_defaults_dialog(ctx, current):
             form.addRow(labels.get(key,key),editor)
             editors[(kind,key)]=editor
         tabs.addTab(widget,title)
+    # General: the way of working with this drawing (user, 9-11-2026)
+    from PySide6.QtWidgets import QCheckBox
+    general=QWidget();gform=QFormLayout(general)
+    usos=QCheckBox('Trabajar con usos de recinto')
+    usos.setChecked(bool(data.get('general',{}).get('usar_usos',False)))
+    usos.setToolTip('Sí: la ficha de recinto pide el uso y el uso decide la clasificación '
+                    '(altura habitable de baños, pasillos...). No: decide el nombre.')
+    minimo=_spin(data.get('general',{}).get('cota_minima',0.0))
+    minimo.setRange(0.0,10.0)
+    minimo.setToolTip('COTAMUROS no acota distancias menores (0 = todas)')
+    gform.addRow('',usos);gform.addRow('Cota mínima (m)',minimo)
+    tabs.insertTab(0,general,'General');tabs.setCurrentIndex(0)
+    editors[('general','usar_usos')]=usos;editors[('general','cota_minima')]=minimo
     main.addWidget(QLabel('Nota: puertas y ventanas permanecen en fase experimental.'))
     buttons=QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
     buttons.accepted.connect(dlg.accept);buttons.rejected.connect(dlg.reject)
     main.addWidget(buttons)
+    dlg._arq=editors
     if dlg.exec()!=QDialog.Accepted:return None
+    return read_defaults_dialog(data,editors,numeric)
+
+
+def read_defaults_dialog(data,editors,numeric=('thickness','height','base','width','depth','radius','rotation','sill')):
+    data.setdefault('general',{})
     for (kind,key),editor in editors.items():
-        if key in numeric: data[kind][key]=editor.value()
+        if key=='usar_usos': data[kind][key]=editor.isChecked()
+        elif key=='cota_minima': data[kind][key]=editor.value()
+        elif key in numeric: data[kind][key]=editor.value()
         elif key in ('reference','shape'):data[kind][key]=editor.currentData()
         else:data[kind][key]=editor.text().strip()
     from .parameters_arq import validate_defaults
@@ -397,8 +418,12 @@ def carpentry_properties(ctx, record, *, editing=False):
 
 # --- spaces -----------------------------------------------------------------------
 
-def space_form(ctx, record):
-    """(dialog, read) of the space (IfcSpace) sheet."""
+def space_form(ctx, record, by_use=None):
+    """(dialog, read) of the space (IfcSpace) sheet.  The «Uso» field is
+    shown when the drawing works with uses (general options)."""
+    if by_use is None:
+        from .parameters_arq import general_options
+        by_use = general_options(getattr(ctx, 'document', None))['usar_usos']
     from PySide6.QtWidgets import QCheckBox, QLineEdit
     QDialog, _, _, QFormLayout, QGroupBox, *_ = _widgets()
     d = record or {}
@@ -421,8 +446,12 @@ def space_form(ctx, record):
     level = QLineEdit(str(d.get("level") or "Planta baja"))
     ifc = QLineEdit("IfcSpace")
     ifc.setReadOnly(True)
-    for label, w in (("Nombre:", name), ("Número:", number), ("Uso:", use), ("Tipo:", enclosure),
-                     ("Altura libre:", height), ("", ceiling), ("Nivel:", level), ("Clase IFC:", ifc)):
+    rows = [("Nombre:", name), ("Número:", number), ("Uso:", use), ("Tipo:", enclosure),
+            ("Altura libre:", height), ("", ceiling), ("Nivel:", level), ("Clase IFC:", ifc)]
+    if not by_use:
+        use.setVisible(False)
+        rows = [r for r in rows if r[1] is not use]
+    for label, w in rows:
         f.addRow(label, w)
     layout.addWidget(group)
     layout.addWidget(buttons)
@@ -439,3 +468,46 @@ def space_properties(ctx, record):
     QDialog = _widgets()[0]
     dlg, read = space_form(ctx, record)
     return read() if dlg.exec() == QDialog.Accepted else None
+
+
+def problems_form(ctx, problems):
+    """(dialog, list widget) of the export problems: each line says what is
+    wrong; selecting it highlights its elements in the drawing.  The
+    operator decides: export without them, or cancel and fix them."""
+    from PySide6.QtWidgets import QListWidget, QListWidgetItem, QPushButton, QDialogButtonBox
+    from . import integrity as IG
+    QDialog, _, _, _, _, QVBoxLayout, _, _, QLabel = _widgets()
+    dlg = QDialog(_parent(ctx))
+    dlg.setWindowTitle("Arquitectura — Comprobación antes de exportar")
+    dlg.setMinimumWidth(620)
+    layout = QVBoxLayout(dlg)
+    head = QLabel(f"Se han encontrado {len(problems)} problemas ({IG.summary(problems)}). "
+                  "Seleccione uno para verlo resaltado en el dibujo. Puede exportar sin los "
+                  "elementos marcados o cancelar para corregirlos.")
+    head.setWordWrap(True)
+    layout.addWidget(head)
+    lst = QListWidget(dlg)
+    for p in problems:
+        item = QListWidgetItem(p["text"])
+        item.setToolTip(p["text"])
+        lst.addItem(item)
+    lst.currentRowChanged.connect(lambda row: IG.highlight(ctx, problems[row]["handles"]) if row >= 0 else None)
+    layout.addWidget(lst)
+    every = QPushButton("Resaltar todos")
+    every.clicked.connect(lambda: IG.highlight(ctx, [h for p in problems for h in p["handles"]]))
+    buttons = QDialogButtonBox(dlg)
+    go = buttons.addButton("Exportar sin los elementos marcados", QDialogButtonBox.AcceptRole)
+    buttons.addButton("Cancelar y corregir", QDialogButtonBox.RejectRole)
+    buttons.addButton(every, QDialogButtonBox.ActionRole)
+    buttons.accepted.connect(dlg.accept)
+    buttons.rejected.connect(dlg.reject)
+    layout.addWidget(buttons)
+    dlg._arq = dict(list=lst, export=go)
+    return dlg, lst
+
+
+def problems_dialog(ctx, problems):
+    """True: export without the marked elements; False: cancel."""
+    QDialog = _widgets()[0]
+    dlg, _lst = problems_form(ctx, problems)
+    return dlg.exec() == QDialog.Accepted

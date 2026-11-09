@@ -1536,7 +1536,7 @@ def plugin_spec() -> PluginSpec:
         tools={tool.name: tool for tool in (*TOOL_CLASSES, Muro3DTool, Hueco3DTool)},
         commands={"EXPORTARBIM": exportar_bim, "EXPORTARIGZ": exportar_igz, "CONFIGIGZ": configurar_igz, "DIAGNOSTICOARQ": diagnostico_arq, "ARQDIAG": arqdiag, "UNIONESARQ": unionesarq, "ARQVALIDAR": validar_arq, "ARQMIGRAR": migrar_arq, "PARAMETROSARQ": parametros_arq, "TIPOSMURO": tipos_muro, "USOSARQ": usos_arq},
         menu=(
-            MenuItem("Parámetros iniciales de Arquitectura...", "PARAMETROSARQ", icon=glyph / "parametros.svg"),
+            MenuItem("Opciones generales y parámetros iniciales...", "PARAMETROSARQ", icon=glyph / "parametros.svg"),
             MenuItem("Tipos de muro (espesor total y capas)...", "TIPOSMURO", icon=glyph / "tiposmuro.svg"),
             MenuItem("Usos del edificio (certificado energético, DB-HE, DB-SI)...", "USOSARQ", icon=glyph / "usos.svg"),
             MenuItem("Crear capas ARQ", "CAPASARQ"),

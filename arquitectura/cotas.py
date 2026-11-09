@@ -143,6 +143,24 @@ def outline_edges(drawing):
     return edges
 
 
+def thin_out(points, minimum):
+    """The chain without the distances shorter than ``minimum`` (general
+    options): such a point is merged with the next one, so the chain stays
+    continuous; the two ends are always kept.  0 keeps everything."""
+    if minimum <= 0 or len(points) < 3:
+        return list(points)
+    out = [points[0]]
+    for q in points[1:-1]:
+        if math.dist(out[-1], q) >= minimum - 1e-9:
+            out.append(q)
+    last = points[-1]
+    if len(out) > 1 and math.dist(out[-1], last) < minimum - 1e-9:
+        out[-1] = last
+    else:
+        out.append(last)
+    return out
+
+
 def ensure_style(drawing, text_height=0.20):
     """Layer ARQ-COTAS and dimension style ARQ (metres at 1:100: 2 mm
     text, ticks, two decimals with a comma).  True when the style was
@@ -278,12 +296,18 @@ class CotaMurosTool(_tool_base()):
             self.ctx.echo("COTAMUROS: la línea no atraviesa ningún muro ni corre paralela a una fachada "
                           "(a menos de 3 m); dibújela de lado a lado o junto a la fachada.")
             return
+        from .parameters_arq import general_options
+        minimum = float(general_options(self.doc)["cota_minima"])
+        full = len(pts)
+        pts = thin_out(pts, minimum)
         away = 1.0 if offset >= 0 else -1.0
         spans = chain(pts, p, q, offset, offset + away * 3.0 * self.h if self.total else None)
         cmds = [_StyleCommand(self.h)] + dimension_commands(spans)
         self.ctx.execute(SafeArchitecturalCommand("ARQ COTAS DE MUROS", cmds))
         self.ctx.echo(f"COTAMUROS: {len(pts) - 1} cotas"
                       + (" y la total" if self.total and len(pts) > 2 else "")
+                      + (f" (omitidas {full - len(pts)} distancias menores de {minimum:g} m)".replace(".", ",")
+                         if full > len(pts) else "")
                       + f" en la capa {DIM_LAYER}. Siga con otra línea o Intro para terminar.")
 
     def on_option(self, text):

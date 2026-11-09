@@ -26,23 +26,15 @@ def audit_architecture(document):
         chunks = [t.value for t in tags if t.code == 1000]
         if any(len(str(v).encode('utf-8')) > 255 for v in chunks):
             issues.append(f'XDATA >255 bytes en entidad {entity.dxf.handle}: es necesario regrabar los atributos')
-        if chunks and metadata(entity) is None:
-            issues.append(f'XDATA ARQ ilegible en entidad {entity.dxf.handle}: revisar o restaurar datos')
     # Auditoría informativa: no cambiar ids ni reconstruir geometría por sorpresa.
     geometry_tolerance = 1e-5
     def distant(a, b):
         return math.dist(tuple(map(float,a[:2])), tuple(map(float,b[:2]))) > geometry_tolerance
-    ids = [d.get('id') for _, d in sources + columns + openings]
-    for ident, count in Counter(ids).items():
-        if not ident:
-            issues.append('Objeto arquitectónico sin identificador BIM')
-        elif count > 1:
-            issues.append(f'Identificador BIM duplicado: {ident} ({count} objetos); '
-                          'probablemente copias: UNIONESARQ les asigna identidad nueva')
+    # identities, unreadable data, orphan and misfit openings: the same
+    # check EXPORTARBIM runs before exporting (integrity.audit)
+    from .integrity import audit
     wall_ids = {d.get('id') for _, d in sources}
-    for _, d in openings:
-        if d.get('wall_id') not in wall_ids:
-            issues.append(f'Hueco sin muro anfitrión: {d.get("id", "sin ID")}')
+    issues += [p['text'] for p in audit(drawing)]
     for ent, d in sources:
         try:
             a, b = d['a'], d['b']

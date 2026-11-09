@@ -114,7 +114,7 @@ def _hull(pts):
     return lower[:-1] + upper[:-1]
 
 
-def evaluate(meta, room, room_useful=None, crit=None):
+def evaluate(meta, room, room_useful=None, crit=None, by_use=None):
     """{'useful': m², 'factor': coefficient, 'computable': m², 'habitable': bool,
     'notes': [..]} for a room (``room_useful``: the same room solved without
     the columns that are not deducted)."""
@@ -137,8 +137,19 @@ def evaluate(meta, room, room_useful=None, crit=None):
                          "no computa".replace(".", ",", 1))
     if room_useful is not None and abs(useful - float(room["area"])) > 1e-9:
         notes.append("pilares o conductos de hasta 100 cm² no descontados")
-    words = f"{meta.get('name') or ''} {meta.get('use') or ''}".lower()
-    low_room = any(k in words for k in c.get("low_rooms", ()))
+    # what kind of room it is (bathroom, corridor... need less height): by its
+    # «Uso» when the drawing works with uses (general options), by its name
+    # otherwise; the free name never changes a room that has a use
+    use, name = (meta.get('use') or '').strip(), (meta.get('name') or '').strip()
+    if by_use is None:
+        words = f"{name} {use}"
+    elif by_use:
+        words = use or name
+        if not use:
+            notes.append("sin uso asignado: se clasifica por el nombre")
+    else:
+        words = name
+    low_room = any(k in words.lower() for k in c.get("low_rooms", ()))
     needed = c["low_rooms_height"] if low_room else c["habitable_height"]
     if enclosure == "interior" and factor > 0 and height + 1e-9 < needed:
         notes.append(f"altura libre por debajo de {needed:.2f} m: no es superficie útil habitable".replace(".", ","))
@@ -156,6 +167,8 @@ def table(drawing, crit=None):
     specs = J.walls_from_records(records)
     result = J.solve(specs, [(cid, m["polygon"]) for cid, m in columns])
     res_u = useful_result(specs, columns, crit)
+    from .parameters_arq import general_options
+    by_use = general_options(drawing)["usar_usos"]
     rows, totals = [], {"useful_interior": 0.0, "exterior_computable": 0.0, "computable": 0.0,
                         "habitable": 0.0}
     for _ident, m, _e in read_spaces(drawing):
@@ -164,7 +177,7 @@ def table(drawing, crit=None):
             rows.append({"name": m.get("name") or "Recinto", "error": "no está cerrado"})
             continue
         room_u = SP.space_at(res_u, m["seed"])[0] if res_u is not None else None
-        ev = evaluate(m, room, room_u, crit)
+        ev = evaluate(m, room, room_u, crit, by_use=by_use)
         rows.append({"name": m.get("name") or "Recinto", "use": m.get("use") or "",
                      "enclosure": m.get("enclosure") or "interior", "height": float(m.get("height") or 0),
                      "net": room["area"], **ev})

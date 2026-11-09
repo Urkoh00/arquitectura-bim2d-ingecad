@@ -47,7 +47,7 @@ def _pts(entity):
     return [tuple(map(float, p)) for p in entity.get_points("xy")]
 
 
-def read_model(drawing, tol=1e-5, strict=True):
+def read_model(drawing, tol=1e-5, strict=True, skip=()):
     """Tagged walls/columns/openings of the drawing, CAD geometry first.
 
     Returns (walls, columns, openings, issues). Raises on duplicated IDs:
@@ -57,6 +57,8 @@ def read_model(drawing, tol=1e-5, strict=True):
     msp = drawing.modelspace()
     walls, columns, openings, issues, seen = [], [], [], [], {}
     for e in msp:
+        if skip and e.dxf.handle in skip:
+            continue
         m = metadata(e) or {}
         kind = m.get("kind")
         if kind not in ("wall", "column", "opening"):
@@ -91,18 +93,29 @@ def read_model(drawing, tol=1e-5, strict=True):
     return walls, columns, openings, issues
 
 
-def read_spaces(drawing):
+def read_spaces(drawing, skip=()):
     """[(id, metadata, entity)] of the drawing's spaces (rooms)."""
     out = []
     for e in drawing.modelspace():
+        if skip and e.dxf.handle in skip:
+            continue
         m = metadata(e) or {}
         if m.get("kind") == "space" and m.get("id") and m.get("seed"):
             out.append((m["id"], dict(m), e))
     return out
 
 
-def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD"):
-    walls, columns, openings, issues = read_model(drawing)
+def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD", problems=None):
+    """The contract of the drawing.  ``problems`` (from ``integrity.audit``,
+    computed here when not given) are not fatal: the elements they concern
+    are left out and the problems are listed in ``issues`` and ``problems``.
+    The operator has already seen them in EXPORTARBIM's dialog."""
+    from . import integrity as IG
+    if problems is None:
+        problems = IG.audit(drawing)
+    skip = IG.omitted_handles(problems)
+    walls, columns, openings, issues = read_model(drawing, skip=skip)
+    issues = [p["text"] for p in problems] + issues
     specs = J.walls_from_records(walls)
     result = J.solve(specs, [(cid, m["polygon"]) for cid, m in columns])
     issues += result.warnings
@@ -223,7 +236,9 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD"):
     comps = SP.components(result) if columns or specs else []
     from . import superficies as SU
     res_u = SU.useful_result(specs, columns)
-    for ident, m, ent in read_spaces(drawing):
+    from .parameters_arq import general_options
+    by_use = general_options(drawing)["usar_usos"]
+    for ident, m, ent in read_spaces(drawing, skip=skip):
         level = m.get("level") or "Planta baja"
         levels.setdefault(level, float(m.get("base", 0.0)))
         room, why = SP.space_at(result, m["seed"], comps)
@@ -236,7 +251,7 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD"):
         faces, volume = S.wall_solid(room["pieces"], (0.0, 0.0), (1.0, 0.0), base, height, ())
         el = _element(ident, "IfcSpace", m, faces, volume, room["area"], level)
         room_u = SP.space_at(res_u, m["seed"])[0] if res_u is not None else None
-        ev = SU.evaluate(m, room, room_u)
+        ev = SU.evaluate(m, room, room_u, by_use=by_use)
         exterior = (m.get("enclosure") or "interior") != "interior"
         usos = _usos(drawing)
         el["psets"] = {"ARQ_Usos": {k: v for k, v in usos.items() if k != "TipoDeEdificio"},
@@ -264,6 +279,17 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD"):
         elements.append(el)
         if m.get("ceiling"):
             elements.append(_ceiling(ident, m, room, base + height, level))
+    # last guard: one identity, one GlobalId, also for the derived objects
+    # (holes, false ceilings); a repeat is never written to the contract
+    ids, kept = set(), []
+    for el in elements:
+        keys = [el["guid"]] + [o.get("guid") for o in el.get("openings", []) if o.get("guid")]
+        if el["id"] in ids or any(k in ids for k in keys):
+            issues.append(f"{el['ifc_class']} {el.get('name') or el['id']}: identidad repetida; se omite")
+            continue
+        ids.update([el["id"], *keys])
+        kept.append(el)
+    elements = kept
     return {
         "format": FORMAT, "version": VERSION, "units": "m",
         "generator": generator, "project": {"name": project, **_usos(drawing)},

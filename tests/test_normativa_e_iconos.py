@@ -69,3 +69,16 @@ def test_todos_los_iconos_existen():
     for n in names:
         svg = (ROOT / 'arquitectura' / 'icons' / n).read_text(encoding='utf-8')
         assert svg.startswith('<svg') and 'viewBox="0 0 24 24"' in svg, n
+
+
+def test_clasificacion_por_uso_o_por_nombre(plugin):
+    """General options (user, 9-11-2026): with uses, the «Uso» classifies
+    the room and its free name does not change it (audit ARQ-AUD-0025);
+    without uses, the name classifies it."""
+    sm = _mod(Session(plugin), 'superficies')
+    room = {'area': 4.0, 'outer': [(0, 0), (2, 0), (2, 2), (0, 2)]}
+    raro = {'name': 'Baño del dormitorio', 'use': 'Dormitorio', 'height': 2.25}
+    assert not sm.evaluate(raro, room, by_use=True)['habitable']       # es un dormitorio
+    assert sm.evaluate(raro, room, by_use=False)['habitable']          # por el nombre, baño
+    sin_uso = sm.evaluate({'name': 'Aseo', 'height': 2.25}, room, by_use=True)
+    assert sin_uso['habitable'] and any('sin uso' in n for n in sin_uso['notes'])
