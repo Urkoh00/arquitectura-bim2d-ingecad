@@ -413,7 +413,13 @@ def free_span(spec, segments, s, side):
     if mine is None:
         return None, None, None
     others = spans["lo" if side > 0 else "hi"]
-    other = max(others, key=lambda r: min(r[1], mine[1]) - max(r[0], mine[0]), default=None)
+    # the stretch of the other face in front of the click; only if there is
+    # none there, the one sharing most with the clicked stretch (a column or
+    # a wall against the other face splits it, and the longest piece may be
+    # elsewhere: the door was refused as «no cabe», prueba del 10-11)
+    facing = [r for r in others if r[0] - 1e-9 <= s <= r[1] + 1e-9]
+    other = facing[0] if facing else max(
+        others, key=lambda r: min(r[1], mine[1]) - max(r[0], mine[0]), default=None)
     if other is None or min(other[1], mine[1]) <= max(other[0], mine[0]):
         return mine, None, mine
     return mine, other, (max(mine[0], other[0]), min(mine[1], other[1]))

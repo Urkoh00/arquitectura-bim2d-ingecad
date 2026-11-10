@@ -324,3 +324,18 @@ def test_falso_techo_se_exporta_como_ifccovering_coplanario(plugin):
     assert techo['volume'] == pytest.approx(17.86 * 0.015)
     door = next(e for e in data['elements'] if e['ifc_class'] == 'IfcDoor')
     assert door['enums'] == {'PredefinedType': 'DOOR', 'OperationType': 'SINGLE_SWING_LEFT'}
+
+
+def test_paramento_enfrentado_partido_por_un_pilar():
+    """The other face split by a column: the usable stretch is the one in
+    front of the click, not the longest (a door was refused as «no cabe»,
+    prueba del usuario del 10-11)."""
+    from arquitectura import openings as OP
+    from arquitectura.geom import junctions as J
+    spec = J.Wall("w", (0.0, 0.0), (10.0, 0.0), 0.3)
+    segs = [((0.0, 0.15), (10.0, 0.15)),                     # clicked face, whole
+            ((0.0, -0.15), (4.0, -0.15)), ((4.5, -0.15), (10.0, -0.15))]   # the column at 4..4,5
+    mine, other, usable = OP.free_span(spec, segs, 2.0, 1)
+    assert usable == pytest.approx((0.0, 4.0))
+    mine, other, usable = OP.free_span(spec, segs, 7.0, 1)
+    assert usable == pytest.approx((4.5, 10.0))

@@ -384,7 +384,13 @@ def _give_back_covering(res, cid, cpoly, core, cover, walls, raw, pieces):
     if not ring:
         return
     reach = cover + 1e-6
+    box = P.bbox(ring)
     for i, w in enumerate(walls):
+        near = P.bbox([raw[i]])
+        if near is not None:
+            near = (near[0] - reach, near[1] - reach, near[2] + reach, near[3] + reach)
+        if P.boxes_apart(box, near):
+            continue                  # a wall far from the column takes nothing
         zone = _wall_zone(w, raw[i], reach)
         taken = []
         for r in ring:

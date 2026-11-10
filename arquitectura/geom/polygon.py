@@ -163,6 +163,12 @@ def triangulate(poly):
         return [pts]
     tris = []
     idx = list(range(len(pts)))
+    # only a reflex vertex can lie inside an ear, and clipping never makes a
+    # convex vertex reflex: the initial reflex ones are enough to test
+    m = len(pts)
+    reflex = [j for j in range(m)
+              if cross(sub(pts[j], pts[j - 1]), sub(pts[(j + 1) % m], pts[j])) <= 1e-14]
+    alive = set(idx)
     guard = 0
     while len(idx) > 3 and guard < 10000:
         guard += 1
@@ -172,10 +178,10 @@ def triangulate(poly):
             if cross(sub(b, a), sub(c, b)) <= 1e-14:
                 continue
             tri = [a, b, c]
-            if any(_inside_tri(pts[j], tri) for j in idx if j not in (i0, i1, i2)):
+            if any(_inside_tri(pts[j], tri) for j in reflex if j not in (i0, i1, i2) and j in alive):
                 continue
             tris.append(tri)
-            idx.pop(k)
+            alive.discard(idx.pop(k))
             break
         else:
             break
@@ -207,10 +213,31 @@ def subtract(pieces, clipper_poly):
     return pieces
 
 
+def bbox(pieces):
+    """(xmin, ymin, xmax, ymax) of polygons, or None when there are none."""
+    xs = [p[0] for poly in pieces for p in poly]
+    ys = [p[1] for poly in pieces for p in poly]
+    return (min(xs), min(ys), max(xs), max(ys)) if xs else None
+
+
+def boxes_apart(ba, bb, eps=1e-9):
+    return (ba is None or bb is None or ba[2] < bb[0] - eps or bb[2] < ba[0] - eps
+            or ba[3] < bb[1] - eps or bb[3] < ba[1] - eps)
+
+
 def overlap_area(pieces_a, pieces_b):
+    """Area common to two sets of convex pieces. The boxes go first: a
+    curved wall is dozens of pieces, and most pairs of pieces are far apart
+    (placing a door in a plan with two curved walls took a second)."""
+    if boxes_apart(bbox(pieces_a), bbox(pieces_b)):
+        return 0.0
+    boxes_b = [(b, bbox([b])) for b in pieces_b]
     s = 0.0
     for a in pieces_a:
-        for b in pieces_b:
+        box_a = bbox([a])
+        for b, box_b in boxes_b:
+            if boxes_apart(box_a, box_b):
+                continue
             inter = convex_intersection(a, b)
             if inter:
                 s += area(inter)
@@ -220,7 +247,12 @@ def overlap_area(pieces_a, pieces_b):
 # -- gluing pieces back into loops --------------------------------------------------------
 
 def _split_edges(edges, points):
-    """Split directed edges at any of ``points`` lying strictly inside them."""
+    """Split directed edges at any of ``points`` lying strictly inside them.
+    The points are sorted by x and only those in the edge's box are tried
+    (the same result; a plan with curved walls has hundreds of each)."""
+    import bisect
+    pts = sorted(points)
+    xs = [p[0] for p in pts]
     out = []
     for a, b in edges:
         d = sub(b, a)
@@ -229,7 +261,12 @@ def _split_edges(edges, points):
             continue
         cuts = []
         length = math.sqrt(ll)
-        for p in points:
+        lo = bisect.bisect_left(xs, min(a[0], b[0]) - 1e-6)
+        hi = bisect.bisect_right(xs, max(a[0], b[0]) + 1e-6)
+        ymin, ymax = min(a[1], b[1]) - 1e-6, max(a[1], b[1]) + 1e-6
+        for p in pts[lo:hi]:
+            if not ymin <= p[1] <= ymax:
+                continue
             t = dot(sub(p, a), d) / ll
             if 1e-9 < t < 1 - 1e-9 and abs(cross(d, sub(p, a))) / length < 1e-9:
                 cuts.append((t, p))
