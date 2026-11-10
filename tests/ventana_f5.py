@@ -28,7 +28,7 @@ spec = load_plugin(d, bundled=False).spec
 pkg = spec.tools["MURO"].__module__.rsplit(".", 1)[0]
 importlib.import_module(pkg + ".bim_dialogs").available = lambda ctx: False   # sin diálogo modal
 from views.tool_controller import register_tool_classes   # noqa: E402
-register_tool_classes({"MURO": spec.tools["MURO"]}, owner="arquitectura")
+register_tool_classes({k: spec.tools[k] for k in ("MURO", "MUROCURVO")}, owner="arquitectura")
 from views.main_window import MainWindow         # noqa: E402
 
 win = MainWindow()
@@ -53,6 +53,20 @@ QTest.keyClick(win.viewport, Qt.Key_F5)
 app.processEvents()
 out["tras_cancelar"] = tool.reference
 out["atajo_retirado"] = type(tool)._shortcut is None
+# MUROCURVO con ORTO: el punto de paso no se fuerza (prueba del 10-11)
+win.tools.ortho_on = True
+win.tools.start_tool("MUROCURVO")
+curvo = win.tools.tool
+curvo.on_point((0.0, 0.0))
+curvo.on_point((4.0, 0.0))
+paso = win.tools.resolved_point(2.0, 1.0)
+out["orto_paso"] = [round(v, 6) for v in paso]
+curvo.on_point(paso)
+out["curvos"] = sum(1 for e in win.document.doc.modelspace()
+                    if e.has_xdata("ARQINGECAD") and abs(float(
+                        json.loads("".join(v for _c, v in e.get_xdata("ARQINGECAD"))).get("bulge") or 0)) > 0.1)
+out["orto_extremo"] = [round(v, 6) for v in win.tools.resolved_point(13.0, 1.0)]   # el siguiente extremo, sí
+win.tools.cancel()
 win.document.dirty = False
 win.close()
 print("RESULTADO " + json.dumps(out))

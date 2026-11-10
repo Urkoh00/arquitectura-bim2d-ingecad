@@ -138,6 +138,12 @@ class MuroCurvoTool(Tool):
             return True
         return False
 
+    def ortho_applies(self):
+        """The point the arc passes through is free: ORTHO from the end
+        point would put it on the line through the two ends, and a wall
+        through three points in line is straight (prueba del 10-11)."""
+        return not (self.a is not None and self.b is not None and not self.circle)
+
     def on_point(self, p):
         p = (float(p[0]), float(p[1]))
         if self.pending:
@@ -281,6 +287,10 @@ class CurvaMuroTool(Tool):
         self.last_point = tuple(m["a"])
         self.prompt("CURVAMURO: punto de paso del eje (o de la cara de referencia), o flecha en m "
                     "(positiva a la izquierda de a→b; 0 lo endereza):")
+
+    def ortho_applies(self):
+        """The point the arc passes through is free, as in MUROCURVO."""
+        return self.wall is None
 
     def on_point(self, p):
         p = (float(p[0]), float(p[1]))

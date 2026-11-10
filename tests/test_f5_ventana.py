@@ -22,4 +22,5 @@ def test_f5_en_ventana_real():
     assert line, proc.stdout[-2000:] + proc.stderr[-3000:]
     r = json.loads(line[len("RESULTADO "):])
     assert r == {"lienzo": "derecha", "linea_ordenes": "izquierda",
-                 "tras_cancelar": "izquierda", "atajo_retirado": True}
+                 "tras_cancelar": "izquierda", "atajo_retirado": True,
+                 "orto_paso": [2.0, 1.0], "curvos": 1, "orto_extremo": [13.0, 0.0]}
