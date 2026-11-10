@@ -138,33 +138,84 @@ def available(ctx):
         return False
 
 
-def column_properties(ctx, record=None):
-    """Native IngeCAD-style BIM column dialog: 2D geometry + future IFC data."""
-    QDialog,_,_,QFormLayout,QGroupBox,_,_,QLineEdit,_=_widgets()
+ANCHORS = ((7, '↖', 'Esquina superior izquierda'), (8, '↑', 'Mitad de la cara superior'),
+           (9, '↗', 'Esquina superior derecha'), (4, '←', 'Mitad de la cara izquierda'),
+           (5, '·', 'Centro'), (6, '→', 'Mitad de la cara derecha'),
+           (1, '↙', 'Esquina inferior izquierda'), (2, '↓', 'Mitad de la cara inferior'),
+           (3, '↘', 'Esquina inferior derecha'))
+
+
+def anchor_picker(current=5):
+    """3 x 3 buttons, as the numeric keypad: the point of the column that
+    goes where the user clicks (corners, middles of the faces, centre)."""
+    from PySide6.QtWidgets import QWidget, QGridLayout, QToolButton, QButtonGroup
+    box = QWidget()
+    grid = QGridLayout(box)
+    grid.setSpacing(2)
+    group = QButtonGroup(box)
+    group.setExclusive(True)
+    for i, (key, mark, tip) in enumerate(ANCHORS):
+        b = QToolButton()
+        b.setText(mark)
+        b.setToolTip(f'{tip} (tecla {key})')
+        b.setCheckable(True)
+        b.setFixedSize(30, 30)
+        b.setChecked(key == int(current or 5))
+        group.addButton(b, key)
+        grid.addWidget(b, i // 3, i % 3)
+    box._group = group
+    return box
+
+
+def column_form(ctx, record=None, anchor=None):
+    """The column sheet -> (dialog, read): read() gives the values, with
+    ``anchor`` the insertion point (1..9, as the numeric keypad) when one
+    is given: placing a new column; editing one has nothing to insert."""
+    QDialog,_,_,QFormLayout,QGroupBox,_,_,QLineEdit,QLabel=_widgets()
     d=record or {}
     dlg,layout,buttons=_dialog(ctx,'Arquitectura — Pilar',
-       'Defina la sección en planta y las propiedades BIM del pilar. La posición se marcará con el ratón.')
-    geo=QGroupBox('Sección y posición',dlg)
+       'Defina la sección, el punto de inserción y las propiedades BIM del pilar. '
+       'La posición se marca con el ratón, con las referencias a objetos de IngeCAD.')
+    geo=QGroupBox('Sección',dlg)
     form=QFormLayout(geo)
-    shape=_choice([('Rectangular','rect'),('Circular','circ'),('Hexagonal regular','hex'),('Octogonal regular','oct')],d.get('shape','rect'))
+    shape=_choice([('Rectangular','rect'),('Circular','circ'),('Hexagonal regular','hex'),
+                   ('Octogonal regular','oct'),('Perfil metálico','steel')],d.get('shape','rect'))
     w=_spin(d.get('width',.30),positive=True)
     h=_spin(d.get('depth',.30),positive=True)
     radius=_spin(d.get('radius',.15),positive=True)
+    profile=QLineEdit(str(d.get('profile') or 'HEB 160'))
+    profile.setToolTip('IPE 200, HEB 160, UPN 120, 2UPN 160 cajon, 2UPN 160 empresillado 0,10...')
     rotation=_spin(d.get('rotation',0))
     rotation.setSuffix(' °')
     rotation.setRange(-360.,360.)
     rotation.setSingleStep(15.)
+    cover=_spin(d.get('cover',0))
+    cover.setRange(0.,1.)
+    cover.setSingleStep(.01)
+    cover.setToolTip('Recubrimiento o forro alrededor de la sección (0 = sin recubrimiento). '
+                     'Donde el pilar está dentro de un muro, el muro ocupa ese espacio.')
     height=_spin(d.get('height',2.70),positive=True)
     z=_spin(d.get('base',0))
     for name,widget in [('Sección:',shape),('Anchura (X):',w),('Fondo (Y):',h),
-                        ('Radio circunscrito:',radius),('Giro de sección:',rotation),('Altura:',height),('Cota base:',z)]:
+                        ('Radio circunscrito:',radius),('Perfil:',profile),('Giro de sección:',rotation),
+                        ('Recubrimiento:',cover),('Altura:',height),('Cota base:',z)]:
         form.addRow(name,widget)
     def update(*_):
-        regular=shape.currentData() in ('circ','hex','oct')
-        w.setEnabled(not regular);h.setEnabled(not regular);radius.setEnabled(regular)
-        rotation.setEnabled(shape.currentData() in ('hex','oct'))
+        kind=shape.currentData()
+        regular=kind in ('circ','hex','oct')
+        w.setEnabled(kind=='rect');h.setEnabled(kind=='rect');radius.setEnabled(regular)
+        profile.setEnabled(kind=='steel')
     shape.currentIndexChanged.connect(update);update()
     layout.addWidget(geo)
+    where=QGroupBox('Punto de inserción',dlg)
+    wform=QFormLayout(where)
+    picker=anchor_picker(anchor or 5)
+    hint=QLabel('El punto del pilar que se coloca donde hace clic:\n'
+                'esquinas, mitad de las caras o centro.')
+    hint.setWordWrap(True)
+    wform.addRow(picker,hint)
+    layout.addWidget(where)
+    where.setVisible(anchor is not None)
     identity=QGroupBox('Identificación BIM',dlg)
     props=QFormLayout(identity)
     name=QLineEdit(str(d.get('name','Pilar')))
@@ -176,11 +227,40 @@ def column_properties(ctx, record=None):
     cls=QLineEdit('IfcColumn');cls.setReadOnly(True)
     props.addRow('Clase IFC:',cls)
     layout.addWidget(identity);layout.addWidget(buttons)
-    if dlg.exec()!=QDialog.Accepted:return None
-    return dict(shape=shape.currentData(),width=w.value(),depth=h.value(),radius=radius.value(),rotation=rotation.value(),
-                height=height.value(),base=z.value(),name=name.text().strip() or 'Pilar',
-                type_name=typ.text().strip() or 'Pilar genérico',material=material.text().strip(),
-                level=level.text().strip(),ifc_class='IfcColumn')
+
+    def read():
+        out=dict(shape=shape.currentData(),width=w.value(),depth=h.value(),radius=radius.value(),
+                 rotation=rotation.value(),cover=cover.value(),
+                 height=height.value(),base=z.value(),name=name.text().strip() or 'Pilar',
+                 type_name=typ.text().strip() or 'Pilar genérico',material=material.text().strip(),
+                 level=level.text().strip(),ifc_class='IfcColumn')
+        if anchor is not None:
+            out['anchor']=picker._group.checkedId() if picker._group.checkedId() > 0 else 5
+        if out['shape']=='steel':
+            from .sections import parse_section
+            parsed=parse_section(profile.text())
+            if parsed.get('shape')!='steel':
+                raise ValueError(f'Perfil no reconocido: {profile.text()}')
+            out['profile']=parsed['profile']
+            if material.text().strip() in ('','Hormigón armado'):
+                out['material']=parsed.get('material','Acero')
+        return out
+    dlg._arq={'shape':shape,'width':w,'depth':h,'profile':profile,'cover':cover,'anchor':picker}
+    return dlg,read
+
+
+def column_properties(ctx, record=None, anchor=None):
+    """Native IngeCAD-style BIM column dialog: 2D geometry + future IFC data."""
+    QDialog=_widgets()[0]
+    dlg,read=column_form(ctx,record,anchor)
+    while True:
+        if dlg.exec()!=QDialog.Accepted:
+            return None
+        try:
+            return read()
+        except ValueError as exc:
+            from PySide6.QtWidgets import QMessageBox
+            QMessageBox.warning(dlg,'Pilar',str(exc))
 
 
 def architectural_defaults_dialog(ctx, current):

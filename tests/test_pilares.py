@@ -226,3 +226,41 @@ def test_dos_upn_en_cajon(plugin, tmp_path):
     assert col['quantities']['CrossSectionArea'] + cov['quantities']['GrossArea'] == pytest.approx(0.13 * 0.16)
     xs = [p[0] for p in _columns(s)[0].get_points('xy')]
     assert min(xs) == pytest.approx(0.0)
+
+
+def test_ficha_de_pilar_con_punto_de_insercion_y_perfil(plugin):
+    """The sheet chooses the insertion point (corners, middles, centre), the
+    covering and a steel profile (prueba del usuario, 10-11)."""
+    from importlib import import_module
+    from PySide6.QtWidgets import QApplication
+    QApplication.instance() or QApplication([])
+    s = Session(plugin)
+    bd = import_module(s.plugin.tools['PILAR'].__module__.rsplit('.', 1)[0] + '.bim_dialogs')
+    ctx = type('C', (), {'host': None, 'services': None})()
+    dlg, read = bd.column_form(ctx, {'shape': 'rect', 'width': 0.3, 'depth': 0.4}, anchor=5)
+    w = dlg._arq
+    assert w['anchor']._group.checkedId() == 5
+    w['anchor']._group.button(7).setChecked(True)          # top-left corner
+    w['cover'].setValue(0.03)
+    v = read()
+    assert v['anchor'] == 7 and v['cover'] == pytest.approx(0.03)
+    w['shape'].setCurrentIndex(w['shape'].findData('steel'))
+    w['profile'].setText('IPE 200')
+    v = read()
+    assert v['shape'] == 'steel' and v['profile'] == 'IPE 200' and v['material'].startswith('Acero')
+    w['profile'].setText('nada')
+    with pytest.raises(ValueError):
+        read()
+    # editing an existing column: nothing to insert
+    dlg, read = bd.column_form(ctx, {'shape': 'rect'})
+    assert 'anchor' not in read()
+
+
+def test_pilar_libre_usa_las_referencias_de_ingecad(plugin):
+    """Free placement is not object picking: IngeCAD's snaps apply."""
+    s = Session(plugin)
+    t = s.tool('PILAR')
+    assert t.entity_picker is False
+    t.on_option('p')                                    # two faces: picking them
+    t.on_option('0,05')
+    assert t.mode == 'paramentos' and t.entity_picker is True

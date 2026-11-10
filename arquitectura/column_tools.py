@@ -34,7 +34,16 @@ def _line_dir(line):
 
 class PilarTool(Tool):
     name = "PILAR"
-    entity_picker = True
+
+    @property
+    def entity_picker(self):
+        """IngeCAD gives a picking tool the raw cursor, without its object
+        snaps. PILAR only picks while it asks for a wall face (P and U);
+        the insertion point takes IngeCAD's snaps (end, middle, intersection,
+        grid...) like any drawing command (prueba del usuario, 10-11)."""
+        mode = getattr(self, "mode", "libre")
+        picks = len(getattr(self, "picks", ()) or ())
+        return (mode == "paramentos" and picks < 2) or (mode == "paramento" and picks < 1)
 
     def start(self):
         self.name = type(self).name
@@ -60,10 +69,11 @@ class PilarTool(Tool):
         try:
             from . import bim_dialogs
             if bim_dialogs.available(self.ctx):
-                values = bim_dialogs.column_properties(self.ctx, self.values)
+                values = bim_dialogs.column_properties(self.ctx, self.values, self.anchor)
                 if values is None:
                     self.ctx.finish()
                     return
+                self.anchor = int(values.pop("anchor", self.anchor) or 5)
                 self.values.update(values)
         except Exception as exc:  # noqa: BLE001
             self.ctx.echo(f"PILAR: ficha no disponible ({type(exc).__name__}: {exc}).")
