@@ -7,9 +7,18 @@ from __future__ import annotations
 
 
 def _parent(ctx):
+    """The window a sheet hangs from: a tool's context reaches it through
+    its services, a command's (PluginContext) is the host itself."""
     services = getattr(ctx, 'services', None)
     parent = getattr(services, 'window', None)
-    return parent if parent is not None else None
+    if parent is None:
+        host = getattr(ctx, 'host', None)
+        try:
+            from PySide6.QtWidgets import QWidget
+            parent = host if isinstance(host, QWidget) else None
+        except ImportError:
+            parent = None
+    return parent
 
 
 def _widgets():
@@ -54,12 +63,83 @@ def _dialog(ctx, title, help_text):
     return dlg,layout,buttons
 
 
-def wall_properties(ctx, record=None):
-    """Return validated parameters, or None on Cancel; does not mutate the drawing."""
-    QDialog,_,_,QFormLayout,QGroupBox,_,_,QLineEdit,_=_widgets()
+def _types_of(ctx, types):
+    if types is not None:
+        return types
+    try:
+        from .parameters_arq import load_defaults
+        return load_defaults(getattr(ctx, 'document', None))['wall_types']
+    except Exception:  # noqa: BLE001
+        return []
+
+
+def _layers_table(layers, editable=False):
+    """A table of the layers of a wall type, from the drawn face inward."""
+    from PySide6.QtWidgets import QTableWidget, QTableWidgetItem, QAbstractItemView, QHeaderView
+    table = QTableWidget(0, 2)
+    table.setHorizontalHeaderLabels(['Espesor (m)', 'Material'])
+    table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+    table.verticalHeader().setVisible(True)
+    if not editable:
+        table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+    table.setMinimumHeight(110)
+
+    def fill(rows):
+        table.setRowCount(0)
+        for th, mat in rows or []:
+            r = table.rowCount()
+            table.insertRow(r)
+            table.setItem(r, 0, QTableWidgetItem(f'{float(th):.3f}'.replace('.', ',')))
+            table.setItem(r, 1, QTableWidgetItem(str(mat)))
+    table._fill = fill
+    fill(layers)
+    return table
+
+
+def _read_layers(table):
+    rows = []
+    for r in range(table.rowCount()):
+        th = table.item(r, 0)
+        mat = table.item(r, 1)
+        text = (th.text() if th else '').strip().replace(',', '.')
+        if not text:
+            continue
+        try:
+            v = float(text)
+        except ValueError:
+            raise ValueError(f'Capa {r + 1}: espesor no válido «{th.text()}»') from None
+        if not v > 0:
+            raise ValueError(f'Capa {r + 1}: el espesor debe ser mayor que cero')
+        rows.append([v, (mat.text() if mat else '').strip()])
+    return rows
+
+
+def wall_form(ctx, record=None, types=None):
+    """(dialog, read) of the wall sheet. The «Tipo de muro» list holds the
+    drawing's catalogue: a type sets the thickness, the material and the
+    layers (shown below); «Genérico» leaves them free."""
+    QDialog,_,_,QFormLayout,QGroupBox,_,QComboBox,QLineEdit,QLabel=_widgets()
+    from .parameters_arq import sort_types, normalise_type, _num
     d=record or {}
+    types=[normalise_type(t) for t in _types_of(ctx, types)]
     dlg,layout,buttons=_dialog(ctx,'Arquitectura — Muro',
-        'Propiedades del elemento arquitectónico 2D. Los datos se conservarán en el DXF y se prepararán para IGZ.')
+        'Elija un tipo de muro del catálogo del dibujo (TIPOSMURO) o defina uno genérico. '
+        'Los datos se guardan en el DXF y viajan al modelo BIM.')
+    tgroup=QGroupBox('Tipo de muro',dlg)
+    tform=QFormLayout(tgroup)
+    kind=QComboBox()
+    kind.addItem('Genérico (espesor libre)', None)
+    for t in sort_types(types):
+        kind.addItem(f"{_num(t['thickness'])} m — {t['name']}", t['name'])
+    current=d.get('type_name')
+    pos=kind.findData(current) if current else -1
+    kind.setCurrentIndex(pos if pos>=0 else 0)
+    table=_layers_table(d.get('layers') or [])
+    total=QLabel('')
+    tform.addRow('Tipo:',kind)
+    tform.addRow(table)
+    tform.addRow('Espesor total:',total)
+    layout.addWidget(tgroup)
     group=QGroupBox('Geometría y colocación',dlg)
     form=QFormLayout(group)
     thickness=_spin(d.get('thickness',0.15),positive=True)
@@ -71,20 +151,289 @@ def wall_properties(ctx, record=None):
     group2=QGroupBox('Identificación BIM',dlg)
     frm2=QFormLayout(group2)
     name=QLineEdit(str(d.get('name','Muro')))
-    type_name=QLineEdit(str(d.get('type_name','Muro genérico')))
     material=QLineEdit(str(d.get('material','Sin definir')))
     level=QLineEdit(str(d.get('level','Planta baja')))
-    frm2.addRow('Nombre:',name);frm2.addRow('Tipo:',type_name)
+    frm2.addRow('Nombre:',name)
     frm2.addRow('Material principal:',material);frm2.addRow('Nivel:',level)
     frm2.addRow('Clase IFC:',QLineEdit('IfcWall'))
     frm2.itemAt(frm2.count()-1).widget().setReadOnly(True)
     layout.addWidget(group2);layout.addWidget(buttons)
+    by_name={t['name']:t for t in types}
+
+    def chosen():
+        return by_name.get(kind.currentData())
+
+    def update(*_):
+        t=chosen()
+        if t is None:
+            table._fill(d.get('layers') if not d.get('type_name') in by_name else [])
+            thickness.setEnabled(True)
+            total.setText('el del campo Espesor')
+        else:
+            table._fill(t['layers'])
+            thickness.setValue(t['thickness'])
+            thickness.setEnabled(False)
+            if t.get('material'):
+                material.setText(t['material'])
+            if name.text().strip() in ('', 'Muro') or name.text().strip() in by_name:
+                name.setText(t['name'])
+            total.setText(f"{_num(t['thickness'])} m ({len(t['layers'])} capa"
+                          + ('s' if len(t['layers'])!=1 else '') + ')')
+    kind.currentIndexChanged.connect(update);update()
+
+    def read():
+        t=chosen()
+        out={'thickness':thickness.value(),'height':height.value(),'base':base.value(),
+             'reference':reference.currentData(),'name':name.text().strip() or 'Muro',
+             'material':material.text().strip(),'level':level.text().strip(),
+             'ifc_class':'IfcWall'}
+        if t is not None:
+            out.update(thickness=t['thickness'],type_name=t['name'],layers=[list(l) for l in t['layers']])
+        else:
+            keep=current and current not in by_name
+            out.update(type_name=str(current) if keep else f"Muro {_num(thickness.value())}",
+                       layers=[list(l) for l in (d.get('layers') or [])] if keep else [])
+        return out
+    dlg._arq={'type':kind,'thickness':thickness,'layers':table,'name':name,'material':material}
+    return dlg,read
+
+
+def wall_properties(ctx, record=None, types=None):
+    """Return validated parameters, or None on Cancel; does not mutate the drawing."""
+    QDialog=_widgets()[0]
+    dlg,read=wall_form(ctx,record,types)
     if dlg.exec()!=QDialog.Accepted:return None
-    return {'thickness':thickness.value(),'height':height.value(),'base':base.value(),
-            'reference':reference.currentData(),'name':name.text().strip() or 'Muro',
-            'type_name':type_name.text().strip() or 'Muro genérico',
-            'material':material.text().strip(),'level':level.text().strip(),
-            'ifc_class':'IfcWall'}
+    return read()
+
+
+def wall_types_form(ctx, types):
+    """(dialog, read) of TIPOSMURO: the catalogue of wall types of the
+    drawing, each a list of layers from the drawn face inward; its
+    thickness is their sum. read() -> the new list of types."""
+    from PySide6.QtWidgets import (QDialog, QDialogButtonBox, QVBoxLayout, QHBoxLayout, QListWidget,
+                                   QListWidgetItem, QPushButton, QLineEdit, QLabel, QFormLayout,
+                                   QGroupBox, QMessageBox)
+    from PySide6.QtCore import Qt
+    from .parameters_arq import normalise_type, sort_types, _num
+    data=[normalise_type(t) for t in types]
+    dlg=QDialog(_parent(ctx))
+    dlg.setWindowTitle('Arquitectura — Tipos de muro (TIPOSMURO)')
+    dlg.resize(720,460)
+    main=QVBoxLayout(dlg)
+    info=QLabel('Catálogo de tipos de muro de este dibujo. Las capas se cuentan desde la cara '
+                'dibujada hacia el interior del muro; el espesor total es su suma. MURO ofrece '
+                'los tipos con el espesor que se escriba.')
+    info.setWordWrap(True);main.addWidget(info)
+    row=QHBoxLayout();main.addLayout(row)
+    left=QVBoxLayout();row.addLayout(left,2)
+    lst=QListWidget();left.addWidget(lst)
+    lbuttons=QHBoxLayout();left.addLayout(lbuttons)
+    b_new=QPushButton('Nuevo');b_copy=QPushButton('Duplicar');b_del=QPushButton('Eliminar')
+    for b in (b_new,b_copy,b_del):lbuttons.addWidget(b)
+    edit=QGroupBox('Tipo seleccionado');row.addWidget(edit,3)
+    eform=QFormLayout(edit)
+    name=QLineEdit()
+    table=_layers_table([],editable=True)
+    total=QLabel('')
+    cbuttons=QHBoxLayout()
+    b_add=QPushButton('Añadir capa');b_rm=QPushButton('Quitar capa')
+    b_up=QPushButton('Subir');b_down=QPushButton('Bajar')
+    for b in (b_add,b_rm,b_up,b_down):cbuttons.addWidget(b)
+    eform.addRow('Nombre:',name);eform.addRow(table);eform.addRow(cbuttons);eform.addRow('Espesor total:',total)
+    buttons=QDialogButtonBox(QDialogButtonBox.Ok|QDialogButtonBox.Cancel)
+    main.addWidget(buttons)
+    state={'row':-1,'busy':False}
+
+    def label(t):
+        return f"{_num(t['thickness'])} m — {t['name']}"
+
+    def select(i):
+        """Select row i in the list and show it, without storing anything."""
+        state['busy']=True
+        lst.setCurrentRow(i)
+        state['busy']=False
+        show(i)
+
+    def store():
+        """Put the editor back into the type shown (raises on bad data)."""
+        i=state['row']
+        if not 0<=i<len(data):
+            return
+        layers=_read_layers(table)
+        nm=name.text().strip()
+        if not nm:
+            raise ValueError('El tipo necesita un nombre')
+        if not layers:
+            raise ValueError(f'El tipo «{nm}» necesita al menos una capa')
+        if any(t['name'].lower()==nm.lower() for k,t in enumerate(data) if k!=i):
+            raise ValueError(f'Ya existe un tipo «{nm}»')
+        data[i]=normalise_type({'name':nm,'layers':layers})
+        item=lst.item(i)
+        if item is not None:
+            item.setText(label(data[i]))
+
+    def show(i):
+        state['row']=i
+        t=data[i] if 0<=i<len(data) else None
+        state['busy']=True
+        name.setText(t['name'] if t else '')
+        table._fill(t['layers'] if t else [])
+        state['busy']=False
+        update_total()
+
+    def update_total(*_):
+        try:
+            layers=_read_layers(table)
+            total.setText(f"{_num(sum(l[0] for l in layers))} m" if layers else '—')
+        except ValueError as exc:
+            total.setText(str(exc))
+
+    def on_row(i):
+        if state['busy'] or i==state['row']:
+            return
+        try:
+            store()
+        except ValueError as exc:
+            QMessageBox.warning(dlg,'Tipo de muro',str(exc))
+            back=state['row']
+            state['busy']=True;lst.setCurrentRow(back);state['busy']=False
+            return
+        show(i)
+
+    def new(copy_of=None):
+        try:
+            store()
+        except ValueError as exc:
+            QMessageBox.warning(dlg,'Tipo de muro',str(exc));return
+        base=copy_of or {'name':'Tipo nuevo','layers':[[0.10,'Material']]}
+        nm=base['name'] if copy_of is None else base['name']+' (copia)'
+        stem,k=nm,2
+        while any(t['name'].lower()==nm.lower() for t in data):
+            nm=f"{stem} {k}";k+=1
+        t=normalise_type({'name':nm,'layers':[list(l) for l in base['layers']]})
+        data.append(t)
+        QListWidgetItem(label(t),lst)
+        select(len(data)-1)
+
+    def delete():
+        i=state['row']
+        if 0<=i<len(data):
+            data.pop(i)
+            state['busy']=True;lst.takeItem(i);state['busy']=False
+            state['row']=-1
+            select(min(i,len(data)-1) if data else -1)
+
+    def add_layer():
+        from PySide6.QtWidgets import QTableWidgetItem
+        r=table.currentRow()+1 if table.currentRow()>=0 else table.rowCount()
+        table.insertRow(r)
+        table.setItem(r,0,QTableWidgetItem('0,010'));table.setItem(r,1,QTableWidgetItem(''))
+        update_total()
+
+    def remove_layer():
+        r=table.currentRow()
+        if r>=0:table.removeRow(r);update_total()
+
+    def move(step):
+        r=table.currentRow();t=r+step
+        if r<0 or not 0<=t<table.rowCount():return
+        rows=[[table.item(k,c).text() if table.item(k,c) else '' for c in (0,1)] for k in range(table.rowCount())]
+        rows[r],rows[t]=rows[t],rows[r]
+        from PySide6.QtWidgets import QTableWidgetItem
+        for k,(a,b) in enumerate(rows):
+            table.setItem(k,0,QTableWidgetItem(a));table.setItem(k,1,QTableWidgetItem(b))
+        table.setCurrentCell(t,0)
+
+    lst.currentRowChanged.connect(on_row)
+    table.itemChanged.connect(update_total)
+    b_new.clicked.connect(lambda:new())
+    b_copy.clicked.connect(lambda:new(data[state['row']]) if 0<=state['row']<len(data) else None)
+    b_del.clicked.connect(delete)
+    b_add.clicked.connect(add_layer);b_rm.clicked.connect(remove_layer)
+    b_up.clicked.connect(lambda:move(-1));b_down.clicked.connect(lambda:move(1))
+
+    def accept():
+        try:
+            store()
+        except ValueError as exc:
+            QMessageBox.warning(dlg,'Tipo de muro',str(exc));return
+        dlg.accept()
+    buttons.accepted.connect(accept);buttons.rejected.connect(dlg.reject)
+    data.sort(key=lambda t:(t['thickness'],t['name'].lower()))
+    for t in data:
+        QListWidgetItem(label(t),lst)
+    select(0 if data else -1)
+
+    def read():
+        store()
+        return [dict(t) for t in sort_types(data)]
+    dlg._arq={'list':lst,'name':name,'layers':table,'new':new,'delete':delete,'add_layer':add_layer,
+              'total':total}
+    return dlg,read
+
+
+def wall_types_dialog(ctx, types):
+    QDialog=_widgets()[0]
+    dlg,read=wall_types_form(ctx,types)
+    if dlg.exec()!=QDialog.Accepted:return None
+    return read()
+
+
+# uses of the building according to the CTE (user, 10-11-2026)
+USOS_DBSI = ('Residencial Vivienda', 'Administrativo', 'Comercial', 'Residencial Público', 'Docente',
+             'Hospitalario', 'Pública Concurrencia', 'Aparcamiento')
+CEE_NAMES = {'ViviendaUnifamiliar': 'Vivienda unifamiliar',
+             'BloqueDeViviendaCompleto': 'Bloque de viviendas completo',
+             'ViviendaIndividualEnBloque': 'Vivienda individual en bloque',
+             'EdificioUsoTerciario': 'Edificio de uso terciario',
+             'LocalUsoTerciario': 'Local de uso terciario'}
+
+
+def usos_form(ctx, usos):
+    """(dialog, read) of USOSARQ: the three classifications of the building,
+    each on its own (they are never deduced from one another)."""
+    QDialog,_,_,QFormLayout,QGroupBox,_,QComboBox,_,QLabel=_widgets()
+    from .parameters_arq import TIPOS_EDIFICIO_CEE
+    u=dict(usos or {})
+    dlg,layout,buttons=_dialog(ctx,'Arquitectura — Usos del edificio (USOSARQ)',
+        'Tres clasificaciones independientes del Código Técnico y del certificado energético. '
+        'Se guardan en el dibujo y se exportan al proyecto IFC y a cada espacio.')
+    g1=QGroupBox('Certificado de eficiencia energética',dlg);f1=QFormLayout(g1)
+    cee=_choice([(CEE_NAMES.get(t,t),t) for t in TIPOS_EDIFICIO_CEE],u.get('tipo_edificio_cee','ViviendaUnifamiliar'))
+    f1.addRow('Tipo de edificio:',cee);layout.addWidget(g1)
+    g2=QGroupBox('DB-HE (ahorro de energía)',dlg);f2=QFormLayout(g2)
+    dbhe=_choice([('Residencial privado','residencial privado'),('Otros usos','otros usos')],u.get('uso_dbhe','residencial privado'))
+    carga=_choice([('Baja','baja'),('Media','media'),('Alta','alta')],u.get('carga_dbhe') or 'media')
+    horario=_choice([('8 h','8'),('12 h','12'),('16 h','16'),('24 h','24')],str(u.get('horario_dbhe') or '12'))
+    f2.addRow('Uso:',dbhe);f2.addRow('Carga interna:',carga);f2.addRow('Horario de uso:',horario)
+    def upd(*_):
+        other=dbhe.currentData()=='otros usos'
+        carga.setEnabled(other);horario.setEnabled(other)
+    dbhe.currentIndexChanged.connect(upd);upd()
+    layout.addWidget(g2)
+    g3=QGroupBox('DB-SI y DB-SUA (seguridad)',dlg);f3=QFormLayout(g3)
+    dbsi=QComboBox();dbsi.setEditable(True)
+    for name in USOS_DBSI:dbsi.addItem(name)
+    dbsi.setCurrentText(str(u.get('uso_dbsi') or 'Residencial Vivienda'))
+    f3.addRow('Uso:',dbsi)
+    note=QLabel('Puede escribir otro uso si el proyecto lo requiere.');note.setWordWrap(True)
+    f3.addRow(note);layout.addWidget(g3);layout.addWidget(buttons)
+
+    def read():
+        other=dbhe.currentData()=='otros usos'
+        return {'tipo_edificio_cee':cee.currentData(),'uso_dbhe':dbhe.currentData(),
+                'carga_dbhe':carga.currentData() if other else '',
+                'horario_dbhe':horario.currentData() if other else '',
+                'uso_dbsi':dbsi.currentText().strip() or 'Residencial Vivienda'}
+    dlg._arq={'cee':cee,'dbhe':dbhe,'carga':carga,'horario':horario,'dbsi':dbsi}
+    return dlg,read
+
+
+def usos_dialog(ctx, usos):
+    QDialog=_widgets()[0]
+    dlg,read=usos_form(ctx,usos)
+    if dlg.exec()!=QDialog.Accepted:return None
+    return read()
 
 
 def opening_properties(ctx,kind, record=None, wall_length=None, wall_height=None):
@@ -498,6 +847,14 @@ def carpentry_properties(ctx, record, *, editing=False):
 
 # --- spaces -----------------------------------------------------------------------
 
+# usual uses of a room; the list is a help, any text is accepted. Baño,
+# aseo, vestíbulo, pasillo and distribuidor need 2,20 m of free height to
+# count as habitable (Decreto 10/2019, art. 2.4), the rest 2,50 m.
+ROOM_USES = ("", "Estar", "Comedor", "Estar-comedor", "Cocina", "Dormitorio", "Baño", "Aseo",
+             "Vestíbulo", "Pasillo", "Distribuidor", "Lavadero", "Tendedero", "Despensa",
+             "Trastero", "Garaje", "Terraza", "Porche", "Despacho", "Escalera")
+
+
 def space_form(ctx, record, by_use=None):
     """(dialog, read) of the space (IfcSpace) sheet.  The «Uso» field is
     shown when the drawing works with uses (general options)."""
@@ -515,8 +872,14 @@ def space_form(ctx, record, by_use=None):
     name = QLineEdit(str(d.get("name") or ""))
     name.setPlaceholderText("Recinto n (automático)")
     number = QLineEdit(str(d.get("number") or ""))
-    use = QLineEdit(str(d.get("use") or ""))
-    use.setPlaceholderText("Dormitorio, Baño, Pasillo, Cocina…")
+    from PySide6.QtWidgets import QComboBox
+    use = QComboBox()
+    use.setEditable(True)
+    use.addItems(ROOM_USES)
+    use.setCurrentText(str(d.get("use") or ""))
+    use.lineEdit().setPlaceholderText("Dormitorio, Baño, Pasillo, Cocina…")
+    use.text = use.currentText                     # read and set like the line edit it was
+    use.setText = use.setCurrentText
     enclosure = _choice([("Interior", "interior"),
                          ("Exterior cubierto (terraza, balcón, porche): computa el 50 %", "exterior_cubierto")],
                         d.get("enclosure") or "interior")

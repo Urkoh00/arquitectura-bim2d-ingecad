@@ -310,6 +310,16 @@ def tipos_muro(ctx, *args):
         types = current['wall_types']
         text = ' '.join(str(a) for a in args).strip()
         low = text.lower()
+        if not text and _dialogs(ctx):
+            from .bim_dialogs import wall_types_dialog
+            new = wall_types_dialog(ctx, types)
+            if new is None:
+                ctx.echo('TIPOSMURO: sin cambios.')
+                return
+            current['wall_types'] = new
+            ctx.execute(SetArchitecturalDefaults(current))
+            ctx.echo(f'TIPOSMURO: {len(new)} tipos guardados en este DXF.')
+            return
         if not text:
             ctx.echo('TIPOSMURO: ' + (wall_types_text(types) or '(ninguno)'))
             ctx.echo('  Ver capas: TIPOSMURO 0,24 · Añadir: TIPOSMURO Nombre = 0,015 Yeso + 0,07 LHD'
@@ -369,6 +379,14 @@ def tipos_muro(ctx, *args):
         ctx.echo(f'TIPOSMURO: {type(exc).__name__}: {exc}')
 
 
+def _dialogs(ctx):
+    try:
+        from .bim_dialogs import available
+        return available(ctx)
+    except Exception:  # noqa: BLE001
+        return False
+
+
 def _is_number(text):
     try:
         v = float(str(text).replace(',', '.'))
@@ -388,6 +406,17 @@ def usos_arq(ctx, *args):
         current = load_defaults(ctx.document)
         u = current['usos']
         words = ' '.join(str(a) for a in args).split()
+        if not words and _dialogs(ctx):
+            from .bim_dialogs import usos_dialog
+            chosen = usos_dialog(ctx, u)
+            if chosen is None:
+                ctx.echo('USOSARQ: sin cambios.')
+                return u
+            new = copy.deepcopy(current)
+            new['usos'].update(chosen)
+            ctx.execute(SetArchitecturalDefaults(new))
+            ctx.echo('USOSARQ: clasificación guardada en este DXF; se exporta con el modelo BIM.')
+            return new['usos']
         if not words:
             ctx.echo('USOSARQ — clasificaciones independientes del edificio:')
             ctx.echo(f"  Certificado energético <TipoDeEdificio>: {u['tipo_edificio_cee']}")

@@ -46,6 +46,8 @@ class MuroTool(Tool):
                 for key in ('thickness','height','base','reference'):
                     setattr(self,key,values[key])
                 self.bim={k:values[k] for k in self.bim}
+                if values.get('layers'):
+                    self.bim['layers']=[list(l) for l in values['layers']]
             else:
                 self.ctx.echo('MURO: ficha BIM no disponible; utilizando parámetros por defecto. Use E/A/C/R para cambiarlos.')
         except Exception as exc:

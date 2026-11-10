@@ -165,7 +165,7 @@ class EditArchitecturalCommand:
 
 
 def edit_wall(entity,*,thickness=None,height=None,base=None,reference=None,
-              name=None,type_name=None,material=None,level=None):
+              name=None,type_name=None,material=None,level=None,layers=None):
     d=metadata(entity)
     if not d or d.get('kind')!='wall':raise ValueError('Entidad no es un muro ARQ')
     d=copy.deepcopy(d)
@@ -175,6 +175,12 @@ def edit_wall(entity,*,thickness=None,height=None,base=None,reference=None,
     if reference is not None:d['reference']=reference
     for k,v in (('name',name),('type_name',type_name),('material',material),('level',level)):
         if v is not None:d[k]=str(v)
+    if layers is not None:
+        # a wall type's layers ([] = a generic wall: none)
+        if layers:d['layers']=[[float(t),str(m)] for t,m in layers]
+        else:d.pop('layers',None)
+    if d.get('layers') and abs(sum(float(t) for t,_m in d['layers'])-float(d['thickness']))>5e-4:
+        d.pop('layers',None)            # the thickness changed by hand: the type's layers no longer fit
     pts=wall_corners(d['a'],d['b'],d['thickness'],d.get('reference','eje'))
     check_curve(d)
     for hole in _find_openings(entity.doc,d['id']):
