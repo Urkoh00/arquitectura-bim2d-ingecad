@@ -1,12 +1,12 @@
 # Manual de Arquitectura para IngeCAD
 
-Versión 1.17.0-dev · 9-11-2026
+Versión 1.18.0-dev · 10-11-2026
 
 > Copia del manual publicado como documento en claude.ai; se regenera con cada versión.
 
 ## Qué es
 
-Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.17.0-dev** y se actualiza con cada versión.
+Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.18.0-dev** y se actualiza con cada versión.
 
 Cada elemento guarda su identidad persistente, su clase IFC, su geometría editable en planta, sus parámetros 3D (altura, espesor, cota), sus propiedades constructivas (tipo, material, capas) y su nivel. Las carpinterías conocen su muro y los recintos siguen a los muros que los cierran.
 
@@ -23,7 +23,7 @@ El plugin se instala copiando una carpeta en IngeCAD, y la extensión copiando u
 
 **En IngeCAD**
 
-1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.17.0-dev.zip`.
+1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.18.0-dev.zip`.
 2. Copie la carpeta `arquitectura` en la carpeta de plugins de IngeCAD.
 3. Reinicie IngeCAD. Aparece el menú *Arquitectura* y su barra de herramientas.
 4. Escriba `ARQDIAG` en la línea de órdenes para comprobar que la versión cargada es la que acaba de copiar.
@@ -69,7 +69,7 @@ Cada elemento es un objeto BIM con identidad propia; las líneas que se ven en p
 
 Nada se rechaza. Si algo no se puede representar exactamente, se avisa: por ejemplo, un perfil metálico escalado pasa a sección rectangular genérica. Una copia recibe un identificador nuevo y el original conserva el suyo.
 
-**Con IngeCAD 0.8 o posterior (en desarrollo; la versión publicada hoy es la 0.7)** el ajuste es inmediato. Tras la orden de IngeCAD, el plugin regenera el plano en el mismo paso de deshacer, sin necesidad de `UNIONESARQ`, y un solo `Deshacer` lo devuelve todo a como estaba. Con versiones anteriores, el ajuste se hace en la siguiente orden del plugin o con `UNIONESARQ`.
+**Con IngeCAD 0.8 o posterior (publicada el 10-11-2026)** el ajuste es inmediato. Tras la orden de IngeCAD, el plugin regenera el plano en el mismo paso de deshacer, sin necesidad de `UNIONESARQ`, y un solo `Deshacer` lo devuelve todo a como estaba. Con versiones anteriores, el ajuste se hace en la siguiente orden del plugin o con `UNIONESARQ`.
 
 **Doble clic (IngeCAD 0.8 o posterior; con la 0.7, use EDITARARQ).** Al hacer doble clic sobre un elemento:
 
@@ -97,7 +97,7 @@ Los valores por defecto, el catálogo de tipos de muro y los usos se guardan den
 
 Aquí se guardan también las capas y la tolerancia que usa `LINEASAMURO`.
 
-**TIPOSMURO** gestiona el catálogo. Cada tipo es una lista de capas, contadas desde la cara dibujada hacia el cuerpo del muro; su espesor total es la suma de las capas.
+**TIPOSMURO** gestiona el catálogo. Sin argumentos abre una ficha con la lista de tipos y las capas de cada uno, donde se crean, duplican y eliminan tipos y se añaden, quitan y ordenan capas. Las formas de la tabla sirven desde la línea de órdenes. Cada tipo es una lista de capas, contadas desde la cara dibujada hacia el cuerpo del muro; su espesor total es la suma de las capas.
 
 | Escriba | Hace |
 | --- | --- |
@@ -119,13 +119,13 @@ El catálogo inicial trae tabiques de placa de yeso laminado y fábricas de term
 | Uso DB-HE | `USOSARQ dbhe residencial` o `USOSARQ dbhe otros <carga> <horas>` | carga baja, media o alta; 8, 12, 16 o 24 horas |
 | Uso DB-SI / DB-SUA | `USOSARQ dbsi <uso>` | texto libre: Residencial Vivienda, Docente, Administrativo… |
 
-`USOSARQ` sin más muestra los valores actuales. Las tres clasificaciones se exportan al proyecto IFC y a cada espacio.
+`USOSARQ` sin más abre una ficha con las tres clasificaciones (en «otros usos» del DB-HE, con su carga y su horario); con argumentos las cambia desde la línea de órdenes. Las tres clasificaciones se exportan al proyecto IFC y a cada espacio.
 
 ## Muros rectos
 
 `MURO` dibuja muros encadenados como una polilínea; cada tramo es un muro BIM (IfcWall) con sus encuentros ya resueltos.
 
-**MURO.** Antes del primer punto, un número se lee como el **espesor total** y el programa ofrece los tipos de muro que lo tienen. Después, un número es la longitud del tramo en la dirección del cursor. `Intro` empieza un tramo nuevo; otro `Intro` termina.
+**MURO.** Antes del primer punto, un número se lee como el **espesor total** y el programa ofrece los tipos de muro que lo tienen. Después, un número es la longitud del tramo en la dirección del cursor. `Intro` empieza un tramo nuevo; otro `Intro` termina. Al empezar, la ficha de muro permite elegir un tipo del catálogo: muestra sus capas y fija el espesor; «Genérico» deja el espesor libre.
 
 | Opción | Efecto |
 | --- | --- |
@@ -161,7 +161,7 @@ Un muro curvo es el mismo muro BIM que uno recto: sus caras son arcos concéntri
 
 1. Indique el punto inicial y el punto final del muro.
 2. Indique un punto de paso de la curva, o escriba la flecha en metros (positiva a la izquierda del sentido de dibujo).
-3. El siguiente muro curvo empieza donde acabó el anterior; `Intro` deja de encadenar.
+3. El siguiente muro curvo empieza donde acabó el anterior; `Intro` deja de encadenar. El ORTO no afecta al punto de paso; sí a los extremos.
 
 `E`, `A`, `C` y `R` funcionan como en MURO. Al crear el muro se indican su radio y su desarrollo.
 
@@ -233,11 +233,11 @@ La lectura del plano usa el módulo libre `walldetect` del proyecto cad2ingetraz
 
 **Colocación.**
 
-- **Libre:** se coloca por uno de 9 puntos de enganche (`E` 1-9, como el teclado numérico; 5 es el centro).
+- **Libre:** se coloca por uno de 9 puntos de enganche (`E` 1-9, como el teclado numérico; 5 es el centro). También se elige en la ficha del pilar, con un botón por esquina, por mitad de cara y para el centro. El punto se marca con las referencias a objetos de IngeCAD (extremo, punto medio, intersección, rejilla…).
 - **`G`** gira 90°. **`A`** lo orienta solo según el muro o la línea bajo el cursor.
 - **`P` a distancia de dos paramentos:** se designan dos caras de muro (o líneas) y se hace clic en la esquina; las caras del pilar quedan a las distancias indicadas. Es el caso habitual de fachada, con 0,05 m.
 - **`U` a distancia de un paramento:** una cara y un punto a lo largo de ella.
-- **`C` recubrimiento:** añade un forro alrededor de la sección.
+- **`C` recubrimiento:** añade un forro alrededor de la sección. Un pilar aislado se recubre entero; si corta un muro, solo la parte que queda fuera de él, y el muro ocupa el resto. En el IFC, el revestimiento mide su superficie vista.
 
 Cada pilar es un solo paso de `Deshacer`, con los muros y recintos ya actualizados. En el cálculo de superficie útil, los pilares de hasta 100 cm² de sección no se descuentan.
 
@@ -400,9 +400,9 @@ Si encuentra alguno, abre un cuadro con la lista. Al seleccionar un problema, su
 
 ## Limitaciones conocidas
 
-Estas son las limitaciones conocidas de la versión 1.17.0-dev; cada versión actualiza esta lista.
+Estas son las limitaciones conocidas de la versión 1.18.0-dev; cada versión actualiza esta lista.
 
-- **Plataforma:** las pruebas automáticas se ejecutan en Linux y en Windows con IngeCAD oficial (la 0.7.0 publicada y la 0.8.0 en desarrollo), pero sin pantalla. El plugin no se ha vuelto a probar en el IngeCAD instalado en Windows desde la v1.8.1.
+- **Plataforma:** las pruebas automáticas se ejecutan en Linux y en Windows con IngeCAD oficial (las versiones 0.7.0 y 0.8.0), pero sin pantalla. El usuario probó la v1.17 en Windows 10 con IngeCAD 0.8 e IngeTrazo 0.6.1: la cadena hasta el IFC funcionó; las correcciones de la v1.18 salen de esa prueba.
 - **Muros curvos:** cada muro llega como mucho a media circunferencia (un muro redondo son dos). MUROPARALELO y DIVIDEMURO solo toman líneas rectas como referencia. El gesto de esquina en L al terminar un MURO solo recorta muros rectos.
 - **Carpinterías:** en muros curvos son planas; no hay carpintería curva. Faltan armarios, memoria de carpintería, catálogo de modelos, lucernarios y borrar la carpintería dejando el vano.
 - **LINEASAMURO:** no reconoce puertas ni ventanas en muros curvos. Las medianeras toman el espesor hasta la línea paralela más próxima de otra capa: revise su espesor.
@@ -414,6 +414,7 @@ Estas son las limitaciones conocidas de la versión 1.17.0-dev; cada versión ac
 
 | Fecha | Versión | Novedades |
 | --- | --- | --- |
+| 10-11-2026 | 1.18.0-dev | Tras la primera prueba en Windows: fichas de tipos de muro (TIPOSMURO y la ficha de MURO) y de usos del CTE (USOSARQ); punto de inserción del pilar en su ficha y referencias a objetos de IngeCAD al colocarlo; recubrimiento de pilares solo por fuera de los muros; ORTO sin efecto en el punto de paso de los muros curvos; carpintería más rápida y sin falsos «no cabe»; DXF en ASCII |
 | 9-11-2026 | 1.17.0-dev | Auditoría independiente integrada: comprobación antes de exportar con elementos resaltados; órdenes de IngeCAD aceptadas; encuentros por alturas; extensión que valida el contrato y admite coordenadas UTM; LINEASAMURO para planos reales (capas, bloques, medianeras, pilares); opciones generales; con IngeCAD 0.8 (en desarrollo), sincronización inmediata, doble clic y F5 por la vía oficial |
 | 9-11-2026 | 1.16.0-dev | La importación en IngeTrazo ya no falla en planos lejos del origen; SUPERFICIES dibuja el cuadro en la planta; COTAMUROS (cotas automáticas); símbolos de puertas y ventanas más detallados; menú «Herramientas antiguas»; pruebas también en Windows y dentro del ZIP |
 | 7-11-2026 | 1.15.0-dev | Fichas de carpintería y de recinto; PROPIEDADESARQ y EDITARARQ editan carpinterías, huecos y recintos; EXPORTARBIM cuenta puertas, ventanas y huecos |

@@ -2,6 +2,49 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.18.0-dev — 2026-11-10
+
+Responde a la primera prueba del usuario con IngeCAD 0.8 e IngeTrazo 0.6.1 en Windows 10: la cadena completa
+funcionó (dos IFC sin errores de validación). Corrige lo que señaló y añade las fichas que pidió.
+
+### Fichas
+- **TIPOSMURO** sin argumentos abre el catálogo de tipos de muro del dibujo: cada tipo con sus capas (espesor
+  y material, desde la cara dibujada), su espesor total, nuevo, duplicar, eliminar y ordenar capas.
+- **La ficha de MURO** elige el tipo del catálogo y muestra sus capas; el espesor sale de ellas. Si luego se
+  cambia el espesor a mano, el muro deja de llevar unas capas que ya no suman.
+- **USOSARQ** sin argumentos abre la ficha de usos del edificio: certificado energético, DB-HE (con carga y
+  horario en «otros usos») y DB-SI/DB-SUA.
+- **El uso del recinto** se elige de una lista de usos habituales, o se escribe.
+- **La ficha de PILAR** elige el punto de inserción (cuatro esquinas, mitad de las caras o centro, como el
+  teclado numérico), el recubrimiento y el perfil metálico.
+- Las órdenes cuelgan sus fichas de la ventana de IngeCAD. Antes solo lo hacían las herramientas: el cuadro de
+  problemas de EXPORTARBIM y la ficha de recinto al hacer doble clic no llegaban a abrirse.
+
+### Correcciones
+- **PILAR usa las referencias a objetos de IngeCAD** (extremo, punto medio, intersección, rejilla...) al
+  colocar el pilar. Antes la herramienta se declaraba «de designación» y recibía el cursor sin forzar; ahora
+  solo lo es mientras pide caras de muro (opciones P y U).
+- **Recubrimiento de pilares**: un pilar aislado se recubre entero; uno que corta un muro, solo por la parte
+  que queda fuera de él. Los muros recuperan la parte del recubrimiento que quedaba dentro. La superficie del
+  IfcCovering es ahora la superficie vista (caras al aire por la altura); el área en planta va en
+  ARQ_Recubrimiento.
+- **MUROCURVO y CURVAMURO con el ORTO activo**: el punto de paso del arco ya no se fuerza a la recta de los
+  extremos, que daba un muro recto o un error. Se usa `Tool.ortho_applies` de IngeCAD.
+- **Carpintería más rápida**: con el plano de la prueba (11 muros, dos curvos y cuatro pilares) el análisis
+  de la vista previa pasa de 0,66 s a 0,14 s, y colocar una puerta, de unos 2 s a 0,3 s. Mismo resultado:
+  cajas envolventes antes de intersecar, puntos ordenados al partir aristas y triangulación que solo prueba
+  vértices cóncavos.
+- **Falso «no cabe»** al colocar una puerta cuando la cara opuesta del muro estaba partida por un pilar u otro
+  muro: se tomaba el tramo más largo de esa cara y no el que queda enfrente del clic.
+- **Codificación del DXF**: los parámetros del dibujo se guardaban con acentos sin escapar en un DXF que se
+  declara ANSI_1252. Ahora el DXF es todo ASCII.
+
+### IngeTrazo (registro T-06, sin enviar)
+- La medición (metrado) de un muro curvo en IngeTrazo es la superficie de su huella, no la de su paramento:
+  IngeTrazo mide el muro por su cara mayor, y un muro curvo son muchas caras pequeñas. Además sustituye las
+  cantidades exactas que envía el plugin (longitud 16,62 m pasa a 0,62 m). Se documenta; no se envía hasta que
+  respondan #1221 y #1222.
+
 ## 1.17.0-dev — 2026-11-09
 
 Integra la auditoría independiente de la v1.15 (25 hallazgos), con las decisiones del usuario: el plugin
