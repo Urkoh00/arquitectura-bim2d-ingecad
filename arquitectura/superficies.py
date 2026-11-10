@@ -71,7 +71,8 @@ def useful_result(specs, columns, crit=None, records=None):
     if records is not None:
         from .geom.bands import solve_records
         return solve_records(records, [(cid, m) for cid, m in columns if cid not in small])
-    return J.solve(specs, [(cid, m["polygon"]) for cid, m in columns if cid not in small])
+    from .geom.bands import column_inputs
+    return J.solve(specs, column_inputs([(cid, m) for cid, m in columns if cid not in small]))
 
 
 def depth(room):

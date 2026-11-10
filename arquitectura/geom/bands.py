@@ -16,6 +16,24 @@ from . import junctions as J
 from . import polygon as P
 
 
+def column_inputs(columns):
+    """[(id, footprint, core, cover)] for ``junctions.solve`` from column
+    records: the core is the column without its covering, so that walls get
+    back the covering inside them."""
+    out = []
+    for cid, m in columns:
+        core, cover = None, 0.0
+        try:
+            cover = float(m.get('cover') or 0.0)
+            if cover > 1e-9 and m.get('center') is not None:
+                from ..sections import column_geometry
+                core = column_geometry(m['center'], {**m, 'cover': 0.0})['footprint']
+        except Exception:  # noqa: BLE001  (an old record: the footprint is all)
+            core, cover = None, 0.0
+        out.append((cid, m['polygon'], core, cover))
+    return out
+
+
 def solve_records(walls, columns):
     """Junction result with ``vertical_networks`` [((lo, hi), result)] and,
     per wall, ``bands`` [(lo, hi, geometry)] besides the usual fields."""
@@ -28,22 +46,24 @@ def solve_records(walls, columns):
     combined.vertical_networks = []
     combined.columns = {i: m['polygon'] for i, m in columns}
     wall_bands = {w.id: [] for w in specs}
+    inputs = column_inputs(columns)
     cache = {}
     for lo, hi in zip(heights, heights[1:]):
         if hi - lo <= 1e-9:
             continue
         mid = lo + (hi - lo) / 2
         ws = [w for w in specs if wall_z[w.id][0] <= mid < wall_z[w.id][1]]
-        cs = [(i, m['polygon']) for i, m in columns if col_z[i][0] <= mid < col_z[i][1]]
+        cs = [c for c in inputs if col_z[c[0]][0] <= mid < col_z[c[0]][1]]
         if not ws and not cs:
             continue
-        key = (tuple(w.id for w in ws), tuple(i for i, _ in cs))
+        key = (tuple(w.id for w in ws), tuple(c[0] for c in cs))
         if key not in cache:
             cache[key] = J.solve(ws, cs)
         part = cache[key]
         combined.vertical_networks.append(((lo, hi), part))
         for ident, geo in part.walls.items():
             wall_bands[ident].append((lo, hi, geo))
+        combined.columns.update({c[0]: part.columns[c[0]] for c in cs if c[0] in part.columns})
     for ident, bands in wall_bands.items():
         projection, projected = [], set()
         for lo, hi, geo in bands:

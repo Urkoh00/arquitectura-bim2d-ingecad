@@ -1355,7 +1355,8 @@ class RecintoTool(Tool):
         from .geom import spaces as SP
         doc = _document(self.ctx).doc
         records, columns, _ops, _issues = read_model(doc, strict=False)
-        result = J.solve(J.walls_from_records(records), [(cid, m["polygon"]) for cid, m in columns])
+        from .geom.bands import column_inputs
+        result = J.solve(J.walls_from_records(records), column_inputs(columns))
         room, why = SP.space_at(result, p)
         if room is None:
             self.ctx.echo("RECINTO: " + ("el punto está dentro de un muro o pilar."

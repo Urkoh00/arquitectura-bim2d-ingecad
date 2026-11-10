@@ -212,7 +212,10 @@ def _sin(u, v):
 
 def solve(walls, columns=(), tol=DEFAULT_TOL, min_angle=DEFAULT_MIN_ANGLE,
           miter_limit=DEFAULT_MITER_LIMIT):
-    """Compute non-overlapping footprints. ``columns`` = [(id, polygon)]."""
+    """Compute non-overlapping footprints. ``columns`` = [(id, polygon)] or
+    [(id, polygon, core, cover)]: a column with a covering («recubrimiento»)
+    gives the wall back the part of the covering inside it (or against its
+    end), since a covering only wraps what is outside the walls."""
     res = Result()
     res.specs = {w.id: w for w in walls}
     sin_min = math.sin(math.radians(min_angle))
@@ -317,7 +320,9 @@ def solve(walls, columns=(), tol=DEFAULT_TOL, min_angle=DEFAULT_MIN_ANGLE,
 
     # ---- 3. ownership ------------------------------------------------------------------
     pieces = [P.convex_parts(p) for p in raw]
-    for cid, cpoly in columns:
+    covered = []
+    for entry in columns:
+        cid, cpoly = entry[0], entry[1]
         cpoly = P.dedupe(P.ccw([tuple(map(float, q[:2])) for q in cpoly]))
         res.columns[cid] = cpoly
         for i in range(len(walls)):
@@ -326,6 +331,10 @@ def solve(walls, columns=(), tol=DEFAULT_TOL, min_angle=DEFAULT_MIN_ANGLE,
             lost = before - sum(P.area(x) for x in pieces[i])
             if lost > 1e-9:
                 res.clips.append({"loser": walls[i].id, "winner": cid, "area": lost})
+        if len(entry) >= 4 and entry[2] and float(entry[3] or 0.0) > 1e-9:
+            covered.append((cid, cpoly, entry[2], float(entry[3])))
+    for cid, cpoly, core, cover in covered:
+        _give_back_covering(res, cid, cpoly, core, cover, walls, raw, pieces)
     hosts = {(w_i, v_i) for (w_i, _), v_i in tee_host.items()}
     for i in range(len(walls)):
         for j in range(i + 1, len(walls)):
@@ -354,6 +363,50 @@ def solve(walls, columns=(), tol=DEFAULT_TOL, min_angle=DEFAULT_MIN_ANGLE,
             res.warnings.append(f"Muro {w.id}: queda sin superficie propia")
         res.walls[w.id] = {"pieces": pieces[i], "loops": loops, "area": a}
     return res
+
+
+def _wall_zone(w, raw_poly, reach):
+    """Where a wall claims a column's covering: its own footprint and, at
+    each end, a strip ``reach`` long (a wall that stops against the covered
+    column has no covering between its end and the column)."""
+    zone = P.convex_parts(raw_poly)
+    for s0, s1 in ((-reach, 0.0), (w.length, w.length + reach)):
+        quad = [w.point(s0, w.lo), w.point(s1, w.lo), w.point(s1, w.hi), w.point(s0, w.hi)]
+        quad = P.dedupe(P.ccw(quad))
+        if len(quad) >= 3 and P.area(quad) > P.EPS_AREA:
+            zone.extend(P.convex_parts(quad))
+    return zone
+
+
+def _give_back_covering(res, cid, cpoly, core, cover, walls, raw, pieces):
+    core = P.dedupe(P.ccw([tuple(map(float, q[:2])) for q in core]))
+    ring = P.subtract(P.convex_parts(cpoly), core)
+    if not ring:
+        return
+    reach = cover + 1e-6
+    for i, w in enumerate(walls):
+        zone = _wall_zone(w, raw[i], reach)
+        taken = []
+        for r in ring:
+            for z in zone:
+                inter = P.convex_intersection(r, z)
+                if inter and P.area(inter) > P.EPS_AREA:
+                    taken.append(P.dedupe(P.ccw(inter)))
+        if not taken:
+            continue
+        # give each bit once: take it out of the ring and of what is left
+        new = []
+        for t in taken:
+            frags = [t]
+            for q in new:
+                frags = [f for g in frags for f in P.convex_difference(g, q)]
+            new.extend(f for f in frags if P.area(f) > P.EPS_AREA)
+        for t in new:
+            ring = [f for r in ring for f in P.convex_difference(r, t)]
+        pieces[i].extend(new)
+    loops = P.merge(P.convex_parts(core) + ring)
+    if len(loops) == 1 and not loops[0][1] and P.area(loops[0][0]) > P.EPS_AREA:
+        res.columns[cid] = P.dedupe(P.ccw(loops[0][0]))
 
 
 def _in_strip(p, wall, tol):

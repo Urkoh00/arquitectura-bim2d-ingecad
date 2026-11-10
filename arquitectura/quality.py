@@ -144,7 +144,8 @@ def _outline_issues(drawing, sources, outlines):
         from .openings import opening_cuts
         records, columns, ops, _issues = read_model(drawing, strict=False)
         specs = J.walls_from_records(records)
-        result = J.solve(specs, [(cid, m['polygon']) for cid, m in columns])
+        from .geom.bands import column_inputs
+        result = J.solve(specs, column_inputs(columns))
         cuts = opening_cuts({w.id: w for w in specs}, ops)
         expected = {_item_key(it) for it in J.plan_items(result, cuts)}
     except Exception as exc:  # noqa: BLE001
@@ -184,8 +185,8 @@ def _space_issues(drawing):
     from .geom import spaces as SP
     try:
         records, columns, _ops, _issues = read_model(drawing, strict=False)
-        result = J.solve(J.walls_from_records(records),
-                         [(cid, m['polygon']) for cid, m in columns])
+        from .geom.bands import column_inputs
+        result = J.solve(J.walls_from_records(records), column_inputs(columns))
         comps = SP.components(result)
     except Exception as exc:  # noqa: BLE001
         return [f'No se pudieron comprobar los recintos ({type(exc).__name__}: {exc})']

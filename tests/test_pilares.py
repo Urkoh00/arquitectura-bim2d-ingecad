@@ -122,10 +122,53 @@ def test_perfil_heb_con_recubrimiento_y_revestimiento(plugin, tmp_path):
     a_heb = PR.nominal_area(PR.parse('HEB 160'))
     assert col['quantities']['CrossSectionArea'] == pytest.approx(a_heb, rel=0.009)
     assert col['psets']['ARQ_Perfil']['Masa_kg_m'] == pytest.approx(42.6, abs=0.1)
-    box = 0.22 * 0.22                                                  # (0,16 + 2·0,03)²
-    assert col['quantities']['CrossSectionArea'] + cov['quantities']['GrossArea'] == pytest.approx(box)
-    assert col['volume'] + cov['volume'] == pytest.approx(box * col['params']['height'])
+    # the column is inside the corner of the walls: its covering would be
+    # inside them, so the walls keep it and only the profile's box is left
+    core = 0.16 * 0.16
+    plan = cov['psets']['ARQ_Recubrimiento']['AreaEnPlanta']
+    assert col['quantities']['CrossSectionArea'] + plan == pytest.approx(core)
+    assert col['volume'] + cov['volume'] == pytest.approx(core * col['params']['height'])
+    assert cov['quantities']['GrossArea'] == pytest.approx(0.0, abs=1e-9)   # nothing in the open
     assert not data['issues']
+
+
+def _covered_column(s, at, cover=0.05):
+    t = s.tool('PILAR')
+    t.on_option('s')
+    t.on_option('0,30x0,30')
+    t.on_option('c')
+    t.on_option(str(cover).replace('.', ','))
+    t.on_point(at)
+
+
+def test_recubrimiento_de_pilar_aislado_es_completo(plugin, tmp_path):
+    s = Session(plugin)
+    _cerramiento(s)
+    _covered_column(s, (4.0, 2.5))                                      # in the middle of the room
+    data = s.export(tmp_path)
+    cov = next(e for e in data['elements'] if e['ifc_class'] == 'IfcCovering')
+    h = cov['params']['height']
+    assert cov['psets']['ARQ_Recubrimiento']['AreaEnPlanta'] == pytest.approx(0.40 ** 2 - 0.30 ** 2)
+    assert cov['quantities']['GrossArea'] == pytest.approx(4 * 0.40 * h)     # all four faces
+
+
+def test_recubrimiento_de_pilar_contra_un_muro_solo_por_fuera(plugin, tmp_path):
+    s = Session(plugin)
+    _cerramiento(s)
+    walls0 = sum(e['volume'] for e in s.export(tmp_path)['elements'] if e['ifc_class'] == 'IfcWall')
+    # centred on the inner face of the bottom wall (y = 0,15): half of it is in the wall
+    _covered_column(s, (4.0, 0.15))
+    data = s.export(tmp_path)
+    col = next(e for e in data['elements'] if e['ifc_class'] == 'IfcColumn')
+    cov = next(e for e in data['elements'] if e['ifc_class'] == 'IfcCovering')
+    h = cov['params']['height']
+    # outside the wall: the ring from y = 0,15 to 0,35 -> two sides of 0,20 and the front of 0,40
+    assert cov['quantities']['GrossArea'] == pytest.approx((0.20 + 0.40 + 0.20) * h)
+    assert cov['psets']['ARQ_Recubrimiento']['AreaEnPlanta'] == pytest.approx(0.40 * 0.20 - 0.30 * 0.15)
+    walls = sum(e['volume'] for e in data['elements'] if e['ifc_class'] == 'IfcWall')
+    # the wall loses only the column itself, not the covering inside it
+    assert walls0 - walls == pytest.approx(0.30 * 0.15 * h)
+    assert col['volume'] == pytest.approx(0.09 * h)
 
 
 def test_ipe_a_distancia_de_un_paramento_con_autorrotacion(plugin, tmp_path):

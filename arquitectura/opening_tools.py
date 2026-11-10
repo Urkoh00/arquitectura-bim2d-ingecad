@@ -48,7 +48,8 @@ def analyse(drawing):
     from .geom import junctions as J
     records, columns, _ops, _issues = read_model(drawing, strict=False)
     specs = J.walls_from_records(records)
-    result = J.solve(specs, [(cid, m["polygon"]) for cid, m in columns])
+    from .geom.bands import column_inputs
+    result = J.solve(specs, column_inputs(columns))
     segs = {}
     for a, b, ids in J.plan_outline(result):
         for wid in ids:

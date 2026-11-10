@@ -249,7 +249,10 @@ def _store(drawing, payload):
             root.discard(KEY)
             drawing.entitydb.delete_entity(rec)
         return
-    text = json.dumps(payload, ensure_ascii=False, separators=(',',':'), sort_keys=True)
+    # ASCII: the DXF says which code page it uses (ANSI_1252 in R2000) and
+    # an accent written raw is read wrong by programs that trust that, or
+    # rejected as text of unknown encoding. JSON escapes it.
+    text = json.dumps(payload, ensure_ascii=True, separators=(',',':'), sort_keys=True)
     chunks=[(1,text[i:i+240]) for i in range(0,len(text),240)]
     if rec is None:
         rec = root.add_xrecord(KEY)

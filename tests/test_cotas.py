@@ -102,3 +102,22 @@ def test_cota_minima_de_las_opciones_generales(plugin):
     values = sorted(round(d.get_measurement(), 3) for d in _dims(s))
     # the 0,10 partition is merged into the next room: 0,30 3,80 3,90 0,30
     assert values == pytest.approx(sorted([0.30, 3.80, 3.90, 0.30]))
+
+
+def test_parametros_se_guardan_en_ascii(plugin, tmp_path):
+    """The defaults go into the DXF as plain ASCII: an accent written raw
+    made the file look like text of unknown encoding (prueba del 10-11)."""
+    from importlib import import_module
+    import ezdxf
+    s = Session(plugin)
+    pa = import_module(s.plugin.tools['PILAR'].__module__.rsplit('.', 1)[0] + '.parameters_arq')
+    values = pa.load_defaults(s.document)
+    values['column']['material'] = 'Hormigón armado'
+    s.history.execute(pa.SetArchitecturalDefaults(values))
+    path = tmp_path / 'p.dxf'
+    s.document.doc.saveas(path)
+    raw = path.read_bytes()
+    assert all(b < 128 for b in raw), 'el DXF contiene bytes fuera de ASCII'
+    again = ezdxf.readfile(path)
+    s.document.doc = again
+    assert pa.load_defaults(s.document)['column']['material'] == 'Hormigón armado'

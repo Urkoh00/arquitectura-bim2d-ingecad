@@ -116,6 +116,27 @@ def read_spaces(drawing, skip=()):
     return out
 
 
+def _exposed_length(outline, result):
+    """Length of the edges of a column's outline that are in the open: an
+    edge is against a wall when the point just outside its middle is in that
+    wall's footprint."""
+    from .geom import polygon as P
+    loop = P.dedupe(P.ccw([tuple(map(float, q[:2])) for q in outline]))
+    pieces = [pc for geo in result.walls.values() for pc in geo.get("pieces", ())]
+    total = 0.0
+    for i, a in enumerate(loop):
+        b = loop[(i + 1) % len(loop)]
+        length = math.dist(a, b)
+        if length < 1e-9:
+            continue
+        # ccw: the outside is on the right of a -> b
+        n = ((b[1] - a[1]) / length, -(b[0] - a[0]) / length)
+        probe = ((a[0] + b[0]) / 2 + n[0] * 1e-4, (a[1] + b[1]) / 2 + n[1] * 1e-4)
+        if not any(P.point_in_polygon(probe, pc) for pc in pieces):
+            total += length
+    return total
+
+
 def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD", problems=None):
     """The contract of the drawing.  ``problems`` (from ``integrity.audit``,
     computed here when not given) are not fatal: the elements they concern
@@ -224,7 +245,10 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD", problem
             el["quantities"]["NetWeight"] = PR.mass_per_metre(prof) * height
         elements.append(el)
         # what the footprint has beyond the column itself: its covering
-        rest = P.convex_parts(footprint)
+        # (only outside the walls: the junctions gave the walls back what
+        # of the covering is inside them)
+        kept = result.columns.get(ident) or footprint
+        rest = P.convex_parts([tuple(map(float, q[:2])) for q in kept])
         for sec in sections:
             rest = P.subtract(rest, sec)
         rest_area = sum(P.area(pc) for pc in rest)
@@ -241,8 +265,17 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD", problem
                                                  "Espesor": cover}}
             ce["params"].update(host=ident)
             ce["footprint"] = []
-            ce["quantities"] = {"Width": cover, "GrossArea": rest_area, "GrossVolume": cv,
-                                "NetVolume": cv}
+            if cover > 0:
+                # the area of a cladding is its surface: the faces in the
+                # open (not those against a wall) times the height
+                exposed = _exposed_length(kept, result) * height
+                ce["psets"]["ARQ_Recubrimiento"].update(AreaEnPlanta=rest_area,
+                                                         LongitudVista=exposed / height if height else 0.0)
+                ce["quantities"] = {"Width": cover, "GrossArea": exposed, "NetArea": exposed,
+                                    "GrossVolume": cv, "NetVolume": cv}
+            else:
+                ce["quantities"] = {"Width": cover, "GrossArea": rest_area, "GrossVolume": cv,
+                                    "NetVolume": cv}
             elements.append(ce)
     comps = SP.components(result) if columns or specs else []
     from . import superficies as SU
