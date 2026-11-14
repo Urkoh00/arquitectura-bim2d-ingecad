@@ -131,6 +131,9 @@ CONJUNTOS = (
 )
 
 KEYS = tuple(k for k, _t, _l in CONJUNTOS)
+#: short names for the sheet's rows
+SHORT = {k: t.split(". ")[0] for k, t, _l in CONJUNTOS}
+SHORT.update(SUA9_RECINTO="CTE DB SUA 9 (recinto)", SUA9_UNIDAD="CTE DB SUA 9 (unidad de uso)")
 TITLES = {k: t for k, t, _l in CONJUNTOS}
 LABELS = {k: l for k, _t, l in CONJUNTOS}
 

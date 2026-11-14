@@ -1178,7 +1178,7 @@ def space_form(ctx, record, by_use=None):
         box.setCurrentIndex(max(0, box.findData(current.get(key, ""))))
         box.setToolTip(title)
         box.setMinimumContentsLength(28)
-        cf.addRow(title.split(". ")[0] + ":", box)
+        cf.addRow(CU.SHORT[key] + ":", box)
         cte[key] = box
     propose = QPushButton("Proponer según el uso (vivienda)")
     cf.addRow(propose)
