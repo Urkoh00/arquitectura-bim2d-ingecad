@@ -307,7 +307,7 @@ def detect(drawing, lo, hi, tmin=0.07, tmax=0.50, wall_layers=None, column_layer
 
 
 def detect_all(drawing, lo, hi, tmin=0.07, tmax=0.50, wall_layers=None, column_layers=(),
-               carpentry_layers=(), parallel=None):
+               carpentry_layers=(), parallel=None, recognition=None):
     """(walls, openings, sources, curved, columns, unpaired faces, entities in blocks)."""
     from .vendor import walldetect as WD
     faces, context, sources, arcs, columns, in_blocks, others = collect(
@@ -315,11 +315,24 @@ def detect_all(drawing, lo, hi, tmin=0.07, tmax=0.50, wall_layers=None, column_l
     curved, used = curved_walls(arcs, tmin, tmax)
     # arcs that are not wall faces (a door's swing) are context for the openings
     context = faces + context + [s for k, arc in enumerate(arcs) if k not in used for s in arc[4]]
+    from .conversion_openings import Reader
+    glyphs=[]
+    for e,_virtual in _entities(drawing):
+        if metadata(e):continue
+        if wall_layers is not None and e.dxf.layer not in set(carpentry_layers or ()):
+            continue
+        segs=_segments(e)
+        if segs and all(min(lo[0],hi[0])-1e-9<=x<=max(lo[0],hi[0])+1e-9
+                        and min(lo[1],hi[1])-1e-9<=y<=max(lo[1],hi[1])+1e-9
+                        for s in segs for x,y in (s[:2],s[2:4])):
+            glyphs.append((e,'carpinteria'))
+    reader=Reader(faces,context,glyphs)
     saved = WD.PAR_TOL
     try:
         if parallel is not None:
             WD.PAR_TOL = max(saved, float(parallel))
-        walls, openings = WD.walls_from(faces, tmin, tmax, context=context)
+        walls, openings = WD.walls_from(faces, tmin, tmax, context=context,
+                                        gap_reader=reader.read,gap_adjust=reader.adjust)
     finally:
         WD.PAR_TOL = saved
     unpaired = [f for f in faces if not _on_a_wall(f, walls)]
@@ -329,6 +342,8 @@ def detect_all(drawing, lo, hi, tmin=0.07, tmax=0.50, wall_layers=None, column_l
         extra, used_faces = party_walls(unpaired, others, tmin, tmax, max(tmax + 0.05, 1.5))
         walls = list(walls) + extra
         unpaired = [f for f in unpaired if f not in used_faces]
+    if recognition is not None:
+        recognition.update(attributes=reader.attributes(walls,openings),warnings=sorted(reader.warnings))
     return walls, openings, sources, curved, columns, unpaired, in_blocks
 
 
@@ -667,8 +682,9 @@ class LineasAMuroTool(Tool):
                           + (("; pilares en " + ", ".join(sorted(cl))) if cl else "")
                           + (("; carpintería en " + ", ".join(sorted(kl))) if kl else "")
                           + " (opciones K, L y R para cambiarlo).")
+        recognition={}
         walls, openings, sources, curved, columns, unpaired, in_blocks = detect_all(
-            doc.doc, lo, hi, self.tmin, self.tmax, wl, cl, kl, self.lineas["paralelismo"])
+            doc.doc, lo, hi, self.tmin, self.tmax, wl, cl, kl, self.lineas["paralelismo"],recognition)
         # lines of a wall layer left without a partner (a party wall with one
         # face drawn, a wall too thin or too thick): kept visible and selected
         # (only with known wall layers, and longer than a wall is thick: the
@@ -691,11 +707,12 @@ class LineasAMuroTool(Tool):
 
         def openings_cmd(_document):
             cmds = []
-            for k, pos, width, kind, hinge, face in openings:
+            for index,(k, pos, width, kind, hinge, face) in enumerate(openings):
                 wall = wall_cmds[k].entity
                 if wall is None:
                     continue
-                extra = {"side": 1 if face >= 0 else -1, "hinge": 1 if hinge > 0 else 0}
+                extra = {"side": 1 if face >= 0 else -1, "hinge": 1 if hinge > 0 else 0,
+                         **recognition["attributes"][index]}
                 if kind == "door":
                     cmds.append(create_opening(wall, pos - width / 2, width, 0.0, door_h, kind="door", **extra))
                 elif kind == "window":

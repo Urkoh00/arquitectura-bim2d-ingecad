@@ -2,6 +2,21 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.22.1-dev — 2026-11-14
+
+Integra la entrega R14-c de Codex (LINEASAMURO tras la prueba del usuario con un plano real), revisada:
+SHA-256 correcto, parche aplicado sobre 92eb4d9, 500 pruebas con IngeCAD 0.8 y 492 + 8 con la 0.7, y DXF de
+ensayo sintéticos. Con el plano real del usuario (privado, ×4): 61 muros y 20 puertas (19 en la 1.22.0).
+
+- **Puertas dobles:** dos giros con bisagras opuestas que abren al mismo lado hacen una puerta de dos hojas,
+  también con hojas desiguales; el número de hojas se conserva hasta el registro BIM.
+- **Ancho del hueco** medido entre jambas (tolerancia 5 mm), no por los radios de giro ni por un ancho de
+  catálogo; con caras cortadas a distinta distancia, se toma la abertura común.
+- **Correderas:** los paneles paralelos solapados pueden ser puerta o ventana; sin más datos se avisa y se
+  deja un vano para que el usuario lo designe como Puertas o Ventanas. Igual con la corredera de bolsillo.
+- **Encuentros oblicuos** (L, T y X): los espesores se proyectan según el ángulo antes de decidir si una
+  interrupción es un encuentro o un hueco.
+
 ## 1.22.0-dev — 2026-11-14
 
 Integra la entrega C1/D2 de Codex (encargos R13-A2 y R14), revisada: SHA-256 correcto, parche aplicado sobre

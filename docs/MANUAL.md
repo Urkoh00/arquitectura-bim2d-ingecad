@@ -1,12 +1,12 @@
 # Manual de Arquitectura para IngeCAD
 
-Versión 1.22.0-dev · 14-11-2026
+Versión 1.22.1-dev · 14-11-2026
 
 > Copia del manual publicado como documento en claude.ai; se regenera con cada versión.
 
 ## Qué es
 
-Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.22.0-dev** y se actualiza con cada versión.
+Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.22.1-dev** y se actualiza con cada versión.
 
 Cada elemento guarda su identidad persistente, su clase IFC, su geometría editable en planta, sus parámetros 3D (altura, espesor, cota), sus propiedades constructivas (tipo, material, capas) y su nivel. Las carpinterías conocen su muro y los recintos siguen a los muros que los cierran.
 
@@ -23,7 +23,7 @@ El plugin se instala copiando una carpeta en IngeCAD, y la extensión copiando d
 
 **En IngeCAD**
 
-1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.22.0-dev.zip`.
+1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.22.1-dev.zip`.
 2. Copie la carpeta `arquitectura` en la carpeta de plugins de IngeCAD.
 3. Reinicie IngeCAD. Aparece el menú *Arquitectura* y su barra de herramientas.
 4. Escriba `ARQDIAG` en la línea de órdenes para comprobar que la versión cargada es la que acaba de copiar.
@@ -192,6 +192,8 @@ Un muro curvo es el mismo muro BIM que uno recto: sus caras son arcos concéntri
 **Antes de convertir (desde la 1.20.2).** El plano debe estar **a escala real y en metros**: un muro de 25 cm debe medir 0,25. Muchos planos antiguos están dibujados a otra escala (1/4, 1/5…). Si los giros de las puertas miden menos de 0,35, `LINEASAMURO` se detiene sin tocar el dibujo y propone el factor; escale el dibujo con `ESCALA` desde un punto y repita. Las capas **apagadas o inutilizadas no se leen**: apague las de mobiliario, textos, sanitarios, escaleras o referencias en lugar de borrarlas. En «Designar gráficamente» puede pulsar objetos uno a uno o, pulsando en vacío, abrir una **ventana**: hacia la derecha toma lo que queda dentro; hacia la izquierda, lo que toca. También se reconocen huecos en muros curvos (dos arcos concéntricos interrumpidos), con carpintería plana en la cuerda.
 
 **Revisar la previsualización (desde la 1.20.3).** Antes de confirmar, la planta muestra cada hueco con su símbolo: las puertas con su giro, las ventanas con su vidrio y los vanos con una X. Compruebe sobre todo las puertas dobles, las puertas de los tabiques finos y los pasos abiertos entre machones. Lo que salga mal se corrige con «Designar gráficamente» antes de confirmar, o después con `PROPIEDADESARQ`.
+
+**Puertas dobles, jambas y correderas (desde la 1.22.1).** Dos giros con bisagras opuestas que abren hacia el mismo lado forman una puerta de dos hojas, también si son desiguales. El ancho del hueco se mide entre las jambas dibujadas (con 5 mm de tolerancia), no por el radio del giro. Las hojas paralelas solapadas de una corredera pueden ser de puerta o de ventana: si el dibujo no lo aclara, la vista previa avisa y deja un vano; desígnelas como «Puertas» o «Ventanas». Lo mismo ocurre con la corredera de bolsillo. Los encuentros oblicuos en L, T o X se distinguen mejor de los huecos.
 
 1. Dibuje o importe el plano con líneas, polilíneas y arcos en capas que no empiecen por ARQ.
 2. Ejecute `LINEASAMURO` y enmarque con dos clics la zona que quiere convertir.
@@ -420,7 +422,7 @@ Si encuentra alguno, abre un cuadro con la lista. Al seleccionar un problema, su
 
 ## Limitaciones conocidas
 
-Estas son las limitaciones conocidas de la versión 1.22.0-dev; cada versión actualiza esta lista.
+Estas son las limitaciones conocidas de la versión 1.22.1-dev; cada versión actualiza esta lista.
 
 - **Plataforma:** las pruebas automáticas se ejecutan en Linux y en Windows con IngeCAD oficial (las versiones 0.7.0 y 0.8.0), pero sin pantalla. El usuario probó la v1.17 en Windows 10 con IngeCAD 0.8 e IngeTrazo 0.6.1: la cadena hasta el IFC funcionó; las correcciones de la v1.18 salen de esa prueba.
 - **Muros curvos:** cada muro llega como mucho a media circunferencia (un muro redondo son dos). MUROPARALELO y DIVIDEMURO solo toman líneas rectas como referencia. El gesto de esquina en L al terminar un MURO solo recorta muros rectos.
@@ -434,6 +436,7 @@ Estas son las limitaciones conocidas de la versión 1.22.0-dev; cada versión ac
 
 | Fecha | Versión | Novedades |
 | --- | --- | --- |
+| 14-11-2026 | 1.22.1-dev | LINEASAMURO: puertas dobles de dos hojas, ancho entre jambas, correderas ambiguas señaladas para designar y encuentros oblicuos |
 | 14-11-2026 | 1.22.0-dev | Ejes estructurales (EJES, EDITAREJE, PILARESENEJES, ACTUALIZAEJES) con marca de pilar; carpintería curva en muros curvos; retranqueo de la carpintería a una distancia de la cara |
 | 14-11-2026 | 1.21.0-dev | Clasificación normativa de los recintos: una etiqueta por documento del CTE y de la ITC-BT-25, propuesta según el uso y exportación en ARQ\_ClasificacionCTE |
 | 14-11-2026 | 1.20.3-dev | LINEASAMURO reconoce mejor puertas dobles, tabiques finos cortados por los marcos, machones y entradas retranqueadas; previsualización con símbolos de puerta, ventana y vano |

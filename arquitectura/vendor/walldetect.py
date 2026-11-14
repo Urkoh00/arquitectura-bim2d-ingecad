@@ -2,6 +2,7 @@
 # - merge contiguous collinear strokes before face pairing;
 # - require glazing anchored across the gap; accept strong paired swings;
 # - split unsupported gaps individually and suppress evidenced recess fronts.
+# R14-c: projected oblique-node reach; optional jamb/evidence adapters.
 # These changes are local proposals, not upstream fixes or upstream approval.
 # (2026-11-07), file cad2ingetrazo/engine/walldetect.py:
 #   https://github.com/mtak35/cad2ingetrazo
@@ -296,7 +297,8 @@ def _crossed(u, n, c, t, g0, g1, pieces) -> bool:
     p = _mul(n, c)
     for w in pieces:
         u2 = _unit_v(_sub(w["q"], w["p"]))
-        if _angdiff(_ang(u), _ang(u2)) < 10.0 or g1 - g0 > w["t"] + 4 * PAR_TOL:
+        sine=abs(u[0]*u2[1]-u[1]*u2[0])
+        if _angdiff(_ang(u), _ang(u2)) < 10.0 or g1 - g0 > (w["t"]+t*abs(_dot(u,u2)))/max(sine,1e-9) + 4 * PAR_TOL:
             continue
         X = _cross_pt(p, u, w["p"], u2)
         if X is None:
@@ -304,7 +306,9 @@ def _crossed(u, n, c, t, g0, g1, pieces) -> bool:
         tx = _dot(X, u)
         s = _dot(_sub(X, w["p"]), u2)
         L2 = _len(_sub(w["q"], w["p"]))
-        if g0 - PAR_TOL <= tx <= g1 + PAR_TOL and -t - PAR_TOL <= s <= L2 + t + PAR_TOL:
+        reach=(t/2+w['t']/2*abs(_dot(u,u2)))/max(sine,1e-9)+PAR_TOL
+        along_reach=(w['t']/2+t/2*abs(_dot(u,u2)))/max(sine,1e-9)+PAR_TOL
+        if tx-along_reach <= g0 <= g1 <= tx+along_reach and -reach <= s <= L2 + reach:
             return True
     return False
 
@@ -384,7 +388,9 @@ def _extend(runs):
                 if X is None:
                     continue
                 d = _len(_sub(X, (p, q)[e]))
-                if d > w2["t"] + PAR_TOL:
+                sine=abs(u[0]*u2[1]-u[1]*u2[0])
+                reach=(w2['t']/2+w['t']/2*abs(_dot(u,u2)))/max(sine,1e-9)+PAR_TOL
+                if d > reach:
                     continue
                 s = _dot(_sub(X, w2["p"]), u2)
                 L2 = _len(_sub(w2["q"], w2["p"]))
@@ -507,7 +513,7 @@ def _gap_kind(mid, width, u, t, context):
     return None
 
 
-def _recess_front(w, mid, width, runs, context):
+def _recess_front(w, mid, width, runs, context, gap_reader=None):
     """A gap with no own glyph, two returns and an evidenced rear door.
 
     Requiring BOTH connecting returns avoids treating a nearby parallel
@@ -524,7 +530,7 @@ def _recess_front(w, mid, width, runs, context):
         rear_limits=sorted((_dot(rear['p'],u),_dot(rear['q'],u)))
         if rear_limits[0]>limits[0]+.1 or rear_limits[1]<limits[1]-.1:continue
         if not any(limits[0]-.1<=_dot(m,u)-wd/2 and _dot(m,u)+wd/2<=limits[1]+.1
-                   and (_gap_kind(m,wd,ur,rear['t'],context) or (None,))[0]=='door'
+                   and ((gap_reader(m,wd,ur,rear['t']) if gap_reader else _gap_kind(m,wd,ur,rear['t'],context)) or (None,))[0]=='door'
                    for m,wd in rear['gaps']):continue
         connected=[]
         for along in limits:
@@ -540,7 +546,7 @@ def _recess_front(w, mid, width, runs, context):
     return False
 
 
-def walls_from(segs, tmin: float = 0.08, tmax: float = 0.40, context=None):
+def walls_from(segs, tmin: float = 0.08, tmax: float = 0.40, context=None, *, gap_reader=None, gap_adjust=None):
     """``(walls, openings)`` from a level's lines (metres) — see the module
     docstring. ``context``: every line of the drawing (all layers), read to
     tell a door (its swing) from a window (its glazing) in each opening;
@@ -549,6 +555,23 @@ def walls_from(segs, tmin: float = 0.08, tmax: float = 0.40, context=None):
              for s in segs]
     tmin, tmax = sorted((float(tmin), float(tmax)))
     runs = _extend(_runs(_pairs(_contiguous(lines), tmin, tmax)))
+    def read_gap(mid, width, u, t):
+        return gap_reader(mid,width,u,t) if gap_reader else _gap_kind(mid,width,u,t,context)
+    if gap_adjust:
+        for w in runs:
+            u = _unit_v(_sub(w['q'],w['p']))
+            adjusted = []
+            for index,(mid,width) in enumerate(w['gaps']):
+                centre,span = gap_adjust(mid,width,u,w['t'])
+                adjusted.append((centre,span))
+                # The solids used by the unsupported-gap split must retain
+                # the same jambs as the final BIM opening.
+                if len(w.get('solid',[])) == len(w['gaps'])+1:
+                    a,_b=w['solid'][index];_a,b=w['solid'][index+1]
+                    w['solid'][index]=(a,_add(centre,_mul(u,-span/2)))
+                    w['solid'][index+1]=(_add(centre,_mul(u,span/2)),b)
+            w['gaps']=adjusted
+
     # a row of short pieces with long gaps between and nothing drawn in
     # them (the ends of the fins along a lobby): not one wall with
     # openings — each piece its own
@@ -560,9 +583,9 @@ def walls_from(segs, tmin: float = 0.08, tmax: float = 0.40, context=None):
             u_ = _unit_v(_sub(w["q"], w["p"]))
             cuts=[]
             for index,(mid,width) in enumerate(gl):
-                no_glyph=_gap_kind(mid,width,u_,w['t'],context) is None
+                no_glyph=read_gap(mid,width,u_,w['t']) is None
                 short=max(_len(_sub(b,a)) for a,b in sol[index:index+2])<.8*width
-                if no_glyph and (short or _recess_front(w,mid,width,runs,context)):
+                if no_glyph and (short or _recess_front(w,mid,width,runs,context,read_gap)):
                     cuts.append(index)
             if cuts:
                 first=0
@@ -587,7 +610,7 @@ def walls_from(segs, tmin: float = 0.08, tmax: float = 0.40, context=None):
         for mid, width in w["gaps"]:
             pos = _dot(_sub(mid, a), u)
             if width / 2 + 0.05 <= pos <= L - width / 2 - 0.05:
-                g = _gap_kind(mid, width, u, w["t"], context)
+                g = read_gap(mid, width, u, w["t"])
                 if g is None:
                     # nothing drawn in it: an opening down to the floor
                     # with no door in it (or, without context, by width)

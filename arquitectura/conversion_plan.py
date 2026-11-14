@@ -59,6 +59,7 @@ class Plan:
     origin: str
     wall_roles: list = field(default_factory=list)
     curved_openings: list = field(default_factory=list)
+    opening_details: list = field(default_factory=list)
     _preview_symbols: object = field(default=None,init=False,repr=False)
 
     @property
@@ -85,7 +86,7 @@ class Plan:
         walls=[Wall('preview',a,b,t,'eje') for a,b,t in self.result[0]]
         curves=[Wall('preview',a,b,t,'eje',bulge=bulge) for a,b,t,bulge in self.result[3]]
         for hosts,operations in ((walls,self.result[1]),(curves,self.curved_openings)):
-            for k,pos,width,kind,hinge,side in operations:
+            for number,(k,pos,width,kind,hinge,side) in enumerate(operations):
                 spec=hosts[k];s0,s1=pos-width/2,pos+width/2
                 if kind=='void':
                     groups[kind].extend([(spec.point(s0,spec.lo),spec.point(s1,spec.hi)),
@@ -93,7 +94,8 @@ class Plan:
                     continue
                 rec=OP.normalise({'type':kind,'offset':s0,'width':width,
                     'height':min(2.1,self.height),'sill':0.,'hinge':int(hinge>0),
-                    'side':1 if side>=0 else -1,'chord':OP.chord_of(spec,width)})
+                    'side':1 if side>=0 else -1,'chord':OP.chord_of(spec,width),
+                    **(self.opening_details[number] if hosts is walls and self.opening_details else {})})
                 for glyph in OP.plan_symbol(spec,rec):
                     if glyph[0]=='line':groups[kind].append((glyph[1],glyph[2]))
                     elif glyph[0]=='poly':
@@ -351,7 +353,8 @@ def analyse(drawing, lo, hi, classification, tmin=.07, tmax=.5, height=2.7,
     if skipped:
         warnings.append(f'{skipped} objetos en capas apagadas o inutilizadas no se han leído')
     scale_check(leaves)
-    result = C.detect_all(doc, lo, hi, tmin, tmax, {'WALL'}, {'COLUMN'}, {'OPENING'}, parallel)
+    recognition={}
+    result = C.detect_all(doc, lo, hi, tmin, tmax, {'WALL'}, {'COLUMN'}, {'OPENING'}, parallel,recognition)
     from .conversion_curves import recover
     x0,x1=sorted((lo[0],hi[0]));y0,y1=sorted((lo[1],hi[1]))
     inside_leaves=[]
@@ -406,6 +409,9 @@ def analyse(drawing, lo, hi, classification, tmin=.07, tmax=.5, height=2.7,
     # Explicit classifications override geometric heuristics only on existing
     # gaps with unambiguous nearby glyphs. No opening is guessed in a solid wall.
     ops=[]
+    from .conversion_openings import Reader
+    reader=Reader([],[],inside_leaves)
+    details=[]
     from ezdxf import bbox
     for op in result[1]:
         k,pos,width,kind,hinge,face=op;a,b,_t=result[0][k];length=math.dist(a,b)
@@ -418,9 +424,17 @@ def analyse(drawing, lo, hi, classification, tmin=.07, tmax=.5, height=2.7,
                 if box.has_data and math.dist((p.x,p.y),center)<max(width,.5):
                     votes.add(VOTES[role])
             except Exception:continue
+        evidence=reader.swings(center,width,((b[0]-a[0])/length,(b[1]-a[1])/length),_t) or reader.sliding(
+            center,width,((b[0]-a[0])/length,(b[1]-a[1])/length),_t)
+        attrs=recognition['attributes'][len(ops)]
+        if evidence:
+            (kind,hinge,face),attrs=evidence
         if len(votes)==1:kind=votes.pop()
         elif len(votes)>1:warnings.append('Hueco con clasificaciones contradictorias; conserva lectura geométrica')
         ops.append((k,pos,width,kind,hinge,face))
+        details.append(attrs if kind=='door' else {})
+    warnings.extend(w for w in recognition['warnings'] if w.startswith('Jambas'))
+    warnings.extend(sorted(reader.warnings))
     wall_roles=[]
     for a,b,_t in result[0]:
         center=((a[0]+b[0])/2,(a[1]+b[1])/2);nearest=None
@@ -434,7 +448,7 @@ def analyse(drawing, lo, hi, classification, tmin=.07, tmax=.5, height=2.7,
             except Exception:continue
         wall_roles.append(nearest[1] if nearest else 'muros')
     result=(result[0],ops,*result[2:])
-    return Plan(result,used,list(dict.fromkeys(warnings)),drawing,fingerprint(drawing),(lo,hi),height,origin,wall_roles,curved_ops)
+    return Plan(result,used,list(dict.fromkeys(warnings)),drawing,fingerprint(drawing),(lo,hi),height,origin,wall_roles,curved_ops,details)
 
 
 def commit(ctx, plan):
@@ -467,7 +481,8 @@ def commit(ctx, plan):
             if h<=0:raise ValueError('Altura insuficiente para ventana')
             out.append(create_opening(commands[k].entity,pos-w/2,w,sill,h,
                        kind='gap' if kind=='void' else kind,existing=opening_ids[number],
-                       hinge=int(hinge>0),side=1 if face>=0 else -1))
+                       hinge=int(hinge>0),side=1 if face>=0 else -1,
+                       **(plan.opening_details[number] if plan.opening_details else {})))
         for number,(k,pos,w,kind,hinge,face) in enumerate(plan.curved_openings,start=len(ops)):
             sill=.9 if kind=='window' else 0.
             h=min(1.2 if kind=='window' else 2.1,plan.height-sill)
