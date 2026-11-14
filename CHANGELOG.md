@@ -83,7 +83,7 @@ funcionó (dos IFC sin errores de validación). Corrige lo que señaló y añade
 - **Codificación del DXF**: los parámetros del dibujo se guardaban con acentos sin escapar en un DXF que se
   declara ANSI_1252. Ahora el DXF es todo ASCII.
 
-### IngeTrazo (registro T-07, sin enviar)
+### IngeTrazo (registro T-09, sin enviar)
 - La medición (metrado) de un muro curvo en IngeTrazo es la superficie de su huella, no la de su paramento:
   IngeTrazo mide el muro por su cara mayor, y un muro curvo son muchas caras pequeñas. Además sustituye las
   cantidades exactas que envía el plugin (longitud 16,62 m pasa a 0,62 m). Se documenta; no se envía hasta que
