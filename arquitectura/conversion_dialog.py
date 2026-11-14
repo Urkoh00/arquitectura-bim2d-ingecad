@@ -3,17 +3,18 @@
 def classification_form(ctx, drawing, current):
     from PySide6.QtWidgets import QTableWidget, QTableWidgetItem, QComboBox, QLabel, QPushButton, QHeaderView
     from .bim_dialogs import _dialog
-    from .conversion_plan import Classification, ROLES
+    from .conversion_plan import Classification, ROLES, layers_present, guess_roles
     dlg,layout,buttons=_dialog(ctx,'Arquitectura — LINEASAMURO',
         'Clasifique por capas o designe objetos en el plano. Después delimite el área, revise '
         'la previsualización y confirme. Rejas, barandillas y escaleras se conservan pendientes.')
-    present=sorted({e.dxf.layer for e in drawing.modelspace()})
+    present=layers_present(drawing)   # también las capas dentro de los bloques
     table=QTableWidget(len(present),2);table.setHorizontalHeaderLabels(['Capa de origen','Categoría BIM']);table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch);table.setMaximumHeight(400)
     combos=[]
+    proposed=current.layers or guess_roles(present)   # primera vez: según el nombre de la capa
     for row,name in enumerate(present):
         table.setItem(row,0,QTableWidgetItem(name));box=QComboBox();box.addItem('No convertir',None)
         for key,label in ROLES.items():box.addItem(label,key)
-        box.setCurrentIndex(max(0,box.findData(current.layers.get(name))));table.setCellWidget(row,1,box);combos.append(box)
+        box.setCurrentIndex(max(0,box.findData(proposed.get(name))));table.setCellWidget(row,1,box);combos.append(box)
     layout.addWidget(table)
     info=QLabel(f'{len(current.handles)} asignaciones gráficas; prevalecen sobre la capa.');layout.addWidget(info)
     role=QComboBox()

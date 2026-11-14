@@ -29,7 +29,7 @@ def test_bar_spacing_validation(plugin,app):
 def test_conversion_dialog_has_all_roles(plugin,app):
     import importlib
     s=Session(plugin);P=importlib.import_module(plugin.tools['MURO'].__module__.rsplit('.',1)[0]+'.conversion_plan');D=importlib.import_module(plugin.tools['MURO'].__module__.rsplit('.',1)[0]+'.conversion_dialog')
-    dlg,read=D.classification_form(None,s.document.doc,P.Classification());assert dlg._arq['role'].count()==10
+    dlg,read=D.classification_form(None,s.document.doc,P.Classification());assert dlg._arq['role'].count()==11
     assert read().layers=={};dlg.close()
 
 

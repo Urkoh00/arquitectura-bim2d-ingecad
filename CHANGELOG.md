@@ -2,6 +2,29 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.20.1-dev — 2026-11-14
+
+Revisión a fondo de LINEASAMURO para planos con la carpintería en una sola capa (puertas y ventanas
+dibujadas con líneas y polilíneas, como en muchas aplicaciones LISP).
+
+### Corregido
+- **Carpintería en una capa.** El cuadro de R12 solo ofrecía «Puertas», «Ventanas» y «Vanos», y la categoría
+  elegida se imponía a todos los huecos de esa capa: una capa con puertas y ventanas salía entera como
+  puertas. Nueva categoría **«Carpintería (puerta o ventana según el dibujo)»**, que no impone tipo: el giro
+  dibujado hace la puerta y las líneas de vidrio, la ventana. «Puertas» y «Ventanas» siguen siendo órdenes
+  explícitas, también para excepciones designadas con clics (por ejemplo, una puerta corredera sin arco).
+- **Planta dentro de un bloque.** Las entidades de un bloque se clasificaban con la capa de la referencia,
+  no con la suya: todas las líneas del bloque recibían una única categoría. Ahora cada una va por su propia
+  capa (la capa «0» toma la de la referencia, como en DXF), salvo que la referencia se designe con clics. El
+  cuadro lista también las capas interiores de los bloques. Los votos de puerta y ventana y el tipo de muro
+  (muro, medianera o tabique) se leen igualmente dentro de los bloques.
+
+### Añadido
+- El cuadro propone, la primera vez, la categoría de cada capa por su nombre (*pared*, *muro*, *pilar*,
+  *carp*, *puert*, *ventan*, *escal*, *reja*, *barand*…); las de *cámara*, *aislamiento* y *cota* quedan sin
+  convertir. El operador confirma o cambia.
+- Si falta `_arqbim_sync.py` en IngeTrazo, la importación se detiene antes de tocar nada y explica qué copiar.
+
 ## 1.20.0-dev — 2026-11-14
 
 Integra la entrega R12 de Codex (encargo de frentes abiertos), revisada por la dirección técnica: SHA-256
@@ -27,9 +50,6 @@ y 5 omitidas con la 0.7; 6 pruebas aparte con el núcleo oficial de IngeTrazo 0.
   descarta. Un Deshacer devuelve el plano original.
 - Rejas, barandillas y escaleras se clasifican pero **quedan pendientes**: no se convierten todavía.
 - Sin ventana (pruebas, scripts) se conservan las opciones de siempre (K/L/R).
-
-- Si falta `_arqbim_sync.py` en IngeTrazo, la importación se detiene antes de tocar nada y explica qué
-  copiar; el apartado de instalación del manual pide los dos ficheros (propuesta P0 de la revisión externa).
 
 ### Fichas auxiliares (R12)
 - `element_sheets.element_form` reúne las fichas de muro y pilar (con esquema de la sección) y prepara las de
