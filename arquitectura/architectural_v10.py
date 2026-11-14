@@ -99,6 +99,11 @@ def opening_record(wall, offset, width, sill, height, kind, existing=None, **bim
     else:
         rec.pop('chord',None)
     rec=OP.normalise(rec)
+    if typ != "gap":
+        band_spec,band_rec=OP.proxy(spec,rec)
+        OP.frame_band(band_spec,band_rec)
+        if spec.curved and rec.get("curve_mode")=="curva":
+            OP.carpentry_parts(spec,rec,float(meta.get("base",0.)))
     drawing=wall.doc
     openings=[p for p in _find_openings(drawing,meta['id']) if p.get('id')!=rec['id']]
     validate_wall({**meta,'openings':sorted(openings+[rec],key=lambda o:o['offset'])})

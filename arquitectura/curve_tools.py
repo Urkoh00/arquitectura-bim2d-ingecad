@@ -254,12 +254,20 @@ def carried_openings(entity, old, new):
             continue
         chord = float(d.get("chord") or d["width"])
         centre = (float(d["offset"]) + float(d["width"]) / 2) * w1.length / w0.length
-        width = OP.span_of(w1, chord)
+        if d.get('curve_mode')=='curva' or d.get('width_reference','cuerda')!='cuerda':
+            measure=float(d['width']);ref=d.get('width_reference','eje')
+            if w0.curved and ref in ('interior','exterior'):
+                o=w0.hi if (int(d.get('side',1))>0)==(ref=='interior') else w0.lo
+                measure*= (w0.r-w0.d*o)/w0.r
+            width=OP.span_of(w1,measure,d,int(d.get('side',1)))
+        else:width = OP.span_of(w1, chord)
         off = centre - width / 2
         label = d.get("name") or OP.NAMES.get(d.get("type"), "Carpintería")
         if off < -1e-9 or off + width > w1.length + 1e-9:
             raise ValueError(f"{label} no cabe en el muro con esa curvatura")
         OP.proxy(w1, {**OP.normalise(d), "offset": off, "width": width, "chord": chord})  # planar fit
+        if d.get('curve_mode')=='curva':
+            OP.carpentry_parts(w1,{**d,'offset':off,'width':width},float(new.get('base',0.)))
         spans.append((off, off + width, label))
         out.append((e, max(0.0, off), width))
     spans.sort()
@@ -337,7 +345,8 @@ class CurvaMuroTool(Tool):
         for e, off, width in moves:
             cmds.append(DeferredCommand("ARQ hueco", lambda _d, e=e, off=off, w=width:
                                         edit_opening(e, offset=off, width=w)))
-        cmd = CompositeCommand("ARQ CURVAR MURO", cmds)
+        from .transactions import SafeArchitecturalCommand
+        cmd = SafeArchitecturalCommand("ARQ CURVAR MURO", cmds)
         apply_architectural_change(self.ctx, cmd, kind="opening" if moves else "wall")
         self.ctx.echo("CURVAMURO: muro enderezado." if "bulge" not in m else
                       f"CURVAMURO: muro curvado ({_fmt(round(math.degrees(4 * math.atan(abs(bulge))), 1))}°).")

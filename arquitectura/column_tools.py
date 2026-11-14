@@ -251,6 +251,9 @@ class PilarTool(Tool):
         from .columns import column_command
         from .transactions import apply_architectural_change
         try:
+            from .grids import binding
+            link=binding(_document(self.ctx).doc,center)
+            if link:values={**values,'grid_link':link}
             apply_architectural_change(self.ctx, column_command(center, values), kind="column")
             self.ctx.echo(f"PILAR: {self._section_text()} colocado; muros y recintos actualizados.")
         except Exception as exc:  # noqa: BLE001

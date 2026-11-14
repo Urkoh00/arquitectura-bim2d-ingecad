@@ -33,12 +33,13 @@ import math
 TYPES = ("door", "window", "gap")
 NAMES = {"door": "Puerta", "window": "Ventana", "gap": "Hueco"}
 IFC = {"door": "IfcDoor", "window": "IfcWindow", "gap": "IfcOpeningElement"}
-FACES = ("interior", "centrada", "exterior")
+FACES = ("interior", "centrada", "exterior", "distancia")
 SILLS = ("alfeizar", "vierteaguas", "ventanal")
 SYMBOL_LAYER = "ARQ-CARPINTERIA"
 V3_KEYS = ("leaves", "leaf", "leaf2", "frame_width", "frame_depth", "side", "hinge",
-           "angle", "face", "sill_kind", "operation", "leaf_thickness",
-           "frame_material", "leaf_material", "glass_material", "sill_material")
+           "angle", "face", "setback", "setback_from", "sill_kind", "operation", "leaf_thickness",
+           "frame_material", "leaf_material", "glass_material", "sill_material",
+           "curve_mode", "facet_sagitta", "width_reference")
 # opening type (IFC names, as in the properties dialog)
 OPERATIONS = {"door": ("SWINGING", "SLIDING"), "window": ("SIDEHUNG", "SLIDING", "FIXED"), "gap": ("",)}
 OPERATION_NAMES = {"SWINGING": "abatible", "SLIDING": "corredera", "SIDEHUNG": "abatible",
@@ -81,6 +82,9 @@ def normalise(rec):
     """A copy of ``rec`` with every schema-3 field (older records: defaults
     that keep their hole: a schema-2 door keeps its width as the hole)."""
     out = dict(rec)
+    out.setdefault('curve_mode','plana')
+    out.setdefault('facet_sagitta',.005)
+    out.setdefault('width_reference','cuerda' if out['curve_mode']=='plana' else 'eje')
     typ = out.get("type") if out.get("type") in TYPES else "door"
     out["type"] = typ
     for k, v in DEFAULTS[typ].items():
@@ -99,7 +103,7 @@ def normalise(rec):
         out["leaves"] = 2 if out["leaves"] >= 2 else 1
         # on a curved wall the carpentry is planar: its width is the chord
         # between the jambs (``chord``), the record's ``width`` runs along the wall
-        real = float(out.get("chord") or out["width"])
+        real = float(out['width'] if out['curve_mode']=='curva' else (out.get("chord") or out["width"]))
         clear = real - 2 * float(out["frame_width"])
         if clear <= 0:
             out["frame_width"], clear = 0.0, real
@@ -115,7 +119,12 @@ def normalise(rec):
         if out["sill_kind"] not in SILLS:
             out["sill_kind"] = "alfeizar"
     out["ifc_class"] = IFC[typ] if typ != "gap" else "IfcOpeningElement"
+    out.setdefault("setback", 0.0)
+    out.setdefault("setback_from", "exterior")
     out["schema"] = 3
+    if out['curve_mode']=='curva':out.pop('chord',None)
+    from .curved_carpentry import validate
+    validate(out)
     return out
 
 
@@ -168,10 +177,23 @@ def frame_band(spec, rec):
     """(f0, f1): the frame across the thickness (wall offsets)."""
     t = spec.hi - spec.lo
     depth = float(rec.get("frame_depth") or 0.0)
-    if depth <= 0:
-        depth = 0.15 if rec["type"] == "door" else 0.05
-    depth = min(depth, t)
+    if not math.isfinite(depth) or depth < 0:
+        raise ValueError("Profundidad de cerco inválida")
+    if depth == 0:
+        depth = min(0.15 if rec["type"] == "door" else 0.05, t)
+    if depth > t + 1e-9:
+        raise ValueError("El cerco no cabe en el espesor disponible")
     face = rec.get("face", "centrada")
+    if face == "distancia":
+        setback = float(rec.get("setback", 0.0))
+        ref = rec.get("setback_from", "exterior")
+        if ref not in ("interior", "exterior") or not math.isfinite(setback) or setback < 0:
+            raise ValueError("Retranqueo o cara de referencia inválidos")
+        if setback + depth > t + 1e-9:
+            raise ValueError("Retranqueo imposible: el cerco sale del espesor disponible")
+        toward_hi = (rec["side"] > 0) == (ref == "interior")
+        return ((spec.hi - setback - depth, spec.hi - setback) if toward_hi
+                else (spec.lo + setback, spec.lo + setback + depth))
     toward_hi = (rec["side"] > 0) == (face == "interior")
     if face == "centrada":
         mid = (spec.lo + spec.hi) / 2
@@ -181,11 +203,18 @@ def frame_band(spec, rec):
 
 # --- curved walls: the carpentry is planar, on the chord between the jambs ---------
 
-def span_of(spec, chord):
+def span_of(spec, chord, rec=None, side=1):
     """Length along the wall's reference line of a planar carpentry of
     width ``chord`` (the same on a straight wall)."""
     if not getattr(spec, "curved", False):
         return float(chord)
+    if rec and (rec.get('curve_mode')=='curva' or rec.get('width_reference','cuerda')!='cuerda'):
+        ref=rec.get('width_reference','eje')
+        off=0.
+        if ref in ('interior','exterior'):
+            off=spec.hi if (side>0)==(ref=='interior') else spec.lo
+        elif ref not in ('eje','cuerda'):raise ValueError('Referencia de ancho no válida')
+        return float(chord)*spec.r/(spec.r-spec.d*off)
     r = spec.r
     if float(chord) >= 2 * r - 1e-9:
         raise ValueError("la carpintería es más ancha que el diámetro del muro curvo")
@@ -198,6 +227,14 @@ def chord_of(spec, width):
         return float(width)
     return 2 * spec.r * math.sin(float(width) / (2 * spec.r))
 
+def measure_of(spec,width,rec,side=1):
+    if not getattr(spec,'curved',False):return float(width)
+    ref=rec.get('width_reference','cuerda')
+    if rec.get('curve_mode')!='curva' and ref=='cuerda':return chord_of(spec,width)
+    off=0.
+    if ref in ('interior','exterior'):off=spec.hi if (side>0)==(ref=='interior') else spec.lo
+    return float(width)*(spec.r-spec.d*off)/spec.r
+
 
 def proxy(spec, rec):
     """(straight wall, record) on which a carpentry of a curved wall is drawn
@@ -207,6 +244,7 @@ def proxy(spec, rec):
     as it is."""
     if not getattr(spec, "curved", False):
         return spec, rec
+    if rec.get('curve_mode')=='curva':return spec,rec
     from .geom.junctions import Wall
     s0 = float(rec["offset"])
     s1 = s0 + float(rec["width"])
@@ -269,6 +307,9 @@ def plan_symbol(spec, rec):
     """Derived plan drawing of an opening, in world coordinates:
     [('line', p, q) | ('poly', [pts], closed) | ('arc', c, r, a0, a1)]."""
     rec = normalise(rec)
+    if getattr(spec,'curved',False) and rec.get('curve_mode')=='curva':
+        from .curved_carpentry import symbol
+        return symbol(spec,rec)
     if getattr(spec, "curved", False):
         return plan_symbol(*proxy(spec, rec))
     s0 = float(rec["offset"])
@@ -418,6 +459,9 @@ def carpentry_parts(spec, rec, base):
     rec = normalise(rec)
     if rec["type"] == "gap":
         return []
+    if getattr(spec,'curved',False) and rec.get('curve_mode')=='curva':
+        from .curved_carpentry import pieces
+        return pieces(spec,rec,base)
     spec, rec = proxy(spec, rec)
     g = PART_GAP
     f0, f1 = frame_band(spec, rec)

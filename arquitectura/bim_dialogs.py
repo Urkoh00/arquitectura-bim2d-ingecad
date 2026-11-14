@@ -575,6 +575,10 @@ def column_form(ctx, record=None, anchor=None):
         props.addRow(k,v)
     cls=QLineEdit('IfcColumn');cls.setReadOnly(True)
     props.addRow('Clase IFC:',cls)
+    link=d.get('grid_link')or{}
+    props.addRow('Ubicación en rejilla:',QLabel(link.get('mark')or'Sin vínculo'))
+    if link:
+        props.addRow('Desfase (m):',QLabel(', '.join(f'{float(v):.3f}' for v in link.get('offset',[0,0]))))
     layout.addWidget(identity);layout.addWidget(buttons)
 
     def read():
@@ -738,7 +742,7 @@ def carpentry_preview(get_record, wall_thickness=0.25):
             spec = J.walls_from_records([("muestra", {"id": "muestra", "kind": "wall",
                                                       "a": [0.0, 0.0], "b": [width + 0.8, 0.0],
                                                       "thickness": wall_thickness, "height": 3.0,
-                                                      "reference": "eje"})])[0]
+                                                      "reference": "eje", "bulge": .2 if rec.get("curve_mode")=="curva" else 0.})])[0]
             return spec, rec, width
 
         def paintEvent(self, _event):
@@ -777,6 +781,7 @@ def carpentry_preview(get_record, wall_thickness=0.25):
             # its pieces, seen from the face it opens to
             order = {"sill": 0, "frame": 1, "leaf": 2, "glass": 3}
             for part in sorted(pieces, key=lambda p: order[p["role"]]):
+                part=part.get("unrolled",part)
                 c = QColor(*_material_color(part["material"], part["role"]))
                 if part["role"] == "glass":
                     c.setAlpha(170)
@@ -840,7 +845,8 @@ def carpentry_preview(get_record, wall_thickness=0.25):
             qp.setPen(QPen(QColor(90, 90, 90), 1))
             qp.setBrush(QBrush(QColor(226, 223, 216)))
             for a, b in ((0, s0), (s1, span)):
-                qp.drawPolygon(QPolygonF([Q((a, lo)), Q((b, lo)), Q((b, hi)), Q((a, hi))]))
+                pts=spec.run(lo,spec.point(a,lo),spec.point(b,lo))+spec.run(hi,spec.point(b,hi),spec.point(a,hi))
+                qp.drawPolygon(QPolygonF([Q(point) for point in pts]))
             qp.setBrush(Qt.NoBrush)
             qp.setPen(QPen(QColor(120, 70, 40), 1))
             for item in plan:
@@ -895,17 +901,23 @@ def carpentry_form(ctx, record, *, editing=False):
                       ("Otra medida", None)], None)
     leaf = _spin(d.get("leaf") or 0.825, positive=True)
     leaf2 = _spin(d.get("leaf2") or 0.0)
-    width = _spin(float(record.get("chord") or d["width"]), positive=True)
+    width = _spin(float(record.get('_display_width',record.get("chord") or d["width"])), positive=True)
     height = _spin(d["height"], positive=True)
     sill = _spin(d["sill"])
-    face = _choice([("Interior (plano hacia el que abre)", "interior"), ("Medio", "centrada"),
-                    ("Exterior", "exterior")], d.get("face", "interior"))
+    face = _choice([("Cara hacia la que abre (interior relativo)", "interior"), ("Centrada en el espesor", "centrada"),
+                    ("Cara opuesta (exterior relativo)", "exterior"), ("A distancia de una cara", "distancia")], d.get("face", "interior"))
+    curve_mode=_choice([('Plana (cuerda)','plana'),('Curva (facetada)','curva')],d['curve_mode'])
+    width_reference=_choice([('Cuerda (registros antiguos)','cuerda'),('Arco del eje','eje'),
+                             ('Arco de cara interior','interior'),('Arco de cara exterior','exterior')],d['width_reference'])
+    facet=_spin(d['facet_sagitta']);facet.setRange(.0001,.02);facet.setDecimals(4)
+    setback = _spin(d.get("setback", 0.0)); setback.setRange(0., 1000.); setback.setSuffix(" m")
+    setback_from = _choice([("Cara hacia la que abre", "interior"), ("Cara opuesta", "exterior")], d.get("setback_from", "exterior"))
     frame_w = _spin(d.get("frame_width") or 0.0)
     frame_d = _spin(d.get("frame_depth") or 0.0)
     sill_kind = _choice([("Alféizar", "alfeizar"), ("Vierteaguas", "vierteaguas"), ("Ventanal", "ventanal")],
                         d.get("sill_kind") or "alfeizar")
     hole = QLabel("")
-    rows = [("Tipo:", typ), ("Apertura:", operation), ("Hojas:", leaves), ("Hoja normalizada:", preset),
+    rows = [("Tipo:", typ),("Geometría curva:",curve_mode),("Referencia del ancho:",width_reference),("Flecha máxima:",facet), ("Apertura:", operation), ("Hojas:", leaves), ("Hoja normalizada:", preset),
             ("Hoja principal:", leaf), ("Segunda hoja (0 = igual):", leaf2), ("Ancho del hueco:", width),
             ("Hueco resultante:", hole), ("Altura:", height), ("Antepecho:", sill)]
     for label, w in rows:
@@ -913,7 +925,7 @@ def carpentry_form(ctx, record, *, editing=False):
     left.addWidget(model)
     frame_box = QGroupBox("Cerco y remate", dlg)
     ff = QFormLayout(frame_box)
-    for label, w in (("Ajuste del cerco:", face), ("Ancho de jamba:", frame_w),
+    for label, w in (("Ajuste del cerco:", face), ("Cara desde la que se mide:", setback_from), ("Retranqueo desde esa cara:", setback), ("Ancho de jamba:", frame_w),
                      ("Profundidad (0 = automática):", frame_d), ("Remate inferior:", sill_kind)):
         ff.addRow(label, w)
     left.addWidget(frame_box)
@@ -991,6 +1003,13 @@ def carpentry_form(ctx, record, *, editing=False):
                 out.append("El cerco es más alto que la mitad del hueco.")
         if v["type"] == "door" and v.get("leaves") == 2 and float(v.get("leaf2") or 0) <= 0:
             out.append("Falta la segunda hoja.")
+        if v["type"] != "gap":
+            try:
+                from .curved_carpentry import validate
+                validate(v)
+                OP.frame_band(_sample_spec(v), OP.normalise(v))
+            except ValueError as exc:
+                out.append(str(exc))
         return out
 
     def refresh(*_):
@@ -1002,11 +1021,13 @@ def carpentry_form(ctx, record, *, editing=False):
         for w in (preset, leaf, leaf2):
             show(w, door)
         show(leaf2, door and leaves.value() == 2)
-        show(width, not door)
+        show(width, not door or curve_mode.currentData()=='curva')
         show(hole, door)
         show(sill_kind, window, ff)
         for w in (frame_w, frame_d, face):
             show(w, kind != "gap", ff)
+        show(setback, kind != "gap" and face.currentData() == "distancia", ff)
+        show(setback_from, kind != "gap" and face.currentData() == "distancia", ff)
         frame_box.setVisible(kind != "gap")
         mats.setVisible(kind != "gap")
         show(m_glass, window, mf)
@@ -1016,12 +1037,14 @@ def carpentry_form(ctx, record, *, editing=False):
         if door:
             hole.setText(f"{v['width']:.3f} m de ancho (hojas + cerco)".replace(".", ","))
         notes = problems(v)
-        if door:
+        if door and v.get('curve_mode')=='curva':
+            notes.append('Paso libre en carpintería curva: comprobación específica pendiente; no certifica accesibilidad.')
+        elif door and not problems(v):
             notes.append(OP.sua_text(v))
         if kind == "gap":
             notes.append("Hueco sin carpintería: en 3D, el vano abierto en el muro.")
         else:
-            pieces = OP.carpentry_parts(_sample_spec(v), {**v, "offset": 0.4}, 0.0)
+            pieces = [] if problems(v) else OP.carpentry_parts(_sample_spec(v), {**v, "offset": 0.4}, 0.0)
             roles = {p["role"] for p in pieces}
             names = [n for r, n in (("frame", "marco"), ("leaf", "hojas"), ("glass", "vidrio"),
                                     ("sill", "alféizar")) if r in roles]
@@ -1036,7 +1059,7 @@ def carpentry_form(ctx, record, *, editing=False):
         from .geom import junctions as J
         w = float(v.get("width") or 0.9)
         return J.walls_from_records([("muestra", {"id": "muestra", "kind": "wall", "a": [0.0, 0.0],
-                                                  "b": [w + 0.8, 0.0], "thickness": 0.25,
+                                                  "b": [w + 0.8, 0.0], "thickness": float(record.get("_wall_thickness") or 0.25),
                                                   "height": 3.0, "reference": "eje"})])[0]
 
     def on_preset(*_):
@@ -1047,13 +1070,16 @@ def carpentry_form(ctx, record, *, editing=False):
     def read():
         kind = typ.currentData()
         v = {"type": kind, "operation": operation.currentData() or "", "height": height.value(),
-             "sill": sill.value(), "face": face.currentData(), "frame_width": frame_w.value(),
+             "curve_mode":curve_mode.currentData(),"width_reference":width_reference.currentData(),"facet_sagitta":facet.value(),
+             "sill": sill.value(), "face": face.currentData(), "setback": setback.value(),
+             "setback_from": setback_from.currentData(), "frame_width": frame_w.value(),
              "frame_depth": frame_d.value(), "name": name.text().strip(),
              "type_name": type_name.text().strip(), "material": material.text().strip()}
         if kind == "door":
             v.update(leaves=leaves.value(), leaf=leaf.value(),
                      leaf2=leaf2.value() if leaves.value() == 2 else 0.0)
             v["width"] = OP.door_width(v["leaf"], v["leaves"], v["leaf2"], v["frame_width"])
+            if curve_mode.currentData()=='curva':v['width']=width.value()
             v["leaf2"] = v["leaf2"] or (v["leaf"] if v["leaves"] == 2 else 0.0)
             v.update(frame_material=m_frame.currentText().strip(), leaf_material=m_leaf.currentText().strip())
         else:
@@ -1087,17 +1113,29 @@ def carpentry_form(ctx, record, *, editing=False):
         fill_operations()
         refresh()
     typ.currentIndexChanged.connect(kind_changed)
-    for w in (leaves, leaf, leaf2, frame_w, frame_d, width, height, sill):
+    for w in (leaves, leaf, leaf2, frame_w, frame_d, width, height, sill, setback):
         w.valueChanged.connect(refresh)
-    for w in (operation, face, sill_kind):
+    ref_state={'curve_mode':d['curve_mode'],'width_reference':d['width_reference']}
+    def reference_changed(*_):
+        spec=record.get('_wall_spec')
+        now={'curve_mode':curve_mode.currentData(),'width_reference':width_reference.currentData()}
+        if spec is not None:
+            canonical=OP.span_of(spec,width.value(),ref_state,int(d.get('side',1)))
+            width.blockSignals(True);width.setValue(OP.measure_of(spec,canonical,now,int(d.get('side',1))));width.blockSignals(False)
+        ref_state.update(now)
+    curve_mode.currentIndexChanged.connect(reference_changed)
+    width_reference.currentIndexChanged.connect(reference_changed)
+    for w in (operation, face, sill_kind, setback_from,curve_mode,width_reference):
         w.currentIndexChanged.connect(refresh)
+    facet.valueChanged.connect(refresh)
     preset.currentIndexChanged.connect(on_preset)
     refresh()
     dlg._arq = dict(typ=typ, operation=operation, leaves=leaves, preset=preset, leaf=leaf, leaf2=leaf2,
                     width=width, height=height, sill=sill, face=face, sill_kind=sill_kind, name=name,
                     clear=status, status=status, ifc=ifc, preview=preview, frame_width=frame_w,
+                    curve_mode=curve_mode,width_reference=width_reference,facet_sagitta=facet,
                     frame_material=m_frame, leaf_material=m_leaf, glass_material=m_glass,
-                    sill_material=m_sill, problems=problems)
+                    sill_material=m_sill, setback=setback, setback_from=setback_from, problems=problems)
     return dlg, read
 
 

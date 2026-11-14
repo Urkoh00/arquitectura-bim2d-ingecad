@@ -28,7 +28,7 @@ import tempfile
 from pathlib import Path
 
 SUFFIX = ".arqbim"
-SUPPORTED = (1,)
+SUPPORTED = (1,2)
 #: key of this extension's data in the document (``scene.plugin_data``):
 #: never the loader's file name, which the host would use by default
 DATA_KEY = "arquitectura"
@@ -189,6 +189,42 @@ def validate_contract(data):
             raise ValueError("%s: su muro anfitrión no está en el modelo" % el["id"])
         if el.get("fills") and voids.get(el["fills"]) != el.get("host"):
             raise ValueError("%s: no rellena un hueco de su muro" % el["id"])
+    refs=data.get('reference_grids',{})
+    if not isinstance(refs,dict):raise ValueError('Referencias de rejilla no válidas')
+    if refs.get('ifc_grid_exported',False) is not False:raise ValueError('IfcGrid no está soportado por este contrato')
+    if type(refs.get('grids',[])) is not list or type(refs.get('column_links',[])) is not list:
+        raise ValueError('Faltan colecciones de ejes y vínculos')
+    ref_axes={};grid_ids=set()
+    for grid in refs.get('grids',[]):
+        if not isinstance(grid,dict) or not isinstance(grid.get('id'),str) or not grid['id'] or grid['id'] in grid_ids:
+            raise ValueError('Rejilla duplicada o sin identidad')
+        grid_ids.add(grid['id']);labels=set()
+        if not isinstance(grid.get('axes'),list):raise ValueError('Faltan los ejes de rejilla')
+        for axis in grid['axes']:
+            if not isinstance(axis,dict) or not isinstance(axis.get('id'),str) or not axis['id'] or axis['id'] in ref_axes or axis['id'] in ids:
+                raise ValueError('Identidad de eje no válida o duplicada')
+            points=axis.get('points');label=axis.get('label');family=axis.get('family')
+            if (not isinstance(points,list) or len(points)!=2 or
+                any(not isinstance(p,list) or len(p)!=2 or any(type(v) not in (float,int) for v in p) for p in points)
+                or math.dist(*points)<1e-6):raise ValueError('Geometría de eje no válida')
+            if not isinstance(label,str) or not label or len(label)>64 or family not in ('U','V','S'):
+                raise ValueError('Marca o familia de eje no válida')
+            if (family,label) in labels:raise ValueError('Etiqueta de eje repetida')
+            labels.add((family,label));ref_axes[axis['id']]=(grid['id'],family,label)
+    bound=set()
+    for link in refs.get('column_links',[]):
+        if not isinstance(link,dict) or link.get('column_id') in bound:
+            raise ValueError('Vínculo de pilar duplicado o inválido')
+        bound.add(link.get('column_id'))
+        column=by_id.get(link.get('column_id'),{})
+        u,v=ref_axes.get(link.get('u')),ref_axes.get(link.get('v'))
+        if column.get('ifc_class')!='IfcColumn' or not u or not v or u[0]!=v[0] or u[0]!=link.get('grid_id') or u[1]!='U' or v[1]!='V':
+            raise ValueError('Vínculo con eje o pilar inexistente')
+        if link.get('mark')!=v[2]+'-'+u[2]:raise ValueError('Marca de ubicación desactualizada')
+        if not isinstance(link.get('offset'),list) or len(link['offset'])!=2 or any(type(v) not in (float,int) for v in link['offset']):
+            raise ValueError('Desfase de pilar no válido')
+        if column.get('params',{}).get('grid_link')!={k:v for k,v in link.items() if k!='column_id'}:
+            raise ValueError('El vínculo de pilar no coincide con la definición de rejilla')
     return data
 
 
@@ -243,7 +279,8 @@ def definition(data, source=""):
         elements.append(rec)
     return {"schema": 1, "format": data.get("format"), "version": data.get("version"),
             "generator": data.get("generator"), "project": data.get("project"),
-            "levels": data.get("levels"), "source": str(source), "elements": elements}
+            "levels": data.get("levels"), "source": str(source), "elements": elements,
+            "reference_grids":data.get("reference_grids",{})}
 
 
 def build_scene(data, offset=None):

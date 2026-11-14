@@ -56,7 +56,7 @@ def opening_change(entity, values):
     spec=J.walls_from_records([(w['id'],w)])[0]
     v=dict(values)
     real=float(v.pop('width'))
-    width=OP.span_of(spec,real)
+    width=OP.span_of(spec,real,v,int(v.get('side',d.get('side',1))))
     offset=float(v.pop('offset',d['offset']))
     if 'offset' not in values:          # keep its centre
         offset=float(d['offset'])+float(d['width'])/2-width/2
@@ -117,6 +117,13 @@ class ArqPropiedadesTool(Tool):
                 values=bim_dialogs.column_properties(self.ctx,data)
                 command=EditColumnCommand(entity,values) if values is not None else None
             elif data['kind']=='opening':
+                from . import openings as OP
+                from .geom.junctions import walls_from_records
+                host=next((metadata(e) for e in entity.doc.modelspace() if (metadata(e)or{}).get('id')==data.get('wall_id')),None)
+                if host:
+                    spec=walls_from_records([(host['id'],host)])[0]
+                    data={**data,'_wall_spec':spec,'_wall_thickness':spec.thickness,
+                          '_display_width':OP.measure_of(spec,data['width'],data,int(data.get('side',1)))}
                 values=bim_dialogs.carpentry_properties(self.ctx,data,editing=True)
                 command=opening_change(entity,values) if values is not None else None
             else:

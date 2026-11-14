@@ -2,6 +2,34 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.22.0-dev — 2026-11-14
+
+Integra la entrega C1/D2 de Codex (encargos R13-A2 y R14), revisada: SHA-256 correcto, parche aplicado sobre
+la v1.21 sin conflictos; 464 pruebas con IngeCAD 0.8 y 456 + 8 omitidas con la 0.7.
+
+### Carpintería en el espesor del muro (A2)
+- Posición «a distancia»: retranqueo desde la cara de apertura o la opuesta, validado contra el espesor.
+
+### Carpintería curva (C1)
+- En muros curvos, la ficha elige carpintería **plana** (en la cuerda) o **curva**: ventana fija, ventana
+  corredera y puerta corredera siguen el arco, facetadas con la misma lista de estaciones en planta y en
+  3D (flecha máxima 2 mm). Las abatibles curvas se rechazan con un aviso.
+- Ancho y posición medidos sobre el arco (eje o cara). CURVAMURO conserva la carpintería y su posición.
+- Pendiente: el IFC de IngeTrazo pierde las dimensiones y relaciones de los huecos curvos (T-09, T-04).
+
+### Rejillas estructurales (D2)
+- **EJES / REJILLA**: malla de una vez (`3x5,40 4,20`), números en una dirección y letras en la otra (sin I,
+  O ni Ñ; después de Z, AA), prefijo y sufijo, burbujas en círculo o hexágono en ambos extremos, capa
+  `ARQ-EJES` en trazo y punto gris fino. Eje suelto por dos puntos.
+- **EDITAREJE** (mover, estilo, renumerar), **PILARESENEJES** (pilares en todas las intersecciones o en una
+  zona, un Deshacer) y **ACTUALIZAEJES** (para IngeCAD 0.7).
+- Un pilar en una intersección guarda su marca (por ejemplo `B-3`) y se mueve con el eje (reactores en 0.8).
+  La marca viaja en `Pset_ColumnCommon.Reference` y, como IngeTrazo no escribe ese conjunto, también en el
+  nombre exportado (`[B-3]`).
+- Cotas en cadena y totales de la rejilla, regeneradas al mover un eje.
+- Las rejillas viajan como datos (`reference_grids`) en `.arqbim` e IGZ; IngeTrazo no admite `IfcGrid`
+  (T-14). Pendiente: ejes curvos o radiales y ortogonal según la rejilla.
+
 ## 1.21.0-dev — 2026-11-14
 
 ### Clasificación normativa de los recintos (CTE e ITC-BT-25)

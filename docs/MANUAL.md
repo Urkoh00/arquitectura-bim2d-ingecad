@@ -1,12 +1,12 @@
 # Manual de Arquitectura para IngeCAD
 
-Versión 1.21.0-dev · 14-11-2026
+Versión 1.22.0-dev · 14-11-2026
 
 > Copia del manual publicado como documento en claude.ai; se regenera con cada versión.
 
 ## Qué es
 
-Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.21.0-dev** y se actualiza con cada versión.
+Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.22.0-dev** y se actualiza con cada versión.
 
 Cada elemento guarda su identidad persistente, su clase IFC, su geometría editable en planta, sus parámetros 3D (altura, espesor, cota), sus propiedades constructivas (tipo, material, capas) y su nivel. Las carpinterías conocen su muro y los recintos siguen a los muros que los cierran.
 
@@ -23,7 +23,7 @@ El plugin se instala copiando una carpeta en IngeCAD, y la extensión copiando d
 
 **En IngeCAD**
 
-1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.21.0-dev.zip`.
+1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.22.0-dev.zip`.
 2. Copie la carpeta `arquitectura` en la carpeta de plugins de IngeCAD.
 3. Reinicie IngeCAD. Aparece el menú *Arquitectura* y su barra de herramientas.
 4. Escriba `ARQDIAG` en la línea de órdenes para comprobar que la versión cargada es la que acaba de copiar.
@@ -373,6 +373,14 @@ Si encuentra alguno, abre un cuadro con la lista. Al seleccionar un problema, su
 
 **Volver a importar (desde la 1.20).** Si cambia el plano en IngeCAD, exporte de nuevo el `.arqbim` y vuelva a abrirlo en IngeTrazo: el modelo se **actualiza** en lugar de duplicarse. Los elementos se reconocen por su identificador BIM; los cambiados se sustituyen, los nuevos se añaden y los borrados se retiran, todo en un solo `Deshacer`. Copie en la carpeta de extensiones de IngeTrazo los dos ficheros, `arquitectura_bim.py` y `_arqbim_sync.py`. Los modelos importados con versiones anteriores no se actualizan solos: bórrelos antes de la primera reimportación.
 
+## Ejes estructurales (rejillas) y carpintería curva
+
+**EJES** (o `REJILLA`) dibuja la malla de ejes de una vez: origen, ángulo y separaciones en cada dirección, como lista o en la forma `3x5,40 4,20` (tres vanos de 5,40 y uno de 4,20). Una dirección se numera (1, 2, 3…) y la otra con letras mayúsculas, saltando I, O y Ñ; después de Z siguen AA, AB… Admite prefijo y sufijo. Los ejes sobresalen del contorno, llevan burbuja (círculo o hexágono) con su identificador en uno o ambos extremos y van en la capa `ARQ-EJES`, en trazo y punto gris fino. La opción «Suelto» crea un eje por dos puntos. Se acotan solos (cadena y total) y las cotas se regeneran al mover un eje.
+
+**EDITAREJE** mueve un eje, cambia sus extremos y su burbuja o renumera desde él. **PILARESENEJES** coloca pilares de la sección elegida en todas las intersecciones o en las de una zona, en un solo `Deshacer`. Un pilar colocado en una intersección guarda su **marca** (por ejemplo `B-3`), que se ve en su ficha y se exporta; al mover el eje, sus pilares lo siguen. En IngeCAD 0.7, después de mover ejes con órdenes genéricas, ejecute `ACTUALIZAEJES`. IngeTrazo no admite todavía rejillas en el IFC: viajan como datos en el `.arqbim` y la marca del pilar aparece en su nombre (`[B-3]`).
+
+**Carpintería en muros curvos.** La ficha de carpintería permite elegir **plana** (en la cuerda entre las jambas) o **curva**: la ventana fija, la ventana corredera y la puerta corredera siguen el arco del muro, con el mismo facetado en planta y en 3D. Las puertas y ventanas abatibles curvas no se admiten (aviso). El ancho y la posición se miden sobre el arco, por el eje o por una cara. La posición en el espesor admite también **«a distancia»**: un retranqueo desde la cara de apertura o la opuesta, que debe caber en el espesor. `CURVAMURO` conserva las carpinterías y su posición. El IFC de IngeTrazo todavía no conserva las dimensiones ni las relaciones de los huecos curvos.
+
 ## Referencia rápida de órdenes
 
 `AYUDAARQ` muestra esta lista en la línea de órdenes.
@@ -412,7 +420,7 @@ Si encuentra alguno, abre un cuadro con la lista. Al seleccionar un problema, su
 
 ## Limitaciones conocidas
 
-Estas son las limitaciones conocidas de la versión 1.21.0-dev; cada versión actualiza esta lista.
+Estas son las limitaciones conocidas de la versión 1.22.0-dev; cada versión actualiza esta lista.
 
 - **Plataforma:** las pruebas automáticas se ejecutan en Linux y en Windows con IngeCAD oficial (las versiones 0.7.0 y 0.8.0), pero sin pantalla. El usuario probó la v1.17 en Windows 10 con IngeCAD 0.8 e IngeTrazo 0.6.1: la cadena hasta el IFC funcionó; las correcciones de la v1.18 salen de esa prueba.
 - **Muros curvos:** cada muro llega como mucho a media circunferencia (un muro redondo son dos). MUROPARALELO y DIVIDEMURO solo toman líneas rectas como referencia. El gesto de esquina en L al terminar un MURO solo recorta muros rectos.
@@ -426,6 +434,7 @@ Estas son las limitaciones conocidas de la versión 1.21.0-dev; cada versión ac
 
 | Fecha | Versión | Novedades |
 | --- | --- | --- |
+| 14-11-2026 | 1.22.0-dev | Ejes estructurales (EJES, EDITAREJE, PILARESENEJES, ACTUALIZAEJES) con marca de pilar; carpintería curva en muros curvos; retranqueo de la carpintería a una distancia de la cara |
 | 14-11-2026 | 1.21.0-dev | Clasificación normativa de los recintos: una etiqueta por documento del CTE y de la ITC-BT-25, propuesta según el uso y exportación en ARQ\_ClasificacionCTE |
 | 14-11-2026 | 1.20.3-dev | LINEASAMURO reconoce mejor puertas dobles, tabiques finos cortados por los marcos, machones y entradas retranqueadas; previsualización con símbolos de puerta, ventana y vano |
 | 14-11-2026 | 1.20.2-dev | LINEASAMURO: detecta planos que no están a escala real y propone el factor; no lee capas apagadas; designación con ventana; huecos en muros curvos; identificadores estables al Deshacer/Rehacer |

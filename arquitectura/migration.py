@@ -58,3 +58,12 @@ def migrar_arq(ctx,*args):
         ctx.echo(f'ARQMIGRAR: {cmd.count} registros anteriores convertidos a ejes BIM. Se puede deshacer.')
     except Exception as exc:
         ctx.echo(f'ARQMIGRAR: error ({type(exc).__name__}: {exc})')
+
+
+def migrate_opening_position(record):
+    """Add optional offset fields; old face/side semantics stay unchanged.
+
+    No geographic facade is inferred, and no drawing mutation occurs here.
+    """
+    from .openings import normalise
+    return normalise(dict(record))

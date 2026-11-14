@@ -32,7 +32,7 @@ import os
 from collections import defaultdict
 from pathlib import Path
 
-_VERSION = "1.21.0-dev"
+_VERSION = "1.22.0-dev"
 
 from core.plugins import SEPARATOR, MenuItem, PluginSpec, Submenu, ToolbarItem
 from tools.base import Tool
@@ -1536,18 +1536,22 @@ def plugin_spec() -> PluginSpec:
     fields = {f.name for f in dataclasses.fields(PluginSpec)}
     if "reactors" in fields:
         from .reactor import ArquitecturaReactor
-        extra["reactors"] = (ArquitecturaReactor(),)
+        from .grids import GridReactor
+        extra["reactors"] = (ArquitecturaReactor(),GridReactor())
     if "on_double_click" in fields:
         from .double_click import on_double_click
         extra["on_double_click"] = on_double_click
+    from .grid_tools import GridTool,RejillaTool,GridEditTool,GridColumnsTool
+    from .grids import update,GridGrips
+    if "grip_handlers" in fields:extra["grip_handlers"]={"LWPOLYLINE":GridGrips()}
     return PluginSpec(
         **extra,
         id="arquitectura",
         name="Arquitectura",
         version=_VERSION,
         description="Dibujo arquitectónico 2D con objetos BIM (muros, pilares, carpinterías) y exportación a IngeTrazo/IFC",
-        tools={tool.name: tool for tool in (*TOOL_CLASSES, Muro3DTool, Hueco3DTool)},
-        commands={"EXPORTARBIM": exportar_bim, "EXPORTARIGZ": exportar_igz, "CONFIGIGZ": configurar_igz, "DIAGNOSTICOARQ": diagnostico_arq, "ARQDIAG": arqdiag, "UNIONESARQ": unionesarq, "ARQVALIDAR": validar_arq, "ARQMIGRAR": migrar_arq, "PARAMETROSARQ": parametros_arq, "TIPOSMURO": tipos_muro, "USOSARQ": usos_arq},
+        tools={tool.name: tool for tool in (*TOOL_CLASSES, Muro3DTool, Hueco3DTool,GridTool,RejillaTool,GridEditTool,GridColumnsTool)},
+        commands={"ACTUALIZAEJES":update,"EXPORTARBIM": exportar_bim, "EXPORTARIGZ": exportar_igz, "CONFIGIGZ": configurar_igz, "DIAGNOSTICOARQ": diagnostico_arq, "ARQDIAG": arqdiag, "UNIONESARQ": unionesarq, "ARQVALIDAR": validar_arq, "ARQMIGRAR": migrar_arq, "PARAMETROSARQ": parametros_arq, "TIPOSMURO": tipos_muro, "USOSARQ": usos_arq},
         menu=(
             MenuItem("Opciones generales y parámetros iniciales...", "PARAMETROSARQ", icon=glyph / "parametros.svg"),
             MenuItem("Tipos de muro (espesor total y capas)...", "TIPOSMURO", icon=glyph / "tiposmuro.svg"),
@@ -1581,6 +1585,10 @@ def plugin_spec() -> PluginSpec:
                 MenuItem("Convertir muros de versiones anteriores", "ARQMIGRAR"),
             )),
             Submenu("Documentación", (
+                MenuItem("Rejilla estructural", "EJES"),
+                MenuItem("Editar o renumerar eje", "EDITAREJE"),
+                MenuItem("Pilares en intersecciones", "PILARESENEJES"),
+                MenuItem("Actualizar rejillas (también 0.7)", "ACTUALIZAEJES"),
                 MenuItem("Cotas automáticas a través de los muros", "COTAMUROS", icon=glyph / "cotamuros.svg"),
                 MenuItem("Cuadro de superficies útiles", "SUPERFICIES", icon=glyph / "superficies.svg"),
             )),

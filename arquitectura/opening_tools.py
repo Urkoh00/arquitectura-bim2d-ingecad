@@ -79,7 +79,7 @@ class CarpinteriaTool(Tool):
         if taken:
             # a double-click on a carpentry: its model, no sheet (D opens it)
             keys = ("type", "operation", "leaves", "leaf", "leaf2", "width", "height", "sill", "face",
-                    "frame_width", "frame_depth", "sill_kind", "name", "type_name", "material")
+                    "curve_mode", "facet_sagitta", "width_reference", "frame_width", "frame_depth", "setback", "setback_from", "sill_kind", "name", "type_name", "material")
             self.apply_sheet({k: taken[k] for k in keys if k in taken})
             self.ctx.echo(f"{self.name}: con el modelo de {taken.get('name') or 'la carpintería'}.")
         elif not self._sheet(first=True):
@@ -133,7 +133,7 @@ class CarpinteriaTool(Tool):
 
     def _width(self):
         v = self.v
-        if v["type"] == "door":
+        if v["type"] == "door" and v.get('curve_mode')!='curva':
             return OP.door_width(v["leaf"], v["leaves"], v.get("leaf2") or 0.0, v["frame_width"])
         return float(v["width"])
 
@@ -245,7 +245,7 @@ class CarpinteriaTool(Tool):
                     w /= 100.0
             if w <= 0:
                 raise ValueError("el ancho debe ser positivo")
-            if v["type"] == "door":
+            if v["type"] == "door" and v.get('curve_mode')!='curva':
                 v["leaf"] = w
             else:
                 v["width"] = w
@@ -291,6 +291,14 @@ class CarpinteriaTool(Tool):
                 self.mode = "maxima"
             else:
                 self.mode = "libre"
+        elif key == "cara" and t.startswith("distancia"):
+            parts = t.split()
+            if len(parts) != 3 or parts[1] not in ("interior", "exterior"):
+                raise ValueError("Use: distancia interior|exterior retranqueo_en_metros")
+            distance = _num(parts[2])
+            if distance < 0:
+                raise ValueError("Retranqueo negativo")
+            v.update(face="distancia", setback_from=parts[1], setback=distance)
         elif key == "cara":
             v["face"] = {"i": "interior", "c": "centrada", "m": "centrada",
                          "e": "exterior"}.get(t[:1], v["face"])
@@ -363,7 +371,7 @@ class CarpinteriaTool(Tool):
         span, other, usable = OP.free_span(spec, segs.get(spec.id, []), s, side)
         if usable is None:
             raise ValueError("no se encuentra la cara libre del muro")
-        width = OP.span_of(spec, self._width())       # along the wall (a curved one: its arc)
+        width = OP.span_of(spec, self._width(), self.v, side)       # along the wall (a curved one: its arc)
         if self.mode == "libre":
             if toward is None:
                 toward = 1 if usable[1] - s >= s - usable[0] else -1
@@ -396,7 +404,7 @@ class CarpinteriaTool(Tool):
         apply_architectural_change(self.ctx, cmd, kind="opening")
         self.last = getattr(cmd, "entity", None)
         self._cache = None
-        if v["type"] == "door" and self.last is not None:
+        if v["type"] == "door" and self.last is not None and v.get("curve_mode")!="curva":
             rec = metadata(self.last) or {}
             frame, opened = OP.clear_width(rec)
             ok = OP.sua_accessible(rec)
@@ -408,7 +416,7 @@ class CarpinteriaTool(Tool):
         real = OP.chord_of(spec, width)
         self.ctx.echo(f"CARPINTERIA: {what} en el muro "
                       f"({real:.3f} m a {s0:.3f} m de su inicio".replace(".", ",", 2)
-                      + (", plana sobre la cuerda del muro curvo)." if spec.curved else ")."))
+                      + (", curva sobre el arco)." if spec.curved and v.get("curve_mode")=="curva" else (", plana sobre la cuerda del muro curvo)." if spec.curved else ").")))
 
     def _edit(self, entity, changes, what):
         from .architectural_v10 import edit_opening
@@ -426,7 +434,7 @@ class CarpinteriaTool(Tool):
         """Current model on an existing opening: same identity and centre."""
         m = metadata(entity)
         spec = self._model()[0].get(m.get("wall_id"))
-        width = (OP.span_of(spec, self._width()) if spec is not None else self._width()) \
+        width = (OP.span_of(spec, self._width(), self.v, m.get("side",1)) if spec is not None else self._width()) \
             if (self.width_given or m.get("type") != self.v["type"]) else float(m["width"])
         centre = float(m["offset"]) + float(m["width"]) / 2
         changes = {k: self.v[k] for k in OP.V3_KEYS if k in self.v and k not in ("side", "hinge")}

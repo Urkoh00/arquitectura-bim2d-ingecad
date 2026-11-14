@@ -197,7 +197,7 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD", problem
         for o in ops:
             o = OP.normalise(o)
             if spec.curved:          # the radial jambs and curved faces of the hole
-                box = S.prism_solid(OP.cut_polygon(spec, o, 0.01),
+                box = S.prism_solid(OP.cut_polygon(spec, o, 0.0),
                                     float(m.get("base", 0.0)) + float(o["sill"]), float(o["height"]))[0]
             else:
                 box = S.opening_box(spec.a, spec.u, spec.n, spec.lo - 0.01, spec.hi + 0.01,
@@ -213,6 +213,8 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD", problem
                                    "params": {k: o[k] for k in ("offset", "width", "sill", "height")},
                                    "faces": _faces_json(box)})
             if filled:
+                if o.get('curve_mode')=='curva' and not any('IFC: dimensiones curvas' in note for note in issues):
+                    issues.append('IFC: dimensiones curvas y relaciones de huecos no fiables en el ensayo del exportador oficial; las medidas de origen permanecen en el contrato.')
                 fillings.append(_filling(o, spec, {**m, "_external": ident in external}, level,
                                          ifc_guid(void_id), ident))
         elements.append(el)
@@ -232,6 +234,14 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD", problem
         faces, volume = S.wall_solid(sec_pieces, (0.0, 0.0), (1.0, 0.0), base, height, ())
         sec_area = sum(P.area(pc) for pc in sec_pieces)
         el = _element(ident, "IfcColumn", m, faces, volume, sec_area, level)
+        if m.get("grid_link"):
+            from .grids import current_link
+            el["params"]["grid_link"]=current_link(drawing,m)
+            el["psets"].setdefault("Pset_ColumnCommon",{})["Reference"]=el['params']['grid_link']['mark']
+            # The official writer keeps Name but not source psets. Preserve
+            # the CAD name and explicitly enrich only the export.
+            el['params']['source_name']=el['name']
+            el['name']+=' ['+el['params']['grid_link']['mark']+']'
         el["params"].update({k: m.get(k) for k in ("shape", "width", "depth", "radius",
                                                    "rotation", "center", "profile", "cover")})
         el["footprint"] = [[[list(p) for p in result.columns[ident]], []]]
@@ -343,8 +353,12 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD", problem
         ids.update([el["id"], *keys])
         kept.append(el)
     elements = kept
+    from .grids import contract as grid_contract
+    references=grid_contract(drawing)
+    extended=bool(references['grids']) or any(el.get('params',{}).get('curve_mode')=='curva' for el in elements)
     return {
-        "format": FORMAT, "version": VERSION, "units": "m",
+        "reference_grids": references,
+        "format": FORMAT, "version": 2 if extended else VERSION, "units": "m",
         "generator": generator, "project": {"name": project, **_usos(drawing)},
         "levels": [{"name": n, "elevation": z} for n, z in sorted(levels.items(), key=lambda kv: kv[1])],
         "elements": elements,
@@ -423,7 +437,9 @@ def _filling(o, spec, wall_meta, level, void_guid, wall_id):
     spec = OP.carpentry_spec(spec, o)          # a curved wall: the planar carpentry on its chord
     faces, parts, volume = [], [], 0.0
     for k, piece in enumerate(pieces):
-        if "prism" in piece:
+        if 'faces' in piece:
+            box,vol=piece['faces'],piece['volume']
+        elif "prism" in piece:
             outline, holes, p, q = piece["prism"]
             box = _wall_prism(spec, outline, holes, p, q)
             area = abs(P.area(outline)) - sum(abs(P.area(h)) for h in holes)
@@ -452,11 +468,12 @@ def _filling(o, spec, wall_meta, level, void_guid, wall_id):
                 face["part"] = k
             start += part.pop("faces")
         el["parts"] = parts
+    el["params"].update({k:o.get(k) for k in ("curve_mode","facet_sagitta","width_reference")})
     el["fills"] = void_guid
     el["enums"] = _door_enums(o)
     el["host"] = wall_id
     el["params"].update({k: o.get(k) for k in ("offset", "width", "sill", "leaves", "leaf", "leaf2",
-                                              "side", "hinge", "face", "frame_width", "frame_depth",
+                                              "side", "hinge", "face", "setback", "setback_from", "frame_width", "frame_depth",
                                               "sill_kind", "chord", "operation", "leaf_thickness",
                                               "frame_material", "leaf_material", "glass_material")})
     # the canonical opening type, not a translated word (audit R10, S3)
@@ -464,9 +481,15 @@ def _filling(o, spec, wall_meta, level, void_guid, wall_id):
     common = el["psets"].setdefault(PSET[cls], {})
     common["IsExternal"] = bool(wall_meta.get("_external"))
     arq = el["psets"]["ARQ_IngeCAD"]
+    arq.update(CurveMode=o.get('curve_mode','plana'),ReferenceArcWidth=float(o['width']),
+               WidthReference=o.get('width_reference','cuerda'))
     for k in ("Thickness", "Reference"):
         arq.pop(k, None)
     arq["Host"] = wall_id
+    arq["FramePositionMode"] = o.get("face", "interior")
+    arq["FrameSetback"] = float(o.get("setback", 0.0))
+    arq["FrameSetbackReference"] = o.get("setback_from", "exterior")
+    arq["FrameReferenceIsGeographic"] = False
     arq["Apertura"] = OP.OPERATION_NAMES.get(o.get("operation"), "")
     arq["Ajuste"] = {"centrada": "medio"}.get(o.get("face"), o.get("face"))
     if o["type"] == "door":
