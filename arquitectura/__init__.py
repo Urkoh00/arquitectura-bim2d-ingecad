@@ -32,7 +32,7 @@ import os
 from collections import defaultdict
 from pathlib import Path
 
-_VERSION = "1.20.2-dev"
+_VERSION = "1.20.3-dev"
 
 from core.plugins import SEPARATOR, MenuItem, PluginSpec, Submenu, ToolbarItem
 from tools.base import Tool

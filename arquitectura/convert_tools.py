@@ -648,6 +648,7 @@ class LineasAMuroTool(Tool):
             p = self.conversion_preview
             self.ctx.echo(f'Previsualización: {len(p.result[0])+len(p.result[3])} muros, '
                           f'{len(p.result[1])+len(p.curved_openings)} huecos y {len(p.result[4])} pilares.')
+            self.ctx.echo('Símbolos: puertas con giro, ventanas con vidrio y vanos con una X; revise antes de confirmar.')
             for warning in p.warnings:
                 self.ctx.echo(warning)
             return

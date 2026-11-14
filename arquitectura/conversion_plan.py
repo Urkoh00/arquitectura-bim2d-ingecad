@@ -59,6 +59,7 @@ class Plan:
     origin: str
     wall_roles: list = field(default_factory=list)
     curved_openings: list = field(default_factory=list)
+    _preview_symbols: object = field(default=None,init=False,repr=False)
 
     @property
     def segments(self):
@@ -68,7 +69,42 @@ class Plan:
             spec=Wall('preview',a,b,t,'eje',bulge=bulge)
             points=spec.run(0.,a,b)
             lines.extend(zip(points,points[1:]))
-        return lines
+        return lines + [s for group in self.opening_symbols().values() for s in group]
+
+    def opening_symbols(self):
+        """Native carpentry symbols, flattened only for tool feedback.
+
+        No entities or annotation system are added to the drawing. An X
+        identifies an unfilled opening. Works through preview_segments on
+        both supported hosts without requiring custom overlay colours.
+        """
+        if self._preview_symbols is not None:return self._preview_symbols
+        from .geom.junctions import Wall
+        from . import openings as OP,convert_tools as C
+        groups={'door':[],'window':[],'void':[]}
+        walls=[Wall('preview',a,b,t,'eje') for a,b,t in self.result[0]]
+        curves=[Wall('preview',a,b,t,'eje',bulge=bulge) for a,b,t,bulge in self.result[3]]
+        for hosts,operations in ((walls,self.result[1]),(curves,self.curved_openings)):
+            for k,pos,width,kind,hinge,side in operations:
+                spec=hosts[k];s0,s1=pos-width/2,pos+width/2
+                if kind=='void':
+                    groups[kind].extend([(spec.point(s0,spec.lo),spec.point(s1,spec.hi)),
+                                         (spec.point(s0,spec.hi),spec.point(s1,spec.lo))])
+                    continue
+                rec=OP.normalise({'type':kind,'offset':s0,'width':width,
+                    'height':min(2.1,self.height),'sill':0.,'hinge':int(hinge>0),
+                    'side':1 if side>=0 else -1,'chord':OP.chord_of(spec,width)})
+                for glyph in OP.plan_symbol(spec,rec):
+                    if glyph[0]=='line':groups[kind].append((glyph[1],glyph[2]))
+                    elif glyph[0]=='poly':
+                        points=glyph[1];groups[kind].extend(zip(points,points[1:]+(points[:1] if glyph[2] else [])))
+                    elif glyph[0]=='arc':
+                        center,r,a0,a1=glyph[1:]
+                        a0,a1=math.radians(a0),math.radians(a1)
+                        if a1<=a0:a1+=math.tau
+                        groups[kind].extend(((s[0],s[1]),(s[2],s[3])) for s in C._flatten(center,r,a0,a1))
+        self._preview_symbols=groups
+        return groups
 
 
 def layers_present(drawing):
@@ -330,6 +366,17 @@ def analyse(drawing, lo, hi, classification, tmin=.07, tmax=.5, height=2.7,
     used = [];unpaired=result[5]
     from .geom.junctions import Wall
     curve_specs=[Wall('source-check',a,b,t,'eje',bulge=bulge) for a,b,t,bulge in curved]
+    source_specs=[Wall('source-check',a,b,t,'eje') for a,b,t in result[0]]+curve_specs
+    def represented_line(segment):
+        if C._on_a_wall(segment,result[0]):return True
+        for w in source_specs:
+            sa,oa=w.local(segment[:2]);sb,ob=w.local(segment[2:4])
+            if min(sa,sb)<-.02 or max(sa,sb)>w.length+.02:continue
+            cap=(abs(sa-sb)<.02 and abs(min(oa,ob)-w.lo)<.02
+                 and abs(max(oa,ob)-w.hi)<.02)
+            face=(w.curved and max(abs(abs(o)-w.thickness/2) for o in (oa,ob))<.002)
+            if cap or face:return True
+        return False
     def represented_arc(arc):
         center,radius,a0,a1=arc
         for step in range(9):
@@ -346,6 +393,8 @@ def analyse(drawing, lo, hi, classification, tmin=.07, tmax=.5, height=2.7,
         if source is None or source.dxftype()=='INSERT':
             continue
         segs,arcs=C._pieces(v)
+        if v.dxf.layer=='WALL' and not all(represented_line(s) for s in segs):
+            continue  # even a very short unrecognised source must not disappear
         if arcs and not all(represented_arc(arc) for arc in arcs):
             continue  # a source containing an unpaired arc must stay visible
         doubtful=any(math.dist(f[:2],f[2:4])>tmax+.05 and

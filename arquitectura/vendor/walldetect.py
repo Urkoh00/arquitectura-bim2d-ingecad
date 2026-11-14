@@ -1,4 +1,8 @@
-# Vendored without changes (below this header) from cad2ingetrazo, commit de4ba88
+# Vendored from cad2ingetrazo, commit de4ba88; local R14-b deviations below:
+# - merge contiguous collinear strokes before face pairing;
+# - require glazing anchored across the gap; accept strong paired swings;
+# - split unsupported gaps individually and suppress evidenced recess fronts.
+# These changes are local proposals, not upstream fixes or upstream approval.
 # (2026-11-07), file cad2ingetrazo/engine/walldetect.py:
 #   https://github.com/mtak35/cad2ingetrazo
 # Written for the ArchXQ Community build and reused by CAD2IngeTrazo.
@@ -227,13 +231,42 @@ def _pairs(lines, tmin, tmax):
                 continue
             t1, t2 = _dot(_sub(p2, p), u), _dot(_sub(q2, p), u)
             o0, o1 = max(0.0, min(t1, t2)), min(L, max(t1, t2))
-            if o1 - o0 < MIN_LEN:
+            if o1-o0 < MIN_LEN and not (t<=.125 and o1-o0>=max(.06,.6*t)):
                 continue
             if _blocked(S, near, i, j, p, u, n, s, o0, o1, a):
                 continue
             off = _mul(n, s / 2.0)
             out.append({"p": _add(_add(p, _mul(u, o0)), off),
                         "q": _add(_add(p, _mul(u, o1)), off), "t": t})
+    return out
+
+
+def _contiguous(lines):
+    """Join strokes on the SAME face, never opening-sized interruptions.
+
+    A face fragmented below MIN_LEN is not noise as a whole. Keep the
+    original coordinates' line and drafting tolerance; no global snapping.
+    """
+    groups=[]
+    for p,q in lines:
+        if _len(_sub(q,p))<1e-9:continue
+        u=_canon(_unit_v(_sub(q,p)));n=_perp(u)
+        for g in groups:
+            if (_angdiff(_ang(g['u']),_ang(u))<=ANG_TOL
+                    and max(abs(_dot(x,g['n'])-g['c']) for x in (p,q))<=PAR_TOL):
+                g['iv'].append(sorted((_dot(p,g['u']),_dot(q,g['u']))));break
+        else:
+            groups.append({'u':u,'n':n,'c':_dot(p,n),
+                           'iv':[sorted((_dot(p,u),_dot(q,u)))]})
+    out=[]
+    for g in groups:
+        merged=[]
+        for lo,hi in sorted(g['iv']):
+            if merged and lo<=merged[-1][1]+PAR_TOL:
+                merged[-1][1]=max(hi,merged[-1][1])
+            else:merged.append([lo,hi])
+        base=_mul(g['n'],g['c'])
+        out.extend((_add(base,_mul(g['u'],lo)),_add(base,_mul(g['u'],hi))) for lo,hi in merged)
     return out
 
 
@@ -397,6 +430,7 @@ def _gap_kind(mid, width, u, t, context):
     swing2 = [0.0] * len(hinges)        # two leaves: each half the width
     face2 = [0.0] * len(hinges)
     glaze = 0.0
+    glazing=[]
     for s in context:
         a, b = (s[0], s[1]), (s[2], s[3])
         d = _sub(b, a)
@@ -409,7 +443,13 @@ def _gap_kind(mid, width, u, t, context):
         par = abs(_dot(_unit_v(d), u)) > math.cos(math.radians(ANG_TOL * 3))
         if par and abs(along) <= half + PAR_TOL \
                 and abs(across) < t / 2 + PAR_TOL:
-            glaze += L
+            ends=sorted((_dot(_sub(a,mid),u),_dot(_sub(b,mid),u)))
+            # A nearby stroke extending beyond a jamb is not evidence of
+            # this opening. Combine fragmented glazing, not just its length.
+            lo,hi=max(-half,ends[0]),min(half,ends[1])
+            if hi>lo:
+                glaze += hi-lo
+                glazing.append((lo,hi))
             continue
         if par:
             continue
@@ -419,7 +459,7 @@ def _gap_kind(mid, width, u, t, context):
             continue
         for k, H in enumerate(hinges):          # a chord of that circle:
             ra, rb = _len(_sub(a, H)), _len(_sub(b, H))   # both ends on it,
-            if abs(_dot(_unit_v(d), _unit_v(_sub(m, H)))) > 0.2:
+            if abs(_dot(_unit_v(d), _unit_v(_sub(m, H)))) > 0.3:
                 continue                                   # square to its
             for R, sw, fc in ((width, swing, face),        # radius
                               (width / 2, swing2, face2)):
@@ -431,6 +471,17 @@ def _gap_kind(mid, width, u, t, context):
                     continue            # a half leaf sweeps its own half
                 sw[k] += L
                 fc[k] += L if across > 0 else -L
+    covered=[]
+    for lo,hi in sorted(glazing):
+        if covered and lo<=covered[-1][1]+PAR_TOL:covered[-1][1]=max(hi,covered[-1][1])
+        else:covered.append([lo,hi])
+    jamb_tolerance=max(.06,min(.20,.12*width))
+    coverage=sum(hi-lo for lo,hi in covered)
+    multiple=(covered and glaze>=1.6*width and coverage>=.7*width
+              and abs((covered[0][0]+covered[-1][1])/2)<=.1*width)
+    anchored=bool(covered and ((covered[0][0]<=-half+jamb_tolerance
+                  and covered[-1][1]>=half-jamb_tolerance and coverage>=.75*width) or multiple))
+    if not anchored:glaze=0.
     # glazed across in several lines (a window's frame and glass): a
     # window, whatever swings beside it (the next room's door)
     if glaze >= 2.5 * width:
@@ -444,13 +495,49 @@ def _gap_kind(mid, width, u, t, context):
     if width <= 2 * SINGLE_LEAF_MAX:
         kl = max(range(3), key=lambda i: swing2[i])
         kr = max(range(3, 6), key=lambda i: swing2[i])
-        if min(swing2[kl], swing2[kr]) >= 0.5 * width / 2 and \
-                _leaf(hinges[kl], width / 2, n, context) and \
-                _leaf(hinges[kr], width / 2, n, context):
+        leaves=(_leaf(hinges[kl], width / 2, n, context) and
+                _leaf(hinges[kr], width / 2, n, context))
+        # Two substantial swing arcs, one at each jamb on the same side,
+        # are sufficient even when only the four-point frame is drawn.
+        strong=(min(swing2[kl],swing2[kr])>=.85*width/2 and face2[kl]*face2[kr]>0)
+        if min(swing2[kl], swing2[kr]) >= 0.5 * width / 2 and (leaves or strong):
             return ("door", -1, 1 if face2[kl] + face2[kr] >= 0 else -1)
     if glaze >= 0.8 * width:
         return ("window", 0, 0)
     return None
+
+
+def _recess_front(w, mid, width, runs, context):
+    """A gap with no own glyph, two returns and an evidenced rear door.
+
+    Requiring BOTH connecting returns avoids treating a nearby parallel
+    interior wall as proof that a facade opening should disappear.
+    """
+    u=_unit_v(_sub(w['q'],w['p']));n=_perp(u);c=_dot(mid,n)
+    limits=(_dot(mid,u)-width/2,_dot(mid,u)+width/2)
+    for rear in runs:
+        if rear is w:continue
+        ur=_unit_v(_sub(rear['q'],rear['p']))
+        if _angdiff(_ang(u),_ang(ur))>ANG_TOL:continue
+        cr=_dot(rear['p'],n);depth=abs(cr-c)
+        if not max(w['t'],rear['t'])+.05<depth<=2.5:continue
+        rear_limits=sorted((_dot(rear['p'],u),_dot(rear['q'],u)))
+        if rear_limits[0]>limits[0]+.1 or rear_limits[1]<limits[1]-.1:continue
+        if not any(limits[0]-.1<=_dot(m,u)-wd/2 and _dot(m,u)+wd/2<=limits[1]+.1
+                   and (_gap_kind(m,wd,ur,rear['t'],context) or (None,))[0]=='door'
+                   for m,wd in rear['gaps']):continue
+        connected=[]
+        for along in limits:
+            hit=False
+            for stem in runs:
+                us=_unit_v(_sub(stem['q'],stem['p']))
+                if abs(_dot(us,u))>.1:continue
+                if abs(_dot(stem['p'],u)-along)>stem['t']/2+.06:continue
+                lo,hi=sorted((_dot(stem['p'],n),_dot(stem['q'],n)))
+                if lo<=min(c,cr)+.06 and hi>=max(c,cr)-.06:hit=True;break
+            connected.append(hit)
+        if all(connected):return True
+    return False
 
 
 def walls_from(segs, tmin: float = 0.08, tmax: float = 0.40, context=None):
@@ -461,7 +548,7 @@ def walls_from(segs, tmin: float = 0.08, tmax: float = 0.40, context=None):
     lines = [((float(s[0]), float(s[1])), (float(s[2]), float(s[3])))
              for s in segs]
     tmin, tmax = sorted((float(tmin), float(tmax)))
-    runs = _extend(_runs(_pairs(lines, tmin, tmax)))
+    runs = _extend(_runs(_pairs(_contiguous(lines), tmin, tmax)))
     # a row of short pieces with long gaps between and nothing drawn in
     # them (the ends of the fins along a lobby): not one wall with
     # openings — each piece its own
@@ -471,20 +558,20 @@ def walls_from(segs, tmin: float = 0.08, tmax: float = 0.40, context=None):
         gl = [g for g in w["gaps"]]
         if gl and len(sol) == len(gl) + 1 and context:
             u_ = _unit_v(_sub(w["q"], w["p"]))
-            longest = max(_len(_sub(b, a)) for a, b in sol)
-            if longest < 0.8 * min(wd for _m, wd in gl) and all(
-                    _gap_kind(m, wd, u_, w["t"], context) is None
-                    for m, wd in gl):
-                for k_, (a, b) in enumerate(sol):
-                    p_, q_ = a, b
-                    if k_ == 0:
-                        p_ = w["p"]
-                    if k_ == len(sol) - 1:
-                        q_ = w["q"]
-                    if _len(_sub(q_, p_)) >= max(MIN_RUN, 1.5 * w["t"]) \
-                            or _len(_sub(q_, p_)) >= 0.3:
-                        split.append({"p": p_, "q": q_, "t": w["t"],
-                                      "gaps": []})
+            cuts=[]
+            for index,(mid,width) in enumerate(gl):
+                no_glyph=_gap_kind(mid,width,u_,w['t'],context) is None
+                short=max(_len(_sub(b,a)) for a,b in sol[index:index+2])<.8*width
+                if no_glyph and (short or _recess_front(w,mid,width,runs,context)):
+                    cuts.append(index)
+            if cuts:
+                first=0
+                for last in cuts+[len(sol)-1]:
+                    p_=w['p'] if first==0 else sol[first][0]
+                    q_=w['q'] if last==len(sol)-1 else sol[last][1]
+                    if _len(_sub(q_,p_))>=min(MIN_RUN,.3):
+                        split.append(dict(w,p=p_,q=q_,gaps=gl[first:last],solid=sol[first:last+1]))
+                    first=last+1
                 continue
         split.append(w)
     runs = split

@@ -2,6 +2,21 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.20.3-dev — 2026-11-14
+
+Integra la entrega R14-b de Codex (calidad de LINEASAMURO), revisada: SHA-256 correcto, parche aplicado sobre
+88f9756, 391 pruebas con IngeCAD 0.8 y 386 + 5 con la 0.7 reproducidas. Con un plano real del usuario
+(privado, escalado ×4) pasa de 11 a 19 puertas reconocidas, con las mismas 16 ventanas, y desaparece el
+muro duplicado de la entrada retranqueada.
+
+- Trazos contiguos de una misma cara se reúnen antes de emparejar: tabiques de 0,10 cortados por los marcos.
+- Puertas dobles con dos giros en las jambas, aunque no haya hoja dibujada; pivotes desplazados por el marco.
+- Vidrio: cobertura acumulada de líneas fragmentadas, anclada a las jambas; tolera alféizar exterior.
+- Machones alineados: cada discontinuidad se decide por separado (sin muros fantasma).
+- Entrada retranqueada: el frente se separa solo con dos retornos y una puerta posterior dibujada.
+- Previsualización con símbolos: puerta con su giro, ventana con su vidrio, vano con una X.
+- Las desviaciones respecto al `walldetect` original de cad2ingetrazo están en `docs/DESVIACIONES_walldetect.md`.
+
 ## 1.20.2-dev — 2026-11-14
 
 Prueba del usuario con un plano real de LINEASAMURO (privado; no se incorpora) y entrega R14 de Codex.

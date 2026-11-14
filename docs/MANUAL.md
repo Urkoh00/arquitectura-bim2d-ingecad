@@ -1,12 +1,12 @@
 # Manual de Arquitectura para IngeCAD
 
-Versión 1.20.2-dev · 14-11-2026
+Versión 1.20.3-dev · 14-11-2026
 
 > Copia del manual publicado como documento en claude.ai; se regenera con cada versión.
 
 ## Qué es
 
-Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.20.2-dev** y se actualiza con cada versión.
+Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.20.3-dev** y se actualiza con cada versión.
 
 Cada elemento guarda su identidad persistente, su clase IFC, su geometría editable en planta, sus parámetros 3D (altura, espesor, cota), sus propiedades constructivas (tipo, material, capas) y su nivel. Las carpinterías conocen su muro y los recintos siguen a los muros que los cierran.
 
@@ -23,7 +23,7 @@ El plugin se instala copiando una carpeta en IngeCAD, y la extensión copiando d
 
 **En IngeCAD**
 
-1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.20.2-dev.zip`.
+1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.20.3-dev.zip`.
 2. Copie la carpeta `arquitectura` en la carpeta de plugins de IngeCAD.
 3. Reinicie IngeCAD. Aparece el menú *Arquitectura* y su barra de herramientas.
 4. Escriba `ARQDIAG` en la línea de órdenes para comprobar que la versión cargada es la que acaba de copiar.
@@ -190,6 +190,8 @@ Un muro curvo es el mismo muro BIM que uno recto: sus caras son arcos concéntri
 **Carpintería en una sola capa (desde la 1.20.1).** Si puertas y ventanas están en la misma capa, asígnela a **«Carpintería (puerta o ventana según el dibujo)»**: cada hueco se lee por lo que tiene dibujado. Un giro (arco o polilínea con curva) hace una puerta, de una o dos hojas, con su mano y su cara de apertura; las líneas de marco y vidrio dentro del espesor del muro hacen una ventana; sin nada dibujado, es un vano. No hace falta separar puertas y ventanas en capas. Asignar la capa a «Puertas» o a «Ventanas» es una orden: convierte **todos** sus huecos en ese tipo. Las excepciones que el dibujo no distingue (puertas correderas o balconeras sin arco, que se leerían como ventanas) se corrigen con «Designar gráficamente», asignando esas líneas a «Puertas». La primera vez, el cuadro propone la categoría de cada capa por su nombre (*pared*, *pilar*, *carp*, *escal*…; las de *cámara* y *cota* quedan sin convertir), y lista también las capas de las entidades que están dentro de bloques: si la planta es un bloque, cada línea se clasifica por su propia capa. La altura de las puertas (2,10 m) y la de las ventanas (1,20 m con antepecho de 0,90 m) son valores por defecto: ajústelas después con `PROPIEDADESARQ`.
 
 **Antes de convertir (desde la 1.20.2).** El plano debe estar **a escala real y en metros**: un muro de 25 cm debe medir 0,25. Muchos planos antiguos están dibujados a otra escala (1/4, 1/5…). Si los giros de las puertas miden menos de 0,35, `LINEASAMURO` se detiene sin tocar el dibujo y propone el factor; escale el dibujo con `ESCALA` desde un punto y repita. Las capas **apagadas o inutilizadas no se leen**: apague las de mobiliario, textos, sanitarios, escaleras o referencias en lugar de borrarlas. En «Designar gráficamente» puede pulsar objetos uno a uno o, pulsando en vacío, abrir una **ventana**: hacia la derecha toma lo que queda dentro; hacia la izquierda, lo que toca. También se reconocen huecos en muros curvos (dos arcos concéntricos interrumpidos), con carpintería plana en la cuerda.
+
+**Revisar la previsualización (desde la 1.20.3).** Antes de confirmar, la planta muestra cada hueco con su símbolo: las puertas con su giro, las ventanas con su vidrio y los vanos con una X. Compruebe sobre todo las puertas dobles, las puertas de los tabiques finos y los pasos abiertos entre machones. Lo que salga mal se corrige con «Designar gráficamente» antes de confirmar, o después con `PROPIEDADESARQ`.
 
 1. Dibuje o importe el plano con líneas, polilíneas y arcos en capas que no empiecen por ARQ.
 2. Ejecute `LINEASAMURO` y enmarque con dos clics la zona que quiere convertir.
@@ -408,7 +410,7 @@ Si encuentra alguno, abre un cuadro con la lista. Al seleccionar un problema, su
 
 ## Limitaciones conocidas
 
-Estas son las limitaciones conocidas de la versión 1.20.2-dev; cada versión actualiza esta lista.
+Estas son las limitaciones conocidas de la versión 1.20.3-dev; cada versión actualiza esta lista.
 
 - **Plataforma:** las pruebas automáticas se ejecutan en Linux y en Windows con IngeCAD oficial (las versiones 0.7.0 y 0.8.0), pero sin pantalla. El usuario probó la v1.17 en Windows 10 con IngeCAD 0.8 e IngeTrazo 0.6.1: la cadena hasta el IFC funcionó; las correcciones de la v1.18 salen de esa prueba.
 - **Muros curvos:** cada muro llega como mucho a media circunferencia (un muro redondo son dos). MUROPARALELO y DIVIDEMURO solo toman líneas rectas como referencia. El gesto de esquina en L al terminar un MURO solo recorta muros rectos.
@@ -422,6 +424,7 @@ Estas son las limitaciones conocidas de la versión 1.20.2-dev; cada versión ac
 
 | Fecha | Versión | Novedades |
 | --- | --- | --- |
+| 14-11-2026 | 1.20.3-dev | LINEASAMURO reconoce mejor puertas dobles, tabiques finos cortados por los marcos, machones y entradas retranqueadas; previsualización con símbolos de puerta, ventana y vano |
 | 14-11-2026 | 1.20.2-dev | LINEASAMURO: detecta planos que no están a escala real y propone el factor; no lee capas apagadas; designación con ventana; huecos en muros curvos; identificadores estables al Deshacer/Rehacer |
 | 14-11-2026 | 1.20.1-dev | LINEASAMURO: categoría «Carpintería» para puertas y ventanas en una misma capa (las distingue el dibujo); la planta dentro de un bloque se clasifica por las capas de sus entidades; el cuadro propone categorías por el nombre de la capa; aviso si falta \_arqbim\_sync.py en IngeTrazo |
 | 14-11-2026 | 1.20.0-dev | Reimportar un .arqbim en IngeTrazo actualiza el modelo sin duplicarlo (un solo Deshacer); LINEASAMURO con cuadro de clasificación por capas y clics, rellenos y bloques, previsualización y confirmación; fichas auxiliares de viga, pasamanos, barandilla y reja |
