@@ -313,6 +313,14 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD", problem
                                                          ("Clase", m.get("enclosure") or "interior"),
                                                          ("Techo", "falso techo" if m.get("ceiling") else "forjado"))
                                        if v is not None}}
+        try:
+            from .cte_usos import pset as _cte_pset
+            cte = _cte_pset(m.get("cte"))
+        except ValueError as exc:
+            issues.append(f"Recinto {name}: clasificación normativa no válida ({exc}); se omite")
+            cte = {}
+        if cte:
+            el["psets"]["ARQ_ClasificacionCTE"] = cte
         el["params"].update(seed=list(map(float, m["seed"])))
         el["footprint"] = [[[list(q) for q in room["outer"]], [[list(q) for q in h] for h in room["holes"]]]]
         el["quantities"] = {"Height": height, "GrossFloorArea": room["area"], "NetFloorArea": room["area"],

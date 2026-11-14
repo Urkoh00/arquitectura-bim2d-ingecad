@@ -1203,7 +1203,7 @@ SPACE_LAYER = "ARQ-RECINTOS"
 
 
 def create_space(seed, room, *, name, number, height, base=0.0, level="Planta baja", use="",
-                 ceiling=False, enclosure="interior"):
+                 ceiling=False, enclosure="interior", cte=None):
     """AddEntityCommand of a space: closed outline + its BIM record (seed)."""
     import uuid
     from core.actions import AddEntityCommand
@@ -1212,7 +1212,7 @@ def create_space(seed, room, *, name, number, height, base=0.0, level="Planta ba
            "seed": [float(seed[0]), float(seed[1])], "ref_vertex": list(room["outer"][0]),
            "name": name, "number": str(number), "use": use, "level": level,
            "base": float(base), "height": float(height), "ceiling": bool(ceiling), "enclosure": enclosure,
-           "area": room["area"],
+           "cte": dict(cte or {}), "area": room["area"],
            "perimeter": room["perimeter"], "islands": [[list(q) for q in h] for h in room["holes"]]}
 
     def factory(msp):
@@ -1234,6 +1234,7 @@ class RecintoTool(Tool):
         self.enclosure = "interior"
         self.level = d.get("level") or "Planta baja"
         self.use = ""
+        self.cte = {}
         self.next_name = None
         self.number = None
         self.pending = None
@@ -1248,7 +1249,7 @@ class RecintoTool(Tool):
             if not bim_dialogs.available(self.ctx):
                 return True
             values = bim_dialogs.space_properties(self.ctx, {
-                "name": self.next_name or "", "use": self.use, "enclosure": self.enclosure,
+                "name": self.next_name or "", "use": self.use, "enclosure": self.enclosure, "cte": self.cte,
                 "height": self.height, "ceiling": self.ceiling, "level": self.level})
         except Exception as exc:  # noqa: BLE001
             self.ctx.echo(f"RECINTO: ficha no disponible ({type(exc).__name__}: {exc}).")
@@ -1266,6 +1267,7 @@ class RecintoTool(Tool):
         self.next_name = values.get("name") or None
         self.number = values.get("number") or None
         self.use = values.get("use") or ""
+        self.cte = dict(values.get("cte") or {})
         self.enclosure = values.get("enclosure") or "interior"
         self.height = float(values.get("height") or self.height)
         self.ceiling = bool(values.get("ceiling"))
@@ -1376,7 +1378,7 @@ class RecintoTool(Tool):
         self.next_name = self.number = None
         cmd, rec = create_space(p, room, name=name, number=number, height=self.height,
                                 level=self.level, use=self.use, ceiling=self.ceiling,
-                                enclosure=self.enclosure)
+                                enclosure=self.enclosure, cte=self.cte)
         try:
             apply(self.ctx, "ARQ RECINTO", [cmd], kind="space")
         except Exception as exc:  # noqa: BLE001

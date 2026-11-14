@@ -1,12 +1,12 @@
 # Manual de Arquitectura para IngeCAD
 
-Versión 1.20.3-dev · 14-11-2026
+Versión 1.21.0-dev · 14-11-2026
 
 > Copia del manual publicado como documento en claude.ai; se regenera con cada versión.
 
 ## Qué es
 
-Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.20.3-dev** y se actualiza con cada versión.
+Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.21.0-dev** y se actualiza con cada versión.
 
 Cada elemento guarda su identidad persistente, su clase IFC, su geometría editable en planta, sus parámetros 3D (altura, espesor, cota), sus propiedades constructivas (tipo, material, capas) y su nivel. Las carpinterías conocen su muro y los recintos siguen a los muros que los cierran.
 
@@ -23,7 +23,7 @@ El plugin se instala copiando una carpeta en IngeCAD, y la extensión copiando d
 
 **En IngeCAD**
 
-1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.20.3-dev.zip`.
+1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.21.0-dev.zip`.
 2. Copie la carpeta `arquitectura` en la carpeta de plugins de IngeCAD.
 3. Reinicie IngeCAD. Aparece el menú *Arquitectura* y su barra de herramientas.
 4. Escriba `ARQDIAG` en la línea de órdenes para comprobar que la versión cargada es la que acaba de copiar.
@@ -291,6 +291,8 @@ Un recinto (IfcSpace) se crea con un clic dentro de la estancia y sigue a los mu
 
 **Ficha de recinto.** Al empezar RECINTO se abre una ficha para los recintos que se van a crear: nombre, número, uso, tipo (interior o exterior cubierto), altura libre, falso techo y nivel. La opción `D` la vuelve a abrir. Para cambiar un recinto existente, use `PROPIEDADESARQ` sobre su contorno o su rótulo.
 
+**Clasificación normativa (desde la 1.21).** La ficha del recinto tiene un grupo con **una etiqueta por documento**: CTE DB SI (uso y ocupación), DB SUA 4 (alumbrado), DB SUA 9 (uso del recinto y unidad de uso accesible), DB HE, DB HE 3 (iluminación), DB HR (recinto protegido, habitable, de actividad…), DB HS 2, DB HS 3, DB HS 6 (radón) e ITC-BT-25 (puntos de utilización). Deje en «—» los que no apliquen. El botón **«Proponer según el uso (vivienda)»** rellena lo que se deduce del uso: un dormitorio es recinto protegido (DB HR), dormitorio en DB HS 3 y en la ITC-BT-25, habitable acondicionado (DB HE)… Revise la propuesta: en edificios que no son viviendas la clasificación depende de la actividad y la elige usted. Se guarda en el recinto, se cambia con `PROPIEDADESARQ` o con doble clic y se exporta en el grupo de propiedades `ARQ_ClasificacionCTE`. La clasificación **no comprueba el cumplimiento** de ninguna norma.
+
 **RECINTO.** Haga clic dentro de una estancia cerrada por muros, tabiques o pilares. Opciones:
 
 | Opción | Efecto |
@@ -410,7 +412,7 @@ Si encuentra alguno, abre un cuadro con la lista. Al seleccionar un problema, su
 
 ## Limitaciones conocidas
 
-Estas son las limitaciones conocidas de la versión 1.20.3-dev; cada versión actualiza esta lista.
+Estas son las limitaciones conocidas de la versión 1.21.0-dev; cada versión actualiza esta lista.
 
 - **Plataforma:** las pruebas automáticas se ejecutan en Linux y en Windows con IngeCAD oficial (las versiones 0.7.0 y 0.8.0), pero sin pantalla. El usuario probó la v1.17 en Windows 10 con IngeCAD 0.8 e IngeTrazo 0.6.1: la cadena hasta el IFC funcionó; las correcciones de la v1.18 salen de esa prueba.
 - **Muros curvos:** cada muro llega como mucho a media circunferencia (un muro redondo son dos). MUROPARALELO y DIVIDEMURO solo toman líneas rectas como referencia. El gesto de esquina en L al terminar un MURO solo recorta muros rectos.
@@ -424,6 +426,7 @@ Estas son las limitaciones conocidas de la versión 1.20.3-dev; cada versión ac
 
 | Fecha | Versión | Novedades |
 | --- | --- | --- |
+| 14-11-2026 | 1.21.0-dev | Clasificación normativa de los recintos: una etiqueta por documento del CTE y de la ITC-BT-25, propuesta según el uso y exportación en ARQ\_ClasificacionCTE |
 | 14-11-2026 | 1.20.3-dev | LINEASAMURO reconoce mejor puertas dobles, tabiques finos cortados por los marcos, machones y entradas retranqueadas; previsualización con símbolos de puerta, ventana y vano |
 | 14-11-2026 | 1.20.2-dev | LINEASAMURO: detecta planos que no están a escala real y propone el factor; no lee capas apagadas; designación con ventana; huecos en muros curvos; identificadores estables al Deshacer/Rehacer |
 | 14-11-2026 | 1.20.1-dev | LINEASAMURO: categoría «Carpintería» para puertas y ventanas en una misma capa (las distingue el dibujo); la planta dentro de un bloque se clasifica por las capas de sus entidades; el cuadro propone categorías por el nombre de la capa; aviso si falta \_arqbim\_sync.py en IngeTrazo |

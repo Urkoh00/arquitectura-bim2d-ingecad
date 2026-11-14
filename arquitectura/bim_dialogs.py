@@ -1160,13 +1160,45 @@ def space_form(ctx, record, by_use=None):
     for label, w in rows:
         f.addRow(label, w)
     layout.addWidget(group)
+    # normative classification: one label per document of the code (CTE, ITC-BT-25)
+    from PySide6.QtWidgets import QPushButton, QLabel
+    from . import cte_usos as CU
+    cte_group = QGroupBox("Clasificación normativa (CTE e ITC-BT-25)", dlg)
+    cf = QFormLayout(cte_group)
+    note = QLabel("Una etiqueta por documento. Clasifica el recinto; no comprueba el cumplimiento.")
+    note.setWordWrap(True)
+    cf.addRow(note)
+    current = dict(d.get("cte") or {})
+    cte = {}
+    for key, title, labels in CU.CONJUNTOS:
+        box = QComboBox()
+        box.addItem("—", "")
+        for lab in labels:
+            box.addItem(lab, lab)
+        box.setCurrentIndex(max(0, box.findData(current.get(key, ""))))
+        box.setToolTip(title)
+        box.setMinimumContentsLength(28)
+        cf.addRow(title.split(". ")[0] + ":", box)
+        cte[key] = box
+    propose = QPushButton("Proponer según el uso (vivienda)")
+    cf.addRow(propose)
+
+    def proposed():
+        for key, lab in CU.propose(use.text()).items():
+            cte[key].setCurrentIndex(max(0, cte[key].findData(lab)))
+    propose.clicked.connect(proposed)
+    if not by_use:
+        cte_group.setVisible(False)
+    layout.addWidget(cte_group)
     layout.addWidget(buttons)
 
     def read():
         return {"name": name.text().strip(), "number": number.text().strip(), "use": use.text().strip(),
                 "enclosure": enclosure.currentData(), "height": height.value(),
-                "ceiling": ceiling.isChecked(), "level": level.text().strip() or "Planta baja"}
-    dlg._arq = dict(name=name, number=number, use=use, enclosure=enclosure, height=height, ceiling=ceiling)
+                "ceiling": ceiling.isChecked(), "level": level.text().strip() or "Planta baja",
+                "cte": CU.validate({k: b.currentData() for k, b in cte.items()})}
+    dlg._arq = dict(name=name, number=number, use=use, enclosure=enclosure, height=height, ceiling=ceiling,
+                    cte=cte, propose=propose)
     return dlg, read
 
 

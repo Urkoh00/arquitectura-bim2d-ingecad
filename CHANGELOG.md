@@ -2,6 +2,21 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.21.0-dev — 2026-11-14
+
+### Clasificación normativa de los recintos (CTE e ITC-BT-25)
+- La ficha del recinto tiene un grupo nuevo con **una etiqueta por documento**: DB SI (uso y ocupación),
+  DB SUA 4, DB SUA 9 (uso del recinto y unidad de uso), DB HE, DB HE 3, DB HR, DB HS 2, DB HS 3, DB HS 6 e
+  ITC-BT-25. Son 11 conjuntos y 122 etiquetas, con las categorías de los propios documentos (catálogo
+  facilitado por el usuario).
+- «Proponer según el uso (vivienda)» rellena lo que se deduce sin ambigüedad del uso del recinto
+  (Dormitorio → DB HR protegido, DB HS 3 dormitorio, ITC-BT-25 dormitorios…). El resto lo elige el usuario.
+- La clasificación se guarda en el recinto, se edita con PROPIEDADESARQ o con doble clic (un Deshacer) y se
+  exporta como conjunto de propiedades `ARQ_ClasificacionCTE`, que llega al IFC si IngeTrazo escribe los
+  conjuntos propios (consulta #1222).
+- Clasifica; **no comprueba el cumplimiento**. La densidad de ocupación del DB SI y su cálculo quedan para una
+  versión posterior, con los valores verificados contra el texto oficial.
+
 ## 1.20.3-dev — 2026-11-14
 
 Integra la entrega R14-b de Codex (calidad de LINEASAMURO), revisada: SHA-256 correcto, parche aplicado sobre

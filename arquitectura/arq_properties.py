@@ -74,6 +74,9 @@ def space_change(entity, values):
     for k in ('name','number','use','enclosure','height','ceiling','level'):
         if k in values and values[k] not in (None,''):
             d[k]=values[k]
+    if 'cte' in values:                  # an empty classification is a valid choice
+        from .cte_usos import validate
+        d['cte']=validate(values['cte'])
     if values.get('name')=='':
         d['name']=d.get('name') or 'Recinto'
     if float(d['height'])<=0:
