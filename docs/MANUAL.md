@@ -19,7 +19,7 @@ El plugin calcula una sola vez la huella final de cada elemento, con los encuent
 
 ## Instalación
 
-El plugin se instala copiando una carpeta en IngeCAD, y la extensión copiando un fichero en IngeTrazo. No hace falta instalar Python aparte.
+El plugin se instala copiando una carpeta en IngeCAD, y la extensión copiando dos ficheros en IngeTrazo. No hace falta instalar Python aparte.
 
 **En IngeCAD**
 
@@ -31,7 +31,7 @@ El plugin se instala copiando una carpeta en IngeCAD, y la extensión copiando u
 **En IngeTrazo**
 
 1. Abra *Extensiones > Abrir carpeta de plugins*.
-2. Copie en ella `ingetrazo_ext/arquitectura_bim.py`, que va dentro del ZIP.
+2. Copie en ella los **dos** ficheros de la carpeta `ingetrazo_ext` del ZIP: `arquitectura_bim.py` y `_arqbim_sync.py` (este, desde la 1.20; sin él, la importación se detiene y avisa de que falta).
 3. Reinicie IngeTrazo. Aparece la orden *Importar arquitectura IngeCAD (.arqbim)…*.
 
 **Para actualizar**, sustituya la carpeta `arquitectura` y el fichero de la extensión por los de la versión nueva. Los dibujos hechos con versiones anteriores se siguen leyendo. Si alguno se ve desactualizado, ejecute `UNIONESARQ`.

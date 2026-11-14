@@ -94,3 +94,28 @@ def test_las_piezas_de_una_carpinteria_se_comprueban():                  # R10, 
     data['elements'][0]['parts'] = [{'name': 'Marco'}]
     with pytest.raises(ValueError, match='parts'):
         X.validate_contract(data)
+
+
+
+def test_falta_modulo_de_sincronizacion_da_mensaje_claro(tmp_path):
+    """Sin _arqbim_sync.py, la importación se detiene antes de tocar nada y dice qué copiar."""
+    import importlib.util
+    import shutil
+    from pathlib import Path
+    src = Path(__file__).resolve().parents[1] / "ingetrazo_ext" / "arquitectura_bim.py"
+    copia = tmp_path / "arquitectura_bim.py"
+    shutil.copy(src, copia)                     # sin su compañero _arqbim_sync.py
+    spec = importlib.util.spec_from_file_location("arqbim_sin_sync", copia)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    class App:
+        openers = {}
+        def add_file_opener(self, suffix, fn): self.openers[suffix] = fn
+        def add_menu_action(self, *a, **k): pass
+        def document_data(self, default=None): raise AssertionError("no debe leer el documento")
+
+    app = App()
+    mod.setup(app)
+    with pytest.raises(RuntimeError, match="Falta _arqbim_sync.py"):
+        next(iter(app.openers.values()))(str(tmp_path / "x.arqbim"))

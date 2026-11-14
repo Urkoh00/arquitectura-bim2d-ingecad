@@ -436,6 +436,10 @@ def setup(app):
     app.key = DATA_KEY              # our data under our own key, whatever file loaded us
 
     def open_arqbim(path):
+        if not Path(__file__).with_name("_arqbim_sync.py").is_file():
+            raise RuntimeError("Falta _arqbim_sync.py junto a arquitectura_bim.py en la carpeta de "
+                               "extensiones de IngeTrazo. Desde la v1.20 se copian los dos ficheros "
+                               "de la carpeta ingetrazo_ext del ZIP.")
         stored = app.document_data({}) or {}
         # a second model goes where the first one went (same offset)
         previous = stored.get("survey_offset")

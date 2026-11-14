@@ -28,6 +28,9 @@ y 5 omitidas con la 0.7; 6 pruebas aparte con el núcleo oficial de IngeTrazo 0.
 - Rejas, barandillas y escaleras se clasifican pero **quedan pendientes**: no se convierten todavía.
 - Sin ventana (pruebas, scripts) se conservan las opciones de siempre (K/L/R).
 
+- Si falta `_arqbim_sync.py` en IngeTrazo, la importación se detiene antes de tocar nada y explica qué
+  copiar; el apartado de instalación del manual pide los dos ficheros (propuesta P0 de la revisión externa).
+
 ### Fichas auxiliares (R12)
 - `element_sheets.element_form` reúne las fichas de muro y pilar (con esquema de la sección) y prepara las de
   viga, pasamanos, barandilla y reja. Estas cuatro solo recogen parámetros: aún no hay orden que las inserte.
