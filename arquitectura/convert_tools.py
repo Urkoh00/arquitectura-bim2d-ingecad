@@ -399,7 +399,13 @@ class LineasAMuroTool(Tool):
         from .compat import require_document
         from .parameters_arq import general_options
         self.lineas = dict(general_options(require_document(self.ctx))["lineas"])
+        self.classification = None
+        self.conversion_preview = None
+        self.pick_role = None
         self._prompt()
+        from . import bim_dialogs
+        if self._classification_available():
+            self._classification_dialog()
 
     def _layers_text(self):
         def show(v):
@@ -418,6 +424,12 @@ class LineasAMuroTool(Tool):
         self.ctx.execute(SetArchitecturalDefaults(values))
 
     def _prompt(self):
+        if self.conversion_preview is not None:
+            self.prompt("LINEASAMURO: previsualización [Confirmar/Cancelar]; Intro confirma:")
+            return
+        if self.pick_role:
+            self.prompt("LINEASAMURO: designe objetos; Intro vuelve al cuadro de clasificación:")
+            return
         if self.first is not None:
             self.prompt("LINEASAMURO: esquina opuesta de la ventana:")
             return
@@ -425,10 +437,21 @@ class LineasAMuroTool(Tool):
         self.prompt(f"LINEASAMURO (espesores {fmt(self.tmin)}–{fmt(self.tmax)} m, altura {fmt(self.height)} m, "
                     f"paralelismo {fmt(self.lineas['paralelismo'])} m, {self._layers_text()}, "
                     f"líneas de origen: {self.origin}): primera esquina de la ventana o "
-                    "[Espesores/Altura/Origen/capas de muro K/capas de piLar/capas de caRpintería/Paralelismo]:")
+                    "[Diálogo/Espesores/Altura/Origen/capas de muro K/capas de piLar/capas de caRpintería/Paralelismo]:")
 
     def on_option(self, text):
         t = str(text).strip().lower()
+        if t in ('d', 'dialogo', 'diálogo', 'clasificar'):
+            return self._classification_dialog()
+        if self.conversion_preview is not None:
+            if t in ('confirmar', 'si', 'sí'):
+                self._confirm_conversion()
+                return True
+            if t in ('cancelar', 'no'):
+                self.conversion_preview = None
+                self._prompt()
+                return True
+            return False
         if self.pending:
             key, self.pending = self.pending, None
             try:
@@ -486,6 +509,15 @@ class LineasAMuroTool(Tool):
 
     def on_point(self, p):
         p = (float(p[0]), float(p[1]))
+        if self.pick_role:
+            pick = getattr(self.ctx.services, 'pick_entity', None)
+            e = pick(p) if callable(pick) else None
+            if e is not None:
+                self.classification.assign([e.dxf.handle], self.pick_role)
+                self.ctx.echo('Objeto asignado a ' + self.pick_role)
+            return
+        if self.conversion_preview is not None:
+            return
         if self.first is None:
             self.first = p
             self._prompt()
@@ -497,7 +529,77 @@ class LineasAMuroTool(Tool):
             self.ctx.echo(f"LINEASAMURO: {type(exc).__name__}: {exc}")
         self._prompt()
 
+    def _classification_available(self):
+        try:
+            from PySide6.QtWidgets import QApplication, QWidget
+            from .bim_dialogs import _parent
+            return QApplication.instance() is not None and isinstance(_parent(self.ctx), QWidget)
+        except ImportError:
+            return False
+
+    def _classification_dialog(self):
+        from . import bim_dialogs
+        from .compat import require_document
+        if not self._classification_available():
+            self.ctx.echo('El cuadro requiere una ventana Qt; puede usar las opciones K/L/R.')
+            return True
+        from .conversion_plan import Classification
+        from .conversion_dialog import classification_form
+        current = self.classification or Classification()
+        dlg, read = classification_form(self.ctx, require_document(self.ctx).doc, current)
+        status = dlg.exec()
+        if status in (1, 2):
+            self.classification = read()
+            self.conversion_preview = None
+            self.first = None
+            self.pick_role = dlg._pick_role
+            self.entity_picker = bool(self.pick_role)
+        elif status == 0:
+            self.ctx.finish()
+            return True
+        self._prompt()
+        return True
+
+    def _confirm_conversion(self):
+        from .conversion_plan import commit
+        plan = self.conversion_preview
+        self.conversion_preview = None
+        try:
+            if plan is not None:
+                if commit(self.ctx, plan):
+                    self.ctx.echo('Conversión confirmada; un Deshacer restaura el plano.')
+                else:
+                    self.ctx.echo('Sin candidatos convertibles: no se modifica el dibujo.')
+        except Exception as exc:
+            self.ctx.echo('Conversión no aplicada: ' + str(exc))
+        self._prompt()
+
+    def on_enter(self):
+        if self.pick_role:
+            self.pick_role = None
+            self.entity_picker = False
+            self._classification_dialog()
+        elif self.conversion_preview is not None:
+            self._confirm_conversion()
+        else:
+            self.ctx.finish()
+
+    def preview_segments(self, cursor):
+        return self.conversion_preview.segments if self.conversion_preview is not None else []
+
     def _convert(self, lo, hi):
+        if self.classification is not None:
+            from .conversion_plan import analyse
+            from .compat import require_document
+            self.conversion_preview = analyse(require_document(self.ctx).doc, lo, hi,
+                self.classification, self.tmin, self.tmax, self.height,
+                self.lineas['paralelismo'], self.origin)
+            p = self.conversion_preview
+            self.ctx.echo(f'Previsualización: {len(p.result[0])+len(p.result[3])} muros, '
+                          f'{len(p.result[1])} huecos y {len(p.result[4])} pilares.')
+            for warning in p.warnings:
+                self.ctx.echo(warning)
+            return
         from core.actions import EraseCommand
         from core.commands import CompositeCommand, DeferredCommand
 

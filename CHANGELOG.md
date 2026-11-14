@@ -2,6 +2,42 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.20.0-dev — 2026-11-14
+
+Integra la entrega R12 de Codex (encargo de frentes abiertos), revisada por la dirección técnica: SHA-256
+correctos, parche aplicado sobre 5e49bbe y las mismas cifras reproducidas (329 pruebas con IngeCAD 0.8; 324
+y 5 omitidas con la 0.7; 6 pruebas aparte con el núcleo oficial de IngeTrazo 0.6.1).
+
+### Reimportar en IngeTrazo sin duplicar (R12, F1)
+- Volver a abrir un `.arqbim` **actualiza** el modelo en lugar de añadir otra copia.
+  - Los elementos se reconocen por su identificador BIM.
+  - Los cambiados se sustituyen conservando su objeto, los nuevos se añaden y los que ya no existen se retiran.
+  - Todo es **un solo paso de Deshacer**. Si nada ha cambiado, no se toca la escena.
+- Usa la orden de historial que IngeTrazo ofrece a las extensiones (`_arqbim_sync.py`, junto a la extensión;
+  hay que copiar los dos ficheros).
+- Límites: las importaciones anteriores a esta versión no se migran solas, y si chocan se rechazan. Dos
+  modelos con el mismo nombre de fichero se tratan como el mismo.
+
+### LINEASAMURO con clasificación (R12, F4)
+- Al lanzarla se abre un **cuadro de clasificación**: cada capa se asigna a muros, medianeras, tabiques,
+  pilares, puertas, ventanas, vanos, rejas, barandillas o escaleras, o se excluye.
+  - «Designar gráficamente» permite asignar objetos con clics; prevalecen sobre la capa.
+- Lee también **rellenos y rayados simples** (HATCH/SOLID) y la geometría de **bloques**, sin explotarlos.
+- **Previsualización** de ejes y recuento antes de tocar el dibujo; Intro o «Confirmar» aplica, «Cancelar»
+  descarta. Un Deshacer devuelve el plano original.
+- Rejas, barandillas y escaleras se clasifican pero **quedan pendientes**: no se convierten todavía.
+- Sin ventana (pruebas, scripts) se conservan las opciones de siempre (K/L/R).
+
+### Fichas auxiliares (R12)
+- `element_sheets.element_form` reúne las fichas de muro y pilar (con esquema de la sección) y prepara las de
+  viga, pasamanos, barandilla y reja. Estas cuatro solo recogen parámetros: aún no hay orden que las inserte.
+
+### Pruebas y estudios (R12)
+- Regresiones de partición de polígonos (F5): sin cambios en el algoritmo.
+- T-09 medido con el IngeTrazo oficial: un muro curvo de 4,44 m sale en el IFC con 0,33 m de longitud y 2,70 m
+  de espesor; ya está cubierto por la consulta #1222.
+- C-07: IngeCAD 0.8 guarda la XDATA con acentos correctamente; el aviso no se ha reproducido.
+
 ## 1.19.0-dev — 2026-11-14
 
 Incorpora lo que la auditoría R10 de Codex propone y conviene ya (carpinterías 3D, ficha de carpintería,

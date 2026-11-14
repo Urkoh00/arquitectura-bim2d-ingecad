@@ -443,22 +443,22 @@ def setup(app):
             tmp = Path(directory) / (Path(path).stem + ".igz")
             data, scene, _report = to_igz(path, tmp, offset=tuple(previous) if previous else "auto")
             offset = ((scene.plugin_data or {}).get(DATA_KEY) or {}).get("survey_offset")
-            models = dict(stored.get("models") or {})
-            key, n = Path(path).stem, 2
-            while key in models:                      # never overwrite another model
-                key, n = "%s (%d)" % (Path(path).stem, n), n + 1
-            models[key] = definition(data, Path(path).name)
-            value = {**stored, "models": models}
-            if offset:
-                value["survey_offset"] = list(offset)
-            if hasattr(app, "import_igz_with_data"):
-                # an IngeTrazo that inserts geometry and data in one undo step
-                app.import_igz_with_data(tmp, value)
-            else:
-                # the official IngeTrazo: the component, then the document
-                # data (an inserted component does not bring it along)
-                app.import_igz(tmp, at=(0.0, 0.0, 0.0))
-                app.set_document_data(value)
+            # Auxiliary module is shipped beside this extension, not in host core.
+            import importlib.util
+            module_path = Path(__file__).with_name("_arqbim_sync.py")
+            spec = importlib.util.spec_from_file_location("_arqbim_sync", module_path)
+            sync = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(sync)
+            command = sync.prepare(app.scene, scene, data, Path(path).name,
+                                   definition(data, Path(path).name))
+            if command is not None:
+                app.viewport.history.execute(command)
+                if app.viewport.history.last_error:
+                    raise RuntimeError(app.viewport.history.last_error)
+                notify = getattr(app.viewport, "notify_scene_changed", None)
+                if callable(notify):
+                    notify()
+                app.viewport.update()
         if offset:
             note = ("Modelo desplazado cerca del origen (coordenadas lejanas, regla de IngeTrazo): "
                     "desplazamiento %.0f, %.0f, %.0f m" % tuple(offset))
