@@ -3,10 +3,18 @@
 # (la que instalan los usuarios) y la rama principal (la siguiente).
 name: pruebas
 
+# Only changes that can change a result run it: documentation alone does not
+# (audit R10, H08), and a newer push to the same branch cancels the older run.
 on:
   push:
+    paths-ignore: ['**/*.md', 'docs/**', 'LICENSE']
   pull_request:
+    paths-ignore: ['**/*.md', 'docs/**', 'LICENSE']
   workflow_dispatch:
+
+concurrency:
+  group: pruebas-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   pytest:

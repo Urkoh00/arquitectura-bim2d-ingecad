@@ -32,18 +32,32 @@ def test_ficha_de_carpinteria(plugin, qt):
     dlg, read = bd.carpentry_form(_Ctx(), {'type': 'door', 'leaf': 0.825, 'frame_width': 0.03,
                                            'width': 0.885, 'height': 2.1, 'sill': 0.0})
     w = dlg._arq
-    assert w['ifc'].text() == 'IfcDoor' and 'válida' in w['clear'].text()
+    assert w['ifc'].text() == 'IfcDoor' and ': cumple' in w['clear'].text()
+    assert 'solo una comprobación dimensional' in w['clear'].text()     # no normative verdict (R10, H12)
+    assert 'En 3D: marco, hojas' in w['status'].text()
     w['preset'].setCurrentIndex(w['preset'].findData(0.725))        # hoja de 725
     v = read()
     assert v['leaf'] == pytest.approx(0.725) and v['width'] == pytest.approx(0.785)
-    assert 'NO válida' in w['clear'].text()                          # 0,725 < 0,80 (DB-SUA)
+    assert 'no cumple' in w['clear'].text()                          # 0,725 < 0,80 (DB-SUA)
     w['typ'].setCurrentIndex(w['typ'].findData('window'))
     w['width'].setValue(1.5)
     v = read()
     assert v['type'] == 'window' and v['width'] == pytest.approx(1.5) and w['ifc'].text() == 'IfcWindow'
     assert v['operation'] in ('SIDEHUNG', 'SLIDING', 'FIXED')
+    assert v['glass_material'] == 'Vidrio' and v['frame_material'] == 'Aluminio'
+    assert 'vidrio' in w['status'].text() and 'alféizar' in w['status'].text()
+    w['frame_material'].setCurrentText('PVC')
+    assert read()['frame_material'] == 'PVC'
+    w['frame_width'].setValue(0.9)                                  # wider than half the hole
+    assert w['problems'](read()) and 'cerco' in w['status'].text()
+    w['frame_width'].setValue(0.05)
+    w['preview'].resize(320, 360)
+    img = w['preview'].grab()                                       # the drawing paints
+    assert not img.isNull() and not w['preview'].error
     w['typ'].setCurrentIndex(w['typ'].findData('gap'))
     assert read()['frame_width'] == 0.0 and w['ifc'].text() == 'IfcOpeningElement'
+    w['preview'].grab()
+    assert not w['preview'].error
 
 
 def test_ficha_de_recinto(plugin, qt):

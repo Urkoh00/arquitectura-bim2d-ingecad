@@ -68,3 +68,29 @@ def test_coordenadas_lejanas_con_la_regla_de_ingetrazo():
     assert X.survey_offset(contract(3000, 0)) is None             # 3 km: se queda donde está
     off = X.survey_offset(contract(500000.4, 4200000.7))          # UTM
     assert off == (500000.0, 4200000.0, 0.0)                     # metros enteros, esquina baja
+
+
+def _door_like(data):
+    """A door-class element with pieces (only the contract is checked)."""
+    door = copy.deepcopy(data['elements'][0])
+    door.update(id='puerta', guid='1' * 22, ifc_class='IfcDoor', name='Puerta')
+    door.pop('openings', None)
+    door['parts'] = [{'name': 'Marco', 'role': 'frame', 'material': 'Madera', 'volume': 1.0}]
+    for f in door['faces']:
+        f['part'] = 0
+    data['elements'].append(door)
+    return door
+
+
+def test_las_piezas_de_una_carpinteria_se_comprueban():                  # R10, S1
+    data = copy.deepcopy(contract())
+    door = _door_like(data)
+    assert X.validate_contract(data) is data
+    assert X.definition(data)['elements'][-1]['parts'][0]['material'] == 'Madera'
+    door['faces'][0]['part'] = 3
+    with pytest.raises(ValueError, match='pieza inexistente'):
+        X.validate_contract(data)
+    data = copy.deepcopy(contract())
+    data['elements'][0]['parts'] = [{'name': 'Marco'}]
+    with pytest.raises(ValueError, match='parts'):
+        X.validate_contract(data)

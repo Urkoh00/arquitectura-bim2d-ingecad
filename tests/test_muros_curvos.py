@@ -335,7 +335,9 @@ def test_carpinterias_en_muro_curvo(plugin, tmp_path):
         J.walls_from_records([(meta["id"], meta)])).walls[meta["id"]]["pieces"]]).buffer(1e-3)
     from shapely.geometry import MultiPoint
     for f in fills:
-        pts = [(x, y) for fc in f["faces"] for x, y, _z in fc["outer"]]
+        # the sill is outside the wall by design (it projects from the face)
+        inside = [fc for fc in f["faces"] if f["parts"][fc["part"]]["role"] != "sill"]
+        pts = [(x, y) for fc in inside for x, y, _z in fc["outer"]]
         assert body.contains(MultiPoint(pts).convex_hull)
 
 

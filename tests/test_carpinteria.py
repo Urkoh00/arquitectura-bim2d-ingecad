@@ -238,10 +238,27 @@ def test_exporta_puerta_que_rellena_su_hueco(plugin):
     assert door['guid'] not in voids                         # la puerta conserva la identidad del registro
     assert door['quantities']['Width'] == pytest.approx(0.885)
     assert door['quantities']['Height'] == pytest.approx(2.10)
-    assert door['volume'] == pytest.approx(0.885 * 0.15 * 2.10)
+    # the door is its pieces (audit R10, S1): the frame, one ring 0,03 wide
+    # and 0,15 deep (jambs, head and a 5 mm threshold), and the 4 cm leaf
+    roles = [p['role'] for p in door['parts']]
+    assert roles == ['frame', 'leaf']
+    g = 0.0005
+    frame = (0.885 * 2.10 - (0.885 - 0.06) * (2.10 - 0.03 - 0.005)) * 0.15
+    leaf = (0.885 - 0.06 - 2 * g) * 0.04 * (2.10 - 0.03 - g - 0.005 - g)
+    assert door['parts'][0]['volume'] == pytest.approx(frame)
+    assert door['volume'] == pytest.approx(frame + leaf)
+    assert sum(p['volume'] for p in door['parts']) == pytest.approx(door['volume'])
+    assert {f['part'] for f in door['faces']} == {0, 1}
+    assert door['params']['operation'] == 'SWINGING'
+    # the window: its frame ring, two sashes of four profiles with their glass, and the sill
+    wroles = [p['role'] for p in win['parts']]
+    assert wroles.count('frame') == 1 and wroles.count('glass') == 2 and wroles.count('sill') == 1
+    assert wroles.count('leaf') == 8
+    assert {p['material'] for p in win['parts']} == {'Aluminio', 'Vidrio', 'Piedra'}
     assert win['psets']['Pset_WindowCommon']['IsExternal'] is True
-    faces = [(f['outer'], f['holes']) for f in door['faces']]
-    assert S.face_volume(faces) == pytest.approx(door['volume'])
+    for el in (door, win):
+        faces = [(f['outer'], f['holes']) for f in el['faces']]
+        assert S.face_volume(faces) == pytest.approx(el['volume'])
     # muro sur: volumen bruto menos los dos huecos
     gross = south['quantities']['GrossVolume']
     holes = 0.885 * 2.10 * 0.30 + 1.20 * 1.20 * 0.30

@@ -37,7 +37,8 @@ FACES = ("interior", "centrada", "exterior")
 SILLS = ("alfeizar", "vierteaguas", "ventanal")
 SYMBOL_LAYER = "ARQ-CARPINTERIA"
 V3_KEYS = ("leaves", "leaf", "leaf2", "frame_width", "frame_depth", "side", "hinge",
-           "angle", "face", "sill_kind", "operation", "leaf_thickness")
+           "angle", "face", "sill_kind", "operation", "leaf_thickness",
+           "frame_material", "leaf_material", "glass_material", "sill_material")
 # opening type (IFC names, as in the properties dialog)
 OPERATIONS = {"door": ("SWINGING", "SLIDING"), "window": ("SIDEHUNG", "SLIDING", "FIXED"), "gap": ("",)}
 OPERATION_NAMES = {"SWINGING": "abatible", "SLIDING": "corredera", "SIDEHUNG": "abatible",
@@ -131,6 +132,24 @@ def clear_width(rec):
     t = float(rec.get("leaf_thickness") or LEAF_THICKNESS)
     opened = frame if rec.get("operation") == "SLIDING" else frame - t
     return frame, opened
+
+
+def sua_text(rec):
+    """What the clear width says about DB-SUA, and only that: a dimensional
+    check of the door (Anejo A, accessible route), not a verdict on the
+    route nor on the building (audit R10, H12)."""
+    cw = clear_width(rec)
+    if cw is None:
+        return ""
+    frame, opened = cw
+    ok = sua_accessible(rec)
+
+    def m(v, d=3):
+        return f"{v:.{d}f}".replace(".", ",")
+    return (f"Paso libre {m(frame)} m en el marco y {m(opened)} m abierta. "
+            f"Ancho mínimo de puerta en itinerario accesible (DB-SUA, anejo A: "
+            f"{m(SUA_FRAME_MIN, 2)} y {m(SUA_OPEN_MIN, 2)} m): {'cumple' if ok else 'no cumple'}. "
+            "Es solo una comprobación dimensional de la puerta; no evalúa el itinerario.")
 
 
 def sua_accessible(rec):
@@ -361,6 +380,143 @@ def _jambs(pt, s0, s1, fw, f0, f1, h, lt, stop=0.01):
         out.append(("poly", [pt(edge, far), pt(edge + d * (fw + stop), far), pt(edge + d * (fw + stop), r),
                              pt(edge + d * fw, r), pt(edge + d * fw, h), pt(edge, h)], True))
     return out
+
+
+# --- the carpentry in 3D: frame, leaves, glass and sill -----------------------
+#
+# The pieces come from the same record (and the same rules) as the plan
+# symbol above: the jambs and the head of the frame, each leaf where it
+# closes, the sash profiles and the glass of a window, the sill outside.
+# Boxes in the wall's own coordinates (s along it, o across it, z up), a
+# hair apart so that every piece is a closed solid of its own (one mesh in
+# IngeTrazo, one IfcDoor/IfcWindow in the IFC). User's request and audit R10
+# (S1): a door or a window must not reach IngeTrazo as a plain block.
+
+PART_GAP = 0.0005
+GLASS_THICKNESS = 0.024          # double glazing 4/16/4
+SASH_PROFILE = 0.06
+DOOR_FLOOR_GAP = 0.005
+SILL_THICKNESS = 0.03
+PART_NAMES = {"frame": "Marco", "leaf": "Hoja", "glass": "Vidrio", "sill": "Alféizar"}
+MATERIALS = {"door": {"frame": "Madera", "leaf": "Madera"},
+             "window": {"frame": "Aluminio", "leaf": "Aluminio", "glass": "Vidrio", "sill": "Piedra"}}
+
+
+def part_material(rec, role):
+    """The material of a piece: the record's own (``frame_material``...) or
+    the usual one for its kind."""
+    key = {"frame": "frame_material", "leaf": "leaf_material", "glass": "glass_material",
+           "sill": "sill_material"}[role]
+    return str(rec.get(key) or MATERIALS.get(rec.get("type"), {}).get(role) or "")
+
+
+def carpentry_parts(spec, rec, base):
+    """[{'name', 'role', 'material', 'box': (s0, s1, o0, o1, z0, z1)} or
+    {..., 'prism': (outline, holes, o0, o1)}] of a door or a window (none for
+    a gap): outlines in (s, z), extruded across o0..o1. On a curved wall, on
+    its ``proxy``."""
+    rec = normalise(rec)
+    if rec["type"] == "gap":
+        return []
+    spec, rec = proxy(spec, rec)
+    g = PART_GAP
+    f0, f1 = frame_band(spec, rec)
+    s0 = float(rec["offset"])
+    s1 = s0 + float(rec["width"])
+    z0 = float(base) + float(rec["sill"])
+    z1 = z0 + float(rec["height"])
+    fw = max(0.0, float(rec.get("frame_width") or 0.0))
+    sg = rec["side"]
+    out = []
+
+    def add(role, box, k=None):
+        a, b, p, q, lo, hi = box
+        if b - a > 1e-4 and q - p > 1e-4 and hi - lo > 1e-4:
+            name = PART_NAMES[role] + (f" {k}" if k else "")
+            out.append({"name": name, "role": role, "material": part_material(rec, role),
+                        "box": (a, b, p, q, lo, hi)})
+
+    door = rec["type"] == "door"
+    if fw > 0 and 2 * fw < s1 - s0 and 2 * fw < z1 - z0:
+        # the frame is ONE ring around the hole (jambs, head and, in a door,
+        # a 5 mm threshold under the leaf): its face is the outline of the
+        # whole door or window, what IngeTrazo measures their Width and
+        # Height on (OverallWidth/OverallHeight in the IFC)
+        bottom = z0 + (DOOR_FLOOR_GAP if door else fw)
+        ring = ([(s0, z0), (s1, z0), (s1, z1), (s0, z1)],
+                [[(s0 + fw, bottom), (s1 - fw, bottom), (s1 - fw, z1 - fw), (s0 + fw, z1 - fw)]])
+        out.append({"name": PART_NAMES["frame"], "role": "frame",
+                    "material": part_material(rec, "frame"), "prism": ring + (f0, f1)})
+        c0, c1 = s0 + fw + g, s1 - fw - g
+        zt = z1 - fw - g
+        zb = bottom + g
+    else:
+        c0, c1, zt = s0, s1, z1
+        zb = z0 + DOOR_FLOOR_GAP if door else z0
+    if door:
+        lt = min(float(rec.get("leaf_thickness") or LEAF_THICKNESS), f1 - f0)
+        h = f1 if sg > 0 else f0
+        if rec["operation"] == "SLIDING":
+            lap = 0.05
+            if rec["leaves"] == 1:
+                runs = [(c0, c1 + lap, sg * 0.02)]
+            else:
+                mid = c0 + float(rec["leaf"])
+                runs = [(c0, mid + lap / 2, sg * 0.02), (mid - lap / 2, c1, sg * 0.05)]
+            for k, (a, b, d) in enumerate(runs, 1):
+                p, q = sorted((h + d, h + d + sg * 0.02))
+                add("leaf", (a, b, p, q, zb, zt), k if len(runs) > 1 else None)
+            return out
+        p, q = (h - lt, h) if sg > 0 else (h, h + lt)
+        if rec["leaves"] == 1:
+            add("leaf", (c0, c1, p, q, zb, zt))
+        else:
+            m = c0 + float(rec["leaf"])
+            add("leaf", (c0, m - g / 2, p, q, zb, zt), 1)
+            add("leaf", (m + g / 2, c1, p, q, zb, zt), 2)
+        return out
+    # window: sashes (stiles, rails) with their glass
+    mid, band = (f0 + f1) / 2, f1 - f0
+    n = max(1, int(rec["leaves"]))
+    if rec["operation"] == "FIXED":
+        n = 1
+    leaves = []
+    if rec["operation"] == "SLIDING" and n > 1:
+        lap, step, d = 0.05, (c1 - c0) / n, band / 3
+        for k in range(n):
+            a = c0 + k * step - (lap / 2 if k else 0)
+            b = c0 + (k + 1) * step + (lap / 2 if k < n - 1 else 0)
+            o0 = f0 + (d * 0.25 if k % 2 == 0 else d * 1.75)
+            leaves.append((a, b, o0, o0 + d))
+    else:
+        dl = min(0.045, band * 0.8)
+        step = (c1 - c0) / n
+        for k in range(n):
+            a = c0 + k * step + (g / 2 if k else 0)
+            b = c0 + (k + 1) * step - (g / 2 if k < n - 1 else 0)
+            leaves.append((a, b, mid - dl / 2, mid + dl / 2))
+    for k, (a, b, p, q) in enumerate(leaves, 1):
+        tag = k if len(leaves) > 1 else None
+        pr = min(SASH_PROFILE, (b - a) / 4, (zt - zb) / 4)
+        add("leaf", (a, a + pr, p, q, zb, zt), tag)
+        add("leaf", (b - pr, b, p, q, zb, zt), tag)
+        add("leaf", (a + pr + g, b - pr - g, p, q, zb, zb + pr), tag)
+        add("leaf", (a + pr + g, b - pr - g, p, q, zt - pr, zt), tag)
+        gt = min(GLASS_THICKNESS, (q - p) * 0.6)
+        gm = (p + q) / 2
+        add("glass", (a + pr + g, b - pr - g, gm - gt / 2, gm + gt / 2, zb + pr + g, zt - pr - g), tag)
+    proj = SILL_PROJECTION.get(rec.get("sill_kind"), 0.0)
+    if proj > 0:
+        ext, e = (spec.lo, -1) if sg > 0 else (spec.hi, 1)
+        p, q = sorted((ext, ext + e * proj))
+        add("sill", (s0 - SILL_OVERHANG, s1 + SILL_OVERHANG, p, q, z0 - SILL_THICKNESS, z0))
+    return out
+
+
+def carpentry_spec(spec, rec):
+    """The spec the pieces of ``carpentry_parts`` are measured on (the chord
+    of a curved wall)."""
+    return proxy(spec, normalise(rec))[0]
 
 
 def filling_box(spec, rec, base):

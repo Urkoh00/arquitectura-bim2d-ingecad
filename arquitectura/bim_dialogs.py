@@ -692,11 +692,186 @@ def _int_spin(value, lo, hi):
     return w
 
 
+# --- carpentry ------------------------------------------------------------------
+
+CARPENTRY_MATERIALS = ("Madera", "Aluminio", "PVC", "Acero", "Vidrio", "Vidrio laminar",
+                       "Piedra", "Mármol", "Hormigón polímero")
+PREVIEW_COLORS = {"frame": (138, 90, 51), "leaf": (176, 122, 72), "glass": (158, 195, 230),
+                  "sill": (216, 210, 196)}
+
+
+MATERIAL_COLORS = (("vidrio", (158, 195, 230)), ("madera", (176, 122, 72)), ("alumin", (178, 183, 189)),
+                   ("acero", (140, 146, 153)), ("pvc", (240, 240, 236)), ("piedra", (216, 210, 196)),
+                   ("mármol", (232, 229, 222)), ("marmol", (232, 229, 222)), ("hormig", (200, 198, 192)))
+
+
+def _material_color(material, role):
+    """The colour a piece is drawn with: by its material's name (as in
+    IngeTrazo), or by its role when the material says nothing."""
+    low = str(material or "").lower()
+    for key, rgb in MATERIAL_COLORS:
+        if key in low:
+            return rgb
+    return PREVIEW_COLORS[role]
+
+
+def carpentry_preview(get_record, wall_thickness=0.25):
+    """A small drawing of the carpentry being defined, from the SAME code
+    that draws it in the plan (``openings.plan_symbol``) and builds its
+    pieces in 3D (``openings.carpentry_parts``): elevation above, plan
+    below, on a sample wall. ``get_record()`` gives the sheet's values."""
+    from PySide6.QtCore import QPointF, QRectF, Qt
+    from PySide6.QtGui import QBrush, QColor, QFont, QPainter, QPen, QPolygonF
+    from PySide6.QtWidgets import QWidget
+    from . import openings as OP
+    from .geom import junctions as J
+
+    class Preview(QWidget):
+        def __init__(self):
+            super().__init__()
+            self.setMinimumSize(300, 340)
+            self.error = ""
+
+        def sample(self):
+            rec = OP.normalise({**get_record(), "offset": 0.4, "side": 1})
+            width = float(rec.get("width") or 0.9)
+            spec = J.walls_from_records([("muestra", {"id": "muestra", "kind": "wall",
+                                                      "a": [0.0, 0.0], "b": [width + 0.8, 0.0],
+                                                      "thickness": wall_thickness, "height": 3.0,
+                                                      "reference": "eje"})])[0]
+            return spec, rec, width
+
+        def paintEvent(self, _event):
+            qp = QPainter(self)
+            qp.setRenderHint(QPainter.Antialiasing)
+            qp.fillRect(self.rect(), QColor(250, 250, 248))
+            try:
+                spec, rec, width = self.sample()
+                pieces = OP.carpentry_parts(spec, rec, 0.0)
+                plan = OP.plan_symbol(spec, rec)
+                self.error = ""
+            except Exception as exc:          # noqa: BLE001 - the sheet keeps working
+                self.error = str(exc)
+                qp.drawText(self.rect(), Qt.AlignCenter | Qt.TextWordWrap,
+                            "Sin vista previa: " + self.error)
+                return
+            W, H = self.width(), self.height()
+            z1 = float(rec["sill"]) + float(rec["height"])
+            top = max(z1 + 0.2, 2.4)
+            span = width + 0.8
+            elev_h = H * 0.62
+            k = min((W - 30) / span, (elev_h - 40) / top)
+            ox = (W - span * k) / 2
+
+            def E(s_, z):
+                return QPointF(ox + s_ * k, elev_h - 18 - z * k)
+            # the wall in elevation, with its hole
+            wall = QPolygonF([E(0, 0), E(span, 0), E(span, top), E(0, top)])
+            qp.setPen(QPen(QColor(150, 150, 150), 1))
+            qp.setBrush(QBrush(QColor(226, 223, 216)))
+            qp.drawPolygon(wall)
+            s0, s1 = float(rec["offset"]), float(rec["offset"]) + width
+            z0 = float(rec["sill"])
+            qp.setBrush(QBrush(QColor(250, 250, 248)))
+            qp.drawPolygon(QPolygonF([E(s0, z0), E(s1, z0), E(s1, z1), E(s0, z1)]))
+            # its pieces, seen from the face it opens to
+            order = {"sill": 0, "frame": 1, "leaf": 2, "glass": 3}
+            for part in sorted(pieces, key=lambda p: order[p["role"]]):
+                c = QColor(*_material_color(part["material"], part["role"]))
+                if part["role"] == "glass":
+                    c.setAlpha(170)
+                qp.setBrush(QBrush(c))
+                qp.setPen(QPen(QColor(70, 60, 50), 0.8))
+                if "prism" in part:
+                    outline, holes, *_ = part["prism"]
+                    path = QPolygonF([E(*v) for v in outline])
+                    from PySide6.QtGui import QPainterPath
+                    pp = QPainterPath()
+                    pp.addPolygon(path)
+                    pp.closeSubpath()
+                    for h in holes:
+                        hp = QPainterPath()
+                        hp.addPolygon(QPolygonF([E(*v) for v in h]))
+                        hp.closeSubpath()
+                        pp = pp.subtracted(hp)
+                    qp.drawPath(pp)
+                else:
+                    a, b, _p, _q, lo, hi = part["box"]
+                    qp.drawPolygon(QPolygonF([E(a, lo), E(b, lo), E(b, hi), E(a, hi)]))
+            # swing marks of hinged leaves (a door's or a window's)
+            if rec["type"] != "gap" and rec["operation"] in ("SWINGING", "SIDEHUNG"):
+                qp.setPen(QPen(QColor(90, 90, 90), 0.8, Qt.DashLine))
+                fw = float(rec.get("frame_width") or 0.0)
+                c0, c1 = s0 + fw, s1 - fw
+                n = 1 if rec["type"] == "door" and rec["leaves"] == 1 else max(1, int(rec["leaves"]))
+                if rec["type"] == "door":
+                    bounds = ([(c0, c1, rec["hinge"])] if n == 1 else
+                              [(c0, c0 + float(rec["leaf"]), 0), (c0 + float(rec["leaf"]), c1, 1)])
+                else:
+                    step = (c1 - c0) / n
+                    bounds = [(c0 + i * step, c0 + (i + 1) * step, i % 2) for i in range(n)]
+                lb, lt = (z0 + 0.005, z1 - fw) if rec["type"] == "door" else (z0 + fw, z1 - fw)
+                for a, b, hinge in bounds:
+                    h_s, f_s = (a, b) if hinge == 0 else (b, a)
+                    qp.drawPolyline(QPolygonF([E(f_s, lt), E(h_s, (lb + lt) / 2), E(f_s, lb)]))
+            # sizes
+            qp.setPen(QPen(QColor(40, 40, 40)))
+            qp.setFont(QFont(qp.font().family(), 8))
+
+            def m(v):
+                return f"{v:.3f}".replace(".", ",")
+            qp.drawText(QRectF(E(s0, z1).x(), E(s0, z1).y() - 16, (s1 - s0) * k, 14), Qt.AlignCenter, m(width))
+            qp.drawText(QRectF(E(s1, 0).x() + 3, E(s1, z1).y(), 50, (z1 - z0) * k), Qt.AlignVCenter, m(z1 - z0))
+            if z0 > 0.01:
+                qp.drawText(QRectF(E(s0, 0).x() - 52, E(s0, z0).y(), 48, z0 * k),
+                            Qt.AlignVCenter | Qt.AlignRight, m(z0))
+            qp.drawText(QRectF(4, 2, W, 14), Qt.AlignLeft, "Alzado (desde la cara hacia la que abre)")
+            # the plan, as it is drawn in IngeCAD
+            plan_top = elev_h + 6
+            kp = min((W - 30) / span, (H - plan_top - 22) / 1.2)
+
+            px = (W - span * kp) / 2
+            py = plan_top + (H - plan_top) / 2 + 6
+
+            def Q(p):
+                return QPointF(px + p[0] * kp, py - p[1] * kp)
+            qp.drawText(QRectF(4, plan_top, W, 14), Qt.AlignLeft, "Planta (como en el dibujo)")
+            lo, hi = spec.lo, spec.hi
+            qp.setPen(QPen(QColor(90, 90, 90), 1))
+            qp.setBrush(QBrush(QColor(226, 223, 216)))
+            for a, b in ((0, s0), (s1, span)):
+                qp.drawPolygon(QPolygonF([Q((a, lo)), Q((b, lo)), Q((b, hi)), Q((a, hi))]))
+            qp.setBrush(Qt.NoBrush)
+            qp.setPen(QPen(QColor(120, 70, 40), 1))
+            for item in plan:
+                if item[0] == "line":
+                    qp.drawLine(Q(item[1]), Q(item[2]))
+                elif item[0] == "poly":
+                    poly = QPolygonF([Q(p) for p in item[1]])
+                    qp.drawPolygon(poly) if item[2] else qp.drawPolyline(poly)
+                elif item[0] == "arc":
+                    import math
+                    c, r, a0, a1 = item[1], item[2], item[3], item[4]
+                    steps = 24
+                    sweep = (a1 - a0) % 360.0
+                    pts = [Q((c[0] + r * math.cos(math.radians(a0 + sweep * t / steps)),
+                              c[1] + r * math.sin(math.radians(a0 + sweep * t / steps))))
+                           for t in range(steps + 1)]
+                    qp.drawPolyline(QPolygonF(pts))
+            qp.end()
+
+    return Preview()
+
+
 def carpentry_form(ctx, record, *, editing=False):
     """(dialog, read) of the carpentry sheet: the model (type, opening, leaves,
-    sizes, frame, sill) and its BIM identity; ``editing`` adds the position
-    in the wall and the side it opens to. ``read()`` returns the values."""
-    from PySide6.QtWidgets import QLabel, QLineEdit
+    sizes, frame, sill), the material of each piece and its BIM identity,
+    beside a live drawing of it (elevation and plan, from the same code
+    that draws and builds it); ``editing`` adds the position in the wall and
+    the side it opens to. ``read()`` returns the values. Organised after the
+    opening dialog of a free BIM editor studied in audit R10 (S2): groups,
+    the result seen while it is defined, what each figure means."""
+    from PySide6.QtWidgets import QComboBox, QHBoxLayout, QLabel, QLineEdit, QVBoxLayout, QWidget
     from . import openings as OP
     QDialog, _, _, QFormLayout, QGroupBox, *_ = _widgets()
     d = OP.normalise({"type": record.get("type", "door"), "width": record.get("width", 0.9),
@@ -705,8 +880,12 @@ def carpentry_form(ctx, record, *, editing=False):
                       **{k: v for k, v in record.items() if k not in ("width", "sill", "height", "offset")}})
     dlg, layout, buttons = _dialog(ctx, "Arquitectura — Carpintería",
                                    "Modelo de puerta, ventana o hueco. Las medidas de hoja son las de la "
-                                   "hoja; el hueco se calcula con el cerco.")
-    model = QGroupBox("Modelo", dlg)
+                                   "hoja; el hueco se calcula con el cerco. El dibujo de la derecha es el "
+                                   "que se obtendrá en planta y en 3D.")
+    body = QHBoxLayout()
+    left = QVBoxLayout()
+    body.addLayout(left, 3)
+    model = QGroupBox("Modelo y medidas", dlg)
     f = QFormLayout(model)
     typ = _choice([("Puerta", "door"), ("Ventana", "window"), ("Hueco (sin carpintería)", "gap")], d["type"])
     operation = _choice([], None)
@@ -725,15 +904,33 @@ def carpentry_form(ctx, record, *, editing=False):
     frame_d = _spin(d.get("frame_depth") or 0.0)
     sill_kind = _choice([("Alféizar", "alfeizar"), ("Vierteaguas", "vierteaguas"), ("Ventanal", "ventanal")],
                         d.get("sill_kind") or "alfeizar")
-    clear = QLabel("")
+    hole = QLabel("")
     rows = [("Tipo:", typ), ("Apertura:", operation), ("Hojas:", leaves), ("Hoja normalizada:", preset),
             ("Hoja principal:", leaf), ("Segunda hoja (0 = igual):", leaf2), ("Ancho del hueco:", width),
-            ("Altura:", height), ("Antepecho:", sill), ("Ajuste del cerco:", face),
-            ("Cerco, ancho de jamba:", frame_w), ("Cerco, profundidad (0 = automática):", frame_d),
-            ("Remate inferior:", sill_kind), ("Paso libre (DB-SUA):", clear)]
+            ("Hueco resultante:", hole), ("Altura:", height), ("Antepecho:", sill)]
     for label, w in rows:
         f.addRow(label, w)
-    layout.addWidget(model)
+    left.addWidget(model)
+    frame_box = QGroupBox("Cerco y remate", dlg)
+    ff = QFormLayout(frame_box)
+    for label, w in (("Ajuste del cerco:", face), ("Ancho de jamba:", frame_w),
+                     ("Profundidad (0 = automática):", frame_d), ("Remate inferior:", sill_kind)):
+        ff.addRow(label, w)
+    left.addWidget(frame_box)
+    mats = QGroupBox("Materiales de las piezas", dlg)
+    mf = QFormLayout(mats)
+
+    def mat_box(key, role):
+        box = QComboBox()
+        box.setEditable(True)
+        box.addItems(CARPENTRY_MATERIALS)
+        box.setCurrentText(str(record.get(key) or OP.part_material(d, role)))
+        return box
+    m_frame, m_leaf = mat_box("frame_material", "frame"), mat_box("leaf_material", "leaf")
+    m_glass, m_sill = mat_box("glass_material", "glass"), mat_box("sill_material", "sill")
+    for label, w in (("Marco:", m_frame), ("Hojas:", m_leaf), ("Vidrio:", m_glass), ("Alféizar:", m_sill)):
+        mf.addRow(label, w)
+    left.addWidget(mats)
     place = None
     if editing:
         place = QGroupBox("Posición en el muro", dlg)
@@ -745,22 +942,29 @@ def carpentry_form(ctx, record, *, editing=False):
         pf.addRow("Distancia desde el inicio:", offset)
         pf.addRow("Abre:", side)
         pf.addRow("Bisagra:", hinge)
-        layout.addWidget(place)
+        left.addWidget(place)
     ident = QGroupBox("Identificación BIM", dlg)
     g = QFormLayout(ident)
     name = QLineEdit(str(record.get("name") or ""))
     type_name = QLineEdit(str(record.get("type_name") or ""))
     material = QLineEdit(str(record.get("material") or ""))
+    material.setPlaceholderText("material principal (opcional)")
     ifc = QLineEdit("")
     ifc.setReadOnly(True)
     for label, w in (("Nombre:", name), ("Tipo:", type_name), ("Material:", material), ("Clase IFC:", ifc)):
         g.addRow(label, w)
-    layout.addWidget(ident)
+    left.addWidget(ident)
+    right = QVBoxLayout()
+    status = QLabel("")
+    status.setWordWrap(True)
+    rightw = QWidget()
+    rightw.setLayout(right)
+    layout.addLayout(body)
     layout.addWidget(buttons)
 
-    def show(widget, on):
+    def show(widget, on, form=f):
         widget.setVisible(on)
-        lab = f.labelForField(widget)
+        lab = form.labelForField(widget)
         if lab is not None:
             lab.setVisible(on)
 
@@ -776,6 +980,19 @@ def carpentry_form(ctx, record, *, editing=False):
         operation.setCurrentIndex(pos if pos >= 0 else 0)
         operation.blockSignals(False)
 
+    def problems(v):
+        """Blocking problems of the values (a message each)."""
+        out = []
+        if v["type"] != "gap":
+            fw = float(v.get("frame_width") or 0.0)
+            if 2 * fw >= float(v["width"]) - 1e-6:
+                out.append("El cerco es más ancho que el hueco.")
+            if fw >= float(v["height"]) / 2:
+                out.append("El cerco es más alto que la mitad del hueco.")
+        if v["type"] == "door" and v.get("leaves") == 2 and float(v.get("leaf2") or 0) <= 0:
+            out.append("Falta la segunda hoja.")
+        return out
+
     def refresh(*_):
         kind = typ.currentData()
         door, window = kind == "door", kind == "window"
@@ -786,18 +1003,41 @@ def carpentry_form(ctx, record, *, editing=False):
             show(w, door)
         show(leaf2, door and leaves.value() == 2)
         show(width, not door)
-        show(sill_kind, window)
-        show(frame_w, kind != "gap")
-        show(frame_d, kind != "gap")
-        show(face, kind != "gap")
-        show(clear, door)
+        show(hole, door)
+        show(sill_kind, window, ff)
+        for w in (frame_w, frame_d, face):
+            show(w, kind != "gap", ff)
+        frame_box.setVisible(kind != "gap")
+        mats.setVisible(kind != "gap")
+        show(m_glass, window, mf)
+        show(m_sill, window and sill_kind.currentData() != "ventanal", mf)
         ifc.setText(OP.IFC[kind] if kind != "gap" else "IfcOpeningElement")
+        v = read()
         if door:
-            v = read()
-            fr, op = OP.clear_width(v)
-            ok = OP.sua_accessible(v)
-            clear.setText(f"{fr:.3f} m en el marco, {op:.3f} m abierta: "
-                          f"{'válida' if ok else 'NO válida'} para itinerario accesible".replace(".", ","))
+            hole.setText(f"{v['width']:.3f} m de ancho (hojas + cerco)".replace(".", ","))
+        notes = problems(v)
+        if door:
+            notes.append(OP.sua_text(v))
+        if kind == "gap":
+            notes.append("Hueco sin carpintería: en 3D, el vano abierto en el muro.")
+        else:
+            pieces = OP.carpentry_parts(_sample_spec(v), {**v, "offset": 0.4}, 0.0)
+            roles = {p["role"] for p in pieces}
+            names = [n for r, n in (("frame", "marco"), ("leaf", "hojas"), ("glass", "vidrio"),
+                                    ("sill", "alféizar")) if r in roles]
+            notes.append("En 3D: " + ", ".join(names) + ".")
+        status.setText("\n".join(n for n in notes if n))
+        ok = buttons.button(buttons.StandardButton.Ok) if hasattr(buttons, "StandardButton") else None
+        if ok is not None:
+            ok.setEnabled(not problems(v))
+        preview.update()
+
+    def _sample_spec(v):
+        from .geom import junctions as J
+        w = float(v.get("width") or 0.9)
+        return J.walls_from_records([("muestra", {"id": "muestra", "kind": "wall", "a": [0.0, 0.0],
+                                                  "b": [w + 0.8, 0.0], "thickness": 0.25,
+                                                  "height": 3.0, "reference": "eje"})])[0]
 
     def on_preset(*_):
         val = preset.currentData()
@@ -815,26 +1055,49 @@ def carpentry_form(ctx, record, *, editing=False):
                      leaf2=leaf2.value() if leaves.value() == 2 else 0.0)
             v["width"] = OP.door_width(v["leaf"], v["leaves"], v["leaf2"], v["frame_width"])
             v["leaf2"] = v["leaf2"] or (v["leaf"] if v["leaves"] == 2 else 0.0)
+            v.update(frame_material=m_frame.currentText().strip(), leaf_material=m_leaf.currentText().strip())
         else:
             v.update(leaves=leaves.value() if kind == "window" else 0, width=width.value())
             if kind == "window":
                 v["sill_kind"] = sill_kind.currentData()
+                v.update(frame_material=m_frame.currentText().strip(),
+                         leaf_material=m_leaf.currentText().strip(),
+                         glass_material=m_glass.currentText().strip(),
+                         sill_material=m_sill.currentText().strip())
             if kind == "gap":
                 v.update(face="centrada", frame_width=0.0, frame_depth=0.0, operation="")
         if place is not None:
             v.update(offset=offset.value(), side=side.currentData(), hinge=hinge.currentData())
         return v
 
+    preview = carpentry_preview(read, float(record.get("_wall_thickness") or 0.25))
+    right.addWidget(preview, 1)
+    right.addWidget(status)
+    body.addWidget(rightw, 2)
     fill_operations()
-    typ.currentIndexChanged.connect(lambda *_: (fill_operations(), refresh()))
-    for w in (leaves, leaf, leaf2, frame_w):
+    last = {"kind": d["type"]}
+
+    def kind_changed(*_):
+        # a material still at the old kind's usual value takes the new one's
+        old, new = last["kind"], typ.currentData()
+        for box, role in ((m_frame, "frame"), (m_leaf, "leaf"), (m_glass, "glass"), (m_sill, "sill")):
+            if box.currentText().strip() in ("", OP.MATERIALS.get(old, {}).get(role, "")):
+                box.setCurrentText(OP.MATERIALS.get(new, {}).get(role, ""))
+        last["kind"] = new
+        fill_operations()
+        refresh()
+    typ.currentIndexChanged.connect(kind_changed)
+    for w in (leaves, leaf, leaf2, frame_w, frame_d, width, height, sill):
         w.valueChanged.connect(refresh)
-    operation.currentIndexChanged.connect(refresh)
+    for w in (operation, face, sill_kind):
+        w.currentIndexChanged.connect(refresh)
     preset.currentIndexChanged.connect(on_preset)
     refresh()
     dlg._arq = dict(typ=typ, operation=operation, leaves=leaves, preset=preset, leaf=leaf, leaf2=leaf2,
                     width=width, height=height, sill=sill, face=face, sill_kind=sill_kind, name=name,
-                    clear=clear, ifc=ifc)
+                    clear=status, status=status, ifc=ifc, preview=preview, frame_width=frame_w,
+                    frame_material=m_frame, leaf_material=m_leaf, glass_material=m_glass,
+                    sill_material=m_sill, problems=problems)
     return dlg, read
 
 

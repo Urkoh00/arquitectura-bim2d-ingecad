@@ -1,12 +1,12 @@
 # Manual de Arquitectura para IngeCAD
 
-Versión 1.18.0-dev · 10-11-2026
+Versión 1.19.0-dev · 14-11-2026
 
 > Copia del manual publicado como documento en claude.ai; se regenera con cada versión.
 
 ## Qué es
 
-Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.18.0-dev** y se actualiza con cada versión.
+Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.19.0-dev** y se actualiza con cada versión.
 
 Cada elemento guarda su identidad persistente, su clase IFC, su geometría editable en planta, sus parámetros 3D (altura, espesor, cota), sus propiedades constructivas (tipo, material, capas) y su nivel. Las carpinterías conocen su muro y los recintos siguen a los muros que los cierran.
 
@@ -23,7 +23,7 @@ El plugin se instala copiando una carpeta en IngeCAD, y la extensión copiando u
 
 **En IngeCAD**
 
-1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.18.0-dev.zip`.
+1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.19.0-dev.zip`.
 2. Copie la carpeta `arquitectura` en la carpeta de plugins de IngeCAD.
 3. Reinicie IngeCAD. Aparece el menú *Arquitectura* y su barra de herramientas.
 4. Escriba `ARQDIAG` en la línea de órdenes para comprobar que la versión cargada es la que acaba de copiar.
@@ -245,9 +245,9 @@ Cada pilar es un solo paso de `Deshacer`, con los muros y recintos ya actualizad
 
 `CARPINTERIA` inserta puertas (IfcDoor), ventanas (IfcWindow) y huecos sin carpintería en un muro o tabique. Cada una abre su hueco en el muro, en planta y en 3D, y lo acompaña si el muro se mueve. `PUERTAARQ`, `VENTANAARQ` y `HUECOARQ` son la misma orden con ese tipo de partida.
 
-**Representación en planta.** Las puertas se dibujan con las jambas del cerco con su rebaje, la hoja con su grueso (4 cm) y el arco de giro. Las ventanas se dibujan con las jambas, los perfiles de cada hoja con su vidrio, la marca de encuentro entre hojas y el alféizar cerrando el hueco. Las correderas muestran sus carriles. El símbolo se regenera con la carpintería: si cambia el muro o la ficha, cambia el dibujo.
+**Representación en planta.** Las puertas se dibujan con las jambas del cerco con su rebaje, la hoja con su grueso (4 cm) y el arco de giro. Las ventanas se dibujan con las jambas, los perfiles de cada hoja con su vidrio, la marca de encuentro entre hojas y el alféizar cerrando el hueco. Las correderas muestran sus carriles. El símbolo se regenera con la carpintería: si cambia el muro o la ficha, cambia el dibujo. En 3D, la carpintería se construye con sus piezas reales, a partir de los mismos datos: el marco (un anillo alrededor del hueco; en las puertas, con un umbral de 5 mm), las hojas donde cierran, los perfiles y el vidrio de cada hoja de ventana y el alféizar. Cada pieza lleva su material; el vidrio se ve translúcido en IngeTrazo.
 
-**Ficha de carpintería.** Al empezar la orden se abre una ficha, como en MURO y PILAR, con el modelo que se va a insertar: tipo (puerta, ventana o hueco), apertura, hojas, hoja normalizada o a medida, segunda hoja, ancho del hueco, altura, antepecho, ajuste y medidas del cerco, remate, nombre, tipo, material y clase IFC. En las puertas muestra al momento el paso libre según el DB-SUA. Si se cancela, la orden termina. La opción `D` la vuelve a abrir durante la orden; las opciones de la tabla siguen sirviendo para cambios rápidos.
+**Ficha de carpintería.** Al empezar la orden se abre una ficha, como en MURO y PILAR, con el modelo que se va a insertar: tipo (puerta, ventana o hueco), apertura, hojas, hoja normalizada o a medida, segunda hoja, ancho del hueco, altura, antepecho, ajuste y medidas del cerco, remate, nombre, tipo, material y clase IFC. En las puertas muestra al momento el paso libre según el DB-SUA. Si se cancela, la orden termina. La opción `D` la vuelve a abrir durante la orden; las opciones de la tabla siguen sirviendo para cambios rápidos. A la derecha de la ficha, un dibujo del alzado y de la planta muestra el resultado mientras se define, y debajo se indican el paso libre y las piezas que tendrá en 3D. En la ficha se eligen también los materiales del marco, las hojas, el vidrio y el alféizar. Si el cerco no cabe en el hueco, la ficha lo explica y no deja aceptar.
 
 **Editar una carpintería existente.** `PROPIEDADESARQ` sobre su símbolo abre la misma ficha, con su posición en el muro: distancia desde el inicio, cara hacia la que abre y bisagra. Conserva su identidad.
 
@@ -355,7 +355,7 @@ Si encuentra alguno, abre un cuadro con la lista. Al seleccionar un problema, su
 | Muro | IfcWall | Longitud (desarrollada si es curvo), altura, espesor, volumen; capas del tipo; si es exterior (calculado) |
 | Pilar | IfcColumn | Sección, perfil metálico y masa |
 | Hueco | IfcOpeningElement | Vacío en su muro |
-| Puerta / ventana | IfcDoor / IfcWindow | Rellena su hueco; tipo de apertura; paso libre DB-SUA |
+| Puerta / ventana | IfcDoor / IfcWindow | Rellena su hueco; tipo de apertura; paso libre DB-SUA; piezas (marco, hojas, vidrio, alféizar) con su material |
 | Recinto | IfcSpace | Superficie útil y computable, si es habitable, usos |
 | Falso techo | IfcCovering | Placa de 15 mm bajo el techo del recinto |
 
@@ -400,7 +400,7 @@ Si encuentra alguno, abre un cuadro con la lista. Al seleccionar un problema, su
 
 ## Limitaciones conocidas
 
-Estas son las limitaciones conocidas de la versión 1.18.0-dev; cada versión actualiza esta lista.
+Estas son las limitaciones conocidas de la versión 1.19.0-dev; cada versión actualiza esta lista.
 
 - **Plataforma:** las pruebas automáticas se ejecutan en Linux y en Windows con IngeCAD oficial (las versiones 0.7.0 y 0.8.0), pero sin pantalla. El usuario probó la v1.17 en Windows 10 con IngeCAD 0.8 e IngeTrazo 0.6.1: la cadena hasta el IFC funcionó; las correcciones de la v1.18 salen de esa prueba.
 - **Muros curvos:** cada muro llega como mucho a media circunferencia (un muro redondo son dos). MUROPARALELO y DIVIDEMURO solo toman líneas rectas como referencia. El gesto de esquina en L al terminar un MURO solo recorta muros rectos.
@@ -414,6 +414,7 @@ Estas son las limitaciones conocidas de la versión 1.18.0-dev; cada versión ac
 
 | Fecha | Versión | Novedades |
 | --- | --- | --- |
+| 14-11-2026 | 1.19.0-dev | Puertas y ventanas en 3D con sus piezas (marco, hojas, perfiles, vidrio y alféizar) y su material; ficha de carpintería con dibujo del alzado y la planta, materiales por pieza y validación; aviso del DB-SUA reducido a lo que comprueba |
 | 10-11-2026 | 1.18.0-dev | Tras la primera prueba en Windows: fichas de tipos de muro (TIPOSMURO y la ficha de MURO) y de usos del CTE (USOSARQ); punto de inserción del pilar en su ficha y referencias a objetos de IngeCAD al colocarlo; recubrimiento de pilares solo por fuera de los muros; ORTO sin efecto en el punto de paso de los muros curvos; carpintería más rápida y sin falsos «no cabe»; DXF en ASCII |
 | 9-11-2026 | 1.17.0-dev | Auditoría independiente integrada: comprobación antes de exportar con elementos resaltados; órdenes de IngeCAD aceptadas; encuentros por alturas; extensión que valida el contrato y admite coordenadas UTM; LINEASAMURO para planos reales (capas, bloques, medianeras, pilares); opciones generales; con IngeCAD 0.8 (en desarrollo), sincronización inmediata, doble clic y F5 por la vía oficial |
 | 9-11-2026 | 1.16.0-dev | La importación en IngeTrazo ya no falla en planos lejos del origen; SUPERFICIES dibuja el cuadro en la planta; COTAMUROS (cotas automáticas); símbolos de puertas y ventanas más detallados; menú «Herramientas antiguas»; pruebas también en Windows y dentro del ZIP |

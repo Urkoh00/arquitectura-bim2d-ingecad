@@ -21,6 +21,7 @@ import uuid
 
 from .architectural import metadata
 from .geom import junctions as J
+from .geom import polygon as P
 from .geom import solids as S
 from . import openings as OP
 
@@ -402,24 +403,56 @@ def _door_enums(o):
 
 def _filling(o, spec, wall_meta, level, void_guid, wall_id):
     """IfcDoor/IfcWindow filling a wall's hole (IfcRelFillsElement in the
-    IFC): one closed body across the frame depth, so that wall + door have
-    the volume of the uncut wall slice they replace."""
+    IFC), built of its real pieces: frame, leaves, glass and sill
+    (``openings.carpentry_parts``, the same record and rules as its plan
+    symbol). Each face says which piece it belongs to (``part``); the pieces
+    are listed in ``parts`` with their material. The volume is that of the
+    pieces, not of the hole."""
     from . import openings as OP
     base = float(wall_meta.get("base", 0.0))
     s0, s1, f0, f1, z0, z1 = OP.filling_box(spec, o, base)
-    spec, _o = OP.proxy(spec, o)          # a curved wall: the planar carpentry on its chord
-    fake = {"offset": s0, "width": s1 - s0, "sill": z0 - base, "height": z1 - z0}
-    faces = S.opening_box(spec.a, spec.u, spec.n, f0, f1, fake, base)
+    pieces = OP.carpentry_parts(spec, o, base)
+    spec = OP.carpentry_spec(spec, o)          # a curved wall: the planar carpentry on its chord
+    faces, parts, volume = [], [], 0.0
+    for k, piece in enumerate(pieces):
+        if "prism" in piece:
+            outline, holes, p, q = piece["prism"]
+            box = _wall_prism(spec, outline, holes, p, q)
+            area = abs(P.area(outline)) - sum(abs(P.area(h)) for h in holes)
+            vol = area * (q - p)
+        else:
+            a, b, p, q, lo, hi = piece["box"]
+            fake = {"offset": a, "width": b - a, "sill": lo - base, "height": hi - lo}
+            box = S.opening_box(spec.a, spec.u, spec.n, p, q, fake, base)
+            vol = (b - a) * (q - p) * (hi - lo)
+        faces.extend(box)
+        parts.append({"name": piece["name"], "role": piece["role"], "material": piece["material"],
+                      "faces": len(box), "volume": vol})
+        volume += vol
+    if not faces:                              # nothing left of it (a frame wider than the hole)
+        fake = {"offset": s0, "width": s1 - s0, "sill": z0 - base, "height": z1 - z0}
+        faces = S.opening_box(spec.a, spec.u, spec.n, f0, f1, fake, base)
+        volume = (s1 - s0) * (f1 - f0) * (z1 - z0)
     cls = OP.IFC[o["type"]]
     m = {"name": o.get("name") or OP.NAMES[o["type"]], "type_name": o.get("type_name") or "",
          "material": o.get("material") or "", "height": z1 - z0, "base": z0}
-    el = _element(o["id"], cls, m, faces, (s1 - s0) * (f1 - f0) * (z1 - z0), (s1 - s0) * (f1 - f0), level)
+    el = _element(o["id"], cls, m, faces, volume, (s1 - s0) * (f1 - f0), level)
+    if parts:
+        start = 0
+        for k, part in enumerate(parts):
+            for face in el["faces"][start:start + part["faces"]]:
+                face["part"] = k
+            start += part.pop("faces")
+        el["parts"] = parts
     el["fills"] = void_guid
     el["enums"] = _door_enums(o)
     el["host"] = wall_id
     el["params"].update({k: o.get(k) for k in ("offset", "width", "sill", "leaves", "leaf", "leaf2",
                                               "side", "hinge", "face", "frame_width", "frame_depth",
-                                              "sill_kind", "chord")})
+                                              "sill_kind", "chord", "operation", "leaf_thickness",
+                                              "frame_material", "leaf_material", "glass_material")})
+    # the canonical opening type, not a translated word (audit R10, S3)
+    el["params"]["operation"] = OP.normalise(o)["operation"]
     common = el["psets"].setdefault(PSET[cls], {})
     common["IsExternal"] = bool(wall_meta.get("_external"))
     arq = el["psets"]["ARQ_IngeCAD"]
@@ -442,6 +475,59 @@ def _filling(o, spec, wall_meta, level, void_guid, wall_id):
     el["quantities"] = {"Height": z1 - z0, "Width": s1 - s0, "Area": (s1 - s0) * (z1 - z0)}
     el["footprint"] = []
     return el
+
+
+def _wall_prism(spec, outline, holes, p, q):
+    """Closed solid of a figure drawn in the wall's own vertical plane
+    (``outline``, ``holes``: loops of (s, z)), across the wall from offset
+    ``p`` to ``q``: faces [(outer, [holes])], every normal outward."""
+    a, u, n = spec.a, spec.u, spec.n
+
+    def w(sz, o):
+        s_, z = sz
+        return (a[0] + u[0] * s_ + n[0] * o, a[1] + u[1] * s_ + n[1] * o, z)
+
+    def ccw(loop):
+        return list(loop) if P.area(loop) > 0 else list(reversed(loop))
+
+    def newell(loop):
+        x = y = z = 0.0
+        for i, c in enumerate(loop):
+            d = loop[(i + 1) % len(loop)]
+            x += (c[1] - d[1]) * (c[2] + d[2])
+            y += (c[2] - d[2]) * (c[0] + d[0])
+            z += (c[0] - d[0]) * (c[1] + d[1])
+        return (x, y, z)
+
+    def facing(loop, want):
+        nv = newell(loop)
+        return loop if nv[0] * want[0] + nv[1] * want[1] + nv[2] * want[2] > 0 else list(reversed(loop))
+
+    outer = ccw(outline)
+    inner = [ccw(h) for h in holes]
+    faces = []
+    for o, sign in ((p, -1.0), (q, 1.0)):
+        want = (n[0] * sign, n[1] * sign, 0.0)
+        back = (-want[0], -want[1], 0.0)
+        faces.append((facing([w(v, o) for v in outer], want),
+                      [facing([w(v, o) for v in h], back) for h in inner]))
+
+    def solid_at(pt):
+        return P.point_in_polygon(pt, outer) and not any(P.point_in_polygon(pt, h) for h in inner)
+    for loop in [outer] + inner:
+        for i, c in enumerate(loop):
+            d = loop[(i + 1) % len(loop)]
+            ds, dz = d[0] - c[0], d[1] - c[1]
+            ln = math.hypot(ds, dz)
+            if ln < 1e-12:
+                continue
+            ps, pz = dz / ln, -ds / ln                       # a perpendicular in (s, z)
+            mid = ((c[0] + d[0]) / 2, (c[1] + d[1]) / 2)
+            if solid_at((mid[0] + ps * 1e-6, mid[1] + pz * 1e-6)):
+                ps, pz = -ps, -pz                            # point out of the solid
+            want = (u[0] * ps, u[1] * ps, pz)
+            faces.append((facing([w(c, p), w(d, p), w(d, q), w(c, q)], want), []))
+    return faces
 
 
 def _element(ident, cls, m, faces, volume, plan_area, level):

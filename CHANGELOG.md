@@ -2,6 +2,50 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.19.0-dev — 2026-11-14
+
+Incorpora lo que la auditoría R10 de Codex propone y conviene ya (carpinterías 3D, ficha de carpintería,
+identidad del intercambio, higiene del repositorio), tras evaluarla una a una.
+
+### Carpinterías en 3D (R10, S1)
+- **Puertas y ventanas ya no llegan a IngeTrazo como un bloque.** Cada una se construye con sus piezas reales:
+  - el **marco**, un solo anillo alrededor del hueco (en una puerta, jambas, cabecero y un umbral de 5 mm);
+  - las **hojas** donde cierran: una o dos en las puertas abatibles y fuera del cerco en las correderas;
+  - en las ventanas, los cuatro **perfiles** de cada hoja con su **vidrio** (corredera en sus guías);
+  - el **alféizar**, que sobresale de la fachada.
+- **Mismo origen que la planta.** Las piezas salen del mismo registro y de las mismas reglas que el símbolo en
+  planta (`openings.carpentry_parts` junto a `plan_symbol`).
+- **Una sola malla en IngeTrazo.** Todas las piezas van en la malla de la puerta o la ventana, con el material
+  de cada pieza en sus caras (vidrio translúcido). Así el IFC las escribe todas en el mismo `IfcDoor` o
+  `IfcWindow`, y IngeTrazo mide bien su ancho y su alto (`OverallWidth/OverallHeight`), porque la cara del
+  marco es el contorno completo.
+  - Un contenedor con piezas hijas, como hace el ejemplo Windowizer, se habría perdido en el IFC: es T-08,
+    reproducido y registrado.
+- **Datos de cada pieza.** El volumen es el de las piezas, no el del hueco. Las piezas (nombre, función,
+  material y volumen) viajan en el `.arqbim` y en el IGZ, que sirve como base de una memoria de carpintería.
+
+### Ficha de carpintería (R10, S2)
+- **Vista previa** del alzado (desde la cara hacia la que abre) y de la planta, con las medidas.
+  - Se dibuja con el mismo código que la planta y el 3D.
+  - Se actualiza al cambiar cualquier dato.
+- **Materiales por pieza:** marco, hojas, vidrio y alféizar.
+  - Se guardan en la carpintería y llegan al 3D.
+  - Al pasar de puerta a ventana, cambian a los habituales de cada tipo.
+- **Validación:** un cerco más ancho que el hueco desactiva «Aceptar» y se explica.
+  - La ficha indica qué piezas tendrá en 3D.
+- **DB-SUA (R10, H12):** el aviso dice solo lo que comprueba, el ancho de paso de la puerta frente al anejo A
+  («cumple / no cumple; no evalúa el itinerario»), y ya no habla de «válida» o «NO válida».
+
+### Intercambio (R10, S3)
+- El tipo de apertura viaja con su valor canónico (`SWINGING`, `SLIDING`, `SIDEHUNG`, `FIXED`), no con su
+  nombre traducido.
+- La extensión de IngeTrazo comprueba las piezas: índices de pieza válidos, y piezas solo en puertas y
+  ventanas.
+
+### Repositorio (R10, H07 y H08)
+- La CI no se ejecuta por cambios solo de documentación, y un envío nuevo a la misma rama cancela el anterior.
+- El README ya no copia cifras de pruebas que caducan.
+
 ## 1.18.0-dev — 2026-11-10
 
 Responde a la primera prueba del usuario con IngeCAD 0.8 e IngeTrazo 0.6.1 en Windows 10: la cadena completa
@@ -39,7 +83,7 @@ funcionó (dos IFC sin errores de validación). Corrige lo que señaló y añade
 - **Codificación del DXF**: los parámetros del dibujo se guardaban con acentos sin escapar en un DXF que se
   declara ANSI_1252. Ahora el DXF es todo ASCII.
 
-### IngeTrazo (registro T-06, sin enviar)
+### IngeTrazo (registro T-07, sin enviar)
 - La medición (metrado) de un muro curvo en IngeTrazo es la superficie de su huella, no la de su paramento:
   IngeTrazo mide el muro por su cara mayor, y un muro curvo son muchas caras pequeñas. Además sustituye las
   cantidades exactas que envía el plugin (longitud 16,62 m pasa a 0,62 m). Se documenta; no se envía hasta que

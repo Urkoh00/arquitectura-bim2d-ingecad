@@ -11,7 +11,7 @@ IngeCAD + plugin Arquitectura  ──.arqbim──▶  IngeTrazo (extensión)  �
        (planta 2D BIM)                          (modelo 3D)
 ```
 
-**Estado: experimental (v1.18.0-dev).** No usar todavía en proyectos reales.
+**Estado: experimental (v1.19.0-dev).** No usar todavía en proyectos reales.
 
 **Manual de uso:** [`docs/MANUAL.md`](docs/MANUAL.md) (también dentro del ZIP), actualizado en cada versión.
 
@@ -52,8 +52,11 @@ pip install -r ../ingecad/requirements.txt -r requirements-dev.txt
 python -m pytest -q
 ```
 
-Con IngeCAD oficial: 187 correctas y 4 omitidas (las 4 requieren el gancho de reactores propuesto
-en `docs/propuestas_upstream/ingecad/`). GitHub Actions las ejecuta en cada envío.
+GitHub Actions las ejecuta en cada envío de código, en Linux y en Windows, contra la última
+versión publicada de IngeCAD y contra su rama principal; el resultado de cada ejecución es el que
+cuenta (las cifras no se copian aquí porque cambian con cada versión). Con un IngeCAD anterior a la
+0.8, unas pocas pruebas se omiten: las que necesitan sus reactores oficiales. Son pruebas sin
+pantalla: no sustituyen la prueba manual en el IngeCAD instalado.
 
 ## Colaboración con IngeCAD e IngeTrazo
 

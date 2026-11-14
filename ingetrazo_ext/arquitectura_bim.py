@@ -37,7 +37,18 @@ DATA_KEY = "arquitectura"
 #: what each class may carry (possible finding 26 of the independent audit:
 #: a space with wall layers made the IFC writer produce an invalid file)
 ONLY_FOR = {"material_layers": {"IfcWall"}, "openings": {"IfcWall"},
-            "fills": {"IfcDoor", "IfcWindow"}, "host": {"IfcDoor", "IfcWindow"}}
+            "fills": {"IfcDoor", "IfcWindow"}, "host": {"IfcDoor", "IfcWindow"},
+            "parts": {"IfcDoor", "IfcWindow"}}
+
+# colours of the carpentry's pieces by the material's name (the plugin sends
+# names: «Madera», «Aluminio», «Vidrio»...). A material the document already
+# has keeps its own look.
+PART_LOOKS = (("vidrio", (0.62, 0.76, 0.90), 0.35), ("glass", (0.62, 0.76, 0.90), 0.35),
+              ("madera", (0.69, 0.48, 0.28), None), ("wood", (0.69, 0.48, 0.28), None),
+              ("alumin", (0.70, 0.72, 0.74), None), ("acero", (0.55, 0.57, 0.60), None),
+              ("pvc", (0.94, 0.94, 0.92), None), ("piedra", (0.85, 0.82, 0.77), None),
+              ("hormig", (0.78, 0.78, 0.75), None),
+              ("marmol", (0.90, 0.89, 0.86), None), ("mármol", (0.90, 0.89, 0.86), None))
 
 
 def validate_contract(data):
@@ -144,6 +155,15 @@ def validate_contract(data):
         if not isinstance(params, dict):
             raise ValueError("%s: faltan sus parámetros" % who)
         boundary(el.get("faces"), who)
+        if el.get("parts") is not None:
+            parts = el["parts"]
+            if not isinstance(parts, list) or not all(
+                    isinstance(p, dict) and isinstance(p.get("name"), str) for p in parts):
+                raise ValueError("%s: piezas no válidas" % who)
+            for face in el["faces"]:
+                k = face.get("part")
+                if k is not None and (type(k) is not int or not 0 <= k < len(parts)):
+                    raise ValueError("%s: cara de una pieza inexistente" % who)
         for op in el.get("openings", []):
             identity(op)
             boundary(op.get("faces"), "Hueco de " + who)
@@ -213,7 +233,7 @@ def definition(data, source=""):
     meshes themselves. JSON-safe, so IngeTrazo saves it with the document
     and another tool can read the model without rebuilding it."""
     keep = ("id", "guid", "ifc_class", "name", "level", "material_layers", "type_name", "material", "params",
-            "psets", "quantities", "openings_ids", "fills", "host", "enums")
+            "psets", "quantities", "openings_ids", "fills", "host", "enums", "parts")
     elements = []
     for el in data.get("elements", []):
         rec = {k: el[k] for k in keep if k in el}
@@ -258,12 +278,33 @@ def build_scene(data, offset=None):
         # rooms are volumes of air: off and translucent, so walls stay in view
         scene.layers.append(Layer("ARQ-RECINTOS", visible=False, color=(0.55, 0.75, 0.95),
                                   opacity=0.35))
+    def paint(name):
+        """Face attrs of a piece's material, created in the document once."""
+        from core.materials import Material
+        mats = scene.materials
+        if name not in mats:
+            low = name.lower()
+            color, opacity = (0.75, 0.75, 0.72), None
+            for key, c, op in PART_LOOKS:
+                if key in low:
+                    color, opacity = c, op
+                    break
+            mats[name] = Material(name, color=color, opacity=opacity)
+        attrs = mats[name].face_attrs()
+        if mats[name].opacity is not None:
+            attrs["back"] = True                 # glass: seen from both sides
+        return attrs
+
     for el in data["elements"]:
         mesh = Mesh()
+        parts = el.get("parts") or []
         for f in el["faces"]:
             outer = [V(*local(p)) for p in f["outer"]]
             holes = [[V(*local(p)) for p in h] for h in f.get("holes", [])] or None
-            mesh.add_face(outer, holes)
+            face = mesh.add_face(outer, holes)
+            k = f.get("part")
+            if k is not None and parts[k].get("material") and face is not None:
+                face.attrs = dict(paint(parts[k]["material"]))
         if not mesh.faces:
             raise ValueError("Elemento sin geometría: %s" % el["id"])
         g = Group(mesh, name=el.get("name") or el["ifc_class"])
@@ -293,6 +334,10 @@ def build_scene(data, offset=None):
                                           for f in o["faces"]]} for o in el["openings"]]
         g.ifc = tag
         record = {k: v for k, v in el.items() if k not in ("faces",)}
+        if parts:
+            # the Parts tray: the pieces and their sizes (a carpentry schedule)
+            record["parts"] = [{k: p.get(k) for k in ("name", "role", "material", "volume")}
+                               for p in parts]
         g.ext = {"arquitectura": {"schema": 3, "source_id": el["id"], **record}}
         scene.groups.append(g)
     stored = {"models": {data.get("project", {}).get("name") or "modelo": definition(data)}}
