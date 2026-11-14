@@ -26,6 +26,7 @@ BLOCK_DEPTH = 4
 class Classification:
     layers: dict = field(default_factory=dict)
     handles: dict = field(default_factory=dict)
+    layers_confirmed: bool = False
 
     def role(self, entity):
         return self.handles.get(entity.dxf.handle, self.layers.get(entity.dxf.layer))
@@ -57,10 +58,17 @@ class Plan:
     height: float
     origin: str
     wall_roles: list = field(default_factory=list)
+    curved_openings: list = field(default_factory=list)
 
     @property
     def segments(self):
-        return [(a, b) for a, b, _t in self.result[0]] + [(a, b) for a,b,_t,_bulge in self.result[3]]
+        from .geom.junctions import Wall
+        lines = [(a, b) for a, b, _t in self.result[0]]
+        for a,b,t,bulge in self.result[3]:
+            spec=Wall('preview',a,b,t,'eje',bulge=bulge)
+            points=spec.run(0.,a,b)
+            lines.extend(zip(points,points[1:]))
+        return lines
 
 
 def layers_present(drawing):
@@ -121,6 +129,14 @@ def fingerprint(drawing):
     digest = hashlib.sha256()
     for e in drawing.modelspace():
         digest.update(repr(TagCollector.dxftags(e)).encode())
+    # INSERT references do not contain their definitions. Editing a nested
+    # block after preview must invalidate the plan too, as must unit changes.
+    for block in sorted(drawing.blocks, key=lambda b:b.name):
+        digest.update(block.name.encode())
+        digest.update(repr(TagCollector.dxftags(block.block)).encode())
+        for e in block:
+            digest.update(repr(TagCollector.dxftags(e)).encode())
+    digest.update(repr(drawing.header.get('$INSUNITS',0)).encode())
     return digest.hexdigest()
 
 
@@ -133,12 +149,72 @@ def _outlines(entity):
     if typ == 'HATCH':
         # Reject holes/curved paths rather than filling them silently.
         paths = list(entity.paths)
-        if len(paths) != 1 or not hasattr(paths[0], 'vertices'):
-            raise ValueError('Rayado con agujeros o contornos de aristas: revisión manual')
+        if len(paths) != 1:
+            raise ValueError('Rayado con agujeros: revisión manual')
+        if not hasattr(paths[0], 'vertices'):
+            # A polygon made of native HATCH line edges needs no flattening.
+            # Curved boundaries/holes stay manual rather than being filled.
+            edges=list(paths[0].edges)
+            if not edges or any(type(e).__name__!='LineEdge' for e in edges):
+                raise ValueError('Rayado con aristas curvas: revisión manual')
+            if any(math.dist(e.end,edges[(i+1)%len(edges)].start)>1e-8
+                   for i,e in enumerate(edges)):
+                raise ValueError('Contorno de rayado abierto: revisión manual')
+            return [[tuple(e.start) for e in edges]]
         if any(abs(p[2]) > 1e-12 for p in paths[0].vertices):
             raise ValueError('Rayado curvo: revisión manual')
         return [[tuple(p[:2]) for p in paths[0].vertices]]
     return None
+
+
+def hidden_layers(drawing):
+    """Names of the layers switched off or frozen: what the operator has hidden
+    is not converted (unless designated graphically)."""
+    out = set()
+    for layer in drawing.layers:
+        try:
+            if layer.is_off() or layer.is_frozen():
+                out.add(layer.dxf.name)
+        except Exception:
+            pass
+    return out
+
+
+SWING_MIN = 0.35        # m: a door's swing (or a leaf) is never smaller than this
+
+
+def scale_check(leaves):
+    """ValueError when the plan is clearly not at full size in metres: the
+    swings drawn in the carpentry are far too small for a door (a plan drawn at
+    1:4, 1:5…, or in other units without $INSUNITS). Returns quietly otherwise."""
+    radii = []
+    for part, role in leaves:
+        if role not in OPENINGS:
+            continue
+        try:
+            if part.dxftype() == 'ARC' and part.dxf.end_angle != part.dxf.start_angle:
+                radii.append(float(part.dxf.radius))
+            elif part.dxftype() == 'LWPOLYLINE':
+                pts = list(part.get_points('xyb'))
+                for (x0, y0, b), (x1, y1, _b) in zip(pts, pts[1:]):
+                    if abs(b) > 0.05:
+                        chord = math.hypot(x1 - x0, y1 - y0)
+                        radii.append(chord * (1 + b * b) / (4 * abs(b)))
+        except Exception:
+            continue
+    if len(radii) < 2:
+        return
+    radii.sort()
+    r = radii[len(radii) // 2]
+    if r >= SWING_MIN or r <= 0:
+        return
+    k = max(2, round(0.8 / r))
+    fmt = lambda v: f'{v:.3f}'.replace('.', ',')  # noqa: E731
+    raise ValueError(
+        f'el plano no parece estar a escala real en metros: los giros de las puertas miden '
+        f'{fmt(r)} de radio y a escala real medirían en torno a 0,80. Probablemente está '
+        f'dibujado a 1/{k}: escale el dibujo con ESCALA (factor {k}) desde un punto y repita '
+        f'LINEASAMURO')
 
 
 def analyse(drawing, lo, hi, classification, tmin=.07, tmax=.5, height=2.7,
@@ -146,7 +222,7 @@ def analyse(drawing, lo, hi, classification, tmin=.07, tmax=.5, height=2.7,
     import ezdxf
     from . import convert_tools as C
     from .architectural import metadata
-    if not (0 < tmin <= tmax and height > 0 and all(map(math.isfinite, (tmin,tmax,height,parallel)))):
+    if not (0 < tmin <= tmax and height > 0 and 0<=parallel<=.5 and all(map(math.isfinite, (tmin,tmax,height,parallel)))):
         raise ValueError('Dimensiones de conversión inválidas')
     if origin not in ('ocultar','conservar','borrar'):
         raise ValueError('Tratamiento de origen no válido')
@@ -160,8 +236,13 @@ def analyse(drawing, lo, hi, classification, tmin=.07, tmax=.5, height=2.7,
             raise ValueError('Categoría no válida')
         return 'WALL' if role in WALLS else 'COLUMN' if role == 'pilares' else 'OPENING'
 
+    hidden = hidden_layers(drawing)
+    skipped = 0
     for e in drawing.modelspace():
         if metadata(e):
+            continue
+        if e.dxf.layer in hidden and e.dxf.handle not in classification.handles:
+            skipped += 1
             continue
         role = classification.role(e)
         if e.dxftype() == 'INSERT':
@@ -192,6 +273,8 @@ def analyse(drawing, lo, hi, classification, tmin=.07, tmax=.5, height=2.7,
                         emit(child, source, here, forced, depth+1)
                 except Exception as exc:
                     warnings.append('Bloque no legible: '+type(exc).__name__)
+                return
+            if depth and not forced and part.dxf.layer in hidden:
                 return
             leaf = classification.leaf_role(part, insert_layer, forced) if depth else role
             if not leaf:
@@ -229,14 +312,42 @@ def analyse(drawing, lo, hi, classification, tmin=.07, tmax=.5, height=2.7,
             emit(e, e, e.dxf.layer, classification.handles.get(e.dxf.handle))
         else:
             emit(e, e, None, None)
+    if skipped:
+        warnings.append(f'{skipped} objetos en capas apagadas o inutilizadas no se han leído')
+    scale_check(leaves)
     result = C.detect_all(doc, lo, hi, tmin, tmax, {'WALL'}, {'COLUMN'}, {'OPENING'}, parallel)
+    from .conversion_curves import recover
+    x0,x1=sorted((lo[0],hi[0]));y0,y1=sorted((lo[1],hi[1]))
+    inside_leaves=[]
+    for entity,role in leaves:
+        segments=C._segments(entity)
+        if segments and all(x0-1e-9<=x<=x1+1e-9 and y0-1e-9<=y<=y1+1e-9
+                            for seg in segments for x,y in (seg[:2],seg[2:])):
+            inside_leaves.append((entity,role))
+    curved, curved_ops, curve_warnings = recover(result[3], inside_leaves)
+    warnings.extend(curve_warnings)
+    result=(*result[:3],curved,*result[4:])
     used = [];unpaired=result[5]
+    from .geom.junctions import Wall
+    curve_specs=[Wall('source-check',a,b,t,'eje',bulge=bulge) for a,b,t,bulge in curved]
+    def represented_arc(arc):
+        center,radius,a0,a1=arc
+        for step in range(9):
+            angle=a0+(a1-a0)*step/8
+            pt=(center[0]+radius*math.cos(angle),center[1]+radius*math.sin(angle))
+            if not any(math.dist(w.c,center)<1e-5 and
+                       abs(abs(radius-w.r)-w.thickness/2)<1e-5 and
+                       -1e-6<=w.local(pt)[0]<=w.length+1e-6 for w in curve_specs):
+                return False
+        return True
     for v in result[2]:
         source = source_map.get(v.dxf.handle)
         # Partially read blocks must remain visible; never alter definitions.
         if source is None or source.dxftype()=='INSERT':
             continue
-        segs=C._pieces(v)[0]
+        segs,arcs=C._pieces(v)
+        if arcs and not all(represented_arc(arc) for arc in arcs):
+            continue  # a source containing an unpaired arc must stay visible
         doubtful=any(math.dist(f[:2],f[2:4])>tmax+.05 and
                      any(all(abs(a-b)<1e-6 for a,b in zip(f[:4],s)) for s in segs) for f in unpaired)
         if v.dxf.layer == 'OPENING' and not result[1]:
@@ -274,7 +385,7 @@ def analyse(drawing, lo, hi, classification, tmin=.07, tmax=.5, height=2.7,
             except Exception:continue
         wall_roles.append(nearest[1] if nearest else 'muros')
     result=(result[0],ops,*result[2:])
-    return Plan(result,used,list(dict.fromkeys(warnings)),drawing,fingerprint(drawing),(lo,hi),height,origin,wall_roles)
+    return Plan(result,used,list(dict.fromkeys(warnings)),drawing,fingerprint(drawing),(lo,hi),height,origin,wall_roles,curved_ops)
 
 
 def commit(ctx, plan):
@@ -293,15 +404,28 @@ def commit(ctx, plan):
     if not walls and not curved and not cols:return False
     commands=[create_wall(a,b,float(t),plan.height,0.,'eje',name=ROLES[plan.wall_roles[k]],
                           type_name=ROLES[plan.wall_roles[k]]) for k,(a,b,t) in enumerate(walls)]
-    steps=list(commands)+[create_wall(a,b,float(t),plan.height,0.,'eje',bulge=bulge,name='Muro') for a,b,t,bulge in curved]
+    curved_commands=[create_wall(a,b,float(t),plan.height,0.,'eje',bulge=bulge,name='Muro') for a,b,t,bulge in curved]
+    steps=list(commands)+curved_commands
+    # DeferredCommand rebuilds against newly recreated wall entities on redo.
+    # Allocate source identities outside its factory, never afresh on redo.
+    import uuid
+    opening_ids=[uuid.uuid4().hex for _ in range(len(ops)+len(plan.curved_openings))]
     def openings(_doc):
         out=[]
-        for k,pos,w,kind,hinge,face in ops:
+        for number,(k,pos,w,kind,hinge,face) in enumerate(ops):
             sill=.9 if kind=='window' else 0.
             h=min(1.2 if kind=='window' else 2.1,plan.height-sill)
             if h<=0:raise ValueError('Altura insuficiente para ventana')
             out.append(create_opening(commands[k].entity,pos-w/2,w,sill,h,
-                       kind='gap' if kind=='void' else kind,hinge=int(hinge>0),side=1 if face>=0 else -1))
+                       kind='gap' if kind=='void' else kind,existing=opening_ids[number],
+                       hinge=int(hinge>0),side=1 if face>=0 else -1))
+        for number,(k,pos,w,kind,hinge,face) in enumerate(plan.curved_openings,start=len(ops)):
+            sill=.9 if kind=='window' else 0.
+            h=min(1.2 if kind=='window' else 2.1,plan.height-sill)
+            if h<=0:raise ValueError('Altura insuficiente para ventana')
+            out.append(create_opening(curved_commands[k].entity,pos-w/2,w,sill,h,
+                       kind='gap' if kind=='void' else kind,existing=opening_ids[number],
+                       hinge=int(hinge>0),side=1 if face>=0 else -1))
         return SafeArchitecturalCommand('Huecos reconocidos',out)
     steps.append(DeferredCommand('Huecos reconocidos',openings))
     steps += [column_command(*column_values(p,plan.height)) for p in cols]

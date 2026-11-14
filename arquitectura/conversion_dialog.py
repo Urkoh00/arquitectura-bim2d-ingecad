@@ -10,7 +10,8 @@ def classification_form(ctx, drawing, current):
     present=layers_present(drawing)   # también las capas dentro de los bloques
     table=QTableWidget(len(present),2);table.setHorizontalHeaderLabels(['Capa de origen','Categoría BIM']);table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch);table.setMaximumHeight(400)
     combos=[]
-    proposed=current.layers or guess_roles(present)   # primera vez: según el nombre de la capa
+    proposed=(current.layers if current.layers_confirmed or current.layers
+              else guess_roles(present))   # explicit empty choice is not a new first visit
     for row,name in enumerate(present):
         table.setItem(row,0,QTableWidgetItem(name));box=QComboBox();box.addItem('No convertir',None)
         for key,label in ROLES.items():box.addItem(label,key)
@@ -24,7 +25,7 @@ def classification_form(ctx, drawing, current):
     dlg._pick_role=None
     def read():
         return Classification({name:box.currentData() for name,box in zip(present,combos) if box.currentData()},
-                              dict(current.handles))
+                              dict(current.handles),layers_confirmed=True)
     def graphical():
         dlg._pick_role=role.currentData();dlg.done(2)
     pick.clicked.connect(graphical)

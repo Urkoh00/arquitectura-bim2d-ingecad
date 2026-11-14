@@ -2,6 +2,27 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.20.2-dev — 2026-11-14
+
+Prueba del usuario con un plano real de LINEASAMURO (privado; no se incorpora) y entrega R14 de Codex.
+
+### Corregido (dirección técnica)
+- **Planos que no están a escala real.** El plano de prueba estaba dibujado a 1/4: muros de 0,05–0,075 y
+  giros de puerta de 0,20. LINEASAMURO lo trataba como metros y emparejaba líneas al azar (13 «muros» y 3
+  huecos sin sentido). Ahora, si los giros de la carpintería miden menos de 0,35, **se detiene** sin tocar
+  el dibujo y propone el factor (`ESCALA ×4`). Con el plano escalado salen 27 muros y 26 huecos.
+- **Capas apagadas o inutilizadas.** Se leían igualmente. Ya no se convierten (salvo lo designado con
+  clics); el aviso dice cuántos objetos se han omitido.
+- **Designar con ventana.** «Designar gráficamente» solo admitía objetos uno a uno. Ahora, al pulsar en
+  vacío, se abre una ventana: hacia la derecha toma lo que queda dentro; hacia la izquierda, lo que toca.
+
+### Integrado de Codex (R14, revisado)
+- Huecos en muros curvos reconocidos por LINEASAMURO (carpintería plana en la cuerda; la curva sigue
+  pendiente).
+- La previsualización dibuja los ejes curvos; la confirmación detecta cambios en definiciones de bloques
+  y unidades; los identificadores de huecos se conservan al Deshacer/Rehacer; HATCH de aristas rectas.
+- Reabrir el cuadro respeta las capas puestas en «No convertir».
+
 ## 1.20.1-dev — 2026-11-14
 
 Revisión a fondo de LINEASAMURO para planos con la carpintería en una sola capa (puertas y ventanas

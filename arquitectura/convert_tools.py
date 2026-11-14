@@ -332,6 +332,33 @@ def detect_all(drawing, lo, hi, tmin=0.07, tmax=0.50, wall_layers=None, column_l
     return walls, openings, sources, curved, columns, unpaired, in_blocks
 
 
+def entities_in_rect(drawing, a, b, crossing=False):
+    """Handles of the model-space entities inside the rectangle a-b (window), or
+    touching it (crossing), on visible layers and not already BIM elements."""
+    from ezdxf import bbox
+    from .architectural import metadata
+    from .conversion_plan import hidden_layers
+    x0, x1 = sorted((float(a[0]), float(b[0])))
+    y0, y1 = sorted((float(a[1]), float(b[1])))
+    hidden = hidden_layers(drawing)
+    out = []
+    for e in drawing.modelspace():
+        if e.dxf.layer in hidden or metadata(e):
+            continue
+        try:
+            box = bbox.extents([e])
+        except Exception:
+            continue
+        if not box.has_data:
+            continue
+        lo, hi = box.extmin, box.extmax
+        inside = x0 <= lo.x and hi.x <= x1 and y0 <= lo.y and hi.y <= y1
+        touches = not (hi.x < x0 or lo.x > x1 or hi.y < y0 or lo.y > y1)
+        if inside or (crossing and touches):
+            out.append(e.dxf.handle)
+    return out
+
+
 def _on_a_wall(face, walls, tol=0.02):
     """Does the face line lie on a face of one of the detected walls?"""
     x0, y0, x1, y1 = face[:4]
@@ -402,6 +429,7 @@ class LineasAMuroTool(Tool):
         self.classification = None
         self.conversion_preview = None
         self.pick_role = None
+        self.pick_first = None
         self._prompt()
         from . import bim_dialogs
         if self._classification_available():
@@ -428,7 +456,12 @@ class LineasAMuroTool(Tool):
             self.prompt("LINEASAMURO: previsualización [Confirmar/Cancelar]; Intro confirma:")
             return
         if self.pick_role:
-            self.prompt("LINEASAMURO: designe objetos; Intro vuelve al cuadro de clasificación:")
+            if self.pick_first is not None:
+                self.prompt("LINEASAMURO: esquina opuesta (hacia la derecha, objetos dentro; "
+                            "hacia la izquierda, objetos que toca):")
+                return
+            self.prompt("LINEASAMURO: designe objetos uno a uno o con ventana (pulse en vacío); "
+                        "Intro vuelve al cuadro de clasificación:")
             return
         if self.first is not None:
             self.prompt("LINEASAMURO: esquina opuesta de la ventana:")
@@ -510,11 +543,24 @@ class LineasAMuroTool(Tool):
     def on_point(self, p):
         p = (float(p[0]), float(p[1]))
         if self.pick_role:
-            pick = getattr(self.ctx.services, 'pick_entity', None)
-            e = pick(p) if callable(pick) else None
-            if e is not None:
-                self.classification.assign([e.dxf.handle], self.pick_role)
-                self.ctx.echo('Objeto asignado a ' + self.pick_role)
+            if self.pick_first is None:
+                pick = getattr(self.ctx.services, 'pick_entity', None)
+                e = pick(p) if callable(pick) else None
+                if e is not None:
+                    self.classification.assign([e.dxf.handle], self.pick_role)
+                    self.ctx.echo('Objeto asignado a ' + self.pick_role)
+                    return
+                self.pick_first = p          # nothing under the cursor: a window
+                self._prompt()
+                return
+            first, self.pick_first = self.pick_first, None
+            from .compat import require_document
+            handles = entities_in_rect(require_document(self.ctx).doc, first, p,
+                                       crossing=p[0] < first[0])
+            if handles:
+                self.classification.assign(handles, self.pick_role)
+            self.ctx.echo(f'{len(handles)} objetos asignados a {self.pick_role}')
+            self._prompt()
             return
         if self.conversion_preview is not None:
             return
@@ -577,6 +623,7 @@ class LineasAMuroTool(Tool):
     def on_enter(self):
         if self.pick_role:
             self.pick_role = None
+            self.pick_first = None
             self.entity_picker = False
             self._classification_dialog()
         elif self.conversion_preview is not None:
@@ -585,6 +632,10 @@ class LineasAMuroTool(Tool):
             self.ctx.finish()
 
     def preview_segments(self, cursor):
+        if self.pick_role and self.pick_first is not None and cursor is not None:
+            (x0, y0), (x1, y1) = self.pick_first, (float(cursor[0]), float(cursor[1]))
+            c = [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]
+            return [(c[k], c[(k + 1) % 4]) for k in range(4)]
         return self.conversion_preview.segments if self.conversion_preview is not None else []
 
     def _convert(self, lo, hi):
@@ -596,7 +647,7 @@ class LineasAMuroTool(Tool):
                 self.lineas['paralelismo'], self.origin)
             p = self.conversion_preview
             self.ctx.echo(f'Previsualización: {len(p.result[0])+len(p.result[3])} muros, '
-                          f'{len(p.result[1])} huecos y {len(p.result[4])} pilares.')
+                          f'{len(p.result[1])+len(p.curved_openings)} huecos y {len(p.result[4])} pilares.')
             for warning in p.warnings:
                 self.ctx.echo(warning)
             return

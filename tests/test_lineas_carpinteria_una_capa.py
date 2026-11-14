@@ -88,6 +88,8 @@ def test_propuesta_de_categorias_por_nombre_de_capa(plugin):
 
 
 def test_cuadro_propone_y_lista_capas_del_bloque(plugin):
+    from PySide6.QtWidgets import QApplication
+    _app = QApplication.instance() or QApplication([])       # al ejecutar este fichero solo
     s = Session(plugin); d = s.document.doc; capas(d)
     b = d.blocks.new('PLANTA'); planta(b); d.modelspace().add_blockref('PLANTA', (0, 0))
     P = module(s, 'conversion_plan'); D = module(s, 'conversion_dialog')
@@ -96,3 +98,51 @@ def test_cuadro_propone_y_lista_capas_del_bloque(plugin):
     c = read()
     assert c.layers.get('Gpared') == 'muros' and c.layers.get('Fcarp') == 'carpinteria'
     dlg.deleteLater()
+
+
+def test_plano_a_escala_reducida_se_detecta_y_propone_factor(plugin):
+    """Un plano dibujado a 1/4 (giros de puerta de 0,225) no se convierte en
+    disparates: se avisa y se propone el factor de escala."""
+    from ezdxf.math import Matrix44
+    s = Session(plugin); d = s.document.doc; capas(d); m = d.modelspace(); planta(m)
+    d.modelspace().add_arc((4.0, 2.0), 0.9, 0, 90, dxfattribs={'layer': 'Fcarp'})   # otra puerta
+    for e in list(m):
+        e.transform(Matrix44.scale(0.25, 0.25, 1))
+    P = module(s, 'conversion_plan')
+    with pytest.raises(ValueError, match='factor 4'):
+        P.analyse(d, (-1, -1), (3, 2), P.Classification({'Gpared': 'muros', 'Fcarp': 'carpinteria'}))
+
+
+def test_capas_apagadas_no_se_leen(plugin):
+    s = Session(plugin); d = s.document.doc; capas(d); planta(d.modelspace())
+    d.layers.get('Fcarp').off()
+    P = module(s, 'conversion_plan')
+    plan = P.analyse(d, (-1, -1), (7, 3), P.Classification({'Gpared': 'muros', 'Fcarp': 'carpinteria'}))
+    assert kinds(plan) == ['void', 'void']           # sin carpintería visible, vanos
+    assert any('apagadas' in w for w in plan.warnings)
+    d.layers.get('Gpared').freeze()
+    plan = P.analyse(d, (-1, -1), (7, 3), P.Classification({'Gpared': 'muros', 'Fcarp': 'carpinteria'}))
+    assert not plan.result[0]
+
+
+def test_designar_con_ventana_y_con_captura(plugin):
+    s = Session(plugin); d = s.document.doc; capas(d); planta(d.modelspace())
+    C = module(s, 'convert_tools')
+    dentro = C.entities_in_rect(d, (-0.5, -0.5), (3.6, 0.5))            # izquierda → derecha
+    toca = C.entities_in_rect(d, (3.6, 0.5), (-0.5, -0.5), crossing=True)
+    assert dentro and set(dentro) < set(toca)
+    lineas = {e.dxf.handle for e in d.modelspace() if e.dxftype() == 'LINE' and e.dxf.layer == 'Gpared'}
+    assert {h for h in dentro if h in lineas} == {e.dxf.handle for e in d.modelspace()
+            if e.dxftype() == 'LINE' and e.dxf.layer == 'Gpared' and max(e.dxf.start.x, e.dxf.end.x) <= 3.6}
+    d.layers.get('Gpared').off()
+    assert not set(C.entities_in_rect(d, (-0.5, -0.5), (7, 0.5))) & lineas
+
+
+def test_herramienta_designa_por_ventana(plugin):
+    s = Session(plugin); d = s.document.doc; capas(d); planta(d.modelspace())
+    P = module(s, 'conversion_plan'); t = s.tool('LINEASAMURO')
+    t.classification = P.Classification(); t.pick_role = 'muros'
+    t.ctx.services.pick_entity = lambda p: None            # pulsar en vacío
+    t.on_point((-0.5, -0.5)); assert t.preview_segments((7, 0.5))
+    t.on_point((7, 0.5))
+    assert sum(1 for r in t.classification.handles.values() if r == 'muros') >= 6
