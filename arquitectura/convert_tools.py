@@ -350,28 +350,31 @@ def detect_all(drawing, lo, hi, tmin=0.07, tmax=0.50, wall_layers=None, column_l
 def entities_in_rect(drawing, a, b, crossing=False):
     """Handles of the model-space entities inside the rectangle a-b (window), or
     touching it (crossing), on visible layers and not already BIM elements."""
-    from ezdxf import bbox
-    from .architectural import metadata
+    from core.select import GeometryIndex
+    from types import SimpleNamespace
+    index = GeometryIndex(SimpleNamespace(doc=drawing,current_space=drawing.modelspace))
+    return indexed_entities(drawing,index,a,b,crossing)
+
+
+def indexed_entities(drawing,index,a,b,crossing=False):
     from .conversion_plan import hidden_layers
-    x0, x1 = sorted((float(a[0]), float(b[0])))
-    y0, y1 = sorted((float(a[1]), float(b[1])))
-    hidden = hidden_layers(drawing)
-    out = []
-    for e in drawing.modelspace():
-        if e.dxf.layer in hidden or metadata(e):
-            continue
-        try:
-            box = bbox.extents([e])
-        except Exception:
-            continue
-        if not box.has_data:
-            continue
-        lo, hi = box.extmin, box.extmax
-        inside = x0 <= lo.x and hi.x <= x1 and y0 <= lo.y and hi.y <= y1
-        touches = not (hi.x < x0 or lo.x > x1 or hi.y < y0 or lo.y > y1)
-        if inside or (crossing and touches):
-            out.append(e.dxf.handle)
-    return out
+    rect=(min(a[0],b[0]),min(a[1],b[1]),max(a[0],b[0]),max(a[1],b[1]))
+    hidden=hidden_layers(drawing)
+    return [h for h in (index.crossing(rect) if crossing else index.window(rect))
+            if (e:=drawing.entitydb.get(h)) is not None and not metadata(e) and e.dxf.layer not in hidden]
+
+
+def classified_source(entity,classification):
+    if classification is None:return True
+    if classification.handles.get(entity.dxf.handle):return True
+    if entity.dxftype()!='INSERT':return bool(classification.role(entity))
+    def walk(part,layer,depth):
+        if depth>=MAX_DEPTH:return False
+        if part.dxftype()=='INSERT':
+            here=part.dxf.layer if part.dxf.layer!='0' else layer
+            return any(walk(c,here,depth+1) for c in part.virtual_entities())
+        return bool(classification.leaf_role(part,layer,None))
+    return walk(entity,entity.dxf.layer,0)
 
 
 def _on_a_wall(face, walls, tol=0.02):
@@ -433,6 +436,8 @@ class LineasAMuroTool(Tool):
     name = "LINEASAMURO"
 
     def start(self):
+        self.name=type(self).name
+        self._zone_index=None
         self.first = None
         self.tmin, self.tmax = 0.07, 0.50
         self.height = 2.70
@@ -565,13 +570,13 @@ class LineasAMuroTool(Tool):
                     self.classification.assign([e.dxf.handle], self.pick_role)
                     self.ctx.echo('Objeto asignado a ' + self.pick_role)
                     return
+                self._zone_index=None
                 self.pick_first = p          # nothing under the cursor: a window
                 self._prompt()
                 return
             first, self.pick_first = self.pick_first, None
             from .compat import require_document
-            handles = entities_in_rect(require_document(self.ctx).doc, first, p,
-                                       crossing=p[0] < first[0])
+            handles = self._candidates(first,p,graphical=True)
             if handles:
                 self.classification.assign(handles, self.pick_role)
             self.ctx.echo(f'{len(handles)} objetos asignados a {self.pick_role}')
@@ -581,6 +586,7 @@ class LineasAMuroTool(Tool):
             return
         if self.first is None:
             self.first = p
+            self._zone_index=None
             self._prompt()
             return
         lo, self.first = self.first, None
@@ -646,12 +652,69 @@ class LineasAMuroTool(Tool):
         else:
             self.ctx.finish()
 
-    def preview_segments(self, cursor):
-        if self.pick_role and self.pick_first is not None and cursor is not None:
-            (x0, y0), (x1, y1) = self.pick_first, (float(cursor[0]), float(cursor[1]))
-            c = [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]
-            return [(c[k], c[(k + 1) % 4]) for k in range(4)]
-        return self.conversion_preview.segments if self.conversion_preview is not None else []
+    def on_cancel(self):
+        self.first=None;self.pick_first=None;self.conversion_preview=None;self._zone_index=None
+        super().on_cancel()
+
+    def _zone(self,cursor):
+        if self.pending is not None:return None
+        first=self.pick_first if self.pick_role else self.first
+        if first is None or cursor is None:return None
+        return first,tuple(map(float,cursor[:2]))
+
+    def _candidates(self,first,cursor,graphical=False):
+        from .compat import require_document
+        doc=require_document(self.ctx)
+        index=getattr(self.ctx.services,'index',None)
+        if index is None:
+            from core.select import GeometryIndex
+            if self._zone_index is None:self._zone_index=GeometryIndex(doc)
+            index=self._zone_index
+        handles=indexed_entities(doc.doc,index,first,cursor,cursor[0]<first[0])
+        return handles if graphical else [h for h in handles if classified_source(doc.doc.entitydb[h],self.classification)]
+
+    def _highlight(self,handles):
+        from .compat import require_document
+        drawing=require_document(self.ctx).doc
+        out=[]
+        native=getattr(self.ctx.services,'edges_geometry',None)
+        if callable(native):
+            segs,circles=native(handles)
+            out=[((s[0],s[1]),(s[2],s[3])) for s in segs]
+            for c,r,a,b in circles:out.extend(((s[0],s[1]),(s[2],s[3])) for s in _flatten(c,r,a,b))
+        def walk(e,depth=0):
+            if e.dxftype()=='INSERT' and depth<MAX_DEPTH:
+                for part in e.virtual_entities():walk(part,depth+1)
+            elif e.dxftype()=='CIRCLE':
+                c=e.dxf.center;r=float(e.dxf.radius)
+                out.extend(((s[0],s[1]),(s[2],s[3])) for s in _flatten((c.x,c.y),r,0.,math.tau))
+            else:
+                from .conversion_plan import _outlines
+                try:outlines=_outlines(e)
+                except ValueError:outlines=None
+                if outlines:
+                    for points in outlines:out.extend(zip(points,points[1:]+points[:1]))
+                else:out.extend(((x0,y0),(x1,y1)) for x0,y0,x1,y1 in _segments(e))
+        for h in handles:
+            entity=drawing.entitydb[h]
+            # The native edge service traces ordinary primitives, but indexes
+            # a regular block reference by its bounding box, not its contents.
+            if not callable(native) or entity.dxftype()=='INSERT':walk(entity)
+        return out
+
+    def preview_segments(self,cursor):
+        if self.conversion_preview is not None:return self.conversion_preview.segments
+        zone=self._zone(cursor)
+        if zone is None:return []
+        (x0,y0),(x1,y1)=zone;c=[(x0,y0),(x1,y0),(x1,y1),(x0,y1)]
+        lines=[(c[k],c[(k+1)%4]) for k in range(4)]
+        if not hasattr(Tool,'overlay'):lines+=self._highlight(self._candidates(*zone,graphical=bool(self.pick_role)))
+        return lines
+
+    def overlay(self,cursor):
+        zone=self._zone(cursor)
+        if zone is None or self.conversion_preview is not None:return {}
+        return {'chosen':self._highlight(self._candidates(*zone,graphical=bool(self.pick_role)))}
 
     def _convert(self, lo, hi):
         if self.classification is not None:
@@ -659,7 +722,8 @@ class LineasAMuroTool(Tool):
             from .compat import require_document
             self.conversion_preview = analyse(require_document(self.ctx).doc, lo, hi,
                 self.classification, self.tmin, self.tmax, self.height,
-                self.lineas['paralelismo'], self.origin)
+                self.lineas['paralelismo'], self.origin,
+                selected_handles=self._candidates(lo,hi))
             p = self.conversion_preview
             self.ctx.echo(f'Previsualización: {len(p.result[0])+len(p.result[3])} muros, '
                           f'{len(p.result[1])+len(p.curved_openings)} huecos y {len(p.result[4])} pilares.')

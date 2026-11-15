@@ -154,9 +154,10 @@ def create_grid(origin,values):
     if len(str(values.get('prefix','')))+len(str(values.get('suffix','')))>40:raise ValueError('Prefijo/sufijo demasiado largos')
     grid_id=uuid.uuid4().hex;commands=[]
     def pt(x,y):return (origin[0]+u[0]*x+v[0]*y,origin[1]+u[1]*x+v[1]*y)
+    geometry=iter(grid_geometry(origin,values))
     for family,positions in (('U',xs),('V',ys)):
         for i,position in enumerate(positions):
-            a,b=(pt(position,-extension),pt(position,ys[-1]+extension)) if family=='U' else (pt(-extension,position),pt(xs[-1]+extension,position))
+            a,b=next(geometry)
             rec={'kind':'grid_axis','id':uuid.uuid4().hex,'grid_id':grid_id,'family':family,'index':i,
                  'label':str(values.get('prefix',''))+(str(first+i) if family=='U' else letter(first_l+i))+str(values.get('suffix','')),
                  'prefix':str(values.get('prefix','')),'suffix':str(values.get('suffix','')),
@@ -319,3 +320,53 @@ class GridGrips:
         before=snapshot(e.doc);pts=endpoints(e);pts[index]=tuple(point[:2])
         from .transactions import ArchitecturalRegeneration
         return SafeArchitecturalCommand('ARQ PINZAMIENTO EJE',[SetAxis(e,pts),RegenerateGrid(before),ArchitecturalRegeneration()])
+
+
+def grid_geometry(origin,values):
+    """Native axis segments shared by cursor feedback and insertion."""
+    xs=distances(values.get('x','3x5'));ys=distances(values.get('y','2x4'))
+    if len(xs)*len(ys)>2500:raise ValueError('Máximo 2500 intersecciones')
+    angle=math.radians(float(values.get('angle',0)));c,s=math.cos(angle),math.sin(angle)
+    ext=float(values.get('extension',1.))
+    if not all(math.isfinite(float(v)) for v in (*origin,angle,ext)) or ext<=0:raise ValueError('Origen, ángulo o prolongación no válidos')
+    def pt(x,y):return (origin[0]+c*x-s*y,origin[1]+s*x+c*y)
+    return ([(pt(x,-ext),pt(x,ys[-1]+ext)) for x in xs]+
+            [(pt(-ext,y),pt(xs[-1]+ext,y)) for y in ys])
+
+
+def spacing_values(drawing,grid_id):
+    members={f:sorted([(e,m) for e,m in axes(drawing) if m['grid_id']==grid_id and m['family']==f],key=lambda p:p[1]['index']) for f in ('U','V')}
+    if any(len(v)<2 for v in members.values()):raise ValueError('La tabla requiere dos familias con al menos dos ejes')
+    u0,v0=members['U'][0][0],members['V'][0][0];origin=intersect(u0,v0)
+    x,y,_=basis(endpoints(u0),endpoints(v0))
+    if abs(sum(a*b for a,b in zip(x,y)))>1e-6:raise ValueError('La tabla requiere una rejilla ortogonal; use Ficha para ejes oblicuos')
+    positions={}
+    for family,direction,other in [('U',x,v0),('V',y,u0)]:
+        positions[family]=[]
+        for e,_m in members[family]:
+            a,b=endpoints(e);own=y if family=='U' else x;length=math.dist(a,b)
+            if abs((b[0]-a[0])*own[1]-(b[1]-a[1])*own[0])>1e-6*length:
+                raise ValueError('Los ejes de una familia no son paralelos; use Ficha')
+            p=intersect(e,other)
+            positions[family].append(sum((p[k]-origin[k])*direction[k] for k in (0,1)))
+        if any(b-a<=1e-6 for a,b in zip(positions[family],positions[family][1:])):
+            raise ValueError('Ejes fuera del orden de la rejilla; revise sus índices')
+    def text(pos):return ' '.join(f'{b-a:.6f}' for a,b in zip(pos,pos[1:]))
+    return {'x':text(positions['U']),'y':text(positions['V'])},members,origin,x,y,positions
+
+
+def resize_grid(drawing,grid_id,values):
+    old,members,origin,x,y,positions=spacing_values(drawing,grid_id)
+    new={'U':distances(values['x']),'V':distances(values['y'])}
+    if any(len(new[f])!=len(members[f]) for f in ('U','V')):raise ValueError('La edición de separaciones conserva el número de ejes')
+    before=snapshot(drawing);commands=[]
+    for family,direction,other_direction,other in [('U',x,y,'V'),('V',y,x,'U')]:
+        for i,(entity,_meta) in enumerate(members[family]):
+            points=endpoints(entity);move=new[family][i]-positions[family][i]
+            moved=[(p[0]+direction[0]*move,p[1]+direction[1]*move) for p in points]
+            # Preserve each end's own overhang while covering the new total.
+            last=max(range(2),key=lambda j:sum((points[j][k]-origin[k])*other_direction[k] for k in (0,1)))
+            extra=new[other][-1]-positions[other][-1]
+            moved[last]=(moved[last][0]+other_direction[0]*extra,moved[last][1]+other_direction[1]*extra)
+            if moved!=points:commands.append(SetAxis(entity,moved))
+    return SafeArchitecturalCommand('ARQ SEPARACIONES REJILLA',[*commands,RegenerateGrid(before)])

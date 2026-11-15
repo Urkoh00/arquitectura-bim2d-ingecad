@@ -256,7 +256,8 @@ def scale_check(leaves):
 
 
 def analyse(drawing, lo, hi, classification, tmin=.07, tmax=.5, height=2.7,
-            parallel=.005, origin='ocultar'):
+            parallel=.005, origin='ocultar', selected_handles=None):
+    if selected_handles is not None:selected_handles=set(selected_handles)
     import ezdxf
     from . import convert_tools as C
     from .architectural import metadata
@@ -277,6 +278,7 @@ def analyse(drawing, lo, hi, classification, tmin=.07, tmax=.5, height=2.7,
     hidden = hidden_layers(drawing)
     skipped = 0
     for e in drawing.modelspace():
+        if selected_handles is not None and e.dxf.handle not in selected_handles:continue
         if metadata(e):
             continue
         if e.dxf.layer in hidden and e.dxf.handle not in classification.handles:
@@ -353,10 +355,17 @@ def analyse(drawing, lo, hi, classification, tmin=.07, tmax=.5, height=2.7,
     if skipped:
         warnings.append(f'{skipped} objetos en capas apagadas o inutilizadas no se han leído')
     scale_check(leaves)
+    read_lo,read_hi=lo,hi
+    if selected_handles is not None:
+        from ezdxf import bbox
+        bounds=bbox.extents(doc.modelspace())
+        if bounds.has_data:
+            read_lo=(bounds.extmin.x-1e-6,bounds.extmin.y-1e-6)
+            read_hi=(bounds.extmax.x+1e-6,bounds.extmax.y+1e-6)
     recognition={}
-    result = C.detect_all(doc, lo, hi, tmin, tmax, {'WALL'}, {'COLUMN'}, {'OPENING'}, parallel,recognition)
+    result = C.detect_all(doc, read_lo, read_hi, tmin, tmax, {'WALL'}, {'COLUMN'}, {'OPENING'}, parallel,recognition)
     from .conversion_curves import recover
-    x0,x1=sorted((lo[0],hi[0]));y0,y1=sorted((lo[1],hi[1]))
+    x0,x1=sorted((read_lo[0],read_hi[0]));y0,y1=sorted((read_lo[1],read_hi[1]))
     inside_leaves=[]
     for entity,role in leaves:
         segments=C._segments(entity)

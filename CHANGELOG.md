@@ -2,6 +2,21 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.22.2-dev — 2026-11-15
+
+Integra la entrega R18 de Codex (fallos de uso encontrados por el usuario en Windows), revisada: SHA-256
+correcto; 521 pruebas con IngeCAD 0.8 y 512 + 9 con la 0.7.
+
+- **EJES no dejaba situar la rejilla:** la ficha creaba los botones Aceptar/Cancelar pero no los colocaba
+  (también la de EDITAREJE). Ahora: número de ejes en X y en Y, **tabla de separaciones** por vano con
+  totales y «Todas iguales», punto de inserción con la malla en vista previa y giro opcional. EDITAREJE
+  cambia una separación y desplaza los ejes siguientes y sus pilares, en un solo Deshacer.
+- **LINEASAMURO:** la zona se dibuja como rectángulo desde la primera esquina y se **resaltan** las entidades
+  de las capas clasificadas que se leerán; usa la designación de IngeCAD (ventana o captura) y pasa esos
+  mismos objetos al análisis.
+- **Tipos de muro:** se muestra el **espesor total** (suma de capas) en la lista y en el detalle; la ficha
+  MURO avisa si el espesor no coincide con el del tipo. Pendiente: exportar `IfcWallType`.
+
 ## 1.22.1-dev — 2026-11-14
 
 Integra la entrega R14-c de Codex (LINEASAMURO tras la prueba del usuario con un plano real), revisada:

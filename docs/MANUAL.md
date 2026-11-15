@@ -1,12 +1,12 @@
 # Manual de Arquitectura para IngeCAD
 
-Versión 1.22.1-dev · 14-11-2026
+Versión 1.22.2-dev · 15-11-2026
 
 > Copia del manual publicado como documento en claude.ai; se regenera con cada versión.
 
 ## Qué es
 
-Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.22.1-dev** y se actualiza con cada versión.
+Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.22.2-dev** y se actualiza con cada versión.
 
 Cada elemento guarda su identidad persistente, su clase IFC, su geometría editable en planta, sus parámetros 3D (altura, espesor, cota), sus propiedades constructivas (tipo, material, capas) y su nivel. Las carpinterías conocen su muro y los recintos siguen a los muros que los cierran.
 
@@ -23,7 +23,7 @@ El plugin se instala copiando una carpeta en IngeCAD, y la extensión copiando d
 
 **En IngeCAD**
 
-1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.22.1-dev.zip`.
+1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.22.2-dev.zip`.
 2. Copie la carpeta `arquitectura` en la carpeta de plugins de IngeCAD.
 3. Reinicie IngeCAD. Aparece el menú *Arquitectura* y su barra de herramientas.
 4. Escriba `ARQDIAG` en la línea de órdenes para comprobar que la versión cargada es la que acaba de copiar.
@@ -194,6 +194,8 @@ Un muro curvo es el mismo muro BIM que uno recto: sus caras son arcos concéntri
 **Revisar la previsualización (desde la 1.20.3).** Antes de confirmar, la planta muestra cada hueco con su símbolo: las puertas con su giro, las ventanas con su vidrio y los vanos con una X. Compruebe sobre todo las puertas dobles, las puertas de los tabiques finos y los pasos abiertos entre machones. Lo que salga mal se corrige con «Designar gráficamente» antes de confirmar, o después con `PROPIEDADESARQ`.
 
 **Puertas dobles, jambas y correderas (desde la 1.22.1).** Dos giros con bisagras opuestas que abren hacia el mismo lado forman una puerta de dos hojas, también si son desiguales. El ancho del hueco se mide entre las jambas dibujadas (con 5 mm de tolerancia), no por el radio del giro. Las hojas paralelas solapadas de una corredera pueden ser de puerta o de ventana: si el dibujo no lo aclara, la vista previa avisa y deja un vano; desígnelas como «Puertas» o «Ventanas». Lo mismo ocurre con la corredera de bolsillo. Los encuentros oblicuos en L, T o X se distinguen mejor de los huecos.
+
+**Zona de lectura visible (desde la 1.22.2).** Al elegir la zona, se dibuja el rectángulo desde la primera esquina y se resaltan las líneas de las capas clasificadas que se van a leer: hacia la derecha, las que quedan dentro; hacia la izquierda, las que toca. En `TIPOSMURO` se ve el **espesor total** de cada tipo, suma de sus capas; la ficha del muro avisa si su espesor no coincide con el del tipo.
 
 1. Dibuje o importe el plano con líneas, polilíneas y arcos en capas que no empiecen por ARQ.
 2. Ejecute `LINEASAMURO` y enmarque con dos clics la zona que quiere convertir.
@@ -379,6 +381,8 @@ Si encuentra alguno, abre un cuadro con la lista. Al seleccionar un problema, su
 
 **EJES** (o `REJILLA`) dibuja la malla de ejes de una vez: origen, ángulo y separaciones en cada dirección, como lista o en la forma `3x5,40 4,20` (tres vanos de 5,40 y uno de 4,20). Una dirección se numera (1, 2, 3…) y la otra con letras mayúsculas, saltando I, O y Ñ; después de Z siguen AA, AB… Admite prefijo y sufijo. Los ejes sobresalen del contorno, llevan burbuja (círculo o hexágono) con su identificador en uno o ambos extremos y van en la capa `ARQ-EJES`, en trazo y punto gris fino. La opción «Suelto» crea un eje por dos puntos. Se acotan solos (cadena y total) y las cotas se regeneran al mover un eje.
 
+**Ficha de la rejilla (desde la 1.22.2).** Indique primero cuántos ejes hay en X y en Y; aparece una tabla con la distancia de cada vano, que puede ser distinta en cada uno, con el total de cada dirección y el botón «Todas iguales». Al aceptar, la malla completa sigue al cursor: pulse el punto de inserción (con referencias a objetos o escribiendo coordenadas) y, si lo desea, dé el giro. En `EDITAREJE`, la opción «Separaciones» cambia la distancia de un vano y desplaza los ejes siguientes junto con sus pilares, en un solo `Deshacer`.
+
 **EDITAREJE** mueve un eje, cambia sus extremos y su burbuja o renumera desde él. **PILARESENEJES** coloca pilares de la sección elegida en todas las intersecciones o en las de una zona, en un solo `Deshacer`. Un pilar colocado en una intersección guarda su **marca** (por ejemplo `B-3`), que se ve en su ficha y se exporta; al mover el eje, sus pilares lo siguen. En IngeCAD 0.7, después de mover ejes con órdenes genéricas, ejecute `ACTUALIZAEJES`. IngeTrazo no admite todavía rejillas en el IFC: viajan como datos en el `.arqbim` y la marca del pilar aparece en su nombre (`[B-3]`).
 
 **Carpintería en muros curvos.** La ficha de carpintería permite elegir **plana** (en la cuerda entre las jambas) o **curva**: la ventana fija, la ventana corredera y la puerta corredera siguen el arco del muro, con el mismo facetado en planta y en 3D. Las puertas y ventanas abatibles curvas no se admiten (aviso). El ancho y la posición se miden sobre el arco, por el eje o por una cara. La posición en el espesor admite también **«a distancia»**: un retranqueo desde la cara de apertura o la opuesta, que debe caber en el espesor. `CURVAMURO` conserva las carpinterías y su posición. El IFC de IngeTrazo todavía no conserva las dimensiones ni las relaciones de los huecos curvos.
@@ -422,7 +426,7 @@ Si encuentra alguno, abre un cuadro con la lista. Al seleccionar un problema, su
 
 ## Limitaciones conocidas
 
-Estas son las limitaciones conocidas de la versión 1.22.1-dev; cada versión actualiza esta lista.
+Estas son las limitaciones conocidas de la versión 1.22.2-dev; cada versión actualiza esta lista.
 
 - **Plataforma:** las pruebas automáticas se ejecutan en Linux y en Windows con IngeCAD oficial (las versiones 0.7.0 y 0.8.0), pero sin pantalla. El usuario probó la v1.17 en Windows 10 con IngeCAD 0.8 e IngeTrazo 0.6.1: la cadena hasta el IFC funcionó; las correcciones de la v1.18 salen de esa prueba.
 - **Muros curvos:** cada muro llega como mucho a media circunferencia (un muro redondo son dos). MUROPARALELO y DIVIDEMURO solo toman líneas rectas como referencia. El gesto de esquina en L al terminar un MURO solo recorta muros rectos.
@@ -436,6 +440,7 @@ Estas son las limitaciones conocidas de la versión 1.22.1-dev; cada versión ac
 
 | Fecha | Versión | Novedades |
 | --- | --- | --- |
+| 15-11-2026 | 1.22.2-dev | EJES con tabla de separaciones y punto de inserción; LINEASAMURO muestra y resalta la zona; espesor total de los tipos de muro |
 | 14-11-2026 | 1.22.1-dev | LINEASAMURO: puertas dobles de dos hojas, ancho entre jambas, correderas ambiguas señaladas para designar y encuentros oblicuos |
 | 14-11-2026 | 1.22.0-dev | Ejes estructurales (EJES, EDITAREJE, PILARESENEJES, ACTUALIZAEJES) con marca de pilar; carpintería curva en muros curvos; retranqueo de la carpintería a una distancia de la cara |
 | 14-11-2026 | 1.21.0-dev | Clasificación normativa de los recintos: una etiqueta por documento del CTE y de la ITC-BT-25, propuesta según el uso y exportación en ARQ\_ClasificacionCTE |

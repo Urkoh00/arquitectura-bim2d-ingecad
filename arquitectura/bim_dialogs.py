@@ -4,21 +4,14 @@
 Imports are intentionally delayed: CLI/headless tools keep working without Qt.
 """
 from __future__ import annotations
+import math
 
 
 def _parent(ctx):
     """The window a sheet hangs from: a tool's context reaches it through
     its services, a command's (PluginContext) is the host itself."""
-    services = getattr(ctx, 'services', None)
-    parent = getattr(services, 'window', None)
-    if parent is None:
-        host = getattr(ctx, 'host', None)
-        try:
-            from PySide6.QtWidgets import QWidget
-            parent = host if isinstance(host, QWidget) else None
-        except ImportError:
-            parent = None
-    return parent
+    from .compat import dialog_parent
+    return dialog_parent(ctx)
 
 
 def _widgets():
@@ -68,7 +61,8 @@ def _types_of(ctx, types):
         return types
     try:
         from .parameters_arq import load_defaults
-        return load_defaults(getattr(ctx, 'document', None))['wall_types']
+        from .compat import document_of
+        return load_defaults(document_of(ctx))['wall_types']
     except Exception:  # noqa: BLE001
         return []
 
@@ -108,7 +102,7 @@ def _read_layers(table):
             v = float(text)
         except ValueError:
             raise ValueError(f'Capa {r + 1}: espesor no válido «{th.text()}»') from None
-        if not v > 0:
+        if not math.isfinite(v) or not v > 0:
             raise ValueError(f'Capa {r + 1}: el espesor debe ser mayor que cero')
         rows.append([v, (mat.text() if mat else '').strip()])
     return rows
@@ -122,6 +116,8 @@ def wall_form(ctx, record=None, types=None):
     from .parameters_arq import sort_types, normalise_type, _num
     d=record or {}
     types=[normalise_type(t) for t in _types_of(ctx, types)]
+    if d.get('type_name') and d.get('layers') and not any(t['name']==d['type_name'] for t in types):
+        types.append(normalise_type({'name':d['type_name'],'layers':d['layers']}))
     dlg,layout,buttons=_dialog(ctx,'Arquitectura — Muro',
         'Elija un tipo de muro del catálogo del dibujo (TIPOSMURO) o defina uno genérico. '
         'Los datos se guardan en el DXF y viajan al modelo BIM.')
@@ -138,7 +134,8 @@ def wall_form(ctx, record=None, types=None):
     total=QLabel('')
     tform.addRow('Tipo:',kind)
     tform.addRow(table)
-    tform.addRow('Espesor total:',total)
+    total.setMinimumWidth(180)
+    tform.addRow('Espesor total del tipo:',total)
     layout.addWidget(tgroup)
     group=QGroupBox('Geometría y colocación',dlg)
     form=QFormLayout(group)
@@ -147,6 +144,12 @@ def wall_form(ctx, record=None, types=None):
     base=_spin(d.get('base',0.0))
     reference=_choice([('Eje','eje'),('Cara izquierda','izquierda'),('Cara derecha','derecha')],d.get('reference','eje'))
     for label,widget in [('Espesor:',thickness),('Altura:',height),('Cota base:',base),('Referencia de dibujo:',reference)]:form.addRow(label,widget)
+    from PySide6.QtWidgets import QCheckBox
+    manual=QCheckBox('Modificar espesor respecto al tipo elegido')
+    mismatch=QLabel();mismatch.setWordWrap(True);mismatch.setMinimumHeight(3*mismatch.fontMetrics().height())
+    resolution=_choice([('Reajustar el muro al espesor del tipo','restore'),
+        ('Reajustar capas como variante local del tipo','variant'),('Desvincular este muro del tipo','detach')],'restore')
+    form.addRow(manual);form.addRow('Discrepancia:',mismatch);form.addRow('Resolver antes de aceptar:',resolution)
     layout.addWidget(group)
     group2=QGroupBox('Identificación BIM',dlg)
     frm2=QFormLayout(group2)
@@ -163,6 +166,12 @@ def wall_form(ctx, record=None, types=None):
     def chosen():
         return by_name.get(kind.currentData())
 
+    def discrepancy(*_):
+        t=chosen();different=bool(t and abs(thickness.value()-t['thickness'])>5e-7)
+        mismatch.setText('El espesor del muro no coincide con el tipo: elija cómo resolverlo.' if different else 'Espesor coherente con el tipo.' if t else 'Muro sin vínculo al catálogo.')
+        resolution.setEnabled(different);manual.setEnabled(t is not None)
+        thickness.setEnabled(t is None or manual.isChecked())
+    manual.toggled.connect(discrepancy);thickness.valueChanged.connect(discrepancy)
     def update(*_):
         t=chosen()
         if t is None:
@@ -179,7 +188,10 @@ def wall_form(ctx, record=None, types=None):
                 name.setText(t['name'])
             total.setText(f"{_num(t['thickness'])} m ({len(t['layers'])} capa"
                           + ('s' if len(t['layers'])!=1 else '') + ')')
+        discrepancy()
     kind.currentIndexChanged.connect(update);update()
+    if chosen() is not None and abs(float(d.get('thickness',chosen()['thickness']))-chosen()['thickness'])>5e-7:
+        manual.setChecked(True);thickness.setValue(float(d['thickness']));discrepancy()
 
     def read():
         t=chosen()
@@ -188,13 +200,22 @@ def wall_form(ctx, record=None, types=None):
              'material':material.text().strip(),'level':level.text().strip(),
              'ifc_class':'IfcWall'}
         if t is not None:
-            out.update(thickness=t['thickness'],type_name=t['name'],layers=[list(l) for l in t['layers']])
+            different=abs(thickness.value()-t['thickness'])>5e-7
+            if different and resolution.currentData()=='detach':
+                out.update(type_name=f"Muro {_num(thickness.value())}",layers=[])
+            elif different and resolution.currentData()=='variant':
+                factor=thickness.value()/t['thickness']
+                layers=[[float(v)*factor,mat] for v,mat in t['layers']]
+                variant=normalise_type({'name':t['name']+' ('+_num(thickness.value())+' m, variante local)','layers':layers})
+                out.update(thickness=variant['thickness'],type_name=variant['name'],layers=variant['layers'])
+            else:
+                out.update(thickness=t['thickness'],type_name=t['name'],layers=[list(l) for l in t['layers']])
         else:
             keep=current and current not in by_name
             out.update(type_name=str(current) if keep else f"Muro {_num(thickness.value())}",
                        layers=[list(l) for l in (d.get('layers') or [])] if keep else [])
         return out
-    dlg._arq={'type':kind,'thickness':thickness,'layers':table,'name':name,'material':material}
+    dlg._arq={'type':kind,'thickness':thickness,'layers':table,'name':name,'material':material,'total':total,'manual_thickness':manual,'mismatch':mismatch,'resolution':resolution}
     return dlg,read
 
 
@@ -226,6 +247,7 @@ def wall_types_form(ctx, types):
     info.setWordWrap(True);main.addWidget(info)
     row=QHBoxLayout();main.addLayout(row)
     left=QVBoxLayout();row.addLayout(left,2)
+    headers=QHBoxLayout();headers.addWidget(QLabel('Tipo'),1);headers.addWidget(QLabel('Espesor total (m)'));left.addLayout(headers)
     lst=QListWidget();left.addWidget(lst)
     lbuttons=QHBoxLayout();left.addLayout(lbuttons)
     b_new=QPushButton('Nuevo');b_copy=QPushButton('Duplicar');b_del=QPushButton('Eliminar')
@@ -244,8 +266,13 @@ def wall_types_form(ctx, types):
     main.addWidget(buttons)
     state={'row':-1,'busy':False}
 
-    def label(t):
-        return f"{_num(t['thickness'])} m — {t['name']}"
+    def label(t):return t['name']
+    def decorate(item,t):
+        from PySide6.QtWidgets import QWidget,QHBoxLayout,QLabel
+        w=QWidget();w.setAutoFillBackground(True);line=QHBoxLayout(w);line.setContentsMargins(3,2,3,2)
+        title=QLabel(t['name']);title.setWordWrap(True);width=QLabel(_num(t['thickness'])+' m');width.setMinimumWidth(80);width.setAlignment(Qt.AlignRight|Qt.AlignVCenter)
+        line.addWidget(title,1);line.addWidget(width);lst.setItemWidget(item,w);item.setSizeHint(w.sizeHint())
+
 
     def select(i):
         """Select row i in the list and show it, without storing anything."""
@@ -270,7 +297,7 @@ def wall_types_form(ctx, types):
         data[i]=normalise_type({'name':nm,'layers':layers})
         item=lst.item(i)
         if item is not None:
-            item.setText(label(data[i]))
+            item.setText(label(data[i]));decorate(item,data[i])
 
     def show(i):
         state['row']=i
@@ -285,6 +312,10 @@ def wall_types_form(ctx, types):
         try:
             layers=_read_layers(table)
             total.setText(f"{_num(sum(l[0] for l in layers))} m" if layers else '—')
+            i=state['row']
+            if not state['busy'] and 0<=i<len(data) and layers:
+                item=lst.item(i)
+                if item is not None:decorate(item,normalise_type({'name':name.text() or data[i]['name'],'layers':layers}))
         except ValueError as exc:
             total.setText(str(exc))
 
@@ -312,7 +343,7 @@ def wall_types_form(ctx, types):
             nm=f"{stem} {k}";k+=1
         t=normalise_type({'name':nm,'layers':[list(l) for l in base['layers']]})
         data.append(t)
-        QListWidgetItem(label(t),lst)
+        item=QListWidgetItem(label(t),lst);decorate(item,t)
         select(len(data)-1)
 
     def delete():
@@ -361,7 +392,7 @@ def wall_types_form(ctx, types):
     buttons.accepted.connect(accept);buttons.rejected.connect(dlg.reject)
     data.sort(key=lambda t:(t['thickness'],t['name'].lower()))
     for t in data:
-        QListWidgetItem(label(t),lst)
+        item=QListWidgetItem(label(t),lst);decorate(item,t)
     select(0 if data else -1)
 
     def read():

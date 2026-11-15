@@ -192,6 +192,11 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD", problem
                             "Width": spec.thickness, "GrossFootprintArea": geo["area"],
                             "GrossVolume": math.fsum(g["area"] * (hi - lo) for lo, hi, g in geo["bands"]),
                             "NetVolume": volume}
+        if m.get('type_name'):
+            type_width=sum(float(v) for v,_mat in layers) if layers else spec.thickness
+            el['params']['wall_type']={'name':m['type_name'],'width':type_width,
+                                      'layers':[[float(v),str(mat)] for v,mat in layers]}
+            el['psets']['ARQ_IngeCAD']['TypeThickness']=type_width
         el["openings"] = []
         fillings = []
         for o in ops:
