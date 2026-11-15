@@ -208,7 +208,9 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD", problem
                 box = S.prism_solid(OP.cut_polygon(spec, o, 0.0),
                                     float(m.get("base", 0.0)) + float(o["sill"]), float(o["height"]))[0]
             else:
-                box = S.opening_box(spec.a, spec.u, spec.n, spec.lo - 0.01, spec.hi + 0.01,
+                cut_lo,cut_hi=OP.cut_band(spec,o)
+                if not o.get('cabinet'):cut_lo-=.01;cut_hi+=.01
+                box = S.opening_box(spec.a, spec.u, spec.n, cut_lo, cut_hi,
                                     o, float(m.get("base", 0.0)))
             filled = o["type"] in ("door", "window")
             # the void is derived from the door/window: the door keeps the
@@ -218,7 +220,7 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD", problem
                                    "name": ("Hueco de " + (o.get("name") or OP.NAMES[o["type"]]))
                                    if filled else (o.get("name") or "Hueco"),
                                    "kind": o["type"],
-                                   "params": {k: o[k] for k in ("offset", "width", "sill", "height")},
+                                   "params": {k: o[k] for k in ("offset", "width", "sill", "height", "niche_depth")if k in o},
                                    "faces": _faces_json(box)})
             if filled:
                 if o.get('curve_mode')=='curva' and not any('IFC: dimensiones curvas' in note for note in issues):
@@ -479,6 +481,14 @@ def _filling(o, spec, wall_meta, level, void_guid, wall_id):
     el["params"].update({k:o.get(k) for k in ("curve_mode","facet_sagitta","width_reference")})
     el["fills"] = void_guid
     el["enums"] = _door_enums(o)
+    if o.get('cabinet'):
+        el['enums']['PredefinedType']='USERDEFINED'
+        if o['leaves']>2:
+            el['enums']['OperationType']='USERDEFINED'
+            el['attributes']={'ObjectType':'ARMARIO','UserDefinedOperationType':f"{o['leaves']}_HOJAS_{o['operation']}"}
+        else:el['attributes']={'ObjectType':'ARMARIO'}
+        el['psets']['ARQ_Armario']={'NicheDepth':o['niche_depth'],'Leaves':o['leaves'],'Operation':o['operation']}
+        el['params'].update(cabinet=True,niche_depth=o['niche_depth'])
     el["host"] = wall_id
     el["params"].update({k: o.get(k) for k in ("offset", "width", "sill", "leaves", "leaf", "leaf2",
                                               "side", "hinge", "face", "setback", "setback_from", "frame_width", "frame_depth",
@@ -500,7 +510,7 @@ def _filling(o, spec, wall_meta, level, void_guid, wall_id):
     arq["FrameReferenceIsGeographic"] = False
     arq["Apertura"] = OP.OPERATION_NAMES.get(o.get("operation"), "")
     arq["Ajuste"] = {"centrada": "medio"}.get(o.get("face"), o.get("face"))
-    if o["type"] == "door":
+    if o["type"] == "door" and not o.get('cabinet'):
         frame, opened = OP.clear_width(o)
         arq.update({"PasoLibreMarco": round(frame, 4), "PasoLibreAbierta": round(opened, 4),
                     "ItinerarioAccesibleSUA": OP.sua_accessible(o)})
@@ -508,7 +518,7 @@ def _filling(o, spec, wall_meta, level, void_guid, wall_id):
                     "Cerco": round(float(o["frame_width"]), 4)})
         if o["leaves"] == 2:
             arq["Hoja2"] = round(o["leaf2"], 4)
-    else:
+    elif o['type']=='window':
         arq.update({"Hojas": o["leaves"], "Antepecho": float(o["sill"]),
                     "Remate": o.get("sill_kind") or ""})
     el["quantities"] = {"Height": z1 - z0, "Width": s1 - s0, "Area": (s1 - s0) * (z1 - z0)}

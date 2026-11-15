@@ -39,7 +39,7 @@ SYMBOL_LAYER = "ARQ-CARPINTERIA"
 V3_KEYS = ("leaves", "leaf", "leaf2", "frame_width", "frame_depth", "side", "hinge",
            "angle", "face", "setback", "setback_from", "sill_kind", "operation", "leaf_thickness",
            "frame_material", "leaf_material", "glass_material", "sill_material",
-           "curve_mode", "facet_sagitta", "width_reference")
+           "curve_mode", "facet_sagitta", "width_reference", "cabinet", "niche_depth")
 # opening type (IFC names, as in the properties dialog)
 OPERATIONS = {"door": ("SWINGING", "SLIDING"), "window": ("SIDEHUNG", "SLIDING", "FIXED"), "gap": ("",)}
 OPERATION_NAMES = {"SWINGING": "abatible", "SLIDING": "corredera", "SIDEHUNG": "abatible",
@@ -86,6 +86,7 @@ def normalise(rec):
     out.setdefault('facet_sagitta',.005)
     out.setdefault('width_reference','cuerda' if out['curve_mode']=='plana' else 'eje')
     typ = out.get("type") if out.get("type") in TYPES else "door"
+    if out.get('cabinet')and typ!='door':raise ValueError('El frente de armario debe ser una puerta')
     out["type"] = typ
     for k, v in DEFAULTS[typ].items():
         if k in ("sill", "height", "width"):
@@ -100,7 +101,13 @@ def normalise(rec):
     if out.get("operation") not in ops:
         out["operation"] = ops[0]
     if typ == "door":
-        out["leaves"] = 2 if out["leaves"] >= 2 else 1
+        if out.get('cabinet'):
+            if out['leaves'] not in (1,2,3,4):raise ValueError('Armario: entre una y cuatro hojas')
+            depth=float(out.get('niche_depth',0))
+            if not math.isfinite(depth)or depth<=0:raise ValueError('Fondo de nicho positivo y finito')
+            out['niche_depth']=depth
+            out['frame_depth']=min(float(out.get('frame_depth')or .05),depth)
+        else:out["leaves"] = 2 if out["leaves"] >= 2 else 1
         # on a curved wall the carpentry is planar: its width is the chord
         # between the jambs (``chord``), the record's ``width`` runs along the wall
         real = float(out['width'] if out['curve_mode']=='curva' else (out.get("chord") or out["width"]))
@@ -266,11 +273,13 @@ def carrier_points(spec, rec):
 
 
 def cut_polygon(spec, rec, extra=1e-3):
-    """The hole in plan: the strip s0..s1 across the whole thickness (on a
-    curved wall the jambs are radial and the faces arcs)."""
+    """Canonical plan cut: full thickness, or the cabinet's partial band.
+    Curved ordinary openings retain their radial jambs and arc faces.
+    """
     s0 = float(rec["offset"])
     s1 = s0 + float(rec["width"])
-    lo, hi = spec.lo - extra, spec.hi + extra
+    lo,hi=cut_band(spec,rec)
+    if not rec.get('cabinet'):lo-=extra;hi+=extra
     if getattr(spec, "curved", False):
         return (spec.run(lo, spec.point(s0, lo), spec.point(s1, lo))
                 + spec.run(hi, spec.point(s1, hi), spec.point(s0, hi)))
@@ -286,6 +295,16 @@ def opening_cuts(specs, openings):
         if spec is not None:
             cuts.setdefault(spec.id, []).append(cut_polygon(spec, o))
     return cuts
+
+
+def cut_band(spec,rec):
+    """Canonical transverse bounds shared by plan, solid and exchange."""
+    if not rec.get('cabinet'):return spec.lo,spec.hi
+    if spec.curved:raise ValueError('Nicho de armario: anfitrión curvo no admitido')
+    depth=float(rec.get('niche_depth',0))
+    if not math.isfinite(depth)or depth<=0 or depth>spec.thickness-.01:
+        raise ValueError('El nicho debe conservar al menos 0,01 m de muro')
+    return (spec.hi-depth,spec.hi)if rec.get('side',1)>0 else(spec.lo,spec.lo+depth)
 
 
 def _world_dir(spec, lx, ly):
@@ -307,6 +326,9 @@ def plan_symbol(spec, rec):
     """Derived plan drawing of an opening, in world coordinates:
     [('line', p, q) | ('poly', [pts], closed) | ('arc', c, r, a0, a1)]."""
     rec = normalise(rec)
+    if rec.get('cabinet'):
+        from .cabinets import symbols
+        return symbols(spec,rec)
     if getattr(spec,'curved',False) and rec.get('curve_mode')=='curva':
         from .curved_carpentry import symbol
         return symbol(spec,rec)
@@ -457,6 +479,9 @@ def carpentry_parts(spec, rec, base):
     a gap): outlines in (s, z), extruded across o0..o1. On a curved wall, on
     its ``proxy``."""
     rec = normalise(rec)
+    if rec.get('cabinet'):
+        from .cabinets import parts
+        return parts(spec,rec,base)
     if rec["type"] == "gap":
         return []
     if getattr(spec,'curved',False) and rec.get('curve_mode')=='curva':

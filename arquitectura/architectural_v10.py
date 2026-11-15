@@ -99,6 +99,7 @@ def opening_record(wall, offset, width, sill, height, kind, existing=None, **bim
     else:
         rec.pop('chord',None)
     rec=OP.normalise(rec)
+    OP.cut_band(spec,rec)
     if typ != "gap":
         band_spec,band_rec=OP.proxy(spec,rec)
         OP.frame_band(band_spec,band_rec)
@@ -188,8 +189,12 @@ def edit_wall(entity,*,thickness=None,height=None,base=None,reference=None,
         d.pop('layers',None)            # the thickness changed by hand: the type's layers no longer fit
     pts=wall_corners(d['a'],d['b'],d['thickness'],d.get('reference','eje'))
     check_curve(d)
+    from .geom import junctions as J
+    from . import openings as OP
+    candidate_spec=J.walls_from_records([(d['id'],d)])[0]
     for hole in _find_openings(entity.doc,d['id']):
         validate_wall({**d,'openings':[hole]})
+        OP.cut_band(candidate_spec,hole)
     if entity.dxftype() == 'POINT':
         return EditArchitecturalCommand(entity,d)
     return EditArchitecturalCommand(entity,d,points=axis_points(d) if (entity.dxftype()=='LWPOLYLINE' and not entity.closed and len(entity)==2) else pts)

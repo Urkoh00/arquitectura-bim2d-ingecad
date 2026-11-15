@@ -124,7 +124,11 @@ class ArqPropiedadesTool(Tool):
                     spec=walls_from_records([(host['id'],host)])[0]
                     data={**data,'_wall_spec':spec,'_wall_thickness':spec.thickness,
                           '_display_width':OP.measure_of(spec,data['width'],data,int(data.get('side',1)))}
-                values=bim_dialogs.carpentry_properties(self.ctx,data,editing=True)
+                if data.get('cabinet'):
+                    from .cabinets import form
+                    dlg,read=form(self.ctx,data)
+                    values=read()if dlg.exec()==1 else None
+                else:values=bim_dialogs.carpentry_properties(self.ctx,data,editing=True)
                 command=opening_change(entity,values) if values is not None else None
             else:
                 values=bim_dialogs.space_properties(self.ctx,data)

@@ -198,7 +198,7 @@ def _cross_pt(p, u, q, w):
 
 
 # ---- walls: pairs of parallel lines ---------------------------------------------
-def _pairs(lines, tmin, tmax):
+def _pairs(lines, tmin, tmax, min_overlap=None):
     """Centre-line pieces {"p", "q", "t"} from pairs of facing lines."""
     nb = max(3, int(math.ceil(180.0 / ANG_TOL)))
     S = []
@@ -232,7 +232,8 @@ def _pairs(lines, tmin, tmax):
                 continue
             t1, t2 = _dot(_sub(p2, p), u), _dot(_sub(q2, p), u)
             o0, o1 = max(0.0, min(t1, t2)), min(L, max(t1, t2))
-            if o1-o0 < MIN_LEN and not (t<=.125 and o1-o0>=max(.06,.6*t)):
+            threshold=MIN_LEN if min_overlap is None else max(0.,float(min_overlap))
+            if o1-o0 < threshold and not (t<=.125 and o1-o0>=max(.06,.6*t)):
                 continue
             if _blocked(S, near, i, j, p, u, n, s, o0, o1, a):
                 continue

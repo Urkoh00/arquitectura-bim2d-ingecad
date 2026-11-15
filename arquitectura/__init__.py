@@ -32,7 +32,7 @@ import os
 from collections import defaultdict
 from pathlib import Path
 
-_VERSION = "1.22.3-dev"
+_VERSION = "1.23.0-dev"
 
 from core.plugins import SEPARATOR, MenuItem, PluginSpec, Submenu, ToolbarItem
 from tools.base import Tool
@@ -1465,6 +1465,7 @@ TOOL_CLASSES = (
 from .tools3d import Muro3DTool, Hueco3DTool, exportar_igz, configurar_igz
 from .tools_v10 import MuroTool as MuroV10Tool, CarpinteriaTool, VentanaArqTool, EditarArqTool
 from .columns import PilarBimTool
+from .cabinets import CabinetTool
 from .arq_properties import ArqPropiedadesTool
 
 def diagnostico_arq(ctx, *args):
@@ -1554,13 +1555,14 @@ def plugin_spec() -> PluginSpec:
         name="Arquitectura",
         version=_VERSION,
         description="Dibujo arquitectónico 2D con objetos BIM (muros, pilares, carpinterías) y exportación a IngeTrazo/IFC",
-        tools={tool.name: tool for tool in (*TOOL_CLASSES, Muro3DTool, Hueco3DTool,GridTool,RejillaTool,GridEditTool,GridColumnsTool)},
+        tools={tool.name: tool for tool in (*TOOL_CLASSES, CabinetTool,Muro3DTool, Hueco3DTool,GridTool,RejillaTool,GridEditTool,GridColumnsTool)},
         commands={"ACTUALIZAEJES":update,"EXPORTARBIM": exportar_bim, "EXPORTARIGZ": exportar_igz, "CONFIGIGZ": configurar_igz, "DIAGNOSTICOARQ": diagnostico_arq, "ARQDIAG": arqdiag, "UNIONESARQ": unionesarq, "ARQVALIDAR": validar_arq, "ARQMIGRAR": migrar_arq, "PARAMETROSARQ": parametros_arq, "TIPOSMURO": tipos_muro, "USOSARQ": usos_arq},
         menu=(
             MenuItem("Opciones generales y parámetros iniciales...", "PARAMETROSARQ", icon=glyph / "parametros.svg"),
             MenuItem("Tipos de muro (espesor total y capas)...", "TIPOSMURO", icon=glyph / "tiposmuro.svg"),
             MenuItem("Usos del edificio (certificado energético, DB-HE, DB-SI)...", "USOSARQ", icon=glyph / "usos.svg"),
             MenuItem("Crear capas ARQ", "CAPASARQ"),
+            MenuItem("Armario BIM (nicho parcial)...", "ARMARIOBIM"),
             MenuItem("Distribuir en capas", "CAPASAUTO"),
             SEPARATOR,
             Submenu("Construcción", (

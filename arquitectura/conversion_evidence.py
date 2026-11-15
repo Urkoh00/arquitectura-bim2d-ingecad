@@ -96,10 +96,10 @@ def window_frame(reader,mid,width,u,t,interior=None):
 def recover_short_links(walls,faces,tmin,tmax):
     """Keep a short paired return only if BOTH ends meet different walls."""
     result=list(walls);count=0
-    raw=W._pairs(W._contiguous([(s[:2],s[2:4])for s in faces]),tmin,tmax)
+    raw=W._pairs(W._contiguous([(s[:2],s[2:4])for s in faces]),tmin,tmax,min_overlap=.025)
     for piece in raw:
         p,q,t=piece['p'],piece['q'],piece['t'];length=math.dist(p,q)
-        if not W.MIN_LEN<=length<max(W.MIN_RUN,1.5*t):continue
+        if not max(.025,.1*t)<=length<max(W.MIN_RUN,1.5*t):continue
         u=W._unit_v(W._sub(q,p));n=W._perp(u)
         if any(abs(W._dot(W._sub(p,a),W._perp(W._unit_v(W._sub(b,a)))))<.01
                and abs(abs(W._dot(u,W._unit_v(W._sub(b,a))))-1)<.01

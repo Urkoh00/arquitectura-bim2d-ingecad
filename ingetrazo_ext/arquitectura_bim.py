@@ -269,7 +269,7 @@ def definition(data, source=""):
     meshes themselves. JSON-safe, so IngeTrazo saves it with the document
     and another tool can read the model without rebuilding it."""
     keep = ("id", "guid", "ifc_class", "name", "level", "material_layers", "type_name", "material", "params",
-            "psets", "quantities", "openings_ids", "fills", "host", "enums", "parts")
+            "psets", "quantities", "openings_ids", "fills", "host", "enums", "attributes", "parts")
     elements = []
     for el in data.get("elements", []):
         rec = {k: el[k] for k in keep if k in el}
@@ -361,6 +361,8 @@ def build_scene(data, offset=None):
         if el.get("enums"):
             # enumerated attributes (IfcCovering .CEILING., door operation)
             tag["enums"] = el["enums"]
+        if el.get('attributes'):
+            tag['attributes']=el['attributes']
         if el.get("fills"):
             # IfcRelFillsElement: the hole (IfcOpeningElement) it fills
             tag["fills"] = el["fills"]

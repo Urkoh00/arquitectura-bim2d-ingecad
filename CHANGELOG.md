@@ -2,6 +2,22 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.23.0-dev — 2026-11-15
+
+Integra la entrega R14-e de Codex, revisada: SHA-256 correcto; 617 pruebas con IngeCAD 0.8 y 608 + 9 con la
+0.7. Cadena `.arqbim` → IGZ → IFC comprobada con IngeTrazo 0.6.1 y 0.6.2 (sin errores de esquema; volumen
+del muro con nicho correcto).
+
+- **ARMARIOBIM:** armario empotrado como **nicho parcial** en su muro anfitrión (ancho, fondo, altura, base,
+  hojas y apertura corredera o abatible); el muro conserva el espesor restante en planta, 3D y cantidades.
+  Los frentes son `IfcDoor` de armario. Si se reduce el espesor del muro, se valida antes para que el nicho
+  no pase a ser un corte pasante.
+- **LINEASAMURO:**
+  - recupera los retornos escalonados de fachada cuyo solape es menor que la longitud mínima;
+  - **rangos de espesor independientes** para muros, medianeras y tabiques (opción en la ficha), sin
+    emparejar caras de categorías distintas.
+- El IFC de IngeTrazo sigue omitiendo las relaciones de hueco y los atributos del frente (T-04, T-02).
+
 ## 1.22.3-dev — 2026-11-15
 
 Integra la entrega R14-d + R19 de Codex (pruebas del usuario con planos reales, sin incluirlos), revisada:

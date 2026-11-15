@@ -155,6 +155,10 @@ def audit(drawing):
             why = "no cabe en la longitud del muro"
         elif z < -TOL or z + h > float(wall_m["height"]) + 1e-6:
             why = "no cabe en la altura del muro"
+        if why is None and m.get('cabinet')and host in specs:
+            from . import openings as OP
+            try:OP.cut_band(specs[host],m)
+            except ValueError as exc:why=str(exc)
         if why:
             problems.append(_problem("hueco", f"{_label(m)}: {why}.", [e, wall_e], [m["id"], host]))
             continue

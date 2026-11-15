@@ -27,6 +27,7 @@ class Classification:
     layers: dict = field(default_factory=dict)
     handles: dict = field(default_factory=dict)
     layers_confirmed: bool = False
+    thickness_ranges: dict = field(default_factory=dict)
 
     def role(self, entity):
         return self.handles.get(entity.dxf.handle, self.layers.get(entity.dxf.layer))
@@ -61,6 +62,7 @@ class Plan:
     curved_openings: list = field(default_factory=list)
     opening_details: list = field(default_factory=list)
     review_segments: list = field(default_factory=list)
+    opening_reader: object = field(default=None,repr=False)
     _preview_symbols: object = field(default=None,init=False,repr=False)
 
     @property
@@ -261,6 +263,9 @@ def scale_check(leaves):
 
 def analyse(drawing, lo, hi, classification, tmin=.07, tmax=.5, height=2.7,
             parallel=.005, origin='ocultar', selected_handles=None):
+    if classification.thickness_ranges:
+        from .conversion_ranges import analyse_ranges
+        return analyse_ranges(drawing,lo,hi,classification,tmin,tmax,height,parallel,origin,selected_handles)
     if selected_handles is not None:selected_handles=set(selected_handles)
     import ezdxf
     from . import convert_tools as C
@@ -502,7 +507,7 @@ def analyse(drawing, lo, hi, classification, tmin=.07, tmax=.5, height=2.7,
             except Exception:continue
         wall_roles.append(nearest[1] if nearest else 'muros')
     result=(result[0],ops,*result[2:])
-    return Plan(result,used,list(dict.fromkeys(warnings)),drawing,fingerprint(drawing),(lo,hi),height,origin,wall_roles,curved_ops,details,review)
+    return Plan(result,used,list(dict.fromkeys(warnings)),drawing,fingerprint(drawing),(lo,hi),height,origin,wall_roles,curved_ops,details,review,opening_reader=reader)
 
 
 def commit(ctx, plan):

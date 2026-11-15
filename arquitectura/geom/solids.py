@@ -11,6 +11,8 @@ every edge borders exactly two faces. The output is what IngeTrazo's
 
 The volume is known exactly (sum of cell area x height) and is returned to
 check the mesh against.
+Partial niches also split cells at their transverse back plane; only cells
+inside that depth lose material. This keeps the wall's residual thickness.
 """
 from __future__ import annotations
 
@@ -43,6 +45,16 @@ def _cells(pieces, wall_frame, base, height, openings, spec=None):
             right = P.clip_halfplane(reg, p, (-d[0], -d[1]))   # s >= cut
             nxt.extend(x for x in (left, right) if x)
         regions = nxt
+    partial=[o for o in openings if o.get('cabinet')]
+    if partial:
+        from ..openings import cut_band
+        for o in partial:
+            for transverse in cut_band(spec,o):
+                p=spec.point(0,transverse);nxt=[]
+                for reg in regions:
+                    nxt.extend(x for x in (P.clip_halfplane(reg,p,u),
+                        P.clip_halfplane(reg,p,(-u[0],-u[1])))if x)
+                regions=nxt
     cells = []
     for reg in regions:
         cx = sum(q[0] for q in reg) / len(reg)
@@ -53,6 +65,9 @@ def _cells(pieces, wall_frame, base, height, openings, spec=None):
             s0 = float(o["offset"])
             s1 = s0 + float(o["width"])
             if s0 < s_mid < s1:
+                if o.get('cabinet'):
+                    lo,hi=cut_band(spec,o);across=spec.local((cx,cy))[1]
+                    if not lo-1e-9<across<hi+1e-9:continue
                 z0 = float(o["sill"])
                 z1 = z0 + float(o["height"])
                 intervals = _minus(intervals, z0, z1)
