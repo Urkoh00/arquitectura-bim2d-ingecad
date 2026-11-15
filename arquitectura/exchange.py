@@ -167,6 +167,9 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD", problem
         geo = result.walls[ident]
         faces, volume = S.layered_wall_solid(geo["bands"], spec, float(m.get("base", 0.0)), ops)
         el = _element(ident, "IfcWall", m, faces, volume, geo["area"], level)
+        if m.get('wall_role')=='tabiques':
+            el['enums']={'PredefinedType':'PARTITIONING'}
+            el['params']['wall_role']='tabiques'
         # envelope: a face on the outer boundary of the building (calculated)
         el["psets"].setdefault("Pset_WallCommon", {})["IsExternal"] = ident in external
         el["psets"]["ARQ_IngeCAD"]["IsExternalSource"] = "calculado"

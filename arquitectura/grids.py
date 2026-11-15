@@ -147,7 +147,8 @@ def create_grid(origin,values):
     if not all(math.isfinite(float(x)) for x in (*origin,angle)):raise ValueError('Origen o ángulo no finito')
     scale=float(values.get('scale',100));text=float(values.get('text_mm',2.5))*scale/1000
     radius=float(values.get('radius_mm',4))*scale/1000;extension=float(values.get('extension',1.))
-    if not all(math.isfinite(x) and x>0 for x in (scale,text,radius,extension)):raise ValueError('Escala y tamaños positivos')
+    dim_text=float(values.get('dim_text_mm',3.5))*scale/1000
+    if not all(math.isfinite(x) and x>0 for x in (scale,text,radius,extension,dim_text)):raise ValueError('Escala y tamaños positivos')
     first=int(values.get('first_number',1));first_l=letter_index(values.get('first_letter','A'))
     if first<1:raise ValueError('Numeración positiva')
     if values.get('bubble','circle') not in ('circle','hexagon'):raise ValueError('Burbuja no válida')
@@ -161,7 +162,7 @@ def create_grid(origin,values):
             rec={'kind':'grid_axis','id':uuid.uuid4().hex,'grid_id':grid_id,'family':family,'index':i,
                  'label':str(values.get('prefix',''))+(str(first+i) if family=='U' else letter(first_l+i))+str(values.get('suffix','')),
                  'prefix':str(values.get('prefix','')),'suffix':str(values.get('suffix','')),
-                 'text_height':text,'radius':radius,'scale':scale,'linetype':'DASHDOT','lineweight_mm':.13,
+                 'text_height':text,'dim_text_height':dim_text,'radius':radius,'scale':scale,'linetype':'DASHDOT','lineweight_mm':.13,
                  'bubble':values.get('bubble','circle'),
                  'ends':[bool(values.get('start',True)),bool(values.get('end',True))],
                  'dimensions':bool(values.get('dimensions',True))}
@@ -237,11 +238,14 @@ class RegenerateGrid(Command):
                     base=((a[0]+b[0])/2,(a[1]+b[1])/2)
                     rec=lines[0][1]
                     margin=max(math.dist(p,endpoints(e)[0]) for (e,m),p in zip(lines,points))
-                    distance=margin+rec['radius']*(3 if j<len(points)-1 else 5)
+                    dim_text=rec.get('dim_text_height',rec['text_height'])
+                    clearance=max(2*rec['radius'],2*dim_text)
+                    distance=margin+rec['radius']+clearance*(1 if j<len(points)-1 else 2)
                     if family=='U':distance=-distance
-                    def dim(msp,document,a=a,b=b,base=base,rec=rec,distance=distance,gid=gid):
+                    def dim(msp,document,a=a,b=b,base=base,rec=rec,distance=distance,gid=gid,margin=margin,dim_text=dim_text):
                         result=msp.add_aligned_dim(p1=a,p2=b,distance=distance,
-                              override={'dimtxt':rec['text_height'],'dimasz':rec['text_height']*.7,'dimscale':1})
+                              override={'dimtxt':dim_text,'dimasz':dim_text*.7,'dimscale':1,
+                                        'dimexo':margin+rec['radius']*1.15,'dimexe':dim_text*.3})
                         _xdata(msp,result.dimension,{'kind':'grid_symbol','grid_id':gid,'role':'dimension'})
                         return result
                     command=AddDimensionCommand(dim);command.layer=LAYER;commands.append(command)

@@ -1,12 +1,12 @@
 # Manual de Arquitectura para IngeCAD
 
-Versión 1.22.2-dev · 15-11-2026
+Versión 1.22.3-dev · 15-11-2026
 
 > Copia del manual publicado como documento en claude.ai; se regenera con cada versión.
 
 ## Qué es
 
-Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.22.2-dev** y se actualiza con cada versión.
+Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.22.3-dev** y se actualiza con cada versión.
 
 Cada elemento guarda su identidad persistente, su clase IFC, su geometría editable en planta, sus parámetros 3D (altura, espesor, cota), sus propiedades constructivas (tipo, material, capas) y su nivel. Las carpinterías conocen su muro y los recintos siguen a los muros que los cierran.
 
@@ -23,7 +23,7 @@ El plugin se instala copiando una carpeta en IngeCAD, y la extensión copiando d
 
 **En IngeCAD**
 
-1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.22.2-dev.zip`.
+1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.22.3-dev.zip`.
 2. Copie la carpeta `arquitectura` en la carpeta de plugins de IngeCAD.
 3. Reinicie IngeCAD. Aparece el menú *Arquitectura* y su barra de herramientas.
 4. Escriba `ARQDIAG` en la línea de órdenes para comprobar que la versión cargada es la que acaba de copiar.
@@ -52,7 +52,7 @@ Cada elemento es un objeto BIM con identidad propia; las líneas que se ven en p
 | --- | --- | --- |
 | ARQ-MUROS | Contorno de muros calculado (líneas y arcos) | Sí |
 | ARQ-MUROS3D | Ejes de los muros con sus datos BIM | No, se apaga sola |
-| ARQ-PILAres | Pilares | Sí |
+| ARQ-PILARES | Pilares | Sí |
 | ARQ-HUECOS3D | Portadores de las carpinterías con sus datos | No, se apaga sola |
 | ARQ-CARPINTERIA | Símbolos de puertas y ventanas | Sí |
 | ARQ-RECINTOS | Contornos y rótulos de los recintos | Sí |
@@ -196,6 +196,8 @@ Un muro curvo es el mismo muro BIM que uno recto: sus caras son arcos concéntri
 **Puertas dobles, jambas y correderas (desde la 1.22.1).** Dos giros con bisagras opuestas que abren hacia el mismo lado forman una puerta de dos hojas, también si son desiguales. El ancho del hueco se mide entre las jambas dibujadas (con 5 mm de tolerancia), no por el radio del giro. Las hojas paralelas solapadas de una corredera pueden ser de puerta o de ventana: si el dibujo no lo aclara, la vista previa avisa y deja un vano; desígnelas como «Puertas» o «Ventanas». Lo mismo ocurre con la corredera de bolsillo. Los encuentros oblicuos en L, T o X se distinguen mejor de los huecos.
 
 **Zona de lectura visible (desde la 1.22.2).** Al elegir la zona, se dibuja el rectángulo desde la primera esquina y se resaltan las líneas de las capas clasificadas que se van a leer: hacia la derecha, las que quedan dentro; hacia la izquierda, las que toca. En `TIPOSMURO` se ve el **espesor total** de cada tipo, suma de sus capas; la ficha del muro avisa si su espesor no coincide con el del tipo.
+
+**Ventanas, correderas y armarios (desde la 1.22.3).** De cada ventana se lee el marco entre las jambas: profundidad y retranqueo respecto a la cara. El lado exterior sale del contorno del edificio o de un alféizar claro. Los arcos de giro reconocidos se retiran del dibujo original con la conversión. Las correderas de dos hojas aparcadas por fuera del muro se detectan, pero hay que confirmarlas como «Puertas». Los **armarios empotrados** tienen categoría propia (`ARQ-ARMARIOS`): por ahora su dibujo se conserva y en su zona no se corta el muro de lado a lado; el nicho BIM llegará más adelante. Las **escaleras** clasificadas se conservan como dibujo, con un aviso de cuántos objetos hay, hasta que exista la orden ESCALERA. En dibujos nuevos conviene separar capas: `ARQ-MUROS`, `ARQ-TABIQUES`, `ARQ-PUERTAS`, `ARQ-VENTANAS` y `ARQ-ARMARIOS`, que el cuadro reconoce; los tabiques se exportan como tabiques (`IfcWall` PARTITIONING). La capa de pilares se llama `ARQ-PILARES`, y `ARQMIGRAR` renombra la antigua `ARQ-PILAres`.
 
 1. Dibuje o importe el plano con líneas, polilíneas y arcos en capas que no empiecen por ARQ.
 2. Ejecute `LINEASAMURO` y enmarque con dos clics la zona que quiere convertir.
@@ -426,7 +428,7 @@ Si encuentra alguno, abre un cuadro con la lista. Al seleccionar un problema, su
 
 ## Limitaciones conocidas
 
-Estas son las limitaciones conocidas de la versión 1.22.2-dev; cada versión actualiza esta lista.
+Estas son las limitaciones conocidas de la versión 1.22.3-dev; cada versión actualiza esta lista.
 
 - **Plataforma:** las pruebas automáticas se ejecutan en Linux y en Windows con IngeCAD oficial (las versiones 0.7.0 y 0.8.0), pero sin pantalla. El usuario probó la v1.17 en Windows 10 con IngeCAD 0.8 e IngeTrazo 0.6.1: la cadena hasta el IFC funcionó; las correcciones de la v1.18 salen de esa prueba.
 - **Muros curvos:** cada muro llega como mucho a media circunferencia (un muro redondo son dos). MUROPARALELO y DIVIDEMURO solo toman líneas rectas como referencia. El gesto de esquina en L al terminar un MURO solo recorta muros rectos.
@@ -440,6 +442,7 @@ Estas son las limitaciones conocidas de la versión 1.22.2-dev; cada versión ac
 
 | Fecha | Versión | Novedades |
 | --- | --- | --- |
+| 15-11-2026 | 1.22.3-dev | LINEASAMURO: marco y retranqueo de ventanas, arcos retirados, puerta junto a muro transversal, correderas exteriores, armarios y aviso de escaleras; capa ARQ-PILARES; cotas de rejilla fuera de las burbujas |
 | 15-11-2026 | 1.22.2-dev | EJES con tabla de separaciones y punto de inserción; LINEASAMURO muestra y resalta la zona; espesor total de los tipos de muro |
 | 14-11-2026 | 1.22.1-dev | LINEASAMURO: puertas dobles de dos hojas, ancho entre jambas, correderas ambiguas señaladas para designar y encuentros oblicuos |
 | 14-11-2026 | 1.22.0-dev | Ejes estructurales (EJES, EDITAREJE, PILARESENEJES, ACTUALIZAEJES) con marca de pilar; carpintería curva en muros curvos; retranqueo de la carpintería a una distancia de la cara |

@@ -333,6 +333,9 @@ def detect_all(drawing, lo, hi, tmin=0.07, tmax=0.50, wall_layers=None, column_l
             WD.PAR_TOL = max(saved, float(parallel))
         walls, openings = WD.walls_from(faces, tmin, tmax, context=context,
                                         gap_reader=reader.read,gap_adjust=reader.adjust)
+        from .conversion_evidence import recover_terminal_doors,recover_short_links
+        walls,_links=recover_short_links(walls,faces,tmin,tmax)
+        walls,openings,_recovered=recover_terminal_doors(walls,openings,reader)
     finally:
         WD.PAR_TOL = saved
     unpaired = [f for f in faces if not _on_a_wall(f, walls)]
@@ -712,6 +715,7 @@ class LineasAMuroTool(Tool):
         return lines
 
     def overlay(self,cursor):
+        if self.conversion_preview is not None:return {'chosen':self.conversion_preview.review_segments}
         zone=self._zone(cursor)
         if zone is None or self.conversion_preview is not None:return {}
         return {'chosen':self._highlight(self._candidates(*zone,graphical=bool(self.pick_role)))}

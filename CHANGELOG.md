@@ -2,6 +2,34 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.22.3-dev — 2026-11-15
+
+Integra la entrega R14-d + R19 de Codex (pruebas del usuario con planos reales, sin incluirlos), revisada:
+SHA-256 correcto; 552 pruebas con IngeCAD 0.8 y 543 + 9 con la 0.7. En los dos planos de prueba: una puerta
+más (13), los 28 huecos anteriores conservados, 11 de 11 ventanas con marco medido y los arcos de giro
+retirados del dibujo original.
+
+### LINEASAMURO
+- **Ventanas:** se lee el marco entre jambas, su profundidad y su retranqueo (posición «a distancia»); el
+  lado exterior sale de la envolvente o de un alféizar inequívoco.
+- **Arcos de giro** reconocidos se retiran con la conversión (iban quedando en la capa original).
+- **Puerta junto a un muro transversal** (extremo libre): se recupera si hay arco real.
+- **Correderas por el exterior** del muro o tabique (dos hojas aparcadas fuera): se reconocen como pareja y
+  piden «Puertas» para confirmarse.
+- **Retornos cortos de fachada** apoyados en ambos lados: se recuperan (no explica todos los casos).
+- **Armarios:** categoría propia; la geometría que no se interpreta ya no se oculta, y no se cortan muros de
+  lado a lado en su zona. El nicho parcial BIM está diseñado (docs/R14d_R19.md) pero no implementado.
+- **Escaleras:** aviso con el número de objetos clasificados que se conservan como dibujo.
+- **Capas:** `guess_roles` reconoce ARQ-MUROS, ARQ-TABIQUES, ARQ-PUERTAS, ARQ-VENTANAS y ARQ-ARMARIOS; los
+  tabiques se exportan como `IfcWall` PARTITIONING.
+
+### Capas y rejilla
+- `ARQ-PILAres` pasa a **`ARQ-PILARES`**; ARQMIGRAR renombra la capa de dibujos anteriores en un Deshacer.
+- `ARQ-HIPERVINCULOS` ya no se crea con las demás capas: solo al usar HIPERVINCULO.
+- **Rejilla:** las cotas quedan fuera de las burbujas y su texto tiene tamaño propio en mm de papel, editable.
+
+Pendiente: fachada del plano concreto, nichos de armario, rangos mixtos de espesor, revisión visual en Windows.
+
 ## 1.22.2-dev — 2026-11-15
 
 Integra la entrega R18 de Codex (fallos de uso encontrados por el usuario en Windows), revisada: SHA-256

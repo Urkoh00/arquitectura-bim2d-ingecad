@@ -14,9 +14,9 @@ ROLES = {'muros': 'Muros', 'medianeras': 'Medianeras', 'tabiques': 'Tabiques',
          'carpinteria': 'Carpintería (puerta o ventana según el dibujo)',
          'ventanas': 'Ventanas', 'puertas': 'Puertas',
          'vanos': 'Vanos', 'rejas': 'Rejas', 'barandillas': 'Barandillas',
-         'escaleras': 'Escaleras'}
+         'escaleras': 'Escaleras', 'armarios': 'Armarios (nicho y frentes)'}
 WALLS = {'muros', 'medianeras', 'tabiques'}
-MANUAL = {'rejas', 'barandillas', 'escaleras'}
+MANUAL = {'rejas', 'barandillas', 'escaleras', 'armarios'}
 OPENINGS = {'carpinteria', 'puertas', 'ventanas', 'vanos'}
 VOTES = {'puertas': 'door', 'ventanas': 'window', 'vanos': 'void'}   # «carpinteria» no vota
 BLOCK_DEPTH = 4
@@ -60,6 +60,7 @@ class Plan:
     wall_roles: list = field(default_factory=list)
     curved_openings: list = field(default_factory=list)
     opening_details: list = field(default_factory=list)
+    review_segments: list = field(default_factory=list)
     _preview_symbols: object = field(default=None,init=False,repr=False)
 
     @property
@@ -70,7 +71,7 @@ class Plan:
             spec=Wall('preview',a,b,t,'eje',bulge=bulge)
             points=spec.run(0.,a,b)
             lines.extend(zip(points,points[1:]))
-        return lines + [s for group in self.opening_symbols().values() for s in group]
+        return lines + [s for group in self.opening_symbols().values() for s in group]+self.review_segments
 
     def opening_symbols(self):
         """Native carpentry symbols, flattened only for tool feedback.
@@ -135,7 +136,7 @@ def layers_present(drawing):
 
 # Name hints, checked in this order (the first that matches wins). A carpentry
 # layer goes to «carpinteria» (the drawing decides), not to doors or windows.
-_GUESS = (('camara', None), ('cámara', None), ('aislam', None), ('cota', None),
+_GUESS = (('camara', None), ('cámara', None), ('aislam', None), ('cota', None), ('armario', 'armarios'),
           ('escal', 'escaleras'), ('barand', 'barandillas'), ('reja', 'rejas'),
           ('medianer', 'medianeras'), ('tabique', 'tabiques'),
           ('pilar', 'pilares'), ('soporte', 'pilares'),
@@ -150,7 +151,10 @@ def guess_roles(layers):
     out = {}
     for name in layers:
         n = str(name).lower()
+        canonical={'arq-muros':'muros','arq-tabiques':'tabiques','arq-pilares':'pilares',
+                   'arq-puertas':'puertas','arq-ventanas':'ventanas','arq-armarios':'armarios','arq-escaleras':'escaleras'}
         if n.startswith('arq-'):
+            if n in canonical:out[name]=canonical[n]
             continue
         for hint, role in _GUESS:
             if hint in n:
@@ -277,6 +281,15 @@ def analyse(drawing, lo, hi, classification, tmin=.07, tmax=.5, height=2.7,
 
     hidden = hidden_layers(drawing)
     skipped = 0
+    from collections import Counter
+    manual_counts=Counter()
+    cabinet_bounds=[]
+    def keep_manual(part,role):
+        manual_counts[role]+=1
+        if role=='armarios':
+            from ezdxf import bbox
+            box=bbox.extents([part])
+            if box.has_data:cabinet_bounds.append((box.extmin,box.extmax))
     for e in drawing.modelspace():
         if selected_handles is not None and e.dxf.handle not in selected_handles:continue
         if metadata(e):
@@ -292,14 +305,14 @@ def analyse(drawing, lo, hi, classification, tmin=.07, tmax=.5, height=2.7,
             if forced is not None and forced not in ROLES:
                 raise ValueError('Categoría no válida')
             if forced in MANUAL:
-                warnings.append(f'{ROLES[forced]}: geometría original conservada; autoría BIM pendiente')
+                keep_manual(e,forced)
                 continue
         elif not role:
             continue
         else:
             category_of(role)
             if role in MANUAL:
-                warnings.append(f'{ROLES[role]}: geometría original conservada; autoría BIM pendiente')
+                keep_manual(e,role)
                 continue
 
         def emit(part, source, insert_layer, forced, depth=0):
@@ -320,7 +333,7 @@ def analyse(drawing, lo, hi, classification, tmin=.07, tmax=.5, height=2.7,
             if not leaf:
                 return
             if leaf in MANUAL:
-                warnings.append(f'{ROLES[leaf]}: geometría original conservada; autoría BIM pendiente')
+                keep_manual(part,leaf)
                 return
             inherited = category_of(leaf)
             if inherited not in doc.layers:
@@ -354,6 +367,9 @@ def analyse(drawing, lo, hi, classification, tmin=.07, tmax=.5, height=2.7,
             emit(e, e, None, None)
     if skipped:
         warnings.append(f'{skipped} objetos en capas apagadas o inutilizadas no se han leído')
+    for role,count in sorted(manual_counts.items()):
+        if role=='escaleras':warnings.append(f'Escaleras: {count} objetos clasificados; se conservan como dibujo hasta que exista la orden ESCALERA BIM')
+        else:warnings.append(f'{ROLES[role]}: {count} objetos clasificados; geometría conservada; autoría BIM pendiente')
     scale_check(leaves)
     read_lo,read_hi=lo,hi
     if selected_handles is not None:
@@ -407,7 +423,7 @@ def analyse(drawing, lo, hi, classification, tmin=.07, tmax=.5, height=2.7,
         segs,arcs=C._pieces(v)
         if v.dxf.layer=='WALL' and not all(represented_line(s) for s in segs):
             continue  # even a very short unrecognised source must not disappear
-        if arcs and not all(represented_arc(arc) for arc in arcs):
+        if v.dxf.layer=='WALL' and arcs and not all(represented_arc(arc) for arc in arcs):
             continue  # a source containing an unpaired arc must stay visible
         doubtful=any(math.dist(f[:2],f[2:4])>tmax+.05 and
                      any(all(abs(a-b)<1e-6 for a,b in zip(f[:4],s)) for s in segs) for f in unpaired)
@@ -421,10 +437,15 @@ def analyse(drawing, lo, hi, classification, tmin=.07, tmax=.5, height=2.7,
     from .conversion_openings import Reader
     reader=Reader([],[],inside_leaves)
     details=[]
+    cabinet_vetoes=0
     from ezdxf import bbox
     for op in result[1]:
         k,pos,width,kind,hinge,face=op;a,b,_t=result[0][k];length=math.dist(a,b)
         center=(a[0]+(b[0]-a[0])*pos/length,a[1]+(b[1]-a[1])*pos/length)
+        if any(lo.x-.005<=center[0]<=hi.x+.005 and lo.y-.005<=center[1]<=hi.y+.005
+               for lo,hi in cabinet_bounds):
+            cabinet_vetoes+=1
+            continue  # No through-cut can be inferred from an explicit cabinet.
         votes=set()
         for e,role in leaves:
             if role not in VOTES:continue
@@ -435,15 +456,39 @@ def analyse(drawing, lo, hi, classification, tmin=.07, tmax=.5, height=2.7,
             except Exception:continue
         evidence=reader.swings(center,width,((b[0]-a[0])/length,(b[1]-a[1])/length),_t) or reader.sliding(
             center,width,((b[0]-a[0])/length,(b[1]-a[1])/length),_t)
-        attrs=recognition['attributes'][len(ops)]
+        attrs=recognition['attributes'][len(ops)+cabinet_vetoes]
         if evidence:
             (kind,hinge,face),attrs=evidence
         if len(votes)==1:kind=votes.pop()
         elif len(votes)>1:warnings.append('Hueco con clasificaciones contradictorias; conserva lectura geométrica')
+        if kind=='window':
+            from .conversion_evidence import exterior_side,window_frame
+            interior,placement=window_frame(reader,center,width,((b[0]-a[0])/length,(b[1]-a[1])/length),_t,
+                                            exterior_side(result[0],k,pos))
+            if interior is not None:face=interior
+            if placement:attrs=placement
+            else:
+                attrs={'face':'centrada'}
+                warnings.append('Ventana sin posición de marco inequívoca: se conserva el dibujo para revisar lado y retranqueo')
         ops.append((k,pos,width,kind,hinge,face))
-        details.append(attrs if kind=='door' else {})
+        details.append(attrs if kind in ('door','window') else {})
+    if cabinet_vetoes:warnings.append(f'Armarios: {cabinet_vetoes} cortes pasantes evitados; nicho parcial pendiente de definición explícita')
     warnings.extend(w for w in recognition['warnings'] if w.startswith('Jambas'))
     warnings.extend(sorted(reader.warnings))
+    review=[];unresolved=set()
+    for entity,role in leaves:
+        if role not in OPENINGS:continue
+        supported=False
+        for number,(k,pos,width,kind,hinge,side)in enumerate(ops):
+            a,b,t=result[0][k];u=((b[0]-a[0])/math.dist(a,b),(b[1]-a[1])/math.dist(a,b))
+            mid=(a[0]+u[0]*pos,a[1]+u[1]*pos)
+            if reader.owns(entity,mid,width,u,t,kind,details[number]):supported=True;break
+        if not supported:
+            if entity in used:used.remove(entity)
+            if C._segments(entity):
+                review.extend(((s[0],s[1]),(s[2],s[3]))for s in C._segments(entity))
+                unresolved.add(entity.dxf.handle or id(entity))
+    if unresolved:warnings.append(f'Carpintería: {len(unresolved)} objetos sin lectura completa; se conservan y resaltan para designación o revisión')
     wall_roles=[]
     for a,b,_t in result[0]:
         center=((a[0]+b[0])/2,(a[1]+b[1])/2);nearest=None
@@ -457,7 +502,7 @@ def analyse(drawing, lo, hi, classification, tmin=.07, tmax=.5, height=2.7,
             except Exception:continue
         wall_roles.append(nearest[1] if nearest else 'muros')
     result=(result[0],ops,*result[2:])
-    return Plan(result,used,list(dict.fromkeys(warnings)),drawing,fingerprint(drawing),(lo,hi),height,origin,wall_roles,curved_ops,details)
+    return Plan(result,used,list(dict.fromkeys(warnings)),drawing,fingerprint(drawing),(lo,hi),height,origin,wall_roles,curved_ops,details,review)
 
 
 def commit(ctx, plan):
@@ -475,7 +520,7 @@ def commit(ctx, plan):
     walls,ops,_src,curved,cols,_loose,_blocks=plan.result
     if not walls and not curved and not cols:return False
     commands=[create_wall(a,b,float(t),plan.height,0.,'eje',name=ROLES[plan.wall_roles[k]],
-                          type_name=ROLES[plan.wall_roles[k]]) for k,(a,b,t) in enumerate(walls)]
+                          type_name=ROLES[plan.wall_roles[k]],wall_role=plan.wall_roles[k]) for k,(a,b,t) in enumerate(walls)]
     curved_commands=[create_wall(a,b,float(t),plan.height,0.,'eje',bulge=bulge,name='Muro') for a,b,t,bulge in curved]
     steps=list(commands)+curved_commands
     # DeferredCommand rebuilds against newly recreated wall entities on redo.

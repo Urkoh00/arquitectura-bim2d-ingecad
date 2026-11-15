@@ -84,7 +84,7 @@ def test_propuesta_de_categorias_por_nombre_de_capa(plugin):
                        'Fejes', 'Freferencia', 'Puertas', 'Ventanas', 'ARQ-MUROS', 'Cotas'])
     assert g == {'Gpared': 'muros', 'Fcarp': 'carpinteria', 'Mpilar': 'pilares',
                  'Fescalera': 'escaleras', 'Frejas': 'rejas', 'Puertas': 'puertas',
-                 'Ventanas': 'ventanas'}
+                 'Ventanas': 'ventanas', 'ARQ-MUROS':'muros'}
 
 
 def test_cuadro_propone_y_lista_capas_del_bloque(plugin):

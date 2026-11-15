@@ -24,6 +24,8 @@ class Reader:
         self.lines = []
         self.details = {}
         self.warnings = set()
+        self.claimed_arcs={}
+        self.claimed_lines={}
         from .convert_tools import _pieces
         for entity, role in entities:
             if role not in ('carpinteria','puertas','ventanas','vanos'):continue
@@ -88,13 +90,14 @@ class Reader:
             side=1 if normal>=0 else -1
             if abs(normal)<.25:
                 continue
-            hit=(r,side,abs(abs(along)-width/2),c)
+            hit=(r,side,abs(abs(along)-width/2),c,a,b)
             if not any(math.dist(c,h[3])<TOL and abs(r-h[0])<TOL for h in hits[end]):
                 hits[end].append(hit)
         pairs=[(a,b) for a in hits[0] for b in hits[1]
                if a[1]==b[1] and abs(a[0]+b[0]-width)<=max(.08,.18*width)]
         if pairs:
             a,b=min(pairs,key=lambda pair:abs(pair[0][0]+pair[1][0]-width)+pair[0][2]+pair[1][2])
+            self.claimed_arcs[key(mid,width)]={self.arc_token(h[3],h[0],h[4],h[5])for h in (a,b)}
             clear=max(.01,width-.06)
             return ('door',-1,a[1]), {'operation':'SWINGING','leaves':2,
                 'leaf':clear*a[0]/(a[0]+b[0]),'leaf2':clear*b[0]/(a[0]+b[0])}
@@ -102,8 +105,38 @@ class Reader:
                 if abs(h[0]-width)<=max(.08,.20*width)]
         if single:
             end,h=min(single,key=lambda p:abs(p[1][0]-width)+p[1][2])
+            self.claimed_arcs[key(mid,width)]={self.arc_token(h[3],h[0],h[4],h[5])}
             return ('door',-1 if end==0 else 1,h[1]),{'operation':'SWINGING','leaves':1}
         return None
+
+    @staticmethod
+    def arc_token(c,r,a,b):return tuple(round(float(v),6)for v in (*c,r,a,b))
+
+    @staticmethod
+    def line_token(s):return tuple(round(float(v),6)for p in sorted((tuple(s[:2]),tuple(s[2:4])))for v in p)
+
+    def owns(self,entity,mid,width,u,t,kind,attrs):
+        """Hide only complete glyphs actually represented by this opening.
+        Unknown furniture/curves must survive a conversion elsewhere.
+        """
+        from .convert_tools import _pieces
+        lines,arcs=_pieces(entity)
+        if not lines and not arcs:return False
+        if kind=='void':return False
+        if kind=='window' and attrs.get('face')!='distancia':return False
+        claimed=self.claimed_arcs.get(key(mid,width),set())
+        if any(kind!='door' or self.arc_token(*arc)not in claimed for arc in arcs):return False
+        n=W._perp(u);margin=max(.08,min(.2,.15*width))
+        for s in lines:
+            if self.line_token(s)in self.claimed_lines.get(key(mid,width),set()):continue
+            pts=[(W._dot(W._sub(p,mid),u),W._dot(W._sub(p,mid),n))for p in (s[:2],s[2:])]
+            if min(x for x,y in pts)<-width/2-margin or max(x for x,y in pts)>width/2+margin:return False
+            if max(abs(y)for x,y in pts)<=t/2+.20:continue
+            # Open leaf: one end at a jamb, one end on the recognised swing.
+            if kind!='door' or not any(
+                math.dist(p,(cx,cy))<.10 and abs(math.dist(q,(cx,cy))-r)<.10
+                for cx,cy,r,aa,bb in claimed for p,q in ((s[:2],s[2:]),(s[2:],s[:2]))):return False
+        return True
 
     def sliding(self, mid, width, u, t):
         """Two offset, overlapping closed thin panels. A drawing of a
@@ -114,7 +147,7 @@ class Reader:
         for s,role in self.lines:
             points=[(W._dot(W._sub(p,mid),u),W._dot(W._sub(p,mid),n)) for p in (s[:2],s[2:4])]
             (a,y),(b,z)=points
-            if max(abs(y),abs(z))>t/2+.15 or min(a,b)<-2*width or max(a,b)>2*width:
+            if max(abs(y),abs(z))>t/2+.35 or min(a,b)<-2*width or max(a,b)>2*width:
                 continue
             if abs(y-z)<=TOL and .3*width<=abs(b-a)<=1.10*width:
                 longs.append((min(a,b),max(a,b),(y+z)/2,role))
@@ -127,7 +160,29 @@ class Reader:
                     continue
                 if all(any(abs(x-cap[0])<=TOL and abs(min(y,z)-cap[1])<=TOL
                            and abs(max(y,z)-cap[2])<=TOL for cap in caps) for x in (a,b)):
-                    panels.append((a,b,(y+z)/2,role=='puertas' or role2=='puertas',role=='ventanas' or role2=='ventanas'))
+                    panels.append((a,b,(y+z)/2,role=='puertas' or role2=='puertas',role=='ventanas' or role2=='ventanas',min(y,z),max(y,z)))
+        # Two parked leaves on opposite jambs, outside the wall band.
+        # The same plan may be a window: an explicit door category is needed.
+        for i,p in enumerate(panels):
+            for q in panels[i+1:]:
+                left,right=sorted((p,q))
+                if not (abs(left[1]+width/2)<=.10 and abs(right[0]-width/2)<=.10
+                        and .35*width<=left[1]-left[0]<=.65*width
+                        and .35*width<=right[1]-right[0]<=.65*width
+                        and left[2]*right[2]>0 and abs(left[2]-right[2])<=.08
+                        and min(abs(left[2]),abs(right[2]))>t/2+.005):continue
+                tokens=set()
+                for s,role in self.lines:
+                    pts=[(W._dot(W._sub(x,mid),u),W._dot(W._sub(x,mid),n))for x in (s[:2],s[2:4])]
+                    if any(all(a-TOL<=x<=b+TOL and lo-TOL<=y<=hi+TOL for x,y in pts)
+                           for a,b,yy,door,win,lo,hi in (left,right)):
+                        tokens.add(self.line_token(s))
+                self.claimed_lines[key(mid,width)]=tokens
+                if p[4]or q[4]:return ('window',0,0),{}
+                if p[3]or q[3]:
+                    return ('door',-1,1 if p[2]>0 else -1),{'operation':'SLIDING','leaves':2,'face':'interior','frame_depth':min(.05,t)}
+                self.warnings.add('Corredera exterior ambigua: designe Puertas o Ventanas; se conserva el dibujo')
+                return ('void',0,0),{}
         for i,p in enumerate(panels):
             for q in panels[i+1:]:
                 left,right=sorted((p,q))
@@ -142,7 +197,8 @@ class Reader:
                     return ('door',-1,side),{'operation':'SLIDING','leaves':2}
                 self.warnings.add('Paneles correderos ambiguos: puerta o ventana; designe como Puertas o Ventanas antes de confirmar')
                 return ('void',0,0),{}
-        for a,b,y,door,window in panels:
+        for panel in panels:
+            a,b,y,door,window=panel[:5]
             pocket=((abs(a-width/2)<=.08 and b>width/2) or
                     (abs(b+width/2)<=.08 and a<-width/2))
             if pocket and .7*width<=b-a<=1.1*width and abs(y)<t/2:

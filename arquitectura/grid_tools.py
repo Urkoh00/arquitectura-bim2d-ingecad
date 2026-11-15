@@ -64,7 +64,7 @@ def grid_form(ctx,values):
     appearance=QWidget();form=QFormLayout(appearance);tabs.addTab(appearance,'Orientación y representación')
     for key,label,default in [('first_number','Primer número','1'),('first_letter','Primera letra','A'),('prefix','Prefijo',''),('suffix','Sufijo','')]:
         w=QLineEdit(str(values.get(key,default)));edit[key]=w;form.addRow(label,w)
-    for key,label,default in [('angle','Ángulo (°)',0),('extension','Prolongación (m)',1),('scale','Escala 1:',100),('text_mm','Texto (mm papel)',2.5),('radius_mm','Radio burbuja (mm papel)',4)]:
+    for key,label,default in [('angle','Ángulo (°)',0),('extension','Prolongación (m)',1),('scale','Escala 1:',100),('text_mm','Texto burbuja (mm papel)',2.5),('dim_text_mm','Texto cotas (mm papel)',3.5),('radius_mm','Radio burbuja (mm papel)',4)]:
         w=QDoubleSpinBox();w.setRange(-360 if key=='angle' else .001,100000);w.setDecimals(3);w.setValue(float(values.get(key,default)));edit[key]=w;form.addRow(label,w)
     bubble=QComboBox();bubble.addItem('Círculo','circle');bubble.addItem('Hexágono','hexagon');bubble.setCurrentIndex(max(0,bubble.findData(values.get('bubble','circle'))));edit['bubble']=bubble;form.addRow('Burbuja',bubble)
     for key,label,default in [('start','Burbuja inicial',True),('end','Burbuja final',True),('dimensions','Cotas en cadena y total',True),('interactive_angle','Indicar giro con el cursor después del origen',False)]:
@@ -192,7 +192,11 @@ class GridEditTool(Tool):
             dlg,read=axis_form(self.ctx,self.entity)
             if dlg.exec()==1:
                 values,points=read();before=G.snapshot(require_document(self.ctx).doc)
-                apply_architectural_change(self.ctx,SafeArchitecturalCommand('ARQ FICHA EJE',[G.SetAxis(self.entity,points,**values),G.RegenerateGrid(before)]),kind='column')
+                grid_id=G.metadata(self.entity)['grid_id']
+                style=[G.SetAxis(e,dim_text_height=values['dim_text_height'])
+                       for e,m in G.axes(require_document(self.ctx).doc)
+                       if e is not self.entity and m['grid_id']==grid_id]
+                apply_architectural_change(self.ctx,SafeArchitecturalCommand('ARQ FICHA EJE',[G.SetAxis(self.entity,points,**values),*style,G.RegenerateGrid(before)]),kind='column')
             self.ctx.finish();return True
         parts=str(text).strip().split(maxsplit=1)
         if self.entity is None or len(parts)!=2 or parts[0].lower()!='renumerar':return False
@@ -238,8 +242,8 @@ def axis_form(ctx,entity):
             form.addRow(('Inicio' if i==0 else 'Final')+' '+('X' if j==0 else 'Y'),w);row.append(w)
         coords.append(row)
     sizes=[]
-    for key,title in [('text_height','Texto (mm papel)'),('radius','Radio (mm papel)')]:
-        w=QDoubleSpinBox();w.setRange(.1,100.);w.setValue(m[key]*1000/scale);form.addRow(title,w);sizes.append(w)
+    for key,title in [('text_height','Texto (mm papel)'),('radius','Radio (mm papel)'),('dim_text_height','Texto cotas de rejilla (mm papel)')]:
+        w=QDoubleSpinBox();w.setRange(.1,100.);w.setValue(m.get(key,m['text_height'])*1000/scale);form.addRow(title,w);sizes.append(w)
     bubble=QComboBox();bubble.addItem('Círculo','circle');bubble.addItem('Hexágono','hexagon');bubble.setCurrentIndex(max(0,bubble.findData(m['bubble'])));form.addRow('Burbuja',bubble)
     ends=[]
     for i in range(2):
@@ -247,7 +251,7 @@ def axis_form(ctx,entity):
     layout.insertLayout(1,form);layout.addWidget(buttons)
     def read():
         return {'label':label.text().strip(),'text_height':sizes[0].value()*scale/1000,
-                'radius':sizes[1].value()*scale/1000,'bubble':bubble.currentData(),
+                'radius':sizes[1].value()*scale/1000,'dim_text_height':sizes[2].value()*scale/1000,'bubble':bubble.currentData(),
                 'ends':[w.isChecked() for w in ends]},[[w.value() for w in row] for row in coords]
     dlg._arq={'label':label,'coordinates':coords,'sizes':sizes,'ends':ends,'bubble':bubble}
     return dlg,read

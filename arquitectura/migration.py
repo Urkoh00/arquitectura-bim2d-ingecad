@@ -47,15 +47,40 @@ class MigrateLegacyWalls(Command):
             _xdata(msp,e,rec['metadata'])
         document.dirty=True
 
+
+class CanonicalPillarLayer(Command):
+    """Native case-only layer rename, reversible without changing BIM IDs."""
+    name='ARQ NORMALIZAR CAPA DE PILARES'
+    needs_regen=True
+    def __init__(self):self.inner=None;self.count=0
+    def do(self,document):
+        if self.inner is None:
+            from core.layers import RenameLayerCommand
+            from .transactions import SafeArchitecturalCommand
+            commands=[]
+            if 'ARQ-PILARES' in document.doc.layers:
+                old=document.doc.layers.get('ARQ-PILARES').dxf.name
+                if old!='ARQ-PILARES':
+                    self.count=sum(e.dxf.layer.lower()==old.lower() for e in document.doc.modelspace())
+                    temp='ARQ-PILARES-CAMBIO'
+                    while temp in document.doc.layers:temp+='-'
+                    commands=[RenameLayerCommand(old,temp),RenameLayerCommand(temp,'ARQ-PILARES')]
+            self.inner=SafeArchitecturalCommand(self.name,commands)
+        self.inner.do(document)
+    def undo(self,document):
+        if self.inner:self.inner.undo(document)
+        document.dirty=True
+
 def migrar_arq(ctx,*args):
     try:
         from .transactions import SafeArchitecturalCommand
         from .wall_network import RegenerateContoursCommand
         from core.commands import DeferredCommand
-        cmd=MigrateLegacyWalls()
+        cmd=MigrateLegacyWalls();layers=CanonicalPillarLayer()
         ctx.execute(SafeArchitecturalCommand('ARQ migrar ejes y regenerar',[
-            cmd,DeferredCommand('ARQ contorno',lambda _:RegenerateContoursCommand())]))
+            layers,cmd,DeferredCommand('ARQ contorno',lambda _:RegenerateContoursCommand())]))
         ctx.echo(f'ARQMIGRAR: {cmd.count} registros anteriores convertidos a ejes BIM. Se puede deshacer.')
+        if layers.count:ctx.echo(f'ARQ-PILARES: {layers.count} entidades conservadas en la capa normalizada; mismo Deshacer.')
     except Exception as exc:
         ctx.echo(f'ARQMIGRAR: error ({type(exc).__name__}: {exc})')
 

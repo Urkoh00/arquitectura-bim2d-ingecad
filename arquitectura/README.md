@@ -10,7 +10,7 @@ Plugin 2D con datos BIM en XDATA. Funciones en esta revisión:
 - `DIAGNOSTICOARQ` / `ARQDIAG`: consultas y diagnóstico.
 - `EXPORTARIGZ`: incluye muros y pilares a nivel de especificación. Requiere IngeTrazo configurado y no está validado de extremo a extremo.
 
-Los muros se conservan como entidades originales XDATA en `ARQ-MUROS3D`, capa apagada; la representación de planta reconstruida se dibuja en `ARQ-MUROS`. Los pilares están en `ARQ-PILAres`. No se deben modificar esas capas manualmente mientras se comprueba este prototipo.
+Los muros se conservan como entidades originales XDATA en `ARQ-MUROS3D`, capa apagada; la representación de planta reconstruida se dibuja en `ARQ-MUROS`. Los pilares están en `ARQ-PILARES`. No se deben modificar esas capas manualmente mientras se comprueba este prototipo.
 
 **Importante**: esta unión resuelve la representación plana, no la unión 3D de volúmenes. `EDITARARQ` no resuelve aún la selección de un muro a partir de los segmentos regenerados: pendiente de un enlace entre contorno visible e identificador del elemento. Para probar, utilice un dibujo nuevo.
 

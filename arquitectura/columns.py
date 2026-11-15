@@ -6,7 +6,7 @@ from tools.base import Tool
 from .architectural import _xdata
 from .tools3d import ensure_arch_layers
 
-PILLAR_LAYER='ARQ-PILAres'
+PILLAR_LAYER='ARQ-PILARES'
 
 from .sections import column_points
 

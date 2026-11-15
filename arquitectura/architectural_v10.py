@@ -53,7 +53,7 @@ def create_wall(a, b, thickness=0.15, height=2.7, base=0.0, reference='eje', bul
     rec={'kind':'wall','schema':2,'id':uuid.uuid4().hex,'a':list(map(float,a[:2])),
          'b':list(map(float,b[:2])),'thickness':float(thickness),
          'height':height,'base':base,'reference':reference,
-         'ifc_class':'IfcWall',**{k:v for k,v in bim.items() if k in ('name','type_name','material','level','layers')}}
+         'ifc_class':'IfcWall',**{k:v for k,v in bim.items() if k in ('name','type_name','material','level','layers','wall_role')}}
     if abs(finite(bulge))>1e-9:
         rec['bulge']=float(bulge)
         check_curve(rec)

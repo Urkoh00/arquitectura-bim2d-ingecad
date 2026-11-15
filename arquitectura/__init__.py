@@ -32,7 +32,7 @@ import os
 from collections import defaultdict
 from pathlib import Path
 
-_VERSION = "1.22.2-dev"
+_VERSION = "1.22.3-dev"
 
 from core.plugins import SEPARATOR, MenuItem, PluginSpec, Submenu, ToolbarItem
 from tools.base import Tool
@@ -46,7 +46,7 @@ from .compat import require_document, document_of
 LAYERS = {
     "ARQ-MUROS":         {"color": 8,  "linetype": "Continuous"},
     "ARQ-TABIQUES":      {"color": 8,  "linetype": "Continuous"},
-    "ARQ-PILAres":       {"color": 4,  "linetype": "Continuous"},
+    "ARQ-PILARES":       {"color": 4,  "linetype": "Continuous"},
     "ARQ-PUERTAS":       {"color": 3,  "linetype": "Continuous"},
     "ARQ-VENTANAS":      {"color": 5,  "linetype": "Continuous"},
     "ARQ-ARMARIOS":      {"color": 6,  "linetype": "Continuous"},
@@ -58,13 +58,12 @@ LAYERS = {
     "ARQ-MOBILIARIO":    {"color": 6,  "linetype": "Continuous"},
     "ARQ-TRAMAS":        {"color": 8,  "linetype": "Continuous"},
     "ARQ-MEMORIA":       {"color": 7,  "linetype": "Continuous"},
-    "ARQ-HIPERVINCULOS": {"color": 6,  "linetype": "Continuous"},
     "ARQ-CURVAS3D":      {"color": 2,  "linetype": "Continuous"},
     "ARQ-COORD":         {"color": 3,  "linetype": "Continuous"},  # vértices / coordenadas
 }
 
 LAYER_ALIASES = {
-    "ARQ-PILARES": "ARQ-PILAres",
+    "ARQ-PILARES": "ARQ-PILARES",
 }
 
 
@@ -85,6 +84,11 @@ def _set_layer(ctx, name: str):
     """Asegurar la capa sin modificar la capa de trabajo del usuario."""
     name = _layer_name(name)
     _ensure_layers(ctx)
+    if name=="ARQ-HIPERVINCULOS":
+        doc=require_document(ctx)
+        if name not in doc.doc.layers:
+            from core.layers import NewLayerCommand
+            ctx.execute(NewLayerCommand(name,color=6))
     return name
 
 
@@ -270,7 +274,7 @@ class CapasAutoTool(ArchitectureTool):
         _ensure_layers(self.ctx)
         self.ctx.echo("Distribución recomendada:")
         self.ctx.echo("  Muros/particiones → ARQ-MUROS / ARQ-TABIQUES")
-        self.ctx.echo("  Pilares           → ARQ-PILAres")
+        self.ctx.echo("  Pilares           → ARQ-PILARES")
         self.ctx.echo("  Puertas/Ventanas  → ARQ-PUERTAS / ARQ-VENTANAS")
         self.ctx.echo("  Áreas / textos    → ARQ-AREAS / ARQ-TEXTOS")
         self.ctx.echo("  Tramas            → ARQ-TRAMAS")
@@ -462,10 +466,10 @@ class PilarTool(ArchitectureTool):
     def on_point(self, pt):
         if self.shape == "rect":
             hw, hh = self.w / 2, self.h / 2
-            _add_rect(self.ctx, (pt[0] - hw, pt[1] - hh), (pt[0] + hw, pt[1] + hh), "ARQ-PILAres")
+            _add_rect(self.ctx, (pt[0] - hw, pt[1] - hh), (pt[0] + hw, pt[1] + hh), "ARQ-PILARES")
             self.ctx.echo(f"Pilar rect {self.w:.2f}×{self.h:.2f}")
         else:
-            _add_circle(self.ctx, pt, self.r, "ARQ-PILAres")
+            _add_circle(self.ctx, pt, self.r, "ARQ-PILARES")
             self.ctx.echo(f"Pilar circ r={self.r:.2f}")
         self.ctx.echo("Siguiente centro o ESC:")
         self.request_point()
@@ -708,7 +712,7 @@ class ElementosTool(ArchitectureTool):
     GROUPS = {
         "1": ("Muros", "ARQ-MUROS"),
         "2": ("Tabiques", "ARQ-TABIQUES"),
-        "3": ("Pilares", "ARQ-PILAres"),
+        "3": ("Pilares", "ARQ-PILARES"),
         "4": ("Puertas", "ARQ-PUERTAS"),
         "5": ("Ventanas", "ARQ-VENTANAS"),
         "6": ("Armarios", "ARQ-ARMARIOS"),
@@ -829,7 +833,7 @@ class SelAtribTool(ArchitectureTool):
         "7":  ("Elipses", None),
         "8":  ("Particiones curvas", ["ARQ-MUROS"]),
         "9":  ("Particiones rectas", ["ARQ-MUROS", "ARQ-TABIQUES"]),
-        "10": ("Pilares", ["ARQ-PILAres"]),
+        "10": ("Pilares", ["ARQ-PILARES"]),
         "11": ("Polígonos", None),
         "12": ("Polilíneas", None),
         "13": ("Puntos", None),
