@@ -95,6 +95,7 @@ que `EraseCommand` guarde la pertenencia a grupos y la restaure en `undo`.
 
 ## Historial
 
+- **15-11-2026 (R17, Codex):** IngeTrazo 0.6.2 es compatible con la extensión (36 pruebas oficiales en 0.6.1, 78 en 0.6.2 y 32 cadenas de intercambio). T-01: la 0.6.2 corrige la cancelación numérica, pero mantiene el redondeo float32; se conserva el rodeo de doble precisión mientras se admita 0.6.1. Persisten T-02, T-04, T-10 y T-12.
 - **15-11-2026:** las notas de IngeTrazo 0.6.2 dicen «BIM: un conjunto de caras mide su volumen a partir del propio conjunto (#1264, #1221)»: **T-01 resuelto en 0.6.2** (falta verificarlo con la versión instalada). #1222 (T-02) no aparece en las notas. Se mantiene el rodeo de doble precisión de la extensión hasta comprobarlo.
 - **14-11-2026 (C1/D2):** T-14 (IngeTrazo no tiene `IfcGrid`) queda documentado, sin enviar; las rejillas viajan como datos. Codex observa que el exportador oficial pierde las dimensiones y relaciones de los huecos de muros curvos: se suma a T-09 y T-04, sin comunicación nueva.
 - **14-11-2026 (R13, estudio de escaleras):** IngeTrazo 0.6.1 reconoce `IfcStair` pero no `IfcStairFlight` ni la agregación de tramos y descansillos: se registra T-13, sin comunicación nueva (solapa con #1222 y #984).
