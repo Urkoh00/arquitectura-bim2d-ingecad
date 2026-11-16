@@ -32,7 +32,7 @@ import os
 from collections import defaultdict
 from pathlib import Path
 
-_VERSION = "1.26.0-dev"
+_VERSION = "1.27.0-dev"
 
 from core.plugins import SEPARATOR, MenuItem, PluginSpec, Submenu, ToolbarItem
 from tools.base import Tool
@@ -46,6 +46,8 @@ from .compat import require_document, document_of
 LAYERS = {
     "ARQ-MUROS":         {"color": 8,  "linetype": "Continuous"},
     "ARQ-TABIQUES":      {"color": 8,  "linetype": "Continuous"},
+    "ARQ-MEDIANERAS":    {"color": 8,  "linetype": "Continuous"},
+    "ARQ-SOTANO":        {"color": 8,  "linetype": "Continuous"},
     "ARQ-PILARES":       {"color": 4,  "linetype": "Continuous"},
     "ARQ-PUERTAS":       {"color": 3,  "linetype": "Continuous"},
     "ARQ-VENTANAS":      {"color": 5,  "linetype": "Continuous"},
@@ -1466,6 +1468,7 @@ from .tools3d import Muro3DTool, Hueco3DTool, exportar_igz, configurar_igz
 from .tools_v10 import MuroTool as MuroV10Tool, CarpinteriaTool, VentanaArqTool, EditarArqTool
 from .columns import PilarBimTool
 from .levels import niveles,asignar as asignar_nivel
+from .level_layers import install_toolbar as install_level_toolbar, before_command as level_before_command
 from .slab_tools import SlabTool,SlabHoleTool
 from .cabinets import CabinetTool
 from .arq_properties import ArqPropiedadesTool
@@ -1551,8 +1554,11 @@ def plugin_spec() -> PluginSpec:
     from .grid_tools import GridTool,RejillaTool,GridEditTool,GridColumnsTool
     from .grids import update,GridGrips
     if "grip_handlers" in fields:extra["grip_handlers"]={"LWPOLYLINE":GridGrips()}
+    if "on_regen_done" in fields:extra["on_regen_done"]=install_level_toolbar
+    if "on_before" in fields:extra["on_before"]=level_before_command
     return PluginSpec(
         **extra,
+        on_document_open=install_level_toolbar,
         id="arquitectura",
         name="Arquitectura",
         version=_VERSION,
@@ -1563,13 +1569,13 @@ def plugin_spec() -> PluginSpec:
             MenuItem("Opciones generales y parámetros iniciales...", "PARAMETROSARQ", icon=glyph / "parametros.svg"),
             MenuItem("Tipos de muro (espesor total y capas)...", "TIPOSMURO", icon=glyph / "tiposmuro.svg"),
             MenuItem("Usos del edificio (certificado energético, DB-HE, DB-SI)...", "USOSARQ", icon=glyph / "usos.svg"),
-            MenuItem("Niveles y planta activa...", "NIVELES"),
-            MenuItem("Asignar selección a nivel...", "NIVELASIGNAR"),
-            MenuItem("Forjado horizontal con huecos...", "FORJADO"),
-            MenuItem("Añadir hueco a forjado", "HUECOFORJADO"),
-            MenuItem("Crear capas ARQ", "CAPASARQ"),
-            MenuItem("Armario BIM (nicho parcial)...", "ARMARIOBIM"),
-            MenuItem("Distribuir en capas", "CAPASAUTO"),
+            MenuItem("Niveles y planta activa...", "NIVELES", icon=glyph / "niveles.svg"),
+            MenuItem("Asignar selección a nivel...", "NIVELASIGNAR", icon=glyph / "nivelasignar.svg"),
+            MenuItem("Forjado horizontal con huecos...", "FORJADO", icon=glyph / "forjado.svg"),
+            MenuItem("Añadir hueco a forjado", "HUECOFORJADO", icon=glyph / "huecoforjado.svg"),
+            MenuItem("Crear capas ARQ", "CAPASARQ", icon=glyph / "capasarq.svg"),
+            MenuItem("Armario (adosado o empotrado)...", "ARMARIOBIM", icon=glyph / "armariobim.svg"),
+            MenuItem("Distribuir en capas", "CAPASAUTO", icon=glyph / "capasauto.svg"),
             SEPARATOR,
             Submenu("Construcción", (
                 MenuItem("Muro 2D arquitectónico", "MURO", icon=glyph / "muro.svg"),
@@ -1582,7 +1588,6 @@ def plugin_spec() -> PluginSpec:
                 MenuItem("Borrar un tramo de muro (entre cruces)", "BORRATRAMO", icon=glyph / "borratramo.svg"),
                 MenuItem("Abrir un vano en un muro (partirlo)", "PARTEMURO", icon=glyph / "partemuro.svg"),
                 MenuItem("Unir dos muros alineados", "UNIRMURO", icon=glyph / "unirmuro.svg"),
-                MenuItem("Convertir líneas de un plano en muros y huecos", "LINEASAMURO", icon=glyph / "lineasamuro.svg"),
                 MenuItem("Pilar BIM", "PILAR", icon=glyph / "pilar.svg"),
                 MenuItem("Carpintería (puertas, ventanas, huecos)", "CARPINTERIA", icon=glyph / "carpinteria.svg"),
                 MenuItem("Puerta vinculada", "PUERTAARQ", icon=glyph / "puerta.svg"),
@@ -1595,43 +1600,44 @@ def plugin_spec() -> PluginSpec:
                 MenuItem("Regenerar uniones de muros y pilares", "UNIONESARQ", icon=glyph / "uniones.svg"),
                 MenuItem("Diagnosticar encuentros", "DIAGNOSTICOARQ", icon=glyph / "diagnostico.svg"),
                 MenuItem("Validar integridad CAD y BIM", "ARQVALIDAR", icon=glyph / "validar.svg"),
-                MenuItem("Convertir muros de versiones anteriores", "ARQMIGRAR"),
+                MenuItem("Convertir muros de versiones anteriores", "ARQMIGRAR", icon=glyph / "arqmigrar.svg"),
             )),
             Submenu("Documentación", (
-                MenuItem("Rejilla estructural", "EJES"),
-                MenuItem("Editar o renumerar eje", "EDITAREJE"),
-                MenuItem("Pilares en intersecciones", "PILARESENEJES"),
-                MenuItem("Actualizar rejillas (también 0.7)", "ACTUALIZAEJES"),
+                MenuItem("Rejilla estructural", "EJES", icon=glyph / "ejes.svg"),
+                MenuItem("Editar o renumerar eje", "EDITAREJE", icon=glyph / "editareje.svg"),
+                MenuItem("Pilares en intersecciones", "PILARESENEJES", icon=glyph / "pilaresenejes.svg"),
+                MenuItem("Actualizar rejillas (también 0.7)", "ACTUALIZAEJES", icon=glyph / "actualizaejes.svg"),
                 MenuItem("Cotas automáticas a través de los muros", "COTAMUROS", icon=glyph / "cotamuros.svg"),
                 MenuItem("Cuadro de superficies útiles", "SUPERFICIES", icon=glyph / "superficies.svg"),
             )),
+            MenuItem("Convertir líneas de un plano en muros y huecos", "LINEASAMURO", icon=glyph / "lineasamuro.svg"),
             Submenu("Intercambio BIM", (
                 MenuItem("Exportar modelo BIM para IngeTrazo (.arqbim)", "EXPORTARBIM", icon=glyph / "exportarbim.svg"),
             )),
             Submenu("Herramientas antiguas (sin datos BIM)", (
-                MenuItem("Muro arquitectónico 3D", "MURO3D"),
-                MenuItem("Hueco en muro 3D", "HUECO3D"),
-                MenuItem("Puerta (bloque)", "PUERTA"),
-                MenuItem("Ventana (bloque)", "VENTANA"),
-                MenuItem("Armario", "ARMARIO"),
-                MenuItem("Cámara / Eje de muro", "CAMARA"),
-                MenuItem("Escalera", "ESCALERA"),
-                MenuItem("Superficie / Área", "SUPERFICIE"),
-                MenuItem("Bloque mobiliario", "BLOQUE"),
-                MenuItem("Trama / Hatch", "TRAMA"),
-                MenuItem("Memoria de Carpintería", "MEMORIACARP"),
-                MenuItem("Vértices y coordenadas", "VERTPOLY"),
-                MenuItem("Listado de textos", "LISTATEXTOS"),
-                MenuItem("Selección por atributos", "SELATRIB"),
-                MenuItem("Activar / Desactivar elementos", "ELEMENTOS"),
-                MenuItem("Hipervínculo", "HIPERVINCULO"),
-                MenuItem("Curvas de nivel a 3D", "CURVAS3D"),
-                MenuItem("Configurar IngeTrazo (puente antiguo)...", "CONFIGIGZ"),
-                MenuItem("Exportar IGZ (puente antiguo, requiere fuentes)", "EXPORTARIGZ"),
+                MenuItem("Muro arquitectónico 3D", "MURO3D", icon=glyph / "heredado.svg"),
+                MenuItem("Hueco en muro 3D", "HUECO3D", icon=glyph / "heredado.svg"),
+                MenuItem("Puerta (bloque)", "PUERTA", icon=glyph / "heredado.svg"),
+                MenuItem("Ventana (bloque)", "VENTANA", icon=glyph / "heredado.svg"),
+                MenuItem("Armario", "ARMARIO", icon=glyph / "heredado.svg"),
+                MenuItem("Cámara / Eje de muro", "CAMARA", icon=glyph / "heredado.svg"),
+                MenuItem("Escalera", "ESCALERA", icon=glyph / "heredado.svg"),
+                MenuItem("Superficie / Área", "SUPERFICIE", icon=glyph / "heredado.svg"),
+                MenuItem("Bloque mobiliario", "BLOQUE", icon=glyph / "heredado.svg"),
+                MenuItem("Trama / Hatch", "TRAMA", icon=glyph / "heredado.svg"),
+                MenuItem("Memoria de Carpintería", "MEMORIACARP", icon=glyph / "heredado.svg"),
+                MenuItem("Vértices y coordenadas", "VERTPOLY", icon=glyph / "heredado.svg"),
+                MenuItem("Listado de textos", "LISTATEXTOS", icon=glyph / "heredado.svg"),
+                MenuItem("Selección por atributos", "SELATRIB", icon=glyph / "heredado.svg"),
+                MenuItem("Activar / Desactivar elementos", "ELEMENTOS", icon=glyph / "heredado.svg"),
+                MenuItem("Hipervínculo", "HIPERVINCULO", icon=glyph / "heredado.svg"),
+                MenuItem("Curvas de nivel a 3D", "CURVAS3D", icon=glyph / "heredado.svg"),
+                MenuItem("Configurar IngeTrazo (puente antiguo)...", "CONFIGIGZ", icon=glyph / "heredado.svg"),
+                MenuItem("Exportar IGZ (puente antiguo, requiere fuentes)", "EXPORTARIGZ", icon=glyph / "heredado.svg"),
             )),
             SEPARATOR,
-            MenuItem("Diagnóstico del plugin", "ARQDIAG"),
-            MenuItem("Ayuda Arquitectura", "AYUDAARQ"),
+            MenuItem("Diagnóstico del plugin", "ARQDIAG", icon=glyph / "arqdiag.svg"),
+            MenuItem("Ayuda Arquitectura", "AYUDAARQ", icon=glyph / "ayudaarq.svg"),
         ),
         toolbar=(
             ToolbarItem("Muro", "MURO", icon=glyph / "muro.svg"),

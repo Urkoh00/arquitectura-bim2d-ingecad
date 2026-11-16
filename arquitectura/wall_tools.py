@@ -40,6 +40,8 @@ def walls_in(drawing):
         m = metadata(e) or {}
         if m.get("kind") != "wall" or e.dxftype() != "LWPOLYLINE" or e.closed or len(e) != 2:
             continue
+        from .level_layers import target_available
+        if not target_available(drawing,m):continue
         if float(m.get("bulge") or 0.0):
             continue                      # curved: not a straight reference for the drawing aids
         a, b = [tuple(map(float, p)) for p in e.get_points("xy")]
@@ -173,6 +175,7 @@ class WallTypeChoice:
 
     def _apply_type(self, t):
         self.thickness = float(t["thickness"])
+        self.bim["wall_category"] = t.get("wall_category", "fachada")
         self.bim["type_name"] = t["name"]
         self.bim["name"] = t["name"]
         if t.get("material"):
@@ -330,7 +333,7 @@ class MuroCarasTool(WallTypeChoice, _MuroV10):
         lab = self._type_label()
         self.prompt(f"MURO ({lab}): siguiente punto o longitud; [Tipo/Espesor/Altura/Cota/Referencia/Invertir/iGual/Fin]:"
                     if self.startpoint is not None else
-                    f"MURO ({lab}): espesor total o primer punto; [Tipo/Altura/Cota/Referencia/Invertir/iGual/Fin]:")
+                    f"MURO ({lab}): espesor total o primer punto; [Tipo/Fachada/Tabique/Medianera/Sótano/Altura/Cota/Referencia/Invertir/iGual/Fin]:")
 
     def _status(self):
         side = {"izquierda": "cara derecha (cuerpo a la izquierda)",
@@ -352,6 +355,11 @@ class MuroCarasTool(WallTypeChoice, _MuroV10):
 
     def on_option(self, text):
         txt = str(text).strip().lower()
+        from .wall_categories import CATEGORIES
+        choices={k:k for _,k in CATEGORIES}
+        choices.update({'fachada':'fachada','sótano':'sotano'})
+        if txt in choices and not getattr(self,'pending',None) and not getattr(self,'choosing_type',False) and getattr(self,'type_candidates',None)is None:
+            self.bim['wall_category']=choices[txt];self._reprompt();return True
         if self._type_answer(text):
             self._status()
             self._reprompt()
@@ -481,7 +489,7 @@ class MuroCarasTool(WallTypeChoice, _MuroV10):
                 self.thickness, self.height = float(m["thickness"]), float(m["height"])
                 self.base = float(m.get("base", 0.0))
                 self.reference = m.get("reference", self.reference)
-                self.bim = {k: m.get(k, self.bim.get(k, "")) for k in ("name", "type_name", "material", "level")}
+                self.bim = {k: m.get(k, self.bim.get(k, "")) for k in ("name", "type_name", "material", "level", "wall_category")}
                 if m.get("layers"):
                     self.bim["layers"] = [list(l) for l in m["layers"]]
                 self.ctx.echo("MURO: propiedades tomadas de " + (m.get("name") or "muro")
@@ -542,7 +550,7 @@ class MuroParaleloTool(WallTypeChoice, Tool):
         from .parameters_arq import load_defaults
         d = load_defaults(_document(self.ctx))["wall"]
         self.thickness, self.height, self.base = d["thickness"], d["height"], d["base"]
-        self.bim = {k: d[k] for k in ("name", "type_name", "material", "level")}
+        self.bim = {k: d[k] for k in ("name", "type_name", "material", "level", "wall_category")}
         self.distance = type(self)._last_distance if type(self)._last_distance is not None else 1.0
         self.face = None
         self.side = None
@@ -865,7 +873,7 @@ def _wall_frame(m):
 
 
 def _props(m):
-    return {k: m.get(k) for k in ("name", "type_name", "material", "level") if m.get(k) is not None}
+    return {k: m.get(k) for k in ("name", "type_name", "material", "level", "wall_category") if m.get(k) is not None}
 
 
 def _rehost(opening, new_wall_cmd, offset):
@@ -1145,7 +1153,7 @@ class DivideMuroTool(WallTypeChoice, Tool):
         from .parameters_arq import load_defaults
         d = load_defaults(_document(self.ctx))["wall"]
         self.thickness, self.height, self.base = d["thickness"], d["height"], d["base"]
-        self.bim = {k: d[k] for k in ("name", "type_name", "material", "level")}
+        self.bim = {k: d[k] for k in ("name", "type_name", "material", "level", "wall_category")}
         self.parts = getattr(type(self), "_last_parts", 2)
         self.length = None
         self.p1 = None
@@ -1269,7 +1277,8 @@ def create_space(seed, room, *, name, number, height, base=0.0, level="Planta ba
     def factory(msp):
         e = msp.add_lwpolyline([tuple(q) for q in room["outer"]], close=True)
         return _xdata(msp, e, rec)
-    return AddEntityCommand("ARQ RECINTO", factory, layer=SPACE_LAYER), rec
+    from .level_layers import tagged
+    return tagged(AddEntityCommand("ARQ RECINTO", factory, layer=SPACE_LAYER),rec), rec
 
 
 class RecintoTool(Tool):

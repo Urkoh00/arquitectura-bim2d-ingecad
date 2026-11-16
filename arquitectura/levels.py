@@ -90,6 +90,9 @@ def catalog_steps(document,data):
             level=ground;new['level_offset']=float(m.get('base',0))-level['elevation']
             if m.get('level')and m['level']!=level['name']:new.setdefault('legacy_level',m['level'])
         new.update(level_id=level['id'],level=level['name'])
+        if new['kind']=='wall':
+            from .wall_constraints import resolve,validate_openings
+            new=resolve(new,data);validate_openings(document.doc,new)
         if new!=m:
             if m['kind']=='slab':
                 from .slabs import read,EditSlab
@@ -104,13 +107,16 @@ def apply(ctx,data):
     from .compat import require_document
     from .transactions import SafeArchitecturalCommand,apply_architectural_change
     document=require_document(ctx)
-    steps=catalog_steps(document,data);change=SafeArchitecturalCommand('ARQ niveles y migración',steps)
+    data=copy.deepcopy(data);old_catalog=load(document);was_managed=old_catalog.get('layer_managed',False);data['layer_managed']=True
+    levels_changed={v['id']for v in old_catalog['levels']}!={v['id']for v in data['levels']}
+    from .level_layers import RouteLevels
+    steps=[*catalog_steps(document,data),RouteLevels()];change=SafeArchitecturalCommand('ARQ niveles y migración',steps)
     def base_changed(command):
         before=getattr(command,'old_record',getattr(command,'before',None))
         after=getattr(command,'new_record',getattr(command,'after',None))
-        return isinstance(before,dict)and isinstance(after,dict)and float(before.get('base',0))!=float(after.get('base',0))
+        return isinstance(before,dict)and isinstance(after,dict)and (float(before.get('base',0))!=float(after.get('base',0))or float(before.get('height',0))!=float(after.get('height',0)))
     moved=any(base_changed(c)for c in steps)
-    if moved:apply_architectural_change(ctx,change)
+    if moved or levels_changed:apply_architectural_change(ctx,change)
     else:ctx.execute(change)
 
 
@@ -149,8 +155,14 @@ def form(ctx,data):
 
 
 def niveles(ctx,*args):
+    from .level_layers import install_toolbar
+    install_toolbar(ctx)
     from .compat import require_document
     document=require_document(ctx)
+    if args and str(args[0]).upper()=='ESTADO':
+        from .level_layers import set_state
+        if len(args)!=4:raise ValueError('NIVELES ESTADO id on|frozen|locked 0|1')
+        set_state(ctx,str(args[1]),str(args[2]).lower(),str(args[3])=='1');return
     if args and str(args[0]).upper()=='MIGRAR':apply(ctx,load(document));return
     dlg,read=form(ctx,load(document))
     if dlg.exec()==1:apply(ctx,read())
@@ -174,6 +186,9 @@ def assign(ctx,entities,level_id,keep_absolute=True):
             m=reconcile(e,m)
         base=float(m.get('base',0))if keep_absolute else target['elevation']-(m['thickness']if m['kind']=='slab'else 0.)
         new={**m,'base':base,'level_id':target['id'],'level':target['name'],'level_offset':base-target['elevation']}
+        if m['kind']=='wall' and m.get('height_constraint')=='level':
+            from .wall_constraints import resolve,validate_openings
+            new['base_offset']=base-target['elevation'];new=resolve(new,data);validate_openings(doc.doc,new)
         changes.append(EditSlab(e,new)if m['kind']=='slab'else EditArchitecturalCommand(e,new))
     if not changes:raise ValueError('Seleccione fuentes BIM de muros, pilares, recintos o forjados')
     apply_architectural_change(ctx,SafeArchitecturalCommand('ARQ asignar nivel',changes))

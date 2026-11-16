@@ -48,6 +48,9 @@ def analyse(drawing):
     from .exchange import read_model
     from .geom import junctions as J
     records, columns, _ops, _issues = read_model(drawing, strict=False)
+    from .level_layers import target_available
+    records=[(ident,m)for ident,m in records if target_available(drawing,m)]
+    columns=[(ident,m)for ident,m in columns if target_available(drawing,m)]
     specs = J.walls_from_records(records)
     from .geom.bands import column_inputs
     result = J.solve(specs, column_inputs(columns))
@@ -360,8 +363,11 @@ class CarpinteriaTool(Tool):
 
     # --- geometry ---------------------------------------------------------------
     def _model(self):
-        if self._cache is None:
-            self._cache = analyse(_document(self.ctx).doc)
+        document=_document(self.ctx)
+        revision=getattr(document,'revision',0)
+        if self._cache is None or getattr(self,'_cache_revision',None)!=revision:
+            self._cache = analyse(document.doc)
+            self._cache_revision=revision
         return self._cache
 
     def _wall_at(self, p, tol=0.05):

@@ -1,12 +1,12 @@
 # Manual de Arquitectura para IngeCAD
 
-Versión 1.26.0-dev · 2026-11-16
+Versión 1.27.0-dev · 2026-11-16
 
 > Copia del manual publicado como documento en claude.ai; se regenera con cada versión.
 
 ## Qué es
 
-Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.26.0-dev** y se actualiza con cada versión.
+Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.27.0-dev** y se actualiza con cada versión.
 
 Cada elemento guarda su identidad persistente, su clase IFC, su geometría editable en planta, sus parámetros 3D (altura, espesor, cota), sus propiedades constructivas (tipo, material, capas) y su nivel. Las carpinterías conocen su muro y los recintos siguen a los muros que los cierran.
 
@@ -23,7 +23,7 @@ El plugin se instala copiando una carpeta en IngeCAD, y la extensión copiando d
 
 **En IngeCAD**
 
-1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.26.0-dev.zip`.
+1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.27.0-dev.zip`.
 2. Copie la carpeta `arquitectura` en la carpeta de plugins de IngeCAD.
 3. Reinicie IngeCAD. Aparece el menú *Arquitectura* y su barra de herramientas.
 4. Escriba `ARQDIAG` en la línea de órdenes para comprobar que la versión cargada es la que acaba de copiar.
@@ -301,6 +301,26 @@ En IngeCAD 0.7 las cotas se ven sin texto (solo sus líneas); la distancia escri
 
 En planta, el símbolo (hoja y giro, cerco, vidrio, alféizar) se dibuja en la capa ARQ-CARPINTERIA y se agrupa con la carpintería.
 
+## Niveles, categorías de muro y armarios
+
+**Nivel activo.** Con IngeCAD 0.8, la barra de herramientas Arquitectura muestra la capa activa, la lista de **niveles** y tres botones para el nivel elegido: **Encendido/Apagado**, **Utilizable/Inutilizado** y **Bloqueado/Desbloqueado**. Si la barra está oculta, actívela en el gestor de plugins. Los botones cambian las capas de ese nivel con las órdenes de capas de IngeCAD, y se deshacen con `Deshacer`. Si se cambia una de esas capas desde IngeCAD, el selector lo refleja; si las capas de un nivel no coinciden, indica «mixto» y no se pueden crear elementos en él hasta igualarlas. Con el nivel bloqueado, las órdenes del plugin no editan sus elementos, tampoco un muro que pase por él. Apagar o inutilizar solo afecta a la vista: la exportación conserva el modelo completo.
+
+Las capas de cada nivel llevan `@` y una clave fija del nivel; su descripción tiene el nombre, que se puede cambiar sin afectarlas. Esta organización se activa desde `NIVELES`; abrir un dibujo no cambia sus capas. En IngeCAD 0.7, o con la barra oculta, se usa la orden `NIVELES ESTADO <id> on|frozen|locked 0|1`.
+
+**Categoría del muro.** `MURO`, su ficha y `TIPOSMURO` ofrecen **Fachada**, **Tabique**, **Medianera** y **Muro de sótano**, que van a las capas `ARQ-MUROS`, `ARQ-TABIQUES`, `ARQ-MEDIANERAS` y `ARQ-SOTANO`. Cambiar la categoría cambia la capa y conserva la identidad BIM. Al exportar, el tabique es `IfcWall` PARTITIONING y los demás STANDARD; fachada y medianera son exteriores (`IsExternal`), y medianera y sótano llevan su marca (medianera, contacto con el terreno). `LINEASAMURO` usa las mismas categorías. `ARQMIGRAR` asigna categoría a los muros antiguos y avisa para revisar medianeras y sótanos.
+
+**Muro hasta un nivel.** Por defecto, el muro tiene **altura fija**, como siempre. En su ficha se puede elegir **Hasta un nivel**, con nivel base, nivel superior y un desfase en cada uno; la altura resultante se muestra sin poder editarla:
+
+`altura = elevación superior + desfase de coronación − elevación base − desfase de base`
+
+Si cambia la elevación de un nivel, se recalculan los muros, forjados y recintos afectados con un solo `Deshacer`. No se acepta una altura nula o negativa, un nivel eliminado ni un cambio que deje sin cabida a una carpintería. Un muro que atraviesa varias plantas se dibuja en cada una, y cada recinto toma solo su tramo. Las carpinterías de ese muro se sitúan respecto a su arranque: en una planta alta, indique el antepecho medido desde la base del muro.
+
+**Armarios.** `ARMARIOBIM` crea por defecto un armario **adosado**: designe la cara del muro y la posición, y fije ancho, fondo, altura, material y hojas (abatibles o correderas). Ocupa planta delante del muro, **no lo corta** y se descuenta de la superficie útil y del volumen del recinto. El modo **Empotrado / nicho** es el anterior, y los armarios ya dibujados siguen como nichos. Ambos modos requieren un muro recto. Se exporta como `IfcBuildingElementProxy` (tipo ARMARIO\_FIJO), porque IngeTrazo 0.6 no ofrece `IfcFurniture`, y sus frentes como `IfcDoor`. Actualice también el fichero de IngeTrazo junto con el plugin.
+
+**Iconos y ficha de carpintería.** Todas las órdenes del menú tienen icono, y `LINEASAMURO` está justo antes de «Intercambio BIM». En la ficha de carpintería, la planta y el alzado se dibujan a la misma escala, sin solaparse, con las medidas al pie.
+
+**Límite del IFC de IngeTrazo.** Los exportadores IFC oficiales de IngeTrazo 0.6.1 y 0.6.2 crean una sola planta, relacionan mal los recintos y no transmiten el tipo de muro, sus propiedades ni sus cantidades. La geometría es correcta y el fichero de IngeTrazo conserva todos los datos, pero el IFC todavía no tiene la semántica completa.
+
 ## Recintos y superficies útiles
 
 Un recinto (IfcSpace) se crea con un clic dentro de la estancia y sigue a los muros: si se mueve un muro, su contorno y su superficie se recalculan al regenerar.
@@ -448,7 +468,7 @@ Con niveles o forjados, el intercambio usa `.arqbim` v3 y necesita la extensión
 
 ## Limitaciones conocidas
 
-Estas son las limitaciones conocidas de la versión 1.26.0-dev; cada versión actualiza esta lista.
+Estas son las limitaciones conocidas de la versión 1.27.0-dev; cada versión actualiza esta lista.
 
 - **Plataforma:** las pruebas automáticas se ejecutan en Linux y en Windows con IngeCAD oficial (las versiones 0.7.0 y 0.8.0), pero sin pantalla. El usuario probó la v1.17 en Windows 10 con IngeCAD 0.8 e IngeTrazo 0.6.1: la cadena hasta el IFC funcionó; las correcciones de la v1.18 salen de esa prueba.
 - **Muros curvos:** cada muro llega como mucho a media circunferencia (un muro redondo son dos). MUROPARALELO y DIVIDEMURO solo toman líneas rectas como referencia. El gesto de esquina en L al terminar un MURO solo recorta muros rectos.
@@ -462,6 +482,7 @@ Estas son las limitaciones conocidas de la versión 1.26.0-dev; cada versión ac
 
 | Fecha | Versión | Novedades |
 | --- | --- | --- |
+| 16-11-2026 | 1.27.0-dev | Iconos en todas las órdenes; selector de nivel con encendido, inutilizado y bloqueado; categoría del muro (fachada, tabique, medianera, sótano) con su capa; muro hasta un nivel con desfases; armario adosado; vista previa de carpintería a una sola escala |
 | 16-11-2026 | 1.26.0-dev | Cotas temporales: CARPINTERIA muestra las distancias a las referencias del muro y coloca el hueco con la distancia escrita (F6 cambia de cota, F4 mide al eje); MOVERCARP mueve una carpintería con sus cotas; MURO muestra longitud, ángulo y distancia a los muros paralelos |
 | 16-11-2026 | 1.25.0-dev | RECINTO con altura libre por envolvente (forjados y falso techo, por zonas) y recinto por polilínea |
 | 16-11-2026 | 1.24.0-dev | Niveles (NIVELES, NIVELASIGNAR) y forjados horizontales con huecos (FORJADO, HUECOFORJADO); .arqbim v3 |

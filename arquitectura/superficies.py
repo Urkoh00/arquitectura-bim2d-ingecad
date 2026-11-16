@@ -178,6 +178,8 @@ def table(drawing, crit=None):
                         "habitable": 0.0}
     from . import space_envelope as SE
     limits = SE.boundaries(drawing)
+    from . import cabinets as C
+    cabinet_items=C.placed(drawing)
     for _ident, m, _e in read_spaces(drawing):
         room, _why = SE.outline(m, result, _e)
         if room is None:
@@ -186,6 +188,9 @@ def table(drawing, crit=None):
         m = SE.effective(m, SE.resolve(m, room, limits))
         room_u = (SE.outline(m, res_u, _e)[0]
                   if res_u is not None else None)
+        from . import cabinets as C
+        obstacles=C.obstacles(drawing,m,room,cabinet_items)
+        room_u=C.useful_room(room_u or room,obstacles)
         ev = evaluate(m, room, room_u, crit, by_use=by_use)
         rows.append({"name": m.get("name") or "Recinto", "use": m.get("use") or "",
                      "enclosure": m.get("enclosure") or "interior", "height": float(m.get("height") or 0),

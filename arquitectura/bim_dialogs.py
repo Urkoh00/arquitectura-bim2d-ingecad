@@ -143,7 +143,43 @@ def wall_form(ctx, record=None, types=None):
     height=_spin(d.get('height',2.70),positive=True)
     base=_spin(d.get('base',0.0))
     reference=_choice([('Eje','eje'),('Cara izquierda','izquierda'),('Cara derecha','derecha')],d.get('reference','eje'))
+    from .wall_categories import CATEGORIES,category
+    wall_category=_choice(CATEGORIES,category(d))
+    form.addRow('Categoría:',wall_category)
     for label,widget in [('Espesor:',thickness),('Altura:',height),('Cota base:',base),('Referencia de dibujo:',reference)]:form.addRow(label,widget)
+    from .levels import load as load_levels
+    from .compat import require_document
+    try:catalog=load_levels(require_document(ctx))
+    except (ValueError,AttributeError,RuntimeError):catalog={'levels':[],'active':None}
+    height_constraint=_choice([('Altura fija','fixed'),('Hasta un nivel','level')],d.get('height_constraint','fixed'))
+    base_level=_choice([(lv['name'],lv['id']) for lv in catalog['levels']],d.get('level_id',catalog['active']))
+    higher=[lv for lv in catalog['levels'] if lv['elevation']>float(d.get('base',0))]
+    top_default=higher[0]['id'] if higher else None
+    top_level=_choice([(lv['name'],lv['id']) for lv in catalog['levels']],d.get('top_level_id',top_default))
+    base_offset=_spin(d.get('base_offset',d.get('level_offset',0)))
+    top_offset=_spin(d.get('top_offset',0))
+    resulting_height=QLabel()
+    for label,w in [('Restricción superior:',height_constraint),('Nivel base:',base_level),
+                    ('Desfase de base:',base_offset),('Nivel superior:',top_level),
+                    ('Desfase de coronación:',top_offset),('Altura resultante (solo lectura):',resulting_height)]:form.addRow(label,w)
+    def constrained_values():
+        from .wall_constraints import resolve
+        return resolve({**d,'height_constraint':'level','level_id':base_level.currentData(),
+                        'base_offset':base_offset.value(),'top_level_id':top_level.currentData(),
+                        'top_offset':top_offset.value()},catalog)
+    def update_constraint(*_):
+        fixed=height_constraint.currentData()=='fixed'
+        height.setEnabled(fixed);base.setEnabled(fixed)
+        for w in (base_level,base_offset,top_level,top_offset):w.setEnabled(not fixed)
+        try:
+            value=height.value() if fixed else constrained_values()['height']
+            resulting_height.setText(f'{value:.4f} m');valid=True
+        except ValueError as exc:resulting_height.setText(str(exc));valid=False
+        from PySide6.QtWidgets import QDialogButtonBox
+        buttons.button(QDialogButtonBox.Ok).setEnabled(valid)
+    for w in (height_constraint,base_level,top_level):w.currentIndexChanged.connect(update_constraint)
+    for w in (base_offset,top_offset,height):w.valueChanged.connect(update_constraint)
+    update_constraint()
     from PySide6.QtWidgets import QCheckBox
     manual=QCheckBox('Modificar espesor respecto al tipo elegido')
     mismatch=QLabel();mismatch.setWordWrap(True);mismatch.setMinimumHeight(3*mismatch.fontMetrics().height())
@@ -156,6 +192,7 @@ def wall_form(ctx, record=None, types=None):
     name=QLineEdit(str(d.get('name','Muro')))
     material=QLineEdit(str(d.get('material','Sin definir')))
     level=QLineEdit(str(d.get('level','Planta baja')))
+    level.setReadOnly(bool(catalog['levels']))
     frm2.addRow('Nombre:',name)
     frm2.addRow('Material principal:',material);frm2.addRow('Nivel:',level)
     frm2.addRow('Clase IFC:',QLineEdit('IfcWall'))
@@ -179,6 +216,7 @@ def wall_form(ctx, record=None, types=None):
             thickness.setEnabled(True)
             total.setText('el del campo Espesor')
         else:
+            wall_category.setCurrentIndex(wall_category.findData(t['wall_category']))
             table._fill(t['layers'])
             thickness.setValue(t['thickness'])
             thickness.setEnabled(False)
@@ -190,6 +228,7 @@ def wall_form(ctx, record=None, types=None):
                           + ('s' if len(t['layers'])!=1 else '') + ')')
         discrepancy()
     kind.currentIndexChanged.connect(update);update()
+    wall_category.setCurrentIndex(wall_category.findData(category(d)))
     if chosen() is not None and abs(float(d.get('thickness',chosen()['thickness']))-chosen()['thickness'])>5e-7:
         manual.setChecked(True);thickness.setValue(float(d['thickness']));discrepancy()
 
@@ -198,7 +237,11 @@ def wall_form(ctx, record=None, types=None):
         out={'thickness':thickness.value(),'height':height.value(),'base':base.value(),
              'reference':reference.currentData(),'name':name.text().strip() or 'Muro',
              'material':material.text().strip(),'level':level.text().strip(),
-             'ifc_class':'IfcWall'}
+             'ifc_class':'IfcWall','wall_category':wall_category.currentData()}
+        out['height_constraint']=height_constraint.currentData()
+        if height_constraint.currentData()=='level':
+            constrained=constrained_values()
+            out.update({k:constrained[k] for k in ('height','base','level','level_id','base_offset','top_level_id','top_offset')})
         if t is not None:
             different=abs(thickness.value()-t['thickness'])>5e-7
             if different and resolution.currentData()=='detach':
@@ -215,7 +258,7 @@ def wall_form(ctx, record=None, types=None):
             out.update(type_name=str(current) if keep else f"Muro {_num(thickness.value())}",
                        layers=[list(l) for l in (d.get('layers') or [])] if keep else [])
         return out
-    dlg._arq={'type':kind,'thickness':thickness,'layers':table,'name':name,'material':material,'total':total,'manual_thickness':manual,'mismatch':mismatch,'resolution':resolution}
+    dlg._arq={'height_constraint':height_constraint,'base_level':base_level,'top_level':top_level,'base_offset':base_offset,'top_offset':top_offset,'resulting_height':resulting_height,'height':height,'wall_category':wall_category,'type':kind,'thickness':thickness,'layers':table,'name':name,'material':material,'total':total,'manual_thickness':manual,'mismatch':mismatch,'resolution':resolution}
     return dlg,read
 
 
@@ -255,6 +298,9 @@ def wall_types_form(ctx, types):
     edit=QGroupBox('Tipo seleccionado');row.addWidget(edit,3)
     eform=QFormLayout(edit)
     name=QLineEdit()
+    from .wall_categories import CATEGORIES
+    wall_category=_choice(CATEGORIES,'fachada')
+    eform.addRow('Categoría:',wall_category)
     table=_layers_table([],editable=True)
     total=QLabel('')
     cbuttons=QHBoxLayout()
@@ -294,7 +340,7 @@ def wall_types_form(ctx, types):
             raise ValueError(f'El tipo «{nm}» necesita al menos una capa')
         if any(t['name'].lower()==nm.lower() for k,t in enumerate(data) if k!=i):
             raise ValueError(f'Ya existe un tipo «{nm}»')
-        data[i]=normalise_type({'name':nm,'layers':layers})
+        data[i]=normalise_type({'name':nm,'layers':layers,'wall_category':wall_category.currentData()})
         item=lst.item(i)
         if item is not None:
             item.setText(label(data[i]));decorate(item,data[i])
@@ -304,6 +350,7 @@ def wall_types_form(ctx, types):
         t=data[i] if 0<=i<len(data) else None
         state['busy']=True
         name.setText(t['name'] if t else '')
+        wall_category.setCurrentIndex(wall_category.findData(t['wall_category'] if t else 'fachada'))
         table._fill(t['layers'] if t else [])
         state['busy']=False
         update_total()
@@ -341,7 +388,7 @@ def wall_types_form(ctx, types):
         stem,k=nm,2
         while any(t['name'].lower()==nm.lower() for t in data):
             nm=f"{stem} {k}";k+=1
-        t=normalise_type({'name':nm,'layers':[list(l) for l in base['layers']]})
+        t=normalise_type({'name':nm,'layers':[list(l) for l in base['layers']],'wall_category':base.get('wall_category','fachada')})
         data.append(t)
         item=QListWidgetItem(label(t),lst);decorate(item,t)
         select(len(data)-1)
@@ -398,7 +445,7 @@ def wall_types_form(ctx, types):
     def read():
         store()
         return [dict(t) for t in sort_types(data)]
-    dlg._arq={'list':lst,'name':name,'layers':table,'new':new,'delete':delete,'add_layer':add_layer,
+    dlg._arq={'wall_category':wall_category,'list':lst,'name':name,'layers':table,'new':new,'delete':delete,'add_layer':add_layer,
               'total':total}
     return dlg,read
 
@@ -794,9 +841,32 @@ def carpentry_preview(get_record, wall_thickness=0.25):
             z1 = float(rec["sill"]) + float(rec["height"])
             top = max(z1 + 0.2, 2.4)
             span = width + 0.8
-            elev_h = H * 0.62
-            k = min((W - 30) / span, (elev_h - 40) / top)
-            ox = (W - span * k) / 2
+            # One metric scale for both views; each has a reserved vertical band.
+            import math
+            points = [(0, spec.lo), (span, spec.hi)]
+            points += spec.run(spec.lo, spec.point(0,spec.lo), spec.point(span,spec.lo))
+            points += spec.run(spec.hi, spec.point(0,spec.hi), spec.point(span,spec.hi))
+            for item in plan:
+                if item[0] == 'line': points.extend(item[1:3])
+                elif item[0] == 'poly': points.extend(item[1])
+                elif item[0] == 'arc':
+                    c, radius, a0, a1 = item[1:5]
+                    sweep = (a1-a0) % 360
+                    points.extend((c[0]+radius*math.cos(math.radians(a0+sweep*i/72)),
+                                   c[1]+radius*math.sin(math.radians(a0+sweep*i/72))) for i in range(73))
+            xmin, xmax = min(p[0] for p in points), max(p[0] for p in points)
+            ymin, ymax = min(p[1] for p in points), max(p[1] for p in points)
+            k = min((W-24)/max(span,xmax-xmin), (H-112)/max(.01,top+ymax-ymin))
+            ox = (W-(xmax-xmin)*k)/2-xmin*k
+            elev_h = 42+top*k
+            plan_top = elev_h+4
+            kp = k
+            px = ox
+            py = plan_top+22+ymax*k
+            self.metrics = {'elevation_scale': k, 'plan_scale': kp,
+                            'elevation_bottom': elev_h-18,
+                            'plan_top': plan_top+22, 'plan_bottom': py-ymin*k,
+                            'footer_top': H-38}
 
             def E(s_, z):
                 return QPointF(ox + s_ * k, elev_h - 18 - z * k)
@@ -856,18 +926,9 @@ def carpentry_preview(get_record, wall_thickness=0.25):
 
             def m(v):
                 return f"{v:.3f}".replace(".", ",")
-            qp.drawText(QRectF(E(s0, z1).x(), E(s0, z1).y() - 16, (s1 - s0) * k, 14), Qt.AlignCenter, m(width))
-            qp.drawText(QRectF(E(s1, 0).x() + 3, E(s1, z1).y(), 50, (z1 - z0) * k), Qt.AlignVCenter, m(z1 - z0))
-            if z0 > 0.01:
-                qp.drawText(QRectF(E(s0, 0).x() - 52, E(s0, z0).y(), 48, z0 * k),
-                            Qt.AlignVCenter | Qt.AlignRight, m(z0))
-            qp.drawText(QRectF(4, 2, W, 14), Qt.AlignLeft, "Alzado (desde la cara hacia la que abre)")
-            # the plan, as it is drawn in IngeCAD
-            plan_top = elev_h + 6
-            kp = min((W - 30) / span, (H - plan_top - 22) / 1.2)
-
-            px = (W - span * kp) / 2
-            py = plan_top + (H - plan_top) / 2 + 6
+            qp.drawText(QRectF(4, 2, W-8, 16), Qt.AlignLeft, "Alzado (desde la cara hacia la que abre)")
+            qp.drawText(QRectF(8, H-36, W-16, 32), Qt.AlignLeft | Qt.TextWordWrap,
+                        f"Ancho {m(width)} m · Alto {m(z1-z0)} m · Antepecho {m(z0)} m")
 
             def Q(p):
                 return QPointF(px + p[0] * kp, py - p[1] * kp)

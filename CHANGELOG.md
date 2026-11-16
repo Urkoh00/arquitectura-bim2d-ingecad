@@ -2,6 +2,28 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.27.0-dev — 2026-11-16
+
+Integra R23 de Codex (observaciones del usuario a la v1.24), revisada y adaptada a la v1.26: SHA-256 correcto;
+718 pruebas con IngeCAD 0.8 y 709 + 9 con la 0.7; cadena IGZ comprobada con IngeTrazo 0.6.1 y 0.6.2.
+
+- Iconos en todas las órdenes del menú; LINEASAMURO justo antes de «Intercambio BIM».
+- Ficha de carpintería: planta y alzado a la misma escala, sin solaparse, con las medidas al pie.
+- **Nivel activo** en la barra de herramientas del plugin (IngeCAD 0.8), con encendido, inutilizado y
+  bloqueado sobre las capas nativas de cada nivel; un nivel bloqueado no se edita. En 0.7, `NIVELES ESTADO`.
+- **Categoría del muro**: fachada, tabique, medianera y sótano, cada una en su capa (`ARQ-MEDIANERAS` y
+  `ARQ-SOTANO` nuevas); `IsExternal`, PARTITIONING y marcas de medianera y contacto con el terreno.
+- **Muro hasta un nivel** con desfases (la altura fija sigue por defecto); la altura resultante sigue a los
+  niveles en un solo Deshacer, y cada recinto toma solo su tramo.
+- **Armario adosado** por defecto (no corta el muro, reduce la superficie útil); el nicho se conserva.
+  Cuerpo como `IfcBuildingElementProxy` ARMARIO_FIJO; requiere actualizar la extensión de IngeTrazo.
+- C-08 (controles de plugins en la barra de capas de IngeCAD) documentada, sin enviar.
+- Revisión de la dirección: las comprobaciones de bloqueo salen enseguida cuando no hay capas bloqueadas ni
+  niveles organizados por capas (con 200 muros, un muro nuevo pasaba de 0,27 s a 0,46 s; ahora 0,30 s), y el
+  monitor de la barra se detiene si el anfitrión cambia, en lugar de fallar cada medio segundo.
+- Límite conocido: el IFC oficial de IngeTrazo 0.6.x crea una sola planta, relaciona mal los recintos y no
+  transmite tipos, propiedades ni cantidades; el IGZ sí conserva los datos.
+
 ## 1.26.0-dev — 2026-11-16
 
 Cotas temporales al dibujar muros y colocar carpinterías, como en los programas BIM habituales. Desarrollo

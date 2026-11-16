@@ -228,6 +228,7 @@ class RegenerateContoursCommand(Command):
         self.opening_edits=[]   # [(entity, old_meta, new_meta, old_pts, new_pts)]
         self.orphans=[]         # openings whose wall was erased (unlinked)
         self.old_opening_layer_off=None
+        self.layer_routes=None
     def _current(self,msp,kind='junction_edge'):
         from .architectural import metadata
         return [e for e in msp if (metadata(e) or {}).get('kind')==kind]
@@ -238,6 +239,8 @@ class RegenerateContoursCommand(Command):
         from .geom import spaces as SP
         from . import space_envelope as SE
         limits=SE.boundaries(document.doc)
+        from . import cabinets as C
+        cabinet_items=C.placed(document.doc)
         comps=SP.components(result)
         seen={}
         for e in self._current(document.doc.modelspace(),'space'):
@@ -256,6 +259,10 @@ class RegenerateContoursCommand(Command):
             from . import superficies as SU
             room_u=SE.outline(m,self.useful,e)[0] if getattr(self,'useful',None) is not None else None
             envelope=SE.resolve(m,room,limits)
+            from . import cabinets as C
+            obstacles=C.obstacles(document.doc,SE.effective(m,envelope),room,cabinet_items)
+            envelope=C.clip_air(envelope,obstacles)
+            room_u=C.useful_room(room_u or room,obstacles)
             ev=SU.evaluate(SE.effective(m,envelope),room,room_u,by_use=getattr(self,'by_use',None))
             new=copy.deepcopy(m)
             if m.get('boundary_mode')=='polyline':
@@ -352,6 +359,7 @@ class RegenerateContoursCommand(Command):
         for wid,ops in news.items():
             ops.sort(key=lambda o:float(o['offset']))
             for a,b in zip(ops,ops[1:]):
+                if a.get('cabinet_mode')==b.get('cabinet_mode')=='adosado' and a.get('side')!=b.get('side'):continue
                 if float(a['offset'])+float(a['width'])>float(b['offset'])+1e-6:
                     self.issues.append(f"Carpinterías solapadas en el muro {wid[:8]}: "
                                        f"{a.get('name') or OP.NAMES[a['type']]} y {b.get('name') or OP.NAMES[b['type']]}")
@@ -425,18 +433,26 @@ class RegenerateContoursCommand(Command):
             _xdata(msp,t,{'kind':'space_label','schema':1,'space_id':m['id']})
             made.append(t)
         return made
-    def _new_lines(self,msp,segments):
+    def _new_lines(self,msp,segments,display_level_id=None):
         from .architectural import _xdata
         made=[]
+        from .architectural import metadata
+        from .wall_categories import category,LAYERS
+        records={m['id']:m for e in msp if (m:=metadata(e)or{}).get('kind')=='wall'}
         for item in segments:
+            ids=item[5] if item[0]=='arc' else item[3]
+            layers=sorted({LAYERS[category(records.get(i,{}))] for i in ids}) or ['ARQ-MUROS']
+            for layer in layers:
+                if layer not in msp.doc.layers:msp.doc.layers.add(layer,color=8)
+            layer=layers[0]
             if item[0]=='arc':
                 _k,c,r,t0,t1,ids=item[:6]
-                e=msp.add_arc(c,r,t0,t1,dxfattribs={'layer':'ARQ-MUROS'})
+                e=msp.add_arc(c,r,t0,t1,dxfattribs={'layer':layer})
             else:
                 _k,a,b,ids=item
-                e=msp.add_line(a,b,dxfattribs={'layer':'ARQ-MUROS'})
+                e=msp.add_line(a,b,dxfattribs={'layer':layer})
             self.added.append(e)        # journalled at once: a failure further on removes it
-            _xdata(msp,e,{'kind':'junction_edge','schema':3,'wall_ids':ids})
+            _xdata(msp,e,{'kind':'junction_edge','schema':3,'wall_ids':ids,**({'display_level_id':display_level_id}if display_level_id else{})})
             made.append(e)
         return made
     def _write_meta(self,document,which):
@@ -548,6 +564,12 @@ class RegenerateContoursCommand(Command):
                 walls = [w for w in result.walls.values() if w["area"] > 0]
                 self._plan_openings(document,records)
                 segments = J.plan_items(result, self._opening_cuts())
+                from .levels import load
+                from .geom import spaces as SP
+                data=load(document)
+                self.level_segments=None
+                if data.get('layer_managed'):
+                    self.level_segments=[(lv['id'],J.plan_items(SP.network_at(result,lv['elevation']+1e-7),self._opening_cuts()))for lv in data['levels']]
                 if walls and not segments:
                     raise ValueError('No se obtuvo contorno exterior: se conserva la geometría original')
                 self.has_walls = bool(walls)
@@ -569,13 +591,18 @@ class RegenerateContoursCommand(Command):
                 from .openings import SYMBOL_LAYER
                 if SYMBOL_LAYER not in document.doc.layers:
                     document.doc.layers.add(SYMBOL_LAYER,color=6)
-                self.added=self._new_lines(msp,segments)
+                if self.level_segments is None:self.added=self._new_lines(msp,segments)
+                else:
+                    for ident,items in self.level_segments:self._new_lines(msp,items,ident)
                 self.added_labels=(self._new_labels(document)+self._new_details(document)
                                    +self._new_symbols(document))
             else:
                 for e in self.added+self.added_labels:
                     msp.add_entity(e)
             self._group_lines(document)
+            from .level_layers import RouteLevels
+            if self.layer_routes is None:self.layer_routes=RouteLevels()
+            self.layer_routes.do(document)
             if self.has_walls and WALL_LAYER in document.doc.layers:
                 document.doc.layers.get(WALL_LAYER).off()
             from .architectural import OPENING_LAYER
@@ -610,6 +637,7 @@ class RegenerateContoursCommand(Command):
         from .architectural import WALL_LAYER
         from . import sync as SY
         msp=self.space(document)
+        if self.layer_routes is not None:self.layer_routes.undo(document)
         SY.delete_groups(document.doc)
         for e in self.added+self.added_labels:
             if e.is_alive and e.dxf.owner is not None:

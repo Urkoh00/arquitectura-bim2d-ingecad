@@ -39,7 +39,7 @@ SYMBOL_LAYER = "ARQ-CARPINTERIA"
 V3_KEYS = ("leaves", "leaf", "leaf2", "frame_width", "frame_depth", "side", "hinge",
            "angle", "face", "setback", "setback_from", "sill_kind", "operation", "leaf_thickness",
            "frame_material", "leaf_material", "glass_material", "sill_material",
-           "curve_mode", "facet_sagitta", "width_reference", "cabinet", "niche_depth")
+           "curve_mode", "facet_sagitta", "width_reference", "cabinet", "niche_depth", "cabinet_mode", "body_material")
 # opening type (IFC names, as in the properties dialog)
 OPERATIONS = {"door": ("SWINGING", "SLIDING"), "window": ("SIDEHUNG", "SLIDING", "FIXED"), "gap": ("",)}
 OPERATION_NAMES = {"SWINGING": "abatible", "SLIDING": "corredera", "SIDEHUNG": "abatible",
@@ -102,7 +102,9 @@ def normalise(rec):
         out["operation"] = ops[0]
     if typ == "door":
         if out.get('cabinet'):
-            if out['leaves'] not in (1,2,3,4):raise ValueError('Armario: entre una y cuatro hojas')
+            if not 1<=out['leaves']<=128:raise ValueError('Armario: entre 1 y 128 hojas')
+            out.setdefault('cabinet_mode','nicho')
+            if out['cabinet_mode']not in ('adosado','nicho'):raise ValueError('Modo de armario no válido')
             depth=float(out.get('niche_depth',0))
             if not math.isfinite(depth)or depth<=0:raise ValueError('Fondo de nicho positivo y finito')
             out['niche_depth']=depth
@@ -291,6 +293,7 @@ def opening_cuts(specs, openings):
     (``specs``: {wall id: junctions.Wall})."""
     cuts = {}
     for o in openings:
+        if o.get("cabinet_mode")=="adosado":continue
         spec = specs.get(o.get("wall_id"))
         if spec is not None:
             cuts.setdefault(spec.id, []).append(cut_polygon(spec, o))
@@ -300,7 +303,11 @@ def opening_cuts(specs, openings):
 def cut_band(spec,rec):
     """Canonical transverse bounds shared by plan, solid and exchange."""
     if not rec.get('cabinet'):return spec.lo,spec.hi
-    if spec.curved:raise ValueError('Nicho de armario: anfitrión curvo no admitido')
+    if spec.curved:raise ValueError('Armario: anfitrión curvo no admitido')
+    if rec.get('cabinet_mode')=='adosado':
+        depth=float(rec.get('niche_depth',0))
+        if not math.isfinite(depth)or depth<=.07:raise ValueError('Armario adosado: fondo mayor de 0,07 m')
+        return (spec.hi,spec.hi+depth) if rec.get('side',1)>0 else (spec.lo-depth,spec.lo)
     depth=float(rec.get('niche_depth',0))
     if not math.isfinite(depth)or depth<=0 or depth>spec.thickness-.01:
         raise ValueError('El nicho debe conservar al menos 0,01 m de muro')

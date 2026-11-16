@@ -18,6 +18,7 @@ class ArchitecturalRegeneration(Command):
     needs_regen = True
     def __init__(self):
         self.inner = RegenerateContoursCommand()
+
     def do(self, document):
         self.inner.do(document)
     def undo(self, document):
@@ -30,6 +31,13 @@ class SafeArchitecturalCommand(CompositeCommand):
     needs_regen = True
 
     def do(self, document):
+        from .level_layers import locked_snapshot,check_locked,require_new,preflight
+        from .architectural import metadata
+        from .levels import load as _levels
+        for command in self.commands:preflight(document,command)
+        locked=locked_snapshot(document)
+        managed=bool(_levels(document.doc).get('layer_managed'))
+        existing={m.get('id')for e in document.doc.modelspace() if(m:=metadata(e)or{}).get('kind')in('wall','column','space','opening','slab')} if managed else set()
         applied = []
         try:
             for command in self.commands:
@@ -38,6 +46,10 @@ class SafeArchitecturalCommand(CompositeCommand):
                 followup = getattr(command, 'dimassoc_followup', None)
                 if followup is not None:
                     followup.do(document)
+            check_locked(document,locked)
+            for e in (document.doc.modelspace() if managed else ()):
+                m=metadata(e)or{}
+                if m.get('kind')in('wall','column','space','opening','slab')and m.get('id')not in existing:require_new(document.doc,m)
         except Exception as original:
             failures = []
             for command in reversed(applied):
@@ -57,7 +69,8 @@ class SafeArchitecturalCommand(CompositeCommand):
 def apply_architectural_change(ctx, change, *, kind='wall'):
     """Create/edit source and derived contour as ONE undoable history entry."""
     doc = require_document(ctx)
-    needed = [(WALL_LAYER, 8), ('ARQ-MUROS', 8)]
+    from .wall_categories import LAYERS
+    needed = [(WALL_LAYER, 8), *[(name,8) for name in LAYERS.values()]]
     if kind == 'column':
         from .columns import PILLAR_LAYER
         needed.insert(0, (PILLAR_LAYER, 4))

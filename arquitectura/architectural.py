@@ -36,6 +36,17 @@ def _xdata(msp, entity, obj):
     payload = json.dumps(obj, ensure_ascii=True, separators=(',', ':'))
     parts = [payload[i:i+200] for i in range(0, len(payload), 200)]
     entity.set_xdata(APPID, [(1000, part) for part in parts])
+    if obj.get('kind')=='wall' and obj.get('wall_category'):
+        from .wall_categories import category,LAYERS
+        target=LAYERS[category(obj)]
+        from .levels import load
+        if load(doc).get('layer_managed') and obj.get('level_id'):
+            from .level_layers import suffix
+            full=target+suffix(obj['level_id'])
+            if full in doc.layers:target=full
+        if target in doc.layers:entity.dxf.layer=target
+        if entity.dxftype()=='LWPOLYLINE' and not entity.closed:
+            entity.dxf.invisible=1
     if isinstance(obj, dict) and obj.get('kind') in ('wall', 'column', 'opening', 'space','slab'):
         # the data is current: reset the frame that records IngeCAD's own
         # transformations of the element (frame.py)
@@ -135,14 +146,23 @@ def validate_wall(w):
         sweep=4*math.atan(bulge)
         length=length/(2*math.sin(abs(sweep)/2))*abs(sweep)
     finite(w['thickness'],True); finite(w['height'],True)
+    existing=[]
     for o in w.get('openings',[]):
+        for prev_o in existing:
+            if not(o.get('cabinet_mode')=='adosado' or prev_o.get('cabinet_mode')=='adosado'):continue
+            if o.get('cabinet_mode')==prev_o.get('cabinet_mode')=='adosado' and o.get('side')!=prev_o.get('side'):continue
+            overlap=min(o['offset']+o['width'],prev_o['offset']+prev_o['width'])-max(o['offset'],prev_o['offset'])
+            vertical=min(o['sill']+o['height'],prev_o['sill']+prev_o['height'])-max(o['sill'],prev_o['sill'])
+            if overlap>1e-8 and vertical>1e-8:raise ValueError('Armario solapado con otra carpintería o armario')
+        existing.append(o)
         x=finite(o['offset']); width=finite(o['width'],True)
         sill=finite(o['sill']); height=finite(o['height'],True)
-        if x < prev-1e-8 or x+width>length+1e-8:
+        furniture=o.get('cabinet_mode')=='adosado'
+        if (not furniture and x < prev-1e-8) or x < -1e-8 or x+width>length+1e-8:
             raise ValueError('Huecos solapados o fuera del muro '+str(w['id']))
         if sill < 0 or sill+height>w['height']+1e-8:
             raise ValueError('Hueco fuera de altura '+str(o['id']))
-        prev=x+width
+        if not furniture:prev=x+width
 
 
 def partition_solids(wall):
