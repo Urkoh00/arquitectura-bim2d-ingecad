@@ -71,7 +71,7 @@ def space_change(entity, values):
     import copy
     from .architectural_v10 import EditArchitecturalCommand
     d=copy.deepcopy(metadata(entity))
-    for k in ('name','number','use','enclosure','height','ceiling','level'):
+    for k in ('name','number','use','enclosure','height','ceiling','level','height_mode'):
         if k in values and values[k] not in (None,''):
             d[k]=values[k]
     if 'cte' in values:                  # an empty classification is a valid choice
@@ -79,7 +79,8 @@ def space_change(entity, values):
         d['cte']=validate(values['cte'])
     if values.get('name')=='':
         d['name']=d.get('name') or 'Recinto'
-    if float(d['height'])<=0:
+    import math
+    if not math.isfinite(float(d['height'])) or float(d['height'])<=0:
         raise ValueError('La altura del recinto debe ser positiva')
     cmd=EditArchitecturalCommand(entity,d)
     cmd.name='ARQ RECINTO'

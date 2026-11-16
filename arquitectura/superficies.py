@@ -176,12 +176,15 @@ def table(drawing, crit=None):
     by_use = general_options(drawing)["usar_usos"]
     rows, totals = [], {"useful_interior": 0.0, "exterior_computable": 0.0, "computable": 0.0,
                         "habitable": 0.0}
+    from . import space_envelope as SE
+    limits = SE.boundaries(drawing)
     for _ident, m, _e in read_spaces(drawing):
-        room, _why = SP.space_at(SP.network_at(result, float(m.get("base", 0))), m["seed"])
+        room, _why = SE.outline(m, result, _e)
         if room is None:
             rows.append({"name": m.get("name") or "Recinto", "error": "no está cerrado"})
             continue
-        room_u = (SP.space_at(SP.network_at(res_u, float(m.get("base", 0))), m["seed"])[0]
+        m = SE.effective(m, SE.resolve(m, room, limits))
+        room_u = (SE.outline(m, res_u, _e)[0]
                   if res_u is not None else None)
         ev = evaluate(m, room, room_u, crit, by_use=by_use)
         rows.append({"name": m.get("name") or "Recinto", "use": m.get("use") or "",

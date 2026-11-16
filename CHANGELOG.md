@@ -2,6 +2,22 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.25.0-dev — 2026-11-16
+
+Integra R16-3 de Codex (recintos limitados por la envolvente), revisada: SHA-256 correcto; 674 pruebas con
+IngeCAD 0.8 y 665 + 9 con la 0.7; volúmenes analíticos y cadena IGZ/IFC comprobados.
+
+- **RECINTO por envolvente** (por defecto): suelo en la cara superior del forjado inferior y techo en la cara
+  inferior del forjado superior del nivel activo; con falso techo, bajo él. Los faldones futuros no recortan
+  un recinto cubierto por forjado horizontal. Sin límite superior se usa la altura de reserva; `Altura` fija
+  una altura manual y `Envolvente` vuelve al cálculo. Los recintos antiguos conservan su altura manual.
+- Huecos y cobertura parcial de forjados por zonas: `Height` es la altura libre máxima y `NetVolume` el
+  volumen exacto por zonas, contrastado con la malla estanca.
+- **RECINTO por polilínea** (también cóncavo), con longitud temporal junto al cursor; el contorno sigue a la
+  polilínea al moverla, copiarla o editar sus vértices. Un solo Deshacer.
+- La ficha muestra el límite superior, la altura libre máxima y el volumen neto.
+- Fuera de alcance: AJUSTARRECINTO por cubierta y forjado inclinado (R16-4).
+
 ## 1.24.0-dev — 2026-11-16
 
 Integra la entrega R16-0 + R16-1/2 de Codex (inicio de la fase 5), revisada: SHA-256 correcto; 649 pruebas

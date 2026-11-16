@@ -1197,7 +1197,7 @@ def space_form(ctx, record, by_use=None):
     QDialog, _, _, QFormLayout, QGroupBox, *_ = _widgets()
     d = record or {}
     dlg, layout, buttons = _dialog(ctx, "Arquitectura — Recinto",
-                                   "Espacio BIM (IfcSpace). Su contorno lo dan los muros que lo cierran; "
+                                   "Espacio BIM (IfcSpace). Contorno por caras interiores de muros o por polilínea; "
                                    "aquí se definen su nombre, uso y alturas.")
     group = QGroupBox("Recinto", dlg)
     f = QFormLayout(group)
@@ -1216,18 +1216,29 @@ def space_form(ctx, record, by_use=None):
                          ("Exterior cubierto (terraza, balcón, porche): computa el 50 %", "exterior_cubierto")],
                         d.get("enclosure") or "interior")
     height = _spin(d.get("height", 2.70), positive=True)
+    height_mode = _choice([('Automática por envolvente', 'auto'), ('Manual', 'manual')],
+                          d.get('height_mode', 'manual'))
     ceiling = QCheckBox("Hay falso techo (la altura es la libre bajo él)")
     ceiling.setChecked(bool(d.get("ceiling")))
     level = QLineEdit(str(d.get("level") or "Planta baja"))
     ifc = QLineEdit("IfcSpace")
     ifc.setReadOnly(True)
     rows = [("Nombre:", name), ("Número:", number), ("Uso:", use), ("Tipo:", enclosure),
-            ("Altura libre:", height), ("", ceiling), ("Nivel:", level), ("Clase IFC:", ifc)]
+            ("Cálculo de altura:", height_mode), ("Altura manual / reserva (m):", height),
+            ("", ceiling), ("Nivel:", level), ("Clase IFC:", ifc)]
     if not by_use:
         use.setVisible(False)
         rows = [r for r in rows if r[1] is not use]
     for label, w in rows:
         f.addRow(label, w)
+    from PySide6.QtWidgets import QLabel
+    f.addRow('Límite superior:', QLabel(str(d.get('upper_limit') or
+                ('se calcula al crear el recinto' if d.get('height_mode') == 'auto' else
+                 'falso techo' if d.get('ceiling') else 'manual'))))
+    if 'free_height' in d:
+        f.addRow('Altura libre máxima (m):', QLabel(f"{d['free_height']:.3f}"))
+    if 'net_volume' in d:
+        f.addRow('Volumen neto (m³):', QLabel(f"{d['net_volume']:.3f}"))
     layout.addWidget(group)
     # normative classification: one label per document of the code (CTE, ITC-BT-25)
     from PySide6.QtWidgets import QPushButton, QLabel
@@ -1264,10 +1275,11 @@ def space_form(ctx, record, by_use=None):
     def read():
         return {"name": name.text().strip(), "number": number.text().strip(), "use": use.text().strip(),
                 "enclosure": enclosure.currentData(), "height": height.value(),
+                "height_mode": height_mode.currentData(),
                 "ceiling": ceiling.isChecked(), "level": level.text().strip() or "Planta baja",
                 "cte": CU.validate({k: b.currentData() for k, b in cte.items()})}
     dlg._arq = dict(name=name, number=number, use=use, enclosure=enclosure, height=height, ceiling=ceiling,
-                    cte=cte, propose=propose)
+                    cte=cte, propose=propose, height_mode=height_mode)
     return dlg, read
 
 

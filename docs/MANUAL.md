@@ -1,12 +1,12 @@
 # Manual de Arquitectura para IngeCAD
 
-Versión 1.24.0-dev · 16-11-2026
+Versión 1.25.0-dev · 16-11-2026
 
 > Copia del manual publicado como documento en claude.ai; se regenera con cada versión.
 
 ## Qué es
 
-Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.24.0-dev** y se actualiza con cada versión.
+Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.25.0-dev** y se actualiza con cada versión.
 
 Cada elemento guarda su identidad persistente, su clase IFC, su geometría editable en planta, sus parámetros 3D (altura, espesor, cota), sus propiedades constructivas (tipo, material, capas) y su nivel. Las carpinterías conocen su muro y los recintos siguen a los muros que los cierran.
 
@@ -23,7 +23,7 @@ El plugin se instala copiando una carpeta en IngeCAD, y la extensión copiando d
 
 **En IngeCAD**
 
-1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.24.0-dev.zip`.
+1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.25.0-dev.zip`.
 2. Copie la carpeta `arquitectura` en la carpeta de plugins de IngeCAD.
 3. Reinicie IngeCAD. Aparece el menú *Arquitectura* y su barra de herramientas.
 4. Escriba `ARQDIAG` en la línea de órdenes para comprobar que la versión cargada es la que acaba de copiar.
@@ -301,6 +301,8 @@ Un recinto (IfcSpace) se crea con un clic dentro de la estancia y sigue a los mu
 
 **Clasificación normativa (desde la 1.21).** La ficha del recinto tiene un grupo con **una etiqueta por documento**: CTE DB SI (uso y ocupación), DB SUA 4 (alumbrado), DB SUA 9 (uso del recinto y unidad de uso accesible), DB HE, DB HE 3 (iluminación), DB HR (recinto protegido, habitable, de actividad…), DB HS 2, DB HS 3, DB HS 6 (radón) e ITC-BT-25 (puntos de utilización). Deje en «—» los que no apliquen. El botón **«Proponer según el uso (vivienda)»** rellena lo que se deduce del uso: un dormitorio es recinto protegido (DB HR), dormitorio en DB HS 3 y en la ITC-BT-25, habitable acondicionado (DB HE)… Revise la propuesta: en edificios que no son viviendas la clasificación depende de la actividad y la elige usted. Se guarda en el recinto, se cambia con `PROPIEDADESARQ` o con doble clic y se exporta en el grupo de propiedades `ARQ_ClasificacionCTE`. La clasificación **no comprueba el cumplimiento** de ninguna norma.
 
+**Altura por envolvente y recinto por polilínea (desde la 1.25).** Si hay forjados, `RECINTO` calcula la altura libre por defecto: el suelo es la cara superior del forjado inferior y el techo, la cara inferior del forjado superior del nivel activo, o el falso techo si lo hay. Una cubierta inclinada sobre un forjado horizontal no recorta el recinto. Sin forjado superior se usa la altura de la ficha. La opción `Altura` fija una altura manual y `Envolvente` vuelve al cálculo. Los recintos anteriores conservan su altura manual. Si el forjado tiene huecos o no cubre todo el recinto, se calcula por zonas: la ficha muestra el límite superior, la altura libre **máxima** y el volumen neto exacto. La opción `Polilínea` dibuja el recinto punto a punto (puede ser cóncavo; sin arcos), con la longitud junto al cursor; Intro cierra, `Retroceder` quita el último punto y `Clic` vuelve a la detección por muros. Ese contorno sigue a la polilínea si se mueve o se editan sus vértices.
+
 **RECINTO.** Haga clic dentro de una estancia cerrada por muros, tabiques o pilares. Opciones:
 
 | Opción | Efecto |
@@ -438,7 +440,7 @@ Con niveles o forjados, el intercambio usa `.arqbim` v3 y necesita la extensión
 
 ## Limitaciones conocidas
 
-Estas son las limitaciones conocidas de la versión 1.24.0-dev; cada versión actualiza esta lista.
+Estas son las limitaciones conocidas de la versión 1.25.0-dev; cada versión actualiza esta lista.
 
 - **Plataforma:** las pruebas automáticas se ejecutan en Linux y en Windows con IngeCAD oficial (las versiones 0.7.0 y 0.8.0), pero sin pantalla. El usuario probó la v1.17 en Windows 10 con IngeCAD 0.8 e IngeTrazo 0.6.1: la cadena hasta el IFC funcionó; las correcciones de la v1.18 salen de esa prueba.
 - **Muros curvos:** cada muro llega como mucho a media circunferencia (un muro redondo son dos). MUROPARALELO y DIVIDEMURO solo toman líneas rectas como referencia. El gesto de esquina en L al terminar un MURO solo recorta muros rectos.
@@ -452,6 +454,7 @@ Estas son las limitaciones conocidas de la versión 1.24.0-dev; cada versión ac
 
 | Fecha | Versión | Novedades |
 | --- | --- | --- |
+| 16-11-2026 | 1.25.0-dev | RECINTO con altura libre por envolvente (forjados y falso techo, por zonas) y recinto por polilínea |
 | 16-11-2026 | 1.24.0-dev | Niveles (NIVELES, NIVELASIGNAR) y forjados horizontales con huecos (FORJADO, HUECOFORJADO); .arqbim v3 |
 | 15-11-2026 | 1.23.0-dev | ARMARIOBIM: armario empotrado como nicho parcial; LINEASAMURO con retornos escalonados de fachada y rangos de espesor por categoría |
 | 15-11-2026 | 1.22.3-dev | LINEASAMURO: marco y retranqueo de ventanas, arcos retirados, puerta junto a muro transversal, correderas exteriores, armarios y aviso de escaleras; capa ARQ-PILARES; cotas de rejilla fuera de las burbujas |

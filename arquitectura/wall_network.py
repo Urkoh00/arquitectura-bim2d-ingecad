@@ -236,25 +236,36 @@ class RegenerateContoursCommand(Command):
         import copy
         from .architectural import metadata
         from .geom import spaces as SP
+        from . import space_envelope as SE
+        limits=SE.boundaries(document.doc)
         comps=SP.components(result)
         seen={}
         for e in self._current(document.doc.modelspace(),'space'):
             m=metadata(e)
             label=m.get('name') or 'Recinto'
-            room,why=SP.space_at(SP.network_at(result,float(m.get('base',0))),m['seed'])
+            room,why=SE.outline(m,result,e)
             if room is None:
                 self.issues.append(f'Recinto {label}: '+('su punto interior queda dentro de un muro o pilar'
                                    if why=='muro' else 'no está cerrado (falta un muro o una separación)')
                                    +'; se conserva su contorno anterior')
                 continue
-            key=tuple(P_key(q) for q in room['outer'])
+            key=(round(float(m.get('base',0)),7),tuple(P_key(q) for q in room['outer']))
             if key in seen:
                 self.issues.append(f'Recintos {seen[key]} y {label} ocupan la misma estancia')
             seen.setdefault(key,label)
             from . import superficies as SU
-            room_u=SP.space_at(SP.network_at(self.useful,float(m.get('base',0))),m['seed'])[0] if getattr(self,'useful',None) is not None else None
-            ev=SU.evaluate(m,room,room_u,by_use=getattr(self,'by_use',None))
+            room_u=SE.outline(m,self.useful,e)[0] if getattr(self,'useful',None) is not None else None
+            envelope=SE.resolve(m,room,limits)
+            ev=SU.evaluate(SE.effective(m,envelope),room,room_u,by_use=getattr(self,'by_use',None))
             new=copy.deepcopy(m)
+            if m.get('boundary_mode')=='polyline':
+                from .geom import polygon as P
+                new['boundary']=[list(q) for q in room['outer']]
+                if not P.point_in_polygon(m['seed'],room['outer']):
+                    piece=max(room['pieces'],key=P.area)
+                    new['seed']=[sum(q[i] for q in piece)/len(piece) for i in (0,1)]
+            new.update(upper_limit=envelope['upper_limit'],upper_limit_ids=envelope['upper_limit_ids'],
+                       lower_limit_ids=envelope['lower_limit_ids'],free_height=envelope['height'],net_volume=envelope['volume'])
             new.update(useful_area=ev['useful'],computable_area=ev['computable'])
             new.update(area=room['area'],perimeter=room['perimeter'],
                        islands=[[list(q) for q in h] for h in room['holes']],

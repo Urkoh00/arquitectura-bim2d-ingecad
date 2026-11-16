@@ -186,19 +186,21 @@ def _space_issues(drawing):
     try:
         records, columns, _ops, _issues = read_model(drawing, strict=False)
         from .geom.bands import column_inputs
-        result = J.solve(J.walls_from_records(records), column_inputs(columns))
+        from .geom.bands import solve_records
+        result = solve_records(records, columns)
         comps = SP.components(result)
     except Exception as exc:  # noqa: BLE001
         return [f'No se pudieron comprobar los recintos ({type(exc).__name__}: {exc})']
     out, seen = [], {}
     for e, d in spaces:
         name = d.get('name') or 'Recinto'
-        room, why = SP.space_at(result, d.get('seed') or (0, 0), comps)
+        from . import space_envelope as SE
+        room, why = SE.outline(d, result, e)
         if room is None:
             out.append(f'Recinto {name}: ' + ('su punto interior queda dentro de un muro o pilar'
                        if why == 'muro' else 'no está cerrado (falta un muro o una separación)'))
             continue
-        key = tuple(_segment_key(q, q)[0] for q in room['outer'])
+        key = (round(float(d.get('base',0)),7), tuple(_segment_key(q, q)[0] for q in room['outer']))
         if key in seen:
             out.append(f'Recintos {seen[key]} y {name} ocupan la misma estancia')
         seen.setdefault(key, name)

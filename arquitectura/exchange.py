@@ -303,19 +303,23 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD", problem
     res_u = SU.useful_result(specs, columns, records=walls)
     from .parameters_arq import general_options
     by_use = general_options(drawing)["usar_usos"]
+    from . import space_envelope as SE
+    limits = SE.boundaries(drawing, skip)
     for ident, m, ent in read_spaces(drawing, skip=skip):
         level = m.get("level") or "Planta baja"
         levels.setdefault(level, float(m.get("base", 0.0)))
-        room, why = SP.space_at(SP.network_at(result, float(m.get("base", 0))), m["seed"])
+        room, why = SE.outline(m, result, ent)
         name = m.get("name") or "Recinto"
         if room is None:
             issues.append(f"Recinto {name}: " + ("su punto interior queda dentro de un muro o pilar"
                           if why == "muro" else "no está cerrado") + "; no se exporta")
             continue
-        base, height = float(m.get("base", 0.0)), float(m["height"])
-        faces, volume = S.wall_solid(room["pieces"], (0.0, 0.0), (1.0, 0.0), base, height, ())
+        envelope = SE.resolve(m, room, limits)
+        m = SE.effective(m, envelope)
+        base, height = m["base"], m["height"]
+        faces, volume = envelope["faces"], envelope["volume"]
         el = _element(ident, "IfcSpace", m, faces, volume, room["area"], level)
-        room_u = SP.space_at(SP.network_at(res_u, float(m.get("base", 0))), m["seed"])[0] if res_u is not None else None
+        room_u = SE.outline(m, res_u, ent)[0] if res_u is not None else None
         ev = SU.evaluate(m, room, room_u, by_use=by_use)
         exterior = (m.get("enclosure") or "interior") != "interior"
         usos = _usos(drawing)
@@ -325,13 +329,19 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD", problem
                        "ARQ_Recinto": {k: v for k, v in (("Uso", m.get("use") or None),
                                                          ("Acondicionado", m.get("conditioned")),
                                                          ("SourceId", ident),
+                                                         ("NetVolume", volume),
+                                                         ("NetFloorArea", room["area"]),
+                                                         ("Height", height),
+                                                         ("CriterioAltura", "máxima libre"),
                                                          ("CriterioSuperficie", ev["criterion"]),
                                                          ("SuperficieUtil", round(ev["useful"], 4)),
                                                          ("CoeficienteComputo", ev["factor"]),
                                                          ("SuperficieComputable", round(ev["computable"], 4)),
                                                          ("Habitable", ev["habitable"]),
                                                          ("Clase", m.get("enclosure") or "interior"),
-                                                         ("Techo", "falso techo" if m.get("ceiling") else "forjado"))
+                                                         ("Techo", m["upper_limit"]),
+                                                         ("LimitantesSuperiores", ", ".join(m["upper_limit_ids"])),
+                                                         ("LimitantesInferiores", ", ".join(m["lower_limit_ids"])))
                                        if v is not None}}
         try:
             from .cte_usos import pset as _cte_pset
@@ -346,12 +356,12 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD", problem
         el["quantities"] = {"Height": height, "GrossFloorArea": room["area"], "NetFloorArea": room["area"],
                             "GrossPerimeter": room["perimeter"], "NetPerimeter": room["perimeter"],
                             "GrossVolume": volume, "NetVolume": volume}
-        if m.get("ceiling"):
+        if envelope["ceiling_cells"]:
             # the room is the air below the false ceiling (Qto_SpaceBaseQuantities)
             el["quantities"]["FinishCeilingHeight"] = height
         elements.append(el)
-        if m.get("ceiling"):
-            elements.append(_ceiling(ident, m, room, base + height, level))
+        if envelope["ceiling_cells"]:
+            elements.append(_ceiling(ident, m, room, base + height, level, envelope["ceiling_cells"]))
     from .slabs import elements as slab_elements
     elements.extend(slab_elements(drawing,skip))
     from . import levels as LV
@@ -417,12 +427,18 @@ def _usos(drawing):
     return out
 
 
-def _ceiling(space_id, m, room, z, level):
+def _ceiling(space_id, m, room, z, level, cells=None):
     """The false ceiling of a room as an IfcCovering .CEILING.: its outline,
     from the top of the room upwards, so the room's top face is coplanar
     with the ceiling's underside (what thermal analysis tools require)."""
     t = float(m.get("ceiling_thickness") or CEILING_THICKNESS)
     faces, volume = S.wall_solid(room["pieces"], (0.0, 0.0), (1.0, 0.0), z, t, ())
+    if cells is not None:
+        from .geom import polygon as P
+        faces = S.boundary(cells)
+        volume = sum(P.area(p)*(hi-lo) for p, (lo, hi) in cells)
+        room = {**room, 'area': sum(P.area(p) for p, _ in cells)}
+        z = min(lo for _, (lo, hi) in cells)
     cm = {"name": "Falso techo de " + (m.get("name") or "Recinto"), "height": t, "base": z,
           "type_name": m.get("ceiling_type") or "", "material": m.get("ceiling_material") or ""}
     el = _element(space_id + "-techo", "IfcCovering", cm, faces, volume, room["area"], level)

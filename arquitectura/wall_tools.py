@@ -1203,7 +1203,8 @@ SPACE_LAYER = "ARQ-RECINTOS"
 
 
 def create_space(seed, room, *, name, number, height, base=0.0, level="Planta baja", use="",
-                 ceiling=False, enclosure="interior", cte=None):
+                 ceiling=False, enclosure="interior", cte=None, height_mode="manual",
+                 boundary_mode="walls", level_id=None):
     """AddEntityCommand of a space: closed outline + its BIM record (seed)."""
     import uuid
     from core.actions import AddEntityCommand
@@ -1214,6 +1215,11 @@ def create_space(seed, room, *, name, number, height, base=0.0, level="Planta ba
            "base": float(base), "height": float(height), "ceiling": bool(ceiling), "enclosure": enclosure,
            "cte": dict(cte or {}), "area": room["area"],
            "perimeter": room["perimeter"], "islands": [[list(q) for q in h] for h in room["holes"]]}
+    rec.update(height_mode=height_mode, boundary_mode=boundary_mode)
+    if level_id:
+        rec['level_id'] = level_id
+    if boundary_mode == 'polyline':
+        rec['boundary'] = [list(q) for q in room['outer']]
 
     def factory(msp):
         e = msp.add_lwpolyline([tuple(q) for q in room["outer"]], close=True)
@@ -1231,6 +1237,9 @@ class RecintoTool(Tool):
         d = load_defaults(_document(self.ctx))["wall"]
         self.slab_height = self.height = float(d["height"])
         self.ceiling = False
+        self.height_mode = 'auto'
+        self.boundary_mode = 'walls'
+        self.points = []
         self.enclosure = "interior"
         self.level = d.get("level") or "Planta baja"
         self.use = ""
@@ -1250,7 +1259,7 @@ class RecintoTool(Tool):
                 return True
             values = bim_dialogs.space_properties(self.ctx, {
                 "name": self.next_name or "", "use": self.use, "enclosure": self.enclosure, "cte": self.cte,
-                "height": self.height, "ceiling": self.ceiling, "level": self.level})
+                "height": self.height, "height_mode": self.height_mode, "ceiling": self.ceiling, "level": self.level})
         except Exception as exc:  # noqa: BLE001
             self.ctx.echo(f"RECINTO: ficha no disponible ({type(exc).__name__}: {exc}).")
             return True
@@ -1271,16 +1280,18 @@ class RecintoTool(Tool):
         self.enclosure = values.get("enclosure") or "interior"
         self.height = float(values.get("height") or self.height)
         self.ceiling = bool(values.get("ceiling"))
+        self.height_mode = values.get("height_mode", self.height_mode)
         if not self.ceiling:
             self.slab_height = self.height
         self.level = values.get("level") or self.level
 
     def _prompt(self):
-        top = (f"falso techo a {self.height:g} m" if self.ceiling
-               else f"hasta el forjado, {self.height:g} m").replace(".", ",")
-        kind = "" if self.enclosure == "interior" else "exterior cubierto, "
-        self.prompt(f"RECINTO ({kind}{top}): haga clic dentro de la estancia o "
-                    "[Nombre/Altura/Falso techo/Tipo/Uso/D ficha]:")
+        mode = 'envolvente automática' if self.height_mode == 'auto' else 'altura manual'
+        if self.boundary_mode == 'polyline':
+            self.prompt(f'RECINTO ({mode}): puntos de la polilínea; Intro para cerrar [Retroceder/Clic]:')
+        else:
+            self.prompt(f'RECINTO ({mode}, altura de reserva {self.height:g} m): clic interior '
+                        '[Polilínea/Nombre/Altura/Envolvente/Falso techo/Tipo/Uso/D ficha]:')
 
     def _count(self):
         return sum(1 for e in _document(self.ctx).doc.modelspace()
@@ -1289,6 +1300,18 @@ class RecintoTool(Tool):
     def on_option(self, text):
         raw = str(text).strip()
         txt = raw.lower()
+        if not self.pending:
+            if txt in ('p', 'polilínea', 'polilinea'):
+                self.boundary_mode = 'polyline'; self.points = []; self.last_point = None
+                self._prompt(); return True
+            if txt in ('clic',):
+                self.boundary_mode = 'walls'; self.points = []; self.last_point = None
+                self._prompt(); return True
+            if txt in ('retroceder', 'r') and self.points:
+                self.points.pop(); self.last_point = self.points[-1] if self.points else None
+                self._prompt(); return True
+            if txt in ('envolvente', 'e'):
+                self.height_mode = 'auto'; self._prompt(); return True
         if self.pending:
             key, self.pending = self.pending, None
             if key == "name":
@@ -1304,6 +1327,7 @@ class RecintoTool(Tool):
                         raise ValueError
                     if v > 0:
                         self.height, self.ceiling = v, True
+                        self.height_mode = "auto"
                     else:
                         self.height, self.ceiling = self.slab_height, False
                 except ValueError:
@@ -1314,6 +1338,7 @@ class RecintoTool(Tool):
                     if not (math.isfinite(v) and v > 0):
                         raise ValueError
                     self.height = v
+                    self.height_mode = "manual"
                 except ValueError:
                     self.ctx.echo("Altura no válida.")
             self._prompt()
@@ -1349,17 +1374,49 @@ class RecintoTool(Tool):
             self.pending = None
             self._prompt()
             return
+        if self.boundary_mode == 'polyline':
+            from .slabs import region
+            from .geom import spaces as SP, polygon as P
+            try:
+                room = region(self.points)
+                room['perimeter'] = SP._perimeter(room['outer'])
+                piece = max(room['pieces'], key=P.area)
+                seed = tuple(sum(q[i] for q in piece)/len(piece) for i in (0, 1))
+                if not self._create(seed, room):
+                    return
+            except ValueError as exc:
+                self.ctx.echo('RECINTO: '+str(exc)); return
+            self.points = []; self.last_point = None; self._prompt(); return
         self.ctx.finish()
 
+    def preview_segments(self, cursor):
+        if self.boundary_mode != 'polyline' or not self.points:
+            return []
+        pts = self.points + ([tuple(cursor[:2])] if cursor is not None else [])
+        return list(zip(pts, pts[1:]+pts[:1]))
+
+    def preview_entities(self, cursor):
+        if self.boundary_mode != 'polyline' or not self.points or cursor is None:
+            return []
+        from ezdxf.entities import Text
+        a, b = self.points[-1], tuple(cursor[:2])
+        return [Text.new(dxfattribs={'text': f'{math.dist(a,b):.3f} m', 'height': .15,
+                                    'insert': ((a[0]+b[0])/2, (a[1]+b[1])/2, 0)})]
+
     def on_point(self, p):
+        if self.boundary_mode == 'polyline':
+            self.points.append(tuple(map(float, p[:2])))
+            self.last_point = self.points[-1]; self._prompt(); return
         from .exchange import read_model
-        from .geom import junctions as J
         from .geom import spaces as SP
         doc = _document(self.ctx).doc
         records, columns, _ops, _issues = read_model(doc, strict=False)
-        from .geom.bands import column_inputs
-        result = J.solve(J.walls_from_records(records), column_inputs(columns))
-        room, why = SP.space_at(result, p)
+        from .geom.bands import solve_records
+        from .levels import load
+        catalog = load(doc)
+        lv = next(v for v in catalog['levels'] if v['id'] == catalog['active'])
+        result = solve_records(records, columns)
+        room, why = SP.space_at(SP.network_at(result, lv['elevation']), p)
         if room is None:
             self.ctx.echo("RECINTO: " + ("el punto está dentro de un muro o pilar."
                                          if why == "muro" else
@@ -1368,28 +1425,51 @@ class RecintoTool(Tool):
         for e in doc.modelspace():
             m = metadata(e) or {}
             if m.get("kind") == "space" and m.get("seed"):
-                other, _w = SP.space_at(result, m["seed"])
+                if abs(float(m.get('base', 0))-lv['elevation']) > 1e-7:
+                    continue
+                if m.get('level_id') and m['level_id'] != lv['id']:
+                    continue
+                from .space_envelope import outline
+                other, _w = outline(m, result, e)
                 if other is not None and other["outer"] == room["outer"]:
                     self.ctx.echo(f"RECINTO: esa estancia ya es el recinto {m.get('name')}.")
                     return
+        self._create(p, room)
+
+    def _create(self, p, room):
+        from . import space_envelope as SE
+        from .levels import load, catalog_steps
+        from .transactions import SafeArchitecturalCommand
+        doc = _document(self.ctx)
+        if int(doc.doc.header.get('$INSUNITS', 0)) not in (0, 6):
+            self.ctx.echo('RECINTO exige metros; convierta las unidades explícitamente')
+            return False
+        catalog = load(doc)
+        lv = next(v for v in catalog['levels'] if v['id'] == catalog['active'])
         n = self._count() + 1
         name = self.next_name or f"Recinto {n}"
         number = self.number or n
         self.next_name = self.number = None
         cmd, rec = create_space(p, room, name=name, number=number, height=self.height,
                                 level=self.level, use=self.use, ceiling=self.ceiling,
-                                enclosure=self.enclosure, cte=self.cte)
+                                enclosure=self.enclosure, cte=self.cte,
+                                base=lv['elevation'], level_id=lv['id'],
+                                height_mode=self.height_mode, boundary_mode=self.boundary_mode)
         try:
-            apply(self.ctx, "ARQ RECINTO", [cmd], kind="space")
+            envelope = SE.resolve(rec, room, SE.boundaries(doc.doc))
+            rec['level'] = lv['name']
+            steps = [*catalog_steps(doc, catalog), cmd]
+            apply(self.ctx, "ARQ RECINTO", [SafeArchitecturalCommand('ARQ recinto y nivel', steps)], kind="space")
         except Exception as exc:  # noqa: BLE001
             self.ctx.echo(f"RECINTO: {type(exc).__name__}: {exc}")
-            return
+            return False
         islas = f", {len(room['holes'])} isla(s) descontada(s)" if room["holes"] else ""
         num = lambda v: f"{v:.2f}".replace(".", ",")  # noqa: E731
         self.ctx.echo(f"RECINTO: {name}: {num(room['area'])} m², perímetro {num(room['perimeter'])} m"
-                      f"{islas}; altura {num(self.height)} m"
+                      f"{islas}; altura libre máxima {num(envelope['height'])} m, límite {envelope['upper_limit']}"
                       f"{' hasta el falso techo' if self.ceiling else ''}.")
         self._prompt()
+        return True
 
 
 TOOLS = TOOLS + (RecintoTool, DivideMuroTool, BorraTramoTool, ParteMuroTool, UnirMuroTool)

@@ -136,6 +136,16 @@ def audit(drawing):
             except (KeyError, TypeError, ValueError, IndexError):
                 bad.append("eje")
         if kind == "space":
+            if m.get('height_mode', 'manual') not in ('auto', 'manual'):
+                bad.append('modo de altura')
+            if m.get('boundary_mode', 'walls') not in ('walls', 'polyline'):
+                bad.append('modo de contorno')
+            if m.get('boundary_mode') == 'polyline':
+                from .space_envelope import outline
+                try:
+                    outline(m, None, e)
+                except (ValueError, TypeError, KeyError) as exc:
+                    bad.append(str(exc))
             seed = m.get("seed")
             if not (isinstance(seed, (list, tuple)) and len(seed) >= 2 and all(_num(v) is not None for v in seed[:2])):
                 bad.append("punto interior")

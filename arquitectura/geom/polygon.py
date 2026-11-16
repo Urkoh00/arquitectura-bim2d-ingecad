@@ -194,8 +194,10 @@ def triangulate(poly):
 
 def _inside_tri(p, tri):
     a, b, c = tri
-    return (cross(sub(b, a), sub(p, a)) > 1e-14 and cross(sub(c, b), sub(p, b)) > 1e-14
-            and cross(sub(a, c), sub(p, c)) > 1e-14)
+    # A reflex vertex ON an ear diagonal also blocks that ear. Otherwise
+    # an L-shaped outline can produce overlapping triangles and excess area.
+    return (cross(sub(b, a), sub(p, a)) >= -1e-14 and cross(sub(c, b), sub(p, b)) >= -1e-14
+            and cross(sub(a, c), sub(p, c)) >= -1e-14)
 
 
 def convex_parts(poly):

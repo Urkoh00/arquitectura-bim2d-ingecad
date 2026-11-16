@@ -222,6 +222,8 @@ def transform_record(m, aff, entity=None, hosts=None):
     elif kind=='slab':
         new['thickness']=float(m['thickness'])*abs(aff.kz)
     elif kind == "space":
+        if m.get("boundary"):
+            new["boundary"] = [aff.point(q) for q in m["boundary"]]
         for k in ("seed", "ref_vertex"):
             if m.get(k):
                 new[k] = aff.point(m[k])
