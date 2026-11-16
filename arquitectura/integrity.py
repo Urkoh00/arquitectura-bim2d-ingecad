@@ -25,8 +25,8 @@ import math
 
 from .architectural import APPID, metadata
 
-KINDS = ("wall", "column", "opening", "space")
-NAMES = {"wall": "Muro", "column": "Pilar", "opening": "Carpintería", "space": "Recinto"}
+KINDS = ("wall", "column", "opening", "space", "slab")
+NAMES = {"wall": "Muro", "column": "Pilar", "opening": "Carpintería", "space": "Recinto", "slab":"Forjado"}
 TOL = 1e-6
 
 
@@ -99,11 +99,26 @@ def audit(drawing):
         seen[ident] = e
         valid.append((e, m))
 
+    from . import levels as LV
+    if LV.KEY in drawing.rootdict:
+        try:
+            data=LV.load(drawing);catalog={v['id']:v for v in data['levels']}
+            for e,m in valid:
+                if m['kind']not in LV.KINDS:continue
+                lv=catalog.get(m.get('level_id'))
+                if lv is None or lv['name']!=m.get('level') or m['id']in catalog:
+                    problems.append(_problem('nivel','Nivel no registrado o incoherente; use NIVELES/NIVELASIGNAR',[e],[m['id']]))
+        except (ValueError,TypeError,KeyError)as exc:
+            problems.append(_problem('catalogo','Catálogo de niveles inválido: '+str(exc),[e for e,m in valid]))
     # measures of every element
     walls = {}
     for e, m in valid:
         kind = m["kind"]
         bad = []
+        if kind=='slab':
+            from .slabs import read
+            try:read(e)
+            except (ValueError,TypeError,KeyError)as exc:bad.append(str(exc))
         if kind in ("wall", "column", "space"):
             h = _num(m.get("height"))
             if h is None or h <= 0:

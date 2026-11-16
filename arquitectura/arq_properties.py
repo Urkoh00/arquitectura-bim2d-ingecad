@@ -16,7 +16,7 @@ def resolve_arch_entity(doc, picked):
     if picked is None:
         return None, 'No se ha seleccionado una entidad.'
     data=metadata(picked) or {}
-    if data.get('kind') in ('wall','column','opening','space'):
+    if data.get('kind') in ('wall','column','opening','space','slab'):
         return picked, ''
     if data.get('kind') in ('opening_symbol','column_detail','space_label'):
         key,want={'opening_symbol':('opening_id','opening'),'column_detail':('column_id','column'),
@@ -107,7 +107,12 @@ class ArqPropiedadesTool(Tool):
             if not bim_dialogs.available(self.ctx):
                 self.ctx.echo('Ficha BIM no disponible en este entorno; entidad '+str(data.get('id')))
                 return
-            if data['kind']=='wall':
+            if data['kind']=='slab':
+                from .slabs import read as slab_read
+                from .slab_tools import form,edit_change
+                data=slab_read(entity);dlg,read=form(self.ctx,data)
+                command=edit_change(self.ctx,entity,read())if dlg.exec()==1 else None
+            elif data['kind']=='wall':
                 from .architectural_v10 import edit_wall
                 values=bim_dialogs.wall_properties(self.ctx,data)
                 command=(edit_wall(entity, **{k:v for k,v in values.items() if k!='ifc_class'})

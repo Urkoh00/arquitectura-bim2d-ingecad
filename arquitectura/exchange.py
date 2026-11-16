@@ -352,6 +352,13 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD", problem
         elements.append(el)
         if m.get("ceiling"):
             elements.append(_ceiling(ident, m, room, base + height, level))
+    from .slabs import elements as slab_elements
+    elements.extend(slab_elements(drawing,skip))
+    from . import levels as LV
+    catalog=None
+    if LV.KEY in drawing.rootdict or any(el['ifc_class']=='IfcSlab'for el in elements):
+        try:catalog=LV.load(drawing)
+        except (ValueError,TypeError,KeyError):issues.append('Catálogo de niveles inválido: consulte el diagnóstico')
     # last guard: one identity, one GlobalId, also for the derived objects
     # (holes, false ceilings); a repeat is never written to the contract
     ids, kept = set(), []
@@ -366,11 +373,20 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD", problem
     from .grids import contract as grid_contract
     references=grid_contract(drawing)
     extended=bool(references['grids']) or any(el.get('params',{}).get('curve_mode')=='curva' for el in elements)
+    if catalog:
+        byname={v['name']:v for v in catalog['levels']}
+        for el in elements:
+            lv=byname.get(el.get('level'))
+            if lv:
+                el['level_id']=lv['id'];el['params']['level_offset']=float(el['params'].get('base',0))-lv['elevation']
+        level_rows=[{**v,'guid':ifc_guid(v['id'])}for v in catalog['levels']]
+    else:level_rows=[{'name':n,'elevation':z}for n,z in sorted(levels.items(),key=lambda kv:kv[1])]
     return {
         "reference_grids": references,
-        "format": FORMAT, "version": 2 if extended else VERSION, "units": "m",
+        "format": FORMAT, "version": 3 if catalog else 2 if extended else VERSION, "units": "m",
         "generator": generator, "project": {"name": project, **_usos(drawing)},
-        "levels": [{"name": n, "elevation": z} for n, z in sorted(levels.items(), key=lambda kv: kv[1])],
+        "levels": level_rows,
+        **({'active_level_id':catalog['active']}if catalog else{}),
         "elements": elements,
         "joins": {"nodes": [{"walls": n["walls"], "point": list(n["point"])} for n in result.nodes],
                   "tees": result.tees,

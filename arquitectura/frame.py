@@ -23,7 +23,7 @@ import copy
 import math
 
 FRAME_APPID = "ARQMARCO"
-KINDS = ("wall", "column", "opening", "space")
+KINDS = ("wall", "column", "opening", "space", "slab")
 TOL = 1e-9
 
 
@@ -219,6 +219,8 @@ def transform_record(m, aff, entity=None, hosts=None):
             new["sill"] = _scaled(m.get("sill", 0.0), aff.kz)
         if aff.mirrored:
             new["side"] = -int(m.get("side") or 1)
+    elif kind=='slab':
+        new['thickness']=float(m['thickness'])*abs(aff.kz)
     elif kind == "space":
         for k in ("seed", "ref_vertex"):
             if m.get(k):

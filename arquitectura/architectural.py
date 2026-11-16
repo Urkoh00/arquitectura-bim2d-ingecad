@@ -26,6 +26,9 @@ def finite(value, positive=False):
 
 def _xdata(msp, entity, obj):
     doc = msp.doc
+    if not entity.has_xdata(APPID):
+        from .levels import bind
+        obj=bind(doc,obj)
     if APPID not in doc.appids:
         doc.appids.new(APPID)
     # El grupo 1000 permite como máximo 255 bytes. ensure_ascii mantiene
@@ -33,7 +36,7 @@ def _xdata(msp, entity, obj):
     payload = json.dumps(obj, ensure_ascii=True, separators=(',', ':'))
     parts = [payload[i:i+200] for i in range(0, len(payload), 200)]
     entity.set_xdata(APPID, [(1000, part) for part in parts])
-    if isinstance(obj, dict) and obj.get('kind') in ('wall', 'column', 'opening', 'space'):
+    if isinstance(obj, dict) and obj.get('kind') in ('wall', 'column', 'opening', 'space','slab'):
         # the data is current: reset the frame that records IngeCAD's own
         # transformations of the element (frame.py)
         from .frame import set_frame

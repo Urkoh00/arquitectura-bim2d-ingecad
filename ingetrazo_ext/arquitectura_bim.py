@@ -28,7 +28,7 @@ import tempfile
 from pathlib import Path
 
 SUFFIX = ".arqbim"
-SUPPORTED = (1,2)
+SUPPORTED = (1,2,3)
 #: key of this extension's data in the document (``scene.plugin_data``):
 #: never the loader's file name, which the host would use by default
 DATA_KEY = "arquitectura"
@@ -36,7 +36,7 @@ DATA_KEY = "arquitectura"
 
 #: what each class may carry (possible finding 26 of the independent audit:
 #: a space with wall layers made the IFC writer produce an invalid file)
-ONLY_FOR = {"material_layers": {"IfcWall"}, "openings": {"IfcWall"},
+ONLY_FOR = {"material_layers": {"IfcWall"}, "openings": {"IfcWall","IfcSlab"},
             "fills": {"IfcDoor", "IfcWindow"}, "host": {"IfcDoor", "IfcWindow"},
             "parts": {"IfcDoor", "IfcWindow"}}
 
@@ -126,14 +126,17 @@ def validate_contract(data):
         if any(n != 2 for n in edges.values()) or any(directions.values()):
             raise ValueError("%s: sólido abierto o caras mal orientadas" % who)
 
-    levels = {}
+    levels = {};level_ids={}
     for lv in data.get("levels", []):
         if not isinstance(lv, dict) or not isinstance(lv.get("name"), str) or type(lv.get("elevation")) not in (int, float):
             raise ValueError("Planta no válida: %r" % lv)
         if lv["name"] in levels:
             raise ValueError("Planta repetida: %s" % lv["name"])
         levels[lv["name"]] = lv["elevation"]
-    allowed = {"IfcWall", "IfcColumn", "IfcDoor", "IfcWindow", "IfcSpace", "IfcCovering"}
+        if data['version']==3:
+            identity(lv);level_ids[lv['id']]=lv
+    if data['version']==3 and data.get('active_level_id')not in level_ids:raise ValueError('Nivel activo no válido')
+    allowed = {"IfcWall", "IfcColumn", "IfcDoor", "IfcWindow", "IfcSpace", "IfcCovering", "IfcSlab"}
     by_id = {}
     for el in data["elements"]:
         identity(el)
@@ -142,8 +145,10 @@ def validate_contract(data):
         who = "%s %s" % (cls, el.get("name") or el["id"])
         if cls not in allowed:
             raise ValueError("Clase no admitida: %r" % cls)
+        if cls=='IfcSlab'and data['version']!=3:raise ValueError('Los forjados necesitan contrato v3')
         if el.get("level") is not None and levels and el["level"] not in levels:
             raise ValueError("%s: planta %r inexistente" % (who, el["level"]))
+        if data['version']==3 and(el.get('level_id')not in level_ids or level_ids[el['level_id']]['name']!=el.get('level')):raise ValueError('Referencia de nivel incoherente: '+who)
         for key, classes in ONLY_FOR.items():
             if el.get(key) and cls not in classes:
                 raise ValueError("%s: «%s» solo es válido en %s" % (who, key, ", ".join(sorted(classes))))
@@ -269,7 +274,7 @@ def definition(data, source=""):
     meshes themselves. JSON-safe, so IngeTrazo saves it with the document
     and another tool can read the model without rebuilding it."""
     keep = ("id", "guid", "ifc_class", "name", "level", "material_layers", "type_name", "material", "params",
-            "psets", "quantities", "openings_ids", "fills", "host", "enums", "attributes", "parts")
+            "psets", "quantities", "openings_ids", "fills", "host", "enums", "attributes", "parts", "level_id")
     elements = []
     for el in data.get("elements", []):
         rec = {k: el[k] for k in keep if k in el}
@@ -279,7 +284,7 @@ def definition(data, source=""):
         elements.append(rec)
     return {"schema": 1, "format": data.get("format"), "version": data.get("version"),
             "generator": data.get("generator"), "project": data.get("project"),
-            "levels": data.get("levels"), "source": str(source), "elements": elements,
+            "levels": data.get("levels"), "active_level_id":data.get('active_level_id'), "source": str(source), "elements": elements,
             "reference_grids":data.get("reference_grids",{})}
 
 
@@ -304,9 +309,10 @@ def build_scene(data, offset=None):
     scene = Scene()
     layer_of = {"IfcWall": "ARQ-MUROS", "IfcColumn": "ARQ-PILARES", "IfcSpace": "ARQ-RECINTOS",
                 "IfcCovering": "ARQ-PILARES", "IfcDoor": "ARQ-CARPINTERIA",
-                "IfcWindow": "ARQ-CARPINTERIA"}
+                "IfcWindow": "ARQ-CARPINTERIA", "IfcSlab":"ARQ-FORJADOS"}
     for name in ("ARQ-MUROS", "ARQ-PILARES"):
         scene.layers.append(Layer(name, color=(0.72, 0.72, 0.70)))
+    if any(el['ifc_class']=='IfcSlab'for el in data['elements']):scene.layers.append(Layer('ARQ-FORJADOS',color=(.65,.65,.68)))
     if any((el.get("enums") or {}).get("PredefinedType") == "CEILING" for el in data["elements"]):
         scene.layers.append(Layer("ARQ-TECHOS", color=(0.92, 0.92, 0.88)))
     if any(el["ifc_class"] in ("IfcDoor", "IfcWindow") for el in data["elements"]):
@@ -350,6 +356,8 @@ def build_scene(data, offset=None):
         tag = {"class": el["ifc_class"], "name": g.name, "guid": el["guid"]}
         if el.get("level"):
             tag["storey"] = {"name": el["level"], "elevation": levels.get(el["level"], 0.0)}
+            if data['version']==3 and el.get('level_id'):
+                row=next(v for v in data['levels']if v.get('id')==el['level_id']);tag['storey'].update(id=row['id'],guid=row['guid'])
         if el.get("material"):
             tag["material"] = el["material"]
         if el.get("type_name"):

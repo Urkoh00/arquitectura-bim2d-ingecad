@@ -27,7 +27,7 @@ import uuid
 from .architectural import metadata
 
 GROUP_PREFIX = "ARQ_"
-KINDS = ("wall", "column", "opening", "space")
+KINDS = ("wall", "column", "opening", "space", "slab")
 
 
 def _handle_key(entity):
@@ -69,6 +69,7 @@ def sync_changes(drawing, tol=1e-9, notes=None):
         if m["id"] in seen:
             new["id"] = uuid.uuid4().hex
             new["copied_from"] = m["id"]
+            if m['kind']=='slab':new['hole_ids']=[uuid.uuid4().hex for _ in range(max(0,len(e.paths)-1))]
             changed = True
         seen.add(new["id"])
         if e.dxftype() == "LWPOLYLINE":
@@ -135,6 +136,7 @@ def snapshot_groups(drawing):
 def delete_groups(drawing):
     for name, _g in arq_groups(drawing):
         try:
+            _g.clear()  # detach persistent reactors before discarding the group
             drawing.groups.delete(name)
         except Exception:  # noqa: BLE001
             pass

@@ -2,6 +2,32 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.24.0-dev — 2026-11-16
+
+Integra la entrega R16-0 + R16-1/2 de Codex (inicio de la fase 5), revisada: SHA-256 correcto; 649 pruebas
+con IngeCAD 0.8 y 640 + 9 con la 0.7 (32 nuevas). Cadena IGZ/IFC comprobada con IngeTrazo 0.6.1 y 0.6.2.
+
+### Niveles (R16-1)
+- **NIVELES:** catálogo de plantas (nombre y elevación) y nivel activo, que se aplica a muros, pilares y
+  forjados nuevos. La primera confirmación (o `NIVELES MIGRAR`) asigna lo existente a «Planta baja» sin
+  cambiar cotas ni identificadores; abrir un dibujo no lo migra. Cambiar la elevación desplaza los elementos
+  del nivel; no se elimina una planta con elementos.
+- **NIVELASIGNAR:** pasa la selección a otro nivel, conservando la cota absoluta o alineándola. Las puertas
+  siguen a su muro.
+
+### Forjados (R16-2)
+- **FORJADO:** horizontal, con nombre, material, espesor (crece hacia abajo) y desfase de la cara superior
+  respecto al nivel; contorno por puntos (también cóncavo) y huecos interiores con la opción `Hueco`.
+- **HUECOFORJADO:** añade huecos a un forjado existente. Edición desde Propiedades; un Deshacer.
+- `.arqbim` v3 (solo si hay niveles o forjados; los dibujos sin ellos siguen en v1/v2). Hay que actualizar
+  la extensión de IngeTrazo.
+
+### IngeTrazo
+- Sus exportadores (0.6.1 y 0.6.2) siguen escribiendo una única planta «Storey» y no exportan el catálogo de
+  niveles al IFC (T-03). El catálogo y los identificadores sí se conservan en el IGZ.
+
+Pendiente: R16-3 (recintos limitados por forjado, cubierta o falso techo) y R16-4 (cubierta y falso techo).
+
 ## 1.23.0-dev — 2026-11-15
 
 Integra la entrega R14-e de Codex, revisada: SHA-256 correcto; 617 pruebas con IngeCAD 0.8 y 608 + 9 con la

@@ -208,7 +208,7 @@ def test_carpentry_tool_places_curved_window_by_face_arc(plugin):
 def test_contract_legacy_reader_version_is_preserved_without_new_features(plugin,tmp_path):
     s=Session(plugin);data=s.export(tmp_path);assert data['version']==1
     bridge().validate_contract(data)
-    data['version']=3
+    data['version']=4
     with pytest.raises(ValueError,match='versión'):bridge().validate_contract(data)
 
 @pytest.mark.parametrize('native',['own','both'])

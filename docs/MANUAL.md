@@ -1,12 +1,12 @@
 # Manual de Arquitectura para IngeCAD
 
-Versión 1.23.0-dev · 15-11-2026
+Versión 1.24.0-dev · 16-11-2026
 
 > Copia del manual publicado como documento en claude.ai; se regenera con cada versión.
 
 ## Qué es
 
-Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.23.0-dev** y se actualiza con cada versión.
+Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.24.0-dev** y se actualiza con cada versión.
 
 Cada elemento guarda su identidad persistente, su clase IFC, su geometría editable en planta, sus parámetros 3D (altura, espesor, cota), sus propiedades constructivas (tipo, material, capas) y su nivel. Las carpinterías conocen su muro y los recintos siguen a los muros que los cierran.
 
@@ -23,7 +23,7 @@ El plugin se instala copiando una carpeta en IngeCAD, y la extensión copiando d
 
 **En IngeCAD**
 
-1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.23.0-dev.zip`.
+1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.24.0-dev.zip`.
 2. Copie la carpeta `arquitectura` en la carpeta de plugins de IngeCAD.
 3. Reinicie IngeCAD. Aparece el menú *Arquitectura* y su barra de herramientas.
 4. Escriba `ARQDIAG` en la línea de órdenes para comprobar que la versión cargada es la que acaba de copiar.
@@ -381,6 +381,14 @@ Si encuentra alguno, abre un cuadro con la lista. Al seleccionar un problema, su
 
 **Volver a importar (desde la 1.20).** Si cambia el plano en IngeCAD, exporte de nuevo el `.arqbim` y vuelva a abrirlo en IngeTrazo: el modelo se **actualiza** en lugar de duplicarse. Los elementos se reconocen por su identificador BIM; los cambiados se sustituyen, los nuevos se añaden y los borrados se retiran, todo en un solo `Deshacer`. Copie en la carpeta de extensiones de IngeTrazo los dos ficheros, `arquitectura_bim.py` y `_arqbim_sync.py`. Los modelos importados con versiones anteriores no se actualizan solos: bórrelos antes de la primera reimportación.
 
+## Niveles y forjados
+
+`NIVELES` abre el catálogo de plantas (nombre y elevación en metros) y permite elegir el **nivel activo**, que reciben los muros, pilares y forjados nuevos. La primera vez que se confirma, los elementos existentes pasan a «Planta baja» sin cambiar sus cotas ni sus identificadores; abrir o leer un dibujo no lo cambia. `NIVELES MIGRAR` hace esa asignación sin diálogo. Renombrar un nivel conserva su identidad; cambiar su elevación desplaza los elementos asociados. No se puede eliminar una planta que tenga elementos. El nivel activo no oculta las demás plantas. `NIVELASIGNAR` pasa la selección a otro nivel, conservando su cota absoluta o alineándola con el nivel; las puertas siguen a su muro.
+
+`FORJADO` crea un forjado **horizontal**: indique nombre, material, espesor y desfase de la **cara superior** respecto al nivel activo (el espesor crece hacia abajo). Dibuje el contorno en planta y pulse Intro; con la opción `Hueco` dibuje cada hueco y ciérrelo con Intro; otro Intro confirma todo. Esc cancela; `Retroceder` o `U` quita el último punto. Se admiten contornos cóncavos con huecos interiores que no se corten. `HUECOFORJADO` añade un hueco a un forjado existente. Las propiedades (nombre, material, espesor, desfase, quitar huecos) se cambian con `PROPIEDADESARQ`. El sombreado del forjado guarda su contorno real: no lo borre como si fuera auxiliar. Los forjados inclinados, la cubierta y el falso techo llegarán más adelante.
+
+Con niveles o forjados, el intercambio usa `.arqbim` v3 y necesita la extensión de IngeTrazo actualizada. IngeTrazo conserva los niveles y los identificadores en el IGZ, pero su IFC (0.6.1 y 0.6.2) todavía escribe una sola planta «Storey» y no relaciona los huecos de forjado.
+
 ## Ejes estructurales (rejillas) y carpintería curva
 
 **EJES** (o `REJILLA`) dibuja la malla de ejes de una vez: origen, ángulo y separaciones en cada dirección, como lista o en la forma `3x5,40 4,20` (tres vanos de 5,40 y uno de 4,20). Una dirección se numera (1, 2, 3…) y la otra con letras mayúsculas, saltando I, O y Ñ; después de Z siguen AA, AB… Admite prefijo y sufijo. Los ejes sobresalen del contorno, llevan burbuja (círculo o hexágono) con su identificador en uno o ambos extremos y van en la capa `ARQ-EJES`, en trazo y punto gris fino. La opción «Suelto» crea un eje por dos puntos. Se acotan solos (cadena y total) y las cotas se regeneran al mover un eje.
@@ -430,7 +438,7 @@ Si encuentra alguno, abre un cuadro con la lista. Al seleccionar un problema, su
 
 ## Limitaciones conocidas
 
-Estas son las limitaciones conocidas de la versión 1.23.0-dev; cada versión actualiza esta lista.
+Estas son las limitaciones conocidas de la versión 1.24.0-dev; cada versión actualiza esta lista.
 
 - **Plataforma:** las pruebas automáticas se ejecutan en Linux y en Windows con IngeCAD oficial (las versiones 0.7.0 y 0.8.0), pero sin pantalla. El usuario probó la v1.17 en Windows 10 con IngeCAD 0.8 e IngeTrazo 0.6.1: la cadena hasta el IFC funcionó; las correcciones de la v1.18 salen de esa prueba.
 - **Muros curvos:** cada muro llega como mucho a media circunferencia (un muro redondo son dos). MUROPARALELO y DIVIDEMURO solo toman líneas rectas como referencia. El gesto de esquina en L al terminar un MURO solo recorta muros rectos.
@@ -444,6 +452,7 @@ Estas son las limitaciones conocidas de la versión 1.23.0-dev; cada versión ac
 
 | Fecha | Versión | Novedades |
 | --- | --- | --- |
+| 16-11-2026 | 1.24.0-dev | Niveles (NIVELES, NIVELASIGNAR) y forjados horizontales con huecos (FORJADO, HUECOFORJADO); .arqbim v3 |
 | 15-11-2026 | 1.23.0-dev | ARMARIOBIM: armario empotrado como nicho parcial; LINEASAMURO con retornos escalonados de fachada y rangos de espesor por categoría |
 | 15-11-2026 | 1.22.3-dev | LINEASAMURO: marco y retranqueo de ventanas, arcos retirados, puerta junto a muro transversal, correderas exteriores, armarios y aviso de escaleras; capa ARQ-PILARES; cotas de rejilla fuera de las burbujas |
 | 15-11-2026 | 1.22.2-dev | EJES con tabla de separaciones y punto de inserción; LINEASAMURO muestra y resalta la zona; espesor total de los tipos de muro |
