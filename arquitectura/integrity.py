@@ -126,6 +126,10 @@ def audit(drawing):
             if _num(m.get("base", 0)) is None:
                 bad.append("cota")
         if kind == "wall":
+            from .wall_constraints import resolve
+            from .levels import load
+            try:m=resolve(m,load(drawing))
+            except (ValueError,KeyError,TypeError)as exc:bad.append(str(exc))
             t = _num(m.get("thickness"))
             if t is None or t <= 0:
                 bad.append("espesor")
@@ -188,6 +192,7 @@ def audit(drawing):
             problems.append(_problem("hueco", f"{_label(m)}: {why}.", [e, wall_e], [m["id"], host]))
             continue
         for other_e, o in by_host.get(host, []):
+            if m.get('cabinet_mode')==o.get('cabinet_mode')=='adosado' and m.get('side')!=o.get('side'):continue
             ds = min(s + w, float(o["offset"]) + float(o["width"])) - max(s, float(o["offset"]))
             dz = min(z + h, float(o["sill"]) + float(o["height"])) - max(z, float(o["sill"]))
             if ds > 1e-6 and dz > 1e-6:

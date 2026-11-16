@@ -26,6 +26,7 @@ R = 9
 def _cells(pieces, wall_frame, base, height, openings, spec=None):
     """[(convex_polygon, [(z0, z1), ...])] for one wall (``spec``: the
     junctions.Wall, needed for a curved wall: its jambs are radial)."""
+    openings=[o for o in openings if o.get("cabinet_mode")!="adosado"]
     a, u = wall_frame
     curved = getattr(spec, "curved", False)
     cuts = sorted({float(o["offset"]) for o in openings} |

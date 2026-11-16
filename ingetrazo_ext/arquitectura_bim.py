@@ -37,8 +37,8 @@ DATA_KEY = "arquitectura"
 #: what each class may carry (possible finding 26 of the independent audit:
 #: a space with wall layers made the IFC writer produce an invalid file)
 ONLY_FOR = {"material_layers": {"IfcWall"}, "openings": {"IfcWall","IfcSlab"},
-            "fills": {"IfcDoor", "IfcWindow"}, "host": {"IfcDoor", "IfcWindow"},
-            "parts": {"IfcDoor", "IfcWindow"}}
+            "fills": {"IfcDoor", "IfcWindow"}, "host": {"IfcDoor", "IfcWindow", "IfcBuildingElementProxy"},
+            "parts": {"IfcDoor", "IfcWindow", "IfcBuildingElementProxy"}}
 
 # colours of the carpentry's pieces by the material's name (the plugin sends
 # names: «Madera», «Aluminio», «Vidrio»...). A material the document already
@@ -136,7 +136,7 @@ def validate_contract(data):
         if data['version']==3:
             identity(lv);level_ids[lv['id']]=lv
     if data['version']==3 and data.get('active_level_id')not in level_ids:raise ValueError('Nivel activo no válido')
-    allowed = {"IfcWall", "IfcColumn", "IfcDoor", "IfcWindow", "IfcSpace", "IfcCovering", "IfcSlab"}
+    allowed = {"IfcWall", "IfcColumn", "IfcDoor", "IfcWindow", "IfcSpace", "IfcCovering", "IfcSlab", "IfcBuildingElementProxy"}
     by_id = {}
     for el in data["elements"]:
         identity(el)
@@ -309,7 +309,8 @@ def build_scene(data, offset=None):
     scene = Scene()
     layer_of = {"IfcWall": "ARQ-MUROS", "IfcColumn": "ARQ-PILARES", "IfcSpace": "ARQ-RECINTOS",
                 "IfcCovering": "ARQ-PILARES", "IfcDoor": "ARQ-CARPINTERIA",
-                "IfcWindow": "ARQ-CARPINTERIA", "IfcSlab":"ARQ-FORJADOS"}
+                "IfcWindow": "ARQ-CARPINTERIA", "IfcSlab":"ARQ-FORJADOS", "IfcBuildingElementProxy":"ARQ-ARMARIOS"}
+    if any(el["ifc_class"]=="IfcBuildingElementProxy" for el in data["elements"]):scene.layers.append(Layer("ARQ-ARMARIOS",color=(.62,.45,.30)))
     for name in ("ARQ-MUROS", "ARQ-PILARES"):
         scene.layers.append(Layer(name, color=(0.72, 0.72, 0.70)))
     if any(el['ifc_class']=='IfcSlab'for el in data['elements']):scene.layers.append(Layer('ARQ-FORJADOS',color=(.65,.65,.68)))

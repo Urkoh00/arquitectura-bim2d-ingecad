@@ -94,7 +94,8 @@ def create(outer,holes=(),*,thickness=.2,top=0.,level_id=None,level=None,name='F
         **({'level_id':level_id}if level_id else{}),**({'level':level}if level else{})})
     def factory(msp):
         e=msp.add_hatch(color=8);e.transparency=.85;_geometry(e,record);return _xdata(msp,e,record)
-    return AddEntityCommand('ARQ FORJADO',factory,layer=LAYER)
+    from .level_layers import tagged
+    return tagged(AddEntityCommand('ARQ FORJADO',factory,layer=LAYER),record)
 
 
 class EditSlab(Command):
@@ -107,6 +108,8 @@ class EditSlab(Command):
         self.after=validate(record)
         self.after['id']=self.before['id']
     def do(self,document):
+        from .level_layers import require_unlocked
+        require_unlocked(document,self.entity)
         from .levels import bind
         _geometry(self.entity,self.after);_xdata(document.doc.modelspace(),self.entity,bind(document.doc,self.after));document.dirty=True
     def undo(self,document):_geometry(self.entity,self.before);_xdata(document.doc.modelspace(),self.entity,self.old_metadata);document.dirty=True

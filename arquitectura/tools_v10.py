@@ -18,7 +18,7 @@ class MuroTool(Tool):
         from .compat import require_document
         defaults=load_defaults(require_document(self.ctx))['wall']
         self.thickness=defaults['thickness'];self.height=defaults['height'];self.base=defaults['base'];self.reference=defaults['reference'];self.pending=None
-        self.bim={k:defaults[k] for k in ('name','type_name','material','level')}
+        self.bim={k:defaults[k] for k in ('name','type_name','material','level','wall_category')}
         # Prompt FIRST. No drawing mutation while ToolController.start_tool is
         # still activating this tool (some IngeCAD versions reset tools on edits).
         self.prompt('MURO: configurando propiedades arquitectónicas...')
@@ -28,7 +28,7 @@ class MuroTool(Tool):
             # a double-click on a wall: its properties, no sheet
             self.thickness=float(taken['thickness']);self.height=float(taken['height'])
             self.base=float(taken.get('base',0.0));self.reference=taken.get('reference',self.reference)
-            self.bim={k:taken.get(k,self.bim.get(k,'')) for k in ('name','type_name','material','level')}
+            self.bim={k:taken.get(k,self.bim.get(k,'')) for k in ('name','type_name','material','level','wall_category')}
             if taken.get('layers'):
                 self.bim['layers']=[list(l) for l in taken['layers']]
             self.ctx.echo('MURO: con las propiedades de '+(taken.get('name') or 'muro')
@@ -46,6 +46,8 @@ class MuroTool(Tool):
                 for key in ('thickness','height','base','reference'):
                     setattr(self,key,values[key])
                 self.bim={k:values[k] for k in self.bim}
+                from .wall_constraints import KEYS
+                self.bim.update({k:values[k] for k in KEYS if k in values})
                 if values.get('layers'):
                     self.bim['layers']=[list(l) for l in values['layers']]
             else:

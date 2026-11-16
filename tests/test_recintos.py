@@ -20,6 +20,7 @@ def _vivienda(s):
     draw(t, (0, 0), (8, 0), (8, 5), (0, 5), (0, 0))
     t = s.tool('MURO')
     t.thickness = 0.10
+    t.bim['wall_category'] = 'tabique'
     draw(t, (4, 0.15), (4, 4.85))                   # T en ambos extremos
 
 

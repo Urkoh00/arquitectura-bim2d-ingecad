@@ -31,7 +31,7 @@ _GUID_CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_$"
 
 PSET = {"IfcWall": "Pset_WallCommon", "IfcColumn": "Pset_ColumnCommon", "IfcSpace": "Pset_SpaceCommon",
         "IfcCovering": "Pset_CoveringCommon", "IfcDoor": "Pset_DoorCommon",
-        "IfcWindow": "Pset_WindowCommon"}
+        "IfcWindow": "Pset_WindowCommon", "IfcBuildingElementProxy":"Pset_BuildingElementProxyCommon"}
 
 
 def ifc_guid(hex_id):
@@ -82,6 +82,9 @@ def read_model(drawing, tol=1e-5, strict=True, skip=()):
         seen[ident] = e.dxf.handle
         m = dict(m)
         if kind == "wall":
+            from .wall_constraints import resolve
+            from .levels import load
+            m=resolve(m,load(drawing))
             if e.dxftype() == "LWPOLYLINE" and not e.closed and len(e) == 2:
                 a, b = _pts(e)
                 if math.dist(a, m["a"]) > tol or math.dist(b, m["b"]) > tol:
@@ -167,15 +170,18 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD", problem
         geo = result.walls[ident]
         faces, volume = S.layered_wall_solid(geo["bands"], spec, float(m.get("base", 0.0)), ops)
         el = _element(ident, "IfcWall", m, faces, volume, geo["area"], level)
-        if m.get('wall_role')=='tabiques':
-            el['enums']={'PredefinedType':'PARTITIONING'}
-            el['params']['wall_role']='tabiques'
+        from .wall_categories import category
+        cat=category(m,ident in external)
+        el['enums']={'PredefinedType':'PARTITIONING' if cat=='tabique' else 'STANDARD'}
+        el['params'].update(wall_category=cat,wall_role=m.get('wall_role',''))
+        el['psets']['ARQ_IngeCAD'].update(Categoria=cat,Medianera=cat=='medianera',ContactoTerreno=cat=='sotano')
         # envelope: a face on the outer boundary of the building (calculated)
-        el["psets"].setdefault("Pset_WallCommon", {})["IsExternal"] = ident in external
-        el["psets"]["ARQ_IngeCAD"]["IsExternalSource"] = "calculado"
-        el["is_external"] = ident in external
+        el["psets"].setdefault("Pset_WallCommon", {})["IsExternal"] = cat in ("fachada","medianera","sotano")
+        el["psets"]["ARQ_IngeCAD"]["IsExternalSource"] = "categoría" if m.get("wall_category") else "deducido"
+        el["is_external"] = cat in ("fachada","medianera","sotano")
         el["footprint"] = [[list(map(list, o)), [list(map(list, h)) for h in hs]]
                            for o, hs in geo["loops"]]
+        el["params"].update({k:m[k] for k in ("height_constraint","level_id","base_offset","top_level_id","top_offset")if k in m})
         el["params"].update(a=list(spec.a), b=list(spec.b), thickness=spec.thickness,
                             reference=spec.reference)
         if spec.curved:
@@ -204,6 +210,15 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD", problem
         fillings = []
         for o in ops:
             o = OP.normalise(o)
+            from .level_layers import opening_level
+            opening_storey=opening_level(drawing,o,m)['name']
+            if o.get('cabinet_mode')=='adosado':
+                from . import cabinets as C
+                front=_filling(o,spec,m,opening_storey,None,ident)
+                front.pop('fills',None)
+                front['params'].update(cabinet_mode='adosado',body_id=o['id']+'-cuerpo')
+                fillings.extend([C.body_element(spec,o,m,opening_storey),front])
+                continue
             if spec.curved:          # the radial jambs and curved faces of the hole
                 box = S.prism_solid(OP.cut_polygon(spec, o, 0.0),
                                     float(m.get("base", 0.0)) + float(o["sill"]), float(o["height"]))[0]
@@ -225,7 +240,7 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD", problem
             if filled:
                 if o.get('curve_mode')=='curva' and not any('IFC: dimensiones curvas' in note for note in issues):
                     issues.append('IFC: dimensiones curvas y relaciones de huecos no fiables en el ensayo del exportador oficial; las medidas de origen permanecen en el contrato.')
-                fillings.append(_filling(o, spec, {**m, "_external": ident in external}, level,
+                fillings.append(_filling(o, spec, {**m, "_external": el["is_external"]}, opening_storey,
                                          ifc_guid(void_id), ident))
         elements.append(el)
         elements.extend(fillings)
@@ -305,6 +320,8 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD", problem
     by_use = general_options(drawing)["usar_usos"]
     from . import space_envelope as SE
     limits = SE.boundaries(drawing, skip)
+    from . import cabinets as C
+    cabinet_items=C.placed(drawing,skip)
     for ident, m, ent in read_spaces(drawing, skip=skip):
         level = m.get("level") or "Planta baja"
         levels.setdefault(level, float(m.get("base", 0.0)))
@@ -315,11 +332,17 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD", problem
                           if why == "muro" else "no está cerrado") + "; no se exporta")
             continue
         envelope = SE.resolve(m, room, limits)
+        from . import cabinets as C
+        gross_volume=envelope["volume"]
+        obstacles=C.obstacles(drawing,SE.effective(m,envelope),room,cabinet_items)
+        envelope=C.clip_air(envelope,obstacles)
+        net_room=C.useful_room(room,obstacles)
         m = SE.effective(m, envelope)
         base, height = m["base"], m["height"]
         faces, volume = envelope["faces"], envelope["volume"]
         el = _element(ident, "IfcSpace", m, faces, volume, room["area"], level)
         room_u = SE.outline(m, res_u, ent)[0] if res_u is not None else None
+        room_u=C.useful_room(room_u or room,obstacles)
         ev = SU.evaluate(m, room, room_u, by_use=by_use)
         exterior = (m.get("enclosure") or "interior") != "interior"
         usos = _usos(drawing)
@@ -330,7 +353,7 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD", problem
                                                          ("Acondicionado", m.get("conditioned")),
                                                          ("SourceId", ident),
                                                          ("NetVolume", volume),
-                                                         ("NetFloorArea", room["area"]),
+                                                         ("NetFloorArea", net_room["area"]),
                                                          ("Height", height),
                                                          ("CriterioAltura", "máxima libre"),
                                                          ("CriterioSuperficie", ev["criterion"]),
@@ -353,12 +376,17 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD", problem
             el["psets"]["ARQ_ClasificacionCTE"] = cte
         el["params"].update(seed=list(map(float, m["seed"])))
         el["footprint"] = [[[list(q) for q in room["outer"]], [[list(q) for q in h] for h in room["holes"]]]]
-        el["quantities"] = {"Height": height, "GrossFloorArea": room["area"], "NetFloorArea": room["area"],
-                            "GrossPerimeter": room["perimeter"], "NetPerimeter": room["perimeter"],
-                            "GrossVolume": volume, "NetVolume": volume}
+        el["quantities"] = {"Height": height, "GrossFloorArea": room["area"], "NetFloorArea": net_room["area"],
+                            "GrossPerimeter": room["perimeter"], "NetPerimeter": net_room["perimeter"],
+                            "GrossVolume": gross_volume, "NetVolume": volume}
         if envelope["ceiling_cells"]:
             # the room is the air below the false ceiling (Qto_SpaceBaseQuantities)
             el["quantities"]["FinishCeilingHeight"] = height
+        for furniture in elements:
+            cid=furniture.get('params',{}).get('cabinet_id') or (furniture.get('id') if furniture.get('params',{}).get('cabinet_mode')=='adosado' else None)
+            if cid and any(o[3]==cid for o in obstacles):
+                furniture['params'].setdefault('space_ids',[]).append(ident)
+                furniture['psets'].setdefault('ARQ_Armario',{})['Recintos']=', '.join(furniture['params']['space_ids'])
         elements.append(el)
         if envelope["ceiling_cells"]:
             elements.append(_ceiling(ident, m, room, base + height, level, envelope["ceiling_cells"]))
@@ -519,8 +547,9 @@ def _filling(o, spec, wall_meta, level, void_guid, wall_id):
             el['enums']['OperationType']='USERDEFINED'
             el['attributes']={'ObjectType':'ARMARIO','UserDefinedOperationType':f"{o['leaves']}_HOJAS_{o['operation']}"}
         else:el['attributes']={'ObjectType':'ARMARIO'}
-        el['psets']['ARQ_Armario']={'NicheDepth':o['niche_depth'],'Leaves':o['leaves'],'Operation':o['operation']}
-        el['params'].update(cabinet=True,niche_depth=o['niche_depth'])
+        el['psets']['ARQ_Armario']={'Depth':o['niche_depth'],'Mode':o.get('cabinet_mode','nicho'),'Leaves':o['leaves'],'Operation':o['operation']}
+        if o.get('cabinet_mode')!='adosado':el['psets']['ARQ_Armario']['NicheDepth']=o['niche_depth']
+        el['params'].update(cabinet=True,niche_depth=o['niche_depth'],cabinet_mode=o.get('cabinet_mode','nicho'))
     el["host"] = wall_id
     el["params"].update({k: o.get(k) for k in ("offset", "width", "sill", "leaves", "leaf", "leaf2",
                                               "side", "hinge", "face", "setback", "setback_from", "frame_width", "frame_depth",

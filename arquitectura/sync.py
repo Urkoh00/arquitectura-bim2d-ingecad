@@ -71,6 +71,11 @@ def sync_changes(drawing, tol=1e-9, notes=None):
             new["copied_from"] = m["id"]
             if m['kind']=='slab':new['hole_ids']=[uuid.uuid4().hex for _ in range(max(0,len(e.paths)-1))]
             changed = True
+        if new.get('kind')=='wall' and new.get('height_constraint')=='level':
+            from .wall_constraints import resolve
+            from .levels import load
+            resolved=resolve(new,load(drawing))
+            if resolved!=new:new=resolved;changed=True
         seen.add(new["id"])
         if e.dxftype() == "LWPOLYLINE":
             pts = _points(e)

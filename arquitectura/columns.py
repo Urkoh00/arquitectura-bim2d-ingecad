@@ -19,7 +19,8 @@ def column_command(center,values):
          'center':list(map(float,center[:2])),**props}
     def factory(msp):
         return _xdata(msp,msp.add_lwpolyline(points,close=True),rec)
-    return AddEntityCommand('ARQ PILAR',factory,layer=PILLAR_LAYER)
+    from .level_layers import tagged
+    return tagged(AddEntityCommand('ARQ PILAR',factory,layer=PILLAR_LAYER),rec)
 
 class PilarBimTool(Tool):
     name='PILAR'

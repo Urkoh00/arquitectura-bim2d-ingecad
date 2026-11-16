@@ -76,9 +76,14 @@ def migrar_arq(ctx,*args):
         from .transactions import SafeArchitecturalCommand
         from .wall_network import RegenerateContoursCommand
         from core.commands import DeferredCommand
+        from .wall_categories import migrate_steps,LAYERS
+        from core.layers import NewLayerCommand
         cmd=MigrateLegacyWalls();layers=CanonicalPillarLayer()
         ctx.execute(SafeArchitecturalCommand('ARQ migrar ejes y regenerar',[
-            layers,cmd,DeferredCommand('ARQ contorno',lambda _:RegenerateContoursCommand())]))
+            *[NewLayerCommand(n,color=8)for n in LAYERS.values()if n not in ctx.document.doc.layers],
+            layers,cmd,DeferredCommand('ARQ categorías',lambda doc:SafeArchitecturalCommand('Categorías explícitas',migrate_steps(doc))),
+            DeferredCommand('ARQ contorno',lambda _:RegenerateContoursCommand())]))
+        ctx.echo('Categorías de muros deducidas y confirmadas; revise las medianeras y los contactos con el terreno.')
         ctx.echo(f'ARQMIGRAR: {cmd.count} registros anteriores convertidos a ejes BIM. Se puede deshacer.')
         if layers.count:ctx.echo(f'ARQ-PILARES: {layers.count} entidades conservadas en la capa normalizada; mismo Deshacer.')
     except Exception as exc:

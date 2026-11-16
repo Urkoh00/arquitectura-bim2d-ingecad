@@ -53,7 +53,10 @@ def create_wall(a, b, thickness=0.15, height=2.7, base=0.0, reference='eje', bul
     rec={'kind':'wall','schema':2,'id':uuid.uuid4().hex,'a':list(map(float,a[:2])),
          'b':list(map(float,b[:2])),'thickness':float(thickness),
          'height':height,'base':base,'reference':reference,
-         'ifc_class':'IfcWall',**{k:v for k,v in bim.items() if k in ('name','type_name','material','level','layers','wall_role')}}
+         'ifc_class':'IfcWall',**{k:v for k,v in bim.items() if k in ('name','type_name','material','level','layers','wall_role','wall_category','height_constraint','top_level_id','top_offset','base_offset','level_id')}}
+    from .wall_categories import category
+    rec['wall_category']=category(rec)
+    rec.setdefault('height_constraint','fixed')
     if abs(finite(bulge))>1e-9:
         rec['bulge']=float(bulge)
         check_curve(rec)
@@ -61,9 +64,15 @@ def create_wall(a, b, thickness=0.15, height=2.7, base=0.0, reference='eje', bul
         # Native CAD axis (as in Carreteras): single authoritative, open
         # polyline (with its bulge when curved). The visible wall footprint
         # is derived, never a second independent source footprint.
-        e=msp.add_lwpolyline(axis_points(rec),format='xyb')
-        return _xdata(msp,e,rec)
-    return AddEntityCommand('ARQ MURO',factory,layer=WALL_LAYER)
+        from .wall_constraints import resolve
+        from .levels import load
+        from .levels import bind
+        resolved=resolve(bind(msp.doc,rec),load(msp.doc))
+        e=msp.add_lwpolyline(axis_points(resolved),format='xyb')
+        return _xdata(msp,e,resolved)
+    from .wall_categories import LAYERS
+    from .level_layers import tagged
+    return tagged(AddEntityCommand('ARQ MURO',factory,layer=LAYERS[rec['wall_category']]),rec)
 
 
 def _find_openings(drawing, wall_id):
@@ -75,6 +84,10 @@ def opening_record(wall, offset, width, sill, height, kind, existing=None, **bim
     meta=metadata(wall)
     if not meta or meta.get('kind')!='wall':
         raise ValueError('Seleccione un muro arquitectónico (MURO)')
+    if meta.get('height_constraint')=='level':
+        from .wall_constraints import resolve
+        from .levels import load
+        meta=resolve(meta,load(wall.doc))
     kind=str(kind).lower()
     from . import openings as OP
     typ=OP.kind_of(kind)
@@ -100,7 +113,7 @@ def opening_record(wall, offset, width, sill, height, kind, existing=None, **bim
         rec.pop('chord',None)
     rec=OP.normalise(rec)
     OP.cut_band(spec,rec)
-    if typ != "gap":
+    if typ != "gap" and rec.get("cabinet_mode")!="adosado":
         band_spec,band_rec=OP.proxy(spec,rec)
         OP.frame_band(band_spec,band_rec)
         if spec.curved and rec.get("curve_mode")=="curva":
@@ -142,7 +155,8 @@ def create_opening(wall,offset,width=0.8,sill=0.0,height=2.1,kind='puerta',**bim
     rec,pt=opening_record(wall,offset,width,sill,height,kind,**bim)
     def factory(msp):
         return _xdata(msp,msp.add_lwpolyline(opening_symbol(wall,rec)),rec)
-    return AddEntityCommand('ARQ '+kind.upper(),factory,layer=OPENING_LAYER)
+    from .level_layers import tagged
+    return tagged(AddEntityCommand('ARQ '+kind.upper(),factory,layer=OPENING_LAYER),rec)
 
 
 class EditArchitecturalCommand:
@@ -154,6 +168,8 @@ class EditArchitecturalCommand:
         self.new_points=copy.deepcopy(points)
         self.new_position=position
         self.old_record=copy.deepcopy(metadata(entity))
+        self.old_layer=entity.dxf.layer
+        self.old_invisible=entity.dxf.get('invisible',0)
         if self.old_record is None:raise ValueError('Entidad sin datos ARQ')
         self.old_points=list(entity.get_points('xyb')) if entity.dxftype()=='LWPOLYLINE' else None
         self.old_position=tuple(entity.dxf.location) if entity.dxftype()=='POINT' else None
@@ -166,15 +182,28 @@ class EditArchitecturalCommand:
         if position is not None:self.entity.dxf.location=position
         _xdata(document.doc.modelspace(),self.entity,record)
         document.dirty=True
-    def do(self,document):self._apply(document,self.new_record,self.new_points,self.new_position)
-    def undo(self,document):self._apply(document,self.old_record,self.old_points,self.old_position)
+    def do(self,document):
+        from .level_layers import require_unlocked
+        require_unlocked(document,self.entity)
+        self._apply(document,self.new_record,self.new_points,self.new_position)
+    def undo(self,document):
+        self._apply(document,self.old_record,self.old_points,self.old_position)
+        self.entity.dxf.layer=self.old_layer
+        self.entity.dxf.invisible=self.old_invisible
 
 
 def edit_wall(entity,*,thickness=None,height=None,base=None,reference=None,
-              name=None,type_name=None,material=None,level=None,layers=None):
+              name=None,type_name=None,material=None,level=None,layers=None,wall_category=None,height_constraint=None,top_level_id=None,top_offset=None,base_offset=None,level_id=None):
     d=metadata(entity)
     if not d or d.get('kind')!='wall':raise ValueError('Entidad no es un muro ARQ')
     d=copy.deepcopy(d)
+    for key,value in (('height_constraint',height_constraint),('top_level_id',top_level_id),('top_offset',top_offset),('base_offset',base_offset),('level_id',level_id)):
+        if value is not None:d[key]=value
+    if height_constraint=='fixed':
+        for key in ('top_level_id','top_offset','base_offset'):d.pop(key,None)
+    if wall_category is not None:
+        from .wall_categories import category
+        d['wall_category']=category({'wall_category':wall_category})
     if thickness is not None:d['thickness']=finite(thickness,True)
     if height is not None:d['height']=finite(height,True)
     if base is not None:d['base']=finite(base)
@@ -187,6 +216,9 @@ def edit_wall(entity,*,thickness=None,height=None,base=None,reference=None,
         else:d.pop('layers',None)
     if d.get('layers') and abs(sum(float(t) for t,_m in d['layers'])-float(d['thickness']))>5e-4:
         d.pop('layers',None)            # the thickness changed by hand: the type's layers no longer fit
+    from .wall_constraints import resolve
+    from .levels import load
+    d=resolve(d,load(entity.doc))
     pts=wall_corners(d['a'],d['b'],d['thickness'],d.get('reference','eje'))
     check_curve(d)
     from .geom import junctions as J
