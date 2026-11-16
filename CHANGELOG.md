@@ -2,6 +2,24 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.26.0-dev — 2026-11-16
+
+Cotas temporales al dibujar muros y colocar carpinterías, como en los programas BIM habituales. Desarrollo
+de la dirección técnica; 682 pruebas con IngeCAD 0.8 y 673 + 9 con la 0.7; comprobado con capturas de la
+interfaz real.
+
+- **CARPINTERIA**: al pasar el cursor por un muro aparecen la distancia a la referencia de cada lado (fin del
+  paramento libre o jamba de otra carpintería) y el ancho del hueco, este en la otra cara para no cruzar el
+  giro. La cota activa va en naranja: escribir un número (`1,20`, `120cm`) coloca el hueco a esa distancia.
+  `F6` u opción `Cota` cambia la cota activa; `F4` u opción `Eje` mide a la jamba o al centro del hueco.
+  Un número mayor de 30 sigue siendo el ancho de hoja en milímetros/centímetros, como antes.
+- **MOVERCARP** (nueva): designar una carpintería y moverla con sus cotas temporales, escribiendo la distancia
+  o con un clic en el muro (centro). Conserva la identidad BIM; un solo Deshacer; no la mueve si no cabe.
+- **MURO**: muestra la longitud y el ángulo del tramo (`2,24 <0,0°`) y la distancia desde su extremo a la cara
+  paralela más cercana a cada lado. Un número escrito es la longitud (distancia directa de IngeCAD).
+- Las cotas no se dibujan: IngeCAD 0.8 las muestra como entidades virtuales con texto real, de tamaño
+  constante en pantalla; en IngeCAD 0.7 solo se muestran sus líneas.
+
 ## 1.25.0-dev — 2026-11-16
 
 Integra R16-3 de Codex (recintos limitados por la envolvente), revisada: SHA-256 correcto; 674 pruebas con

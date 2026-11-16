@@ -27,6 +27,7 @@ import math
 from tools.base import Tool
 
 from . import openings as OP
+from . import temp_dims as TD
 from .architectural import metadata
 
 
@@ -73,7 +74,11 @@ class CarpinteriaTool(Tool):
         self.first = None              # libre: (wall entity, spec, s, side, span info)
         self.last = None               # last inserted/modified opening entity
         self._cache = None
+        self._ops_cache = None
         self.bim = {}                  # name, type_name, material from the sheet
+        self.dim_active = "left"       # temporary dimension a typed number goes to
+        self.dim_axis = False          # measure to the jamb (False) or to the centre
+        self._hover = None             # last placement under the cursor (temp. dims)
         from .double_click import preset
         taken = preset(self.name)
         if taken:
@@ -165,9 +170,13 @@ class CarpinteriaTool(Tool):
             self.prompt("CARPINTERIA: clic hacia donde se extiende y a la cara a la que abre "
                         "(Intro: hacia el lado más largo):")
             return
-        self.prompt(f"CARPINTERIA ({self._summary()}): clic en la cara del muro hacia la que abre o "
+        ref = "centro" if self.dim_axis else "jamba"
+        act = "izquierda" if self.dim_active == "left" else "derecha"
+        self.prompt(f"CARPINTERIA ({self._summary()}): clic en la cara del muro hacia la que abre, "
+                    f"o escriba la distancia de la cota activa ({act}, a la {ref}) "
                     "[Puerta/Ventana/Hueco/aNcho/Hojas/Tipo de apertura/aLtura/Antepecho/Modo/"
-                    "punto de Inserción/ajuste Cerco/cErco/Remate/Bisagra/Sentido/D ficha/Fin]:")
+                    "punto de Inserción/ajuste Cerco/cErco/Remate/Bisagra/Sentido/COta (F6)/EJe (F4)/"
+                    "D ficha/Fin]:")
 
     def on_option(self, text):
         raw = str(text).strip()
@@ -222,6 +231,21 @@ class CarpinteriaTool(Tool):
         if t in ("f", "fin"):
             self.ctx.finish()
             return True
+        if t in ("co", "cota"):
+            self._next_dim()
+            return True
+        if t in ("ej", "eje", "borde", "jamba", "centro"):
+            self._toggle_axis()
+            return True
+        if self._hover is not None:
+            try:                                   # a typed distance: the active dimension
+                d = TD.parse_length(raw)
+            except ValueError:
+                d = None
+            if d is not None and d <= 30.0:     # larger: a width in cm (82 = hoja de 825)
+                self._place_at_distance(d)
+                self._prompt()
+                return True
         if self.first is None:
             try:                                   # a bare number: the width
                 self._set("ancho", raw)
@@ -404,6 +428,7 @@ class CarpinteriaTool(Tool):
         apply_architectural_change(self.ctx, cmd, kind="opening")
         self.last = getattr(cmd, "entity", None)
         self._cache = None
+        self._ops_cache = None
         if v["type"] == "door" and self.last is not None and v.get("curve_mode")!="curva":
             rec = metadata(self.last) or {}
             frame, opened = OP.clear_width(rec)
@@ -426,6 +451,7 @@ class CarpinteriaTool(Tool):
             apply_architectural_change(self.ctx, cmd, kind="opening")
             self.last = entity
             self._cache = None
+            self._ops_cache = None
             self.ctx.echo(f"CARPINTERIA: {what}.")
         except Exception as exc:  # noqa: BLE001
             self.ctx.echo(f"CARPINTERIA: {exc}")
@@ -453,8 +479,93 @@ class CarpinteriaTool(Tool):
         ent, _ = resolve_arch_entity(_document(self.ctx), picked)
         return ent if ent is not None and (metadata(ent) or {}).get("kind") == "opening" else None
 
+    # --- temporary dimensions ---------------------------------------------------------
+    def _openings(self):
+        if self._ops_cache is None:
+            from .exchange import read_model
+            _w, _c, ops, _i = read_model(_document(self.ctx).doc, strict=False)
+            self._ops_cache = ops
+        return self._ops_cache
+
+    def _placement(self, cursor):
+        """(wall, spec, side, s0, hinge, width, left, right) under the cursor,
+        or None: the same solution the click would give."""
+        if self.first is not None:
+            wall, spec, s, side = self.first
+            sq, oq = spec.local(cursor)
+            side = 1 if oq >= (spec.lo + spec.hi) / 2 else -1
+            s0, hinge, width = self._solve(spec, s, side, 1 if sq >= s else -1)
+        else:
+            wall, spec = self._wall_at(cursor)
+            if spec is None:
+                return None
+            s, off = spec.local(cursor)
+            side = 1 if off >= (spec.lo + spec.hi) / 2 else -1
+            s0, hinge, width = self._solve(spec, s, side)
+        _specs, segs, _r = self._model()
+        _span, _other, usable = OP.free_span(spec, segs.get(spec.id, []), s0 + width / 2, side)
+        if usable is None:
+            return None
+        left, right = TD.references(usable, TD.opening_jambs(self._openings(), spec.id), s0, s0 + width)
+        return wall, spec, side, s0, hinge, width, left, right
+
+    def _hover_dims(self, cursor):
+        try:
+            hit = self._placement(cursor)
+        except Exception:  # noqa: BLE001
+            hit = None
+        self._hover = hit
+        if hit is None:
+            return []
+        _w, spec, side, s0, _h, width, left, right = hit
+        return TD.carpentry_dims(spec, side, s0, width, left, right, TD.world_per_px(self.ctx),
+                                 self.dim_active, self.dim_axis)
+
+    def preview_entities(self, cursor):
+        """IngeCAD 0.8: the temporary dimensions, rendered with real text."""
+        try:
+            dims = self._hover_dims(cursor)
+            return TD.entities(_document(self.ctx).doc, dims, TD.world_per_px(self.ctx)) if dims else []
+        except Exception:  # noqa: BLE001
+            return []
+
+    def _next_dim(self):
+        self.dim_active = "right" if self.dim_active == "left" else "left"
+        self._prompt()
+
+    def _toggle_axis(self):
+        self.dim_axis = not self.dim_axis
+        self.ctx.echo("CARPINTERIA: las cotas miden a " + ("su centro." if self.dim_axis else "sus jambas."))
+        self._prompt()
+
+    def on_key(self, key):
+        """F6: next temporary dimension; F4: jamb or centre (IngeCAD 0.8)."""
+        if key == "F6":
+            self._next_dim()
+            return True
+        if key == "F4":
+            self._toggle_axis()
+            return True
+        return False
+
+    def _place_at_distance(self, distance):
+        """Typed number with the cursor on a wall: the opening at that
+        distance from the active reference (as the temporary dimension shows)."""
+        wall, spec, side, s0, _h, width, left, right = self._hover
+        try:
+            s0 = TD.placement_from_distance(self.dim_active, distance, left, right, width, self.dim_axis)
+        except ValueError as exc:
+            self.ctx.echo(f"CARPINTERIA: {exc}")
+            return
+        self.first = None
+        hinge = 0 if self.dim_active == "left" else 1
+        self._create(wall, spec, s0, hinge, width, side)
+        self._hover = None
+        self._ops_cache = None
+
     def on_point(self, p):
         p = (float(p[0]), float(p[1]))
+        self._ops_cache = None
         try:
             if self.first is not None:
                 wall, spec, s, side = self.first
@@ -544,7 +655,14 @@ class CarpinteriaTool(Tool):
                 pts = [(c[0] + r * math.cos(math.radians(a0 + (a1 - a0) * k / n)),
                         c[1] + r * math.sin(math.radians(a0 + (a1 - a0) * k / n))) for k in range(n + 1)]
                 segs += list(zip(pts, pts[1:]))
+        if not _HOST_ENTITY_PREVIEW:
+            segs += TD.segments(self._hover_dims(cursor), TD.world_per_px(self.ctx))
         return segs
+
+
+#: IngeCAD 0.8 renders Tool.preview_entities (real text); older hosts only
+#: draw the preview segments, so the dimension lines go there.
+_HOST_ENTITY_PREVIEW = hasattr(Tool, "preview_entities")
 
 
 class PuertaTool(CarpinteriaTool):
@@ -560,3 +678,148 @@ class VentanaTool(CarpinteriaTool):
 class HuecoTool(CarpinteriaTool):
     name = "HUECOARQ"
     kind = "gap"
+
+
+class MoverCarpinteriaTool(Tool):
+    """MOVERCARP: move a placed door, window or gap with its temporary
+    dimensions, as the usual BIM programs do when it is selected: designate
+    it, read the distances to the nearest references on its wall, type the
+    one wanted (F6 / «cota» switches the active one, F4 / «eje» measures to
+    its centre) or click on its wall to bring its centre there. Same identity,
+    host and model; one Undo per move."""
+    name = "MOVERCARP"
+    entity_picker = True
+
+    def start(self):
+        self.entity = None
+        self.dim_active = "left"
+        self.dim_axis = False
+        self._prompt()
+
+    def _prompt(self):
+        if self.entity is None:
+            self.prompt("MOVERCARP: designe una puerta, ventana o hueco:")
+            return
+        ref = "centro" if self.dim_axis else "jamba"
+        act = "izquierda" if self.dim_active == "left" else "derecha"
+        self.prompt(f"MOVERCARP: distancia de la cota activa ({act}, a la {ref}) o clic en el muro "
+                    "[COta (F6)/EJe (F4)/Otra/Fin]:")
+
+    def _state(self):
+        """(spec, side, s0, width, left, right) of the designated opening."""
+        from .exchange import read_model
+        m = metadata(self.entity) or {}
+        specs, segs, _r = analyse(_document(self.ctx).doc)
+        spec = specs.get(m.get("wall_id"))
+        if spec is None:
+            raise ValueError("su muro anfitrión no está en el dibujo")
+        s0, width = float(m["offset"]), float(m["width"])
+        side = 1 if int(m.get("side") or 1) > 0 else -1
+        _span, _o, usable = OP.free_span(spec, segs.get(spec.id, []), s0 + width / 2, side)
+        if usable is None:
+            raise ValueError("no se encuentra el paramento libre del muro")
+        _w, _c, ops, _i = read_model(_document(self.ctx).doc, strict=False)
+        left, right = TD.references(usable, TD.opening_jambs(ops, spec.id, exclude=m.get("id")),
+                                    s0, s0 + width)
+        return spec, side, s0, width, left, right
+
+    def _dims(self):
+        if self.entity is None or not self.entity.is_alive:
+            return []
+        try:
+            spec, side, s0, width, left, right = self._state()
+        except Exception:  # noqa: BLE001
+            return []
+        return TD.carpentry_dims(spec, side, s0, width, left, right, TD.world_per_px(self.ctx),
+                                 self.dim_active, self.dim_axis)
+
+    def preview_entities(self, cursor):
+        try:
+            dims = self._dims()
+            return TD.entities(_document(self.ctx).doc, dims, TD.world_per_px(self.ctx)) if dims else []
+        except Exception:  # noqa: BLE001
+            return []
+
+    def preview_segments(self, cursor):
+        if _HOST_ENTITY_PREVIEW:
+            return []
+        return TD.segments(self._dims(), TD.world_per_px(self.ctx))
+
+    def _move_to(self, s0):
+        from .architectural_v10 import edit_opening
+        from .transactions import apply_architectural_change
+        cmd = edit_opening(self.entity, offset=s0)
+        apply_architectural_change(self.ctx, cmd, kind="opening")
+        self.ctx.echo(f"MOVERCARP: desplazada; su jamba queda a {TD.fmt(s0)} m del inicio del muro.")
+
+    def on_point(self, p):
+        p = (float(p[0]), float(p[1]))
+        try:
+            if self.entity is None:
+                from .arq_properties import resolve_arch_entity
+                services = getattr(self.ctx, "services", None)
+                picked = services.pick_entity(p) if services else None
+                ent = resolve_arch_entity(_document(self.ctx), picked)[0] if picked is not None else None
+                if ent is None or (metadata(ent) or {}).get("kind") != "opening":
+                    self.ctx.echo("MOVERCARP: eso no es una puerta, ventana ni hueco.")
+                    return
+                self.entity = ent
+                self._state()
+                return
+            spec, side, s0, width, left, right = self._state()
+            s, _off = spec.local(p)
+            new = s - width / 2.0
+            if new < left - 1e-6 or new + width > right + 1e-6:
+                raise ValueError(f"no cabe ahí: entre las referencias quedan {TD.fmt(right - left)} m "
+                                 f"y el hueco mide {TD.fmt(width)} m")
+            self._move_to(new)
+        except ValueError as exc:
+            self.ctx.echo(f"MOVERCARP: {exc}")
+            if self.entity is not None and not self.entity.is_alive:
+                self.entity = None
+        finally:
+            self._prompt()
+
+    def on_option(self, text):
+        raw = str(text).strip()
+        t = raw.lower()
+        if t in ("f", "fin"):
+            self.ctx.finish()
+            return True
+        if t in ("o", "otra"):
+            self.entity = None
+            self._prompt()
+            return True
+        if t in ("co", "cota"):
+            self.on_key("F6")
+            return True
+        if t in ("ej", "eje", "borde", "jamba", "centro"):
+            self.on_key("F4")
+            return True
+        if self.entity is None:
+            return False
+        try:
+            d = TD.parse_length(raw)
+            spec, side, s0, width, left, right = self._state()
+            self._move_to(TD.placement_from_distance(self.dim_active, d, left, right, width, self.dim_axis))
+        except ValueError as exc:
+            self.ctx.echo(f"MOVERCARP: {exc}")
+        self._prompt()
+        return True
+
+    def on_key(self, key):
+        if key == "F6":
+            self.dim_active = "right" if self.dim_active == "left" else "left"
+        elif key == "F4":
+            self.dim_axis = not self.dim_axis
+        else:
+            return False
+        self._prompt()
+        return True
+
+    def on_enter(self):
+        if self.entity is not None:
+            self.entity = None
+            self._prompt()
+            return
+        self.ctx.finish()

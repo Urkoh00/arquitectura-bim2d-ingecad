@@ -32,7 +32,7 @@ import os
 from collections import defaultdict
 from pathlib import Path
 
-_VERSION = "1.25.0-dev"
+_VERSION = "1.26.0-dev"
 
 from core.plugins import SEPARATOR, MenuItem, PluginSpec, Submenu, ToolbarItem
 from tools.base import Tool
@@ -1490,8 +1490,8 @@ from .superficies import SuperficiesTool
 from .cotas import CotaMurosTool
 from .curve_tools import CurvaMuroTool, MuroCurvoTool
 from .opening_tools import (CarpinteriaTool as CarpinteriaArqTool, PuertaTool as PuertaArqTool,
-                            VentanaTool as VentanaArqTool2, HuecoTool as HuecoArqTool)
-TOOL_CLASSES = tuple(MuroCarasTool if t.name == "MURO" else PilarPerfilesTool if t.name == "PILAR" else t for t in TOOL_CLASSES) + (SuperficiesTool, CotaMurosTool, LineasAMuroTool, MuroCurvoTool, CurvaMuroTool, CarpinteriaArqTool, PuertaArqTool, VentanaArqTool2, HuecoArqTool, EditarArqTool, ArqPropiedadesTool, MuroParaleloTool, EstiraMuroTool, PivotaMuroTool, RecintoTool, DivideMuroTool, BorraTramoTool, ParteMuroTool, UnirMuroTool)
+                            VentanaTool as VentanaArqTool2, HuecoTool as HuecoArqTool, MoverCarpinteriaTool)
+TOOL_CLASSES = tuple(MuroCarasTool if t.name == "MURO" else PilarPerfilesTool if t.name == "PILAR" else t for t in TOOL_CLASSES) + (SuperficiesTool, CotaMurosTool, LineasAMuroTool, MuroCurvoTool, CurvaMuroTool, CarpinteriaArqTool, PuertaArqTool, VentanaArqTool2, HuecoArqTool, EditarArqTool, ArqPropiedadesTool, MuroParaleloTool, EstiraMuroTool, PivotaMuroTool, RecintoTool, DivideMuroTool, BorraTramoTool, ParteMuroTool, UnirMuroTool, MoverCarpinteriaTool)
 
 def arqdiag(ctx, *args):
     """Diagnóstico sin mutar el dibujo y sin depender de PySide6."""
@@ -1588,6 +1588,7 @@ def plugin_spec() -> PluginSpec:
                 MenuItem("Puerta vinculada", "PUERTAARQ", icon=glyph / "puerta.svg"),
                 MenuItem("Ventana vinculada", "VENTANAARQ", icon=glyph / "ventana.svg"),
                 MenuItem("Hueco (vano)", "HUECOARQ", icon=glyph / "hueco.svg"),
+                MenuItem("Mover carpintería con cotas temporales", "MOVERCARP", icon=glyph / "movercarp.svg"),
                 MenuItem("Recinto (espacio BIM) por clic", "RECINTO", icon=glyph / "recinto.svg"),
                 MenuItem("Editar entidad arquitectónica", "EDITARARQ", icon=glyph / "editar.svg"),
                 MenuItem("Propiedades BIM del elemento", "PROPIEDADESARQ", icon=glyph / "propiedades.svg"),

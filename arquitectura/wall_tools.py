@@ -412,11 +412,56 @@ class MuroCarasTool(WallTypeChoice, _MuroV10):
         try:
             from .architectural_v10 import wall_corners
             c = wall_corners(self.startpoint, cursor, self.thickness, self._auto_reference(cursor))
-            return list(zip(c, c[1:] + c[:1]))
+            segs = list(zip(c, c[1:] + c[:1]))
         except ValueError:
+            return []
+        from tools.base import Tool as _HostTool
+        if not hasattr(_HostTool, "preview_entities"):
+            from . import temp_dims as TD
+            segs += TD.segments(self._temp_dims(cursor), TD.world_per_px(self.ctx))
+        return segs
+
+    # --- temporary dimensions: length, angle and nearest parallel walls -------------
+    def _existing_walls(self):
+        cache = getattr(self, "_walls_cache", None)
+        if cache is None:
+            from .exchange import read_model
+            from .geom import junctions as J
+            try:
+                records, _c, _o, _i = read_model(_document(self.ctx).doc, strict=False)
+                cache = J.walls_from_records(records)
+            except Exception:  # noqa: BLE001
+                cache = []
+            self._walls_cache = cache
+        return cache
+
+    def _temp_dims(self, cursor):
+        if self.startpoint is None or self.pending is not None or cursor is None:
+            return []
+        from . import temp_dims as TD
+        from .geom.junctions import offsets
+        try:
+            lo, hi = offsets(self.thickness, self._auto_reference(cursor))
+            return TD.wall_dims(self.startpoint, (float(cursor[0]), float(cursor[1])), self.thickness,
+                                lo, hi, self._existing_walls(), TD.world_per_px(self.ctx))
+        except Exception:  # noqa: BLE001
+            return []
+
+    def preview_entities(self, cursor):
+        """IngeCAD 0.8: length and angle of the wall being drawn and its
+        distance to the nearest parallel walls, with real text. A typed
+        number is the length (IngeCAD's direct distance)."""
+        dims = self._temp_dims(cursor)
+        if not dims:
+            return []
+        from . import temp_dims as TD
+        try:
+            return TD.entities(_document(self.ctx).doc, dims, TD.world_per_px(self.ctx))
+        except Exception:  # noqa: BLE001
             return []
 
     def on_point(self, p):
+        self._walls_cache = None
         if self.startpoint is None and not self.capturing and not self.pending:
             self.chain_first = True
         elif (self.startpoint is not None and not self.capturing and not self.pending
