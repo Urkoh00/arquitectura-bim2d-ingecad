@@ -313,7 +313,6 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD", problem
                 ce["quantities"] = {"Width": cover, "GrossArea": rest_area, "GrossVolume": cv,
                                     "NetVolume": cv}
             elements.append(ce)
-    comps = SP.components(result) if columns or specs else []
     from . import superficies as SU
     res_u = SU.useful_result(specs, columns, records=walls)
     from .parameters_arq import general_options

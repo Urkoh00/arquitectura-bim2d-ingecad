@@ -188,7 +188,7 @@ def _space_issues(drawing):
         from .geom.bands import column_inputs
         from .geom.bands import solve_records
         result = solve_records(records, columns)
-        comps = SP.components(result)
+        SP.components(result)      # fails here, not halfway through the rooms
     except Exception as exc:  # noqa: BLE001
         return [f'No se pudieron comprobar los recintos ({type(exc).__name__}: {exc})']
     out, seen = [], {}

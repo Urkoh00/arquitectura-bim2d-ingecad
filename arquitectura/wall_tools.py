@@ -243,6 +243,64 @@ class WallTypeChoice:
         return f"{self.bim.get('type_name') or 'Muro'} — {_num(self.thickness)} m"
 
 
+MAX_THICKNESS = 1.5      # m: above this a typed value is read as cm or mm
+MIN_THICKNESS = 0.02     # m
+
+
+def read_thickness(text):
+    """A typed wall thickness in metres, with how it was read.
+
+    IngeCAD reads «x,y» as a point and takes decimals with a dot; Spanish
+    users write «0,25» for a quarter of a metre. So a comma is a decimal
+    comma only when the result is a plausible thickness, and a point
+    otherwise («3,4» goes to IngeCAD as the point 3,4). A bare number
+    above 1,5 is read in cm up to 100 and in mm up to 1500, and the
+    reading is reported: «25» was a 25 m wall before v1.28.
+
+    Returns (value, note), or None when the text is not a thickness and
+    should be left to IngeCAD (a point). ValueError: a number out of range."""
+    t = str(text).strip()
+    import re
+    if re.fullmatch(r"\d+,\d+", t):
+        v = float(t.replace(",", "."))
+        if MIN_THICKNESS <= v <= MAX_THICKNESS:
+            return v, ""
+        return None                      # «3,4»: a point
+    if not re.fullmatch(r"\d+(\.\d*)?|\.\d+", t):
+        return None
+    v = float(t)
+    if MIN_THICKNESS <= v <= MAX_THICKNESS:
+        return v, ""
+    if MAX_THICKNESS < v <= 100:
+        cm = v / 100.0
+        if cm >= MIN_THICKNESS:
+            return cm, f"{_fmt_num(v)} se toma en centímetros: {_fmt_num(cm)} m"
+    if 100 < v <= 1500:
+        return v / 1000.0, f"{_fmt_num(v)} se toma en milímetros: {_fmt_num(v / 1000.0)} m"
+    raise ValueError(f"espesor fuera de rango ({_fmt_num(v)}): escriba metros (0,25), "
+                     f"centímetros (25) o milímetros (250); máximo {_fmt_num(MAX_THICKNESS)} m")
+
+
+def _fmt_num(v):
+    return f"{float(v):g}".replace(".", ",")
+
+
+def _typed_thickness(tool, text):
+    """read_thickness with the message shown: the value, or None (not a
+    thickness), or False (refused, already reported)."""
+    try:
+        got = read_thickness(text)
+    except ValueError as exc:
+        tool.ctx.echo(f"{tool.name}: {exc}.")
+        return False
+    if got is None:
+        return None
+    value, note = got
+    if note:
+        tool.ctx.echo(f"{tool.name}: {note}.")
+    return value
+
+
 def _is_thickness(txt):
     t = str(txt).strip().replace(",", ".")
     if not t or ("." not in t and not t.startswith("0")):
@@ -366,11 +424,13 @@ class MuroCarasTool(WallTypeChoice, _MuroV10):
             return True
         if self.pending == "thickness":
             self.pending = None
-            if not _is_thickness(txt) and not txt.replace(",", ".").replace(".", "", 1).isdigit():
-                self.ctx.echo("Debe introducir un espesor en metros.")
+            v = _typed_thickness(self, txt)
+            if v is None:
+                self.ctx.echo("Debe introducir un espesor (0,25 m; 25 cm; 250 mm).")
+            if not v:
                 self._reprompt()
                 return True
-            if not self._set_thickness(float(txt.replace(",", "."))):
+            if not self._set_thickness(v):
                 self._status()
                 self._reprompt()
             return True
@@ -381,8 +441,15 @@ class MuroCarasTool(WallTypeChoice, _MuroV10):
             return True
         if not self.pending and self.startpoint is None and _is_number_text(txt):
             # before the first point a number is the TOTAL thickness (after
-            # it, IngeCAD takes a number as the length along the cursor)
-            if not self._set_thickness(float(txt.replace(",", "."))):
+            # it, IngeCAD takes a number as the length along the cursor);
+            # «3,4» that cannot be a thickness is IngeCAD's point 3,4
+            v = _typed_thickness(self, txt)
+            if v is None:
+                return False
+            if v is False:
+                self._reprompt()
+                return True
+            if not self._set_thickness(v):
                 self._status()
                 self._reprompt()
             return True
@@ -572,12 +639,10 @@ class MuroParaleloTool(WallTypeChoice, Tool):
             return True
         if self.stage == "thickness":
             self.stage = "face"
-            try:
-                v = float(txt)
-                if not (math.isfinite(v) and v > 0):
-                    raise ValueError
-            except ValueError:
-                self.ctx.echo("Espesor no válido.")
+            v = _typed_thickness(self, raw)
+            if not v:
+                if v is None:
+                    self.ctx.echo("Espesor no válido.")
                 self._ask_face()
                 return True
             if not self._set_thickness(v):
@@ -1183,8 +1248,12 @@ class DivideMuroTool(WallTypeChoice, Tool):
                 return True
             if key == "length":
                 self.length = v or None
-            elif v > 0 and self._set_thickness(v):
-                return True
+            elif v > 0:
+                v = _typed_thickness(self, raw)
+                if v is None:
+                    self.ctx.echo("Espesor no válido.")
+                if v and self._set_thickness(v):
+                    return True
             self._prompt()
             return True
         if txt in ("l", "longitud"):

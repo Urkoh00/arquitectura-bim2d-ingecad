@@ -1,12 +1,12 @@
 # Manual de Arquitectura para IngeCAD
 
-Versión 1.27.0-dev · 2026-11-16
+Versión 1.28.0-dev · 2026-11-17
 
 > Copia del manual publicado como documento en claude.ai; se regenera con cada versión.
 
 ## Qué es
 
-Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.27.0-dev** y se actualiza con cada versión.
+Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.28.0-dev** y se actualiza con cada versión.
 
 Cada elemento guarda su identidad persistente, su clase IFC, su geometría editable en planta, sus parámetros 3D (altura, espesor, cota), sus propiedades constructivas (tipo, material, capas) y su nivel. Las carpinterías conocen su muro y los recintos siguen a los muros que los cierran.
 
@@ -23,7 +23,7 @@ El plugin se instala copiando una carpeta en IngeCAD, y la extensión copiando d
 
 **En IngeCAD**
 
-1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.27.0-dev.zip`.
+1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.28.0-dev.zip`.
 2. Copie la carpeta `arquitectura` en la carpeta de plugins de IngeCAD.
 3. Reinicie IngeCAD. Aparece el menú *Arquitectura* y su barra de herramientas.
 4. Escriba `ARQDIAG` en la línea de órdenes para comprobar que la versión cargada es la que acaba de copiar.
@@ -126,6 +126,8 @@ El catálogo inicial trae tabiques de placa de yeso laminado y fábricas de term
 `MURO` dibuja muros encadenados como una polilínea; cada tramo es un muro BIM (IfcWall) con sus encuentros ya resueltos.
 
 **MURO.** Antes del primer punto, un número se lee como el **espesor total** y el programa ofrece los tipos de muro que lo tienen. Después, un número es la longitud del tramo en la dirección del cursor. `Intro` empieza un tramo nuevo; otro `Intro` termina. Al empezar, la ficha de muro permite elegir un tipo del catálogo: muestra sus capas y fija el espesor; «Genérico» deja el espesor libre.
+
+**Escribir el espesor.** En IngeCAD, `x,y` es un punto y los decimales llevan punto. El plugin acepta también la coma decimal para el espesor (`0,25`), pero solo cuando el valor es un espesor razonable, hasta 1,5 m. Si no lo es, se toma como punto: `3,4` empieza el muro en el punto (3, 4). Un número sin coma mayor de 1,5 se entiende en **centímetros** hasta 100 (`25` = 0,25 m) y en **milímetros** hasta 1500 (`250` = 0,25 m), y el programa dice cómo lo ha leído. Un valor fuera de esos márgenes se rechaza con un aviso. Lo mismo vale en `MUROPARALELO` y `MUROCURVO`.
 
 | Opción | Efecto |
 | --- | --- |
@@ -468,7 +470,7 @@ Con niveles o forjados, el intercambio usa `.arqbim` v3 y necesita la extensión
 
 ## Limitaciones conocidas
 
-Estas son las limitaciones conocidas de la versión 1.27.0-dev; cada versión actualiza esta lista.
+Estas son las limitaciones conocidas de la versión 1.28.0-dev; cada versión actualiza esta lista.
 
 - **Plataforma:** las pruebas automáticas se ejecutan en Linux y en Windows con IngeCAD oficial (las versiones 0.7.0 y 0.8.0), pero sin pantalla. El usuario probó la v1.17 en Windows 10 con IngeCAD 0.8 e IngeTrazo 0.6.1: la cadena hasta el IFC funcionó; las correcciones de la v1.18 salen de esa prueba.
 - **Muros curvos:** cada muro llega como mucho a media circunferencia (un muro redondo son dos). MUROPARALELO y DIVIDEMURO solo toman líneas rectas como referencia. El gesto de esquina en L al terminar un MURO solo recorta muros rectos.
@@ -482,6 +484,7 @@ Estas son las limitaciones conocidas de la versión 1.27.0-dev; cada versión ac
 
 | Fecha | Versión | Novedades |
 | --- | --- | --- |
+| 17-11-2026 | 1.28.0-dev | Revisión general: planos grandes hasta seis veces más rápidos; el espesor escrito en MURO se lee en m, cm o mm y «3,4» es un punto; guardar y reabrir conserva el modelo BIM (prueba nueva) |
 | 16-11-2026 | 1.27.0-dev | Iconos en todas las órdenes; selector de nivel con encendido, inutilizado y bloqueado; categoría del muro (fachada, tabique, medianera, sótano) con su capa; muro hasta un nivel con desfases; armario adosado; vista previa de carpintería a una sola escala |
 | 16-11-2026 | 1.26.0-dev | Cotas temporales: CARPINTERIA muestra las distancias a las referencias del muro y coloca el hueco con la distancia escrita (F6 cambia de cota, F4 mide al eje); MOVERCARP mueve una carpintería con sus cotas; MURO muestra longitud, ángulo y distancia a los muros paralelos |
 | 16-11-2026 | 1.25.0-dev | RECINTO con altura libre por envolvente (forjados y falso techo, por zonas) y recinto por polilínea |

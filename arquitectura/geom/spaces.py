@@ -35,8 +35,21 @@ def network_at(result, base):
 
 
 def components(result):
-    """[(outer_ccw, [holes_cw])] of the union of every footprint."""
-    return P.merge(_all_pieces(result))
+    """[(outer_ccw, [holes_cw])] of the union of every footprint.
+
+    Kept on the result: a result is final once solved, and every room of a
+    plan asks for the same union (with a hundred rooms the union was
+    recomputed a hundred times per change, two to three seconds a wall).
+    Callers only read it."""
+    cached = getattr(result, "_components", None)
+    if cached is not None:
+        return cached
+    comps = P.merge(_all_pieces(result))
+    try:
+        result._components = comps
+    except AttributeError:
+        pass
+    return comps
 
 
 def _inside(pt, poly):

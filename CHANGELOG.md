@@ -2,6 +2,31 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.28.0-dev — 2026-11-17
+
+Revisión general de la aplicación (dirección técnica). Informe completo en el proyecto:
+`REVISION_GENERAL_v1.28_2026-11-17.md`.
+
+- **Rendimiento en planos grandes.** Edificio de prueba con 220 muros, 100 recintos y 100 puertas:
+  añadir un tabique pasa de 2,67 s a 0,46 s; una puerta, de 2,66 s a 0,43 s; RECINTO, de 0,62 s a
+  0,12 s; EXPORTARBIM, de 3,08 s a 0,78 s. Tres causas, corregidas sin cambiar ningún resultado:
+  - cada recinto recalculaba la unión de toda la red de muros (`geom/spaces.components` se guarda ahora
+    en el resultado, que es definitivo);
+  - los niveles buscaban las carpinterías de cada muro recorriendo el dibujo entero una vez por muro
+    (`wall_constraints.openings_by_wall`, un recorrido);
+  - el motor de encuentros probaba todas las parejas de muros; ahora solo las que pueden tocarse, por
+    cajas que contienen todo lo que cada prueba acepta. Se ha comprobado con escenas aleatorias que el
+    resultado es idéntico, no solo parecido, al del motor anterior.
+- **Espesor escrito en MURO, MUROPARALELO y MUROCURVO.** Antes, `25` hacía un muro de 25 m y `3,4`
+  uno de 3,4 m de espesor. Ahora la coma decimal vale para espesores de hasta 1,5 m; `3,4` es el
+  punto (3, 4) de IngeCAD; un número mayor de 1,5 se lee en cm (hasta 100) o en mm (hasta 1500), con
+  aviso; lo demás se rechaza.
+- **Persistencia comprobada:** guardar el DXF con IngeCAD y reabrirlo da el mismo contrato BIM, byte a
+  byte (prueba nueva).
+- **Cadena con IngeTrazo 0.6.2.1 oficial** sobre un edificio de 84 muros, 36 puertas y 36 recintos:
+  mismos recuentos y volúmenes en el IFC; solo los errores ya conocidos de T-03.
+- Eliminadas 13 funciones sin uso en `wall_network.py` (−196 líneas).
+
 ## 1.27.0-dev — 2026-11-16
 
 Integra R23 de Codex (observaciones del usuario a la v1.24), revisada y adaptada a la v1.26: SHA-256 correcto;

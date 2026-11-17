@@ -210,6 +210,41 @@ def _sin(u, v):
     return abs(P.cross(u, v))
 
 
+def _strip_box(w, margin):
+    """A box sure to contain every point the topology tests can accept for
+    ``w``: its reference strip (any offset between lo and hi, any s between
+    the ends) grown by ``margin``."""
+    m = max(abs(w.lo), abs(w.hi)) + margin
+    if w.curved:
+        rr = w.r + m
+        return (w.c[0] - rr, w.c[1] - rr, w.c[0] + rr, w.c[1] + rr)
+    return (min(w.a[0], w.b[0]) - m, min(w.a[1], w.b[1]) - m,
+            max(w.a[0], w.b[0]) + m, max(w.a[1], w.b[1]) + m)
+
+
+def _box_pairs(boxes):
+    """{i: sorted [j > i]} of the boxes that touch (sweep along x): which
+    walls can meet at all. Far-apart walls never interact, so the pairwise
+    tests below run on these pairs only, with the same result as on all
+    pairs and in the same order (a plan with hundreds of walls took seconds
+    per change when every pair was tested)."""
+    order = sorted(range(len(boxes)), key=lambda k: boxes[k][0])
+    near = {k: [] for k in range(len(boxes))}
+    active = []
+    for k in order:
+        bk = boxes[k]
+        active = [a for a in active if boxes[a][2] >= bk[0] - 1e-9]
+        for a in active:
+            ba = boxes[a]
+            if ba[1] <= bk[3] + 1e-9 and bk[1] <= ba[3] + 1e-9:
+                i, j = (a, k) if a < k else (k, a)
+                near[i].append(j)
+        active.append(k)
+    for k in near:
+        near[k].sort()
+    return near
+
+
 def solve(walls, columns=(), tol=DEFAULT_TOL, min_angle=DEFAULT_MIN_ANGLE,
           miter_limit=DEFAULT_MITER_LIMIT):
     """Compute non-overlapping footprints. ``columns`` = [(id, polygon)] or
@@ -232,27 +267,45 @@ def solve(walls, columns=(), tol=DEFAULT_TOL, min_angle=DEFAULT_MIN_ANGLE,
     # end at the same point (that is how the L drawing gesture writes them)
     axis_end = [walls[e.w].point(0.0 if e.which == 0 else walls[e.w].length,
                                  (walls[e.w].lo + walls[e.w].hi) / 2) for e in ends]
-    for i in range(len(ends)):
-        for j in range(i + 1, len(ends)):
-            if ends[i].w != ends[j].w and (math.dist(ends[i].p, ends[j].p) <= tol
-                                           or math.dist(axis_end[i], axis_end[j]) <= tol):
-                dsu.union(i, j)
+    # Which walls can meet at all. Every test below needs either two ends
+    # within tol, or an end inside the other wall's strip (tees), or — for a
+    # corner drawn to the face — two tips at most (ti + tj) / sin + tol apart.
+    # Strip boxes grown by those margins hold every accepted pair, so the
+    # tests run on box neighbours only, in the same order as over all pairs.
+    tight = _box_pairs([_strip_box(w, 2 * tol) for w in walls])
+    wide = _box_pairs([_strip_box(w, w.thickness / sin_min + 2 * tol) for w in walls])
+
+    def _end_pairs(near):
+        out = []
+        for wi, others in near.items():
+            for wj in others:
+                for ka in (2 * wi, 2 * wi + 1):
+                    for kb in (2 * wj, 2 * wj + 1):
+                        out.append((ka, kb) if ka < kb else (kb, ka))
+        return sorted(out)
+
+    for i, j in _end_pairs(tight):
+        if math.dist(ends[i].p, ends[j].p) <= tol or math.dist(axis_end[i], axis_end[j]) <= tol:
+            dsu.union(i, j)
     # corners drawn to the face (each tip inside the other's strip, near its tip)
-    for i in range(len(ends)):
-        for j in range(i + 1, len(ends)):
-            ei, ej = ends[i], ends[j]
-            if ei.w == ej.w or dsu.find(i) == dsu.find(j):
-                continue
-            wi, wj = walls[ei.w], walls[ej.w]
-            s = _sin(ei.e, ej.e)
-            if s < sin_min:
-                continue
-            reach = (wi.thickness + wj.thickness) / s + tol
-            if math.dist(ei.p, ej.p) > reach:
-                continue
-            if _in_strip(ei.p, wj, tol) and _in_strip(ej.p, wi, tol) \
-                    and _near_tip(ei.p, ej, wj, reach) and _near_tip(ej.p, ei, wi, reach):
-                dsu.union(i, j)
+    for i, j in _end_pairs(wide):
+        ei, ej = ends[i], ends[j]
+        if ei.w == ej.w or dsu.find(i) == dsu.find(j):
+            continue
+        wi, wj = walls[ei.w], walls[ej.w]
+        s = _sin(ei.e, ej.e)
+        if s < sin_min:
+            continue
+        reach = (wi.thickness + wj.thickness) / s + tol
+        if math.dist(ei.p, ej.p) > reach:
+            continue
+        if _in_strip(ei.p, wj, tol) and _in_strip(ej.p, wi, tol) \
+                and _near_tip(ei.p, ej, wj, reach) and _near_tip(ej.p, ei, wi, reach):
+            dsu.union(i, j)
+    adjacent = {k: set(v) for k, v in tight.items()}
+    for k, v in tight.items():
+        for j in v:
+            adjacent[j].add(k)
     clusters = {}
     for i in range(len(ends)):
         clusters.setdefault(dsu.find(i), []).append(i)
@@ -276,7 +329,8 @@ def solve(walls, columns=(), tol=DEFAULT_TOL, min_angle=DEFAULT_MIN_ANGLE,
             continue
         w = walls[en.w]
         best = None
-        for v_i, v in enumerate(walls):
+        for v_i in sorted(adjacent[en.w]):
+            v = walls[v_i]
             if v_i == en.w:
                 continue
             s, off = v.local(en.p)
@@ -336,8 +390,15 @@ def solve(walls, columns=(), tol=DEFAULT_TOL, min_angle=DEFAULT_MIN_ANGLE,
     for cid, cpoly, core, cover in covered:
         _give_back_covering(res, cid, cpoly, core, cover, walls, raw, pieces)
     hosts = {(w_i, v_i) for (w_i, _), v_i in tee_host.items()}
+    # pieces only ever shrink below, so these boxes stay safe to skip on
+    piece_boxes = [P.bbox(pc) for pc in pieces]
+    piece_near = _box_pairs([b if b is not None else (0.0, 0.0, -1.0, -1.0) for b in piece_boxes])
     for i in range(len(walls)):
-        for j in range(i + 1, len(walls)):
+        if piece_boxes[i] is None:
+            continue
+        for j in piece_near[i]:
+            if piece_boxes[j] is None:
+                continue
             ov = P.overlap_area(pieces[i], pieces[j])
             if ov <= 1e-9:
                 continue

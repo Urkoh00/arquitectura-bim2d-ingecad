@@ -19,7 +19,19 @@ def resolve(record, catalog):
     return {**record,'base':base,'height':height,'level':low['name'],'level_offset':bottom}
 
 
-def validate_openings(drawing, record):
-    from .architectural import metadata,validate_wall
-    holes=[m for e in drawing.modelspace() if (m:=metadata(e)or{}).get('kind')=='opening' and m.get('wall_id')==record['id']]
+def openings_by_wall(drawing):
+    """{wall_id: [opening records]} in one pass over the drawing: a loop
+    over every wall must not scan the whole drawing once per wall."""
+    from .architectural import metadata
+    out={}
+    for e in drawing.modelspace():
+        m=metadata(e)or{}
+        if m.get('kind')=='opening':out.setdefault(m.get('wall_id'),[]).append(m)
+    return out
+
+
+def validate_openings(drawing, record, index=None):
+    from .architectural import validate_wall
+    if index is None:index=openings_by_wall(drawing)
+    holes=index.get(record['id'],[])
     validate_wall({**record,'openings':sorted(holes,key=lambda o:o['offset'])})

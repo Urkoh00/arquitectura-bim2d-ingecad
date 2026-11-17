@@ -70,7 +70,7 @@ def catalog_steps(document,data):
     from .parameters_arq import load_defaults,SetArchitecturalDefaults
     data=validate(data);old=load(document.doc);oldids={v['id']:v for v in old['levels']};newids={v['id']:v for v in data['levels']}
     ground=next((v for v in data['levels']if v['name']=='Planta baja'),None)
-    edits=[]
+    edits=[];index=None
     for e in document.doc.modelspace():
         m=metadata(e)or{}
         if m.get('kind')not in KINDS:continue
@@ -91,8 +91,9 @@ def catalog_steps(document,data):
             if m.get('level')and m['level']!=level['name']:new.setdefault('legacy_level',m['level'])
         new.update(level_id=level['id'],level=level['name'])
         if new['kind']=='wall':
-            from .wall_constraints import resolve,validate_openings
-            new=resolve(new,data);validate_openings(document.doc,new)
+            from .wall_constraints import resolve,validate_openings,openings_by_wall
+            if index is None:index=openings_by_wall(document.doc)
+            new=resolve(new,data);validate_openings(document.doc,new,index)
         if new!=m:
             if m['kind']=='slab':
                 from .slabs import read,EditSlab
@@ -174,7 +175,7 @@ def assign(ctx,entities,level_id,keep_absolute=True):
     from .transactions import SafeArchitecturalCommand,apply_architectural_change
     doc=require_document(ctx);data=load(doc);target=next((v for v in data['levels']if v['id']==level_id),None)
     if target is None:raise ValueError('Nivel de destino inexistente')
-    changes=[]
+    changes=[];index=None
     for e in entities:
         m=metadata(e)or{}
         if m.get('kind')not in KINDS:continue
@@ -187,8 +188,9 @@ def assign(ctx,entities,level_id,keep_absolute=True):
         base=float(m.get('base',0))if keep_absolute else target['elevation']-(m['thickness']if m['kind']=='slab'else 0.)
         new={**m,'base':base,'level_id':target['id'],'level':target['name'],'level_offset':base-target['elevation']}
         if m['kind']=='wall' and m.get('height_constraint')=='level':
-            from .wall_constraints import resolve,validate_openings
-            new['base_offset']=base-target['elevation'];new=resolve(new,data);validate_openings(doc.doc,new)
+            from .wall_constraints import resolve,validate_openings,openings_by_wall
+            if index is None:index=openings_by_wall(doc.doc)
+            new['base_offset']=base-target['elevation'];new=resolve(new,data);validate_openings(doc.doc,new,index)
         changes.append(EditSlab(e,new)if m['kind']=='slab'else EditArchitecturalCommand(e,new))
     if not changes:raise ValueError('Seleccione fuentes BIM de muros, pilares, recintos o forjados')
     apply_architectural_change(ctx,SafeArchitecturalCommand('ARQ asignar nivel',changes))
