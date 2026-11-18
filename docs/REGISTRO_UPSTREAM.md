@@ -117,3 +117,11 @@ que `EraseCommand` guarde la pertenencia a grupos y la restaure en `undo`.
 - **6-11-2026:** se preparan T-04 (v1.10.0) y T-05 (v1.10.2).
 - **6-11-2026:** se prepara T-03 (v1.7.0).
 - **5-11-2026:** se envían T-01 y T-02; se prepara C-01.
+
+### R21 — 18-11-2026: selección de extensiones
+
+**T-16**, propuesta local sin enviar: notificación pública de cambios de selección
+para paneles de extensiones. [Diseño, versiones y antecedentes](propuestas_upstream/ingetrazo/T16_SELECCION_EXTENSIONES.md).
+El encargo llamaba T-15 a esta propuesta; T-15 ya está ocupado por IfcFurniture en
+la base v1.28 y se conserva sin renumerarlo. Panel, historial y datos de documento
+ya son utilizables en 0.6.1 y 0.6.2; el sondeo de selección es el único rodeo nuevo.

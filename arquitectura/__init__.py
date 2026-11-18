@@ -1470,7 +1470,7 @@ from .columns import PilarBimTool
 from .levels import niveles,asignar as asignar_nivel
 from .level_layers import install_toolbar as install_level_toolbar, before_command as level_before_command
 from .slab_tools import SlabTool,SlabHoleTool
-from .cabinets import CabinetTool
+from .cabinet_tools import CabinetTool
 from .arq_properties import ArqPropiedadesTool
 
 def diagnostico_arq(ctx, *args):
@@ -1495,6 +1495,8 @@ from .curve_tools import CurvaMuroTool, MuroCurvoTool
 from .opening_tools import (CarpinteriaTool as CarpinteriaArqTool, PuertaTool as PuertaArqTool,
                             VentanaTool as VentanaArqTool2, HuecoTool as HuecoArqTool, MoverCarpinteriaTool)
 TOOL_CLASSES = tuple(MuroCarasTool if t.name == "MURO" else PilarPerfilesTool if t.name == "PILAR" else t for t in TOOL_CLASSES) + (SuperficiesTool, CotaMurosTool, LineasAMuroTool, MuroCurvoTool, CurvaMuroTool, CarpinteriaArqTool, PuertaArqTool, VentanaArqTool2, HuecoArqTool, EditarArqTool, ArqPropiedadesTool, MuroParaleloTool, EstiraMuroTool, PivotaMuroTool, RecintoTool, DivideMuroTool, BorraTramoTool, ParteMuroTool, UnirMuroTool, MoverCarpinteriaTool)
+
+from .roundtrip import sincronizar_arq
 
 def arqdiag(ctx, *args):
     """Diagnóstico sin mutar el dibujo y sin depender de PySide6."""
@@ -1564,7 +1566,7 @@ def plugin_spec() -> PluginSpec:
         version=_VERSION,
         description="Dibujo arquitectónico 2D con objetos BIM (muros, pilares, carpinterías) y exportación a IngeTrazo/IFC",
         tools={tool.name: tool for tool in (*TOOL_CLASSES, SlabTool,SlabHoleTool,CabinetTool,Muro3DTool, Hueco3DTool,GridTool,RejillaTool,GridEditTool,GridColumnsTool)},
-        commands={"NIVELES":niveles,"NIVELASIGNAR":asignar_nivel,"ACTUALIZAEJES":update,"EXPORTARBIM": exportar_bim, "EXPORTARIGZ": exportar_igz, "CONFIGIGZ": configurar_igz, "DIAGNOSTICOARQ": diagnostico_arq, "ARQDIAG": arqdiag, "UNIONESARQ": unionesarq, "ARQVALIDAR": validar_arq, "ARQMIGRAR": migrar_arq, "PARAMETROSARQ": parametros_arq, "TIPOSMURO": tipos_muro, "USOSARQ": usos_arq},
+        commands={"SINCRONIZARARQ":sincronizar_arq,"NIVELES":niveles,"NIVELASIGNAR":asignar_nivel,"ACTUALIZAEJES":update,"EXPORTARBIM": exportar_bim, "EXPORTARIGZ": exportar_igz, "CONFIGIGZ": configurar_igz, "DIAGNOSTICOARQ": diagnostico_arq, "ARQDIAG": arqdiag, "UNIONESARQ": unionesarq, "ARQVALIDAR": validar_arq, "ARQMIGRAR": migrar_arq, "PARAMETROSARQ": parametros_arq, "TIPOSMURO": tipos_muro, "USOSARQ": usos_arq},
         menu=(
             MenuItem("Opciones generales y parámetros iniciales...", "PARAMETROSARQ", icon=glyph / "parametros.svg"),
             MenuItem("Tipos de muro (espesor total y capas)...", "TIPOSMURO", icon=glyph / "tiposmuro.svg"),
@@ -1612,6 +1614,7 @@ def plugin_spec() -> PluginSpec:
             )),
             MenuItem("Convertir líneas de un plano en muros y huecos", "LINEASAMURO", icon=glyph / "lineasamuro.svg"),
             Submenu("Intercambio BIM", (
+                MenuItem("Sincronizar cambios de IngeTrazo", "SINCRONIZARARQ", icon=glyph / "exportarbim.svg"),
                 MenuItem("Exportar modelo BIM para IngeTrazo (.arqbim)", "EXPORTARBIM", icon=glyph / "exportarbim.svg"),
             )),
             Submenu("Herramientas antiguas (sin datos BIM)", (

@@ -53,6 +53,7 @@ DEFAULTS = {
     #   Termoarcilla: blocks 30 x 19 cm, 14/19/24/29 cm thick (Hispalyt).
     #   Plasterboard partitions: designation total/stud, 1x15 or 2x12.5
     #   boards per face (Placo, guía de tabiques 2022).
+    'opening_types': [],
     'wall_types': [
         {'name': 'PYL 78/48', 'wall_category':'tabique', 'layers': [[0.015, 'Placa de yeso laminado'], [0.048, 'Montante 48 + lana mineral'], [0.015, 'Placa de yeso laminado']]},
         {'name': 'PYL 98/48', 'wall_category':'tabique', 'layers': [[0.025, 'Placa de yeso laminado 2x12,5'], [0.048, 'Montante 48 + lana mineral'], [0.025, 'Placa de yeso laminado 2x12,5']]},
@@ -98,6 +99,7 @@ def load_defaults(document):
         if isinstance(lineas, dict):
             result['general']['lineas'] = {**DEFAULTS['general']['lineas'],
                                            **{k: v for k, v in lineas.items() if k in DEFAULTS['general']['lineas']}}
+        result['opening_types']=copy.deepcopy(payload.get('opening_types',[]))
         types = payload.get('wall_types')
         if isinstance(types, list):
             result['wall_types'] = [t for t in types if isinstance(t, dict)]
@@ -115,6 +117,16 @@ def general_options(document):
 
 
 def validate_defaults(values):
+    catalog=values.get('opening_types',[])
+    if not isinstance(catalog,list):raise ValueError('Catálogo de carpinterías no válido')
+    names=set()
+    from . import openings as OP
+    for t in catalog:
+        if not isinstance(t,dict)or not isinstance(t.get('name'),str)or not t['name'].strip()or t['name'].casefold()in names or t.get('type')not in OP.TYPES or not isinstance(t.get('values'),dict):raise ValueError('Tipo de carpintería no válido o duplicado')
+        names.add(t['name'].casefold())
+        from .roundtrip_model import OPEN_FIELDS,finite_tree
+        if set(t['values'])-OPEN_FIELDS:raise ValueError('Campo no permitido en el tipo de carpintería')
+        finite_tree(t['values'])
     for kind in ('wall','column','door','window'):
         d = values[kind]
         for key in ('thickness','height','width','depth','radius'):

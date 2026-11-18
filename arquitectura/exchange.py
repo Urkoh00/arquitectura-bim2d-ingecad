@@ -186,26 +186,11 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD", problem
                             reference=spec.reference)
         if spec.curved:
             el["params"].update(bulge=spec.bulge, center=list(spec.c), radius=spec.r)
-        layers = m.get("layers") or []
-        if layers:
-            # from the drawn face (reference line) toward the body; for an IFC
-            # IfcMaterialLayerSet (pending in IngeTrazo) and readable as Pset
-            total = sum(float(t) for t, _m in layers)
-            if abs(total - spec.thickness) > 5e-4:
-                issues.append(f"Muro {ident}: sus capas suman {total:.3f} m y el espesor es "
-                              f"{spec.thickness:.3f} m")
-            el["material_layers"] = [{"thickness": float(t), "material": mat} for t, mat in layers]
-            el["psets"]["ARQ_Capas"] = {f"Capa {i}": f"{float(t):.3f} m {mat}".strip()
-                                        for i, (t, mat) in enumerate(layers, 1)}
+        wall_type_data(el,m,spec.thickness,issues)
         el["quantities"] = {"Length": spec.length, "Height": float(m["height"]),
                             "Width": spec.thickness, "GrossFootprintArea": geo["area"],
                             "GrossVolume": math.fsum(g["area"] * (hi - lo) for lo, hi, g in geo["bands"]),
                             "NetVolume": volume}
-        if m.get('type_name'):
-            type_width=sum(float(v) for v,_mat in layers) if layers else spec.thickness
-            el['params']['wall_type']={'name':m['type_name'],'width':type_width,
-                                      'layers':[[float(v),str(mat)] for v,mat in layers]}
-            el['psets']['ARQ_IngeCAD']['TypeThickness']=type_width
         el["openings"] = []
         fillings = []
         for o in ops:
@@ -419,6 +404,7 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD", problem
         level_rows=[{**v,'guid':ifc_guid(v['id'])}for v in catalog['levels']]
     else:level_rows=[{'name':n,'elevation':z}for n,z in sorted(levels.items(),key=lambda kv:kv[1])]
     return {
+        "roundtrip": __import__(__package__+".roundtrip",fromlist=["export_snapshot"]).export_snapshot(drawing),
         "reference_grids": references,
         "format": FORMAT, "version": 3 if catalog else 2 if extended else VERSION, "units": "m",
         "generator": generator, "project": {"name": project, **_usos(drawing)},
@@ -431,6 +417,30 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD", problem
                             for c in result.clips]},
         "issues": issues,
     }
+
+
+def wall_type_data(el, record, thickness, issues=None):
+    """Shared semantic data for source export and extension type previews."""
+    issues=issues if issues is not None else []
+    layers=record.get('layers') or []
+    el['material']=record.get('material') or ''
+    el['type_name']=record.get('type_name') or ''
+    common=el['psets'].setdefault('Pset_WallCommon',{})
+    arq=el['psets'].setdefault('ARQ_IngeCAD',{})
+    common.pop('Reference',None);arq.pop('Material',None)
+    if el['material']:arq['Material']=el['material']
+    if el['type_name']:common['Reference']=el['type_name']
+    el.pop('material_layers',None);el['psets'].pop('ARQ_Capas',None)
+    if layers:
+        total=sum(float(t) for t,_ in layers)
+        if abs(total-thickness)>5e-4:issues.append('Muro '+record['id']+': las capas no suman el espesor')
+        el['material_layers']=[{'thickness':float(t),'material':mat}for t,mat in layers]
+        el['psets']['ARQ_Capas']={f'Capa {i}':f'{float(t):.3f} m {mat}'.strip()for i,(t,mat)in enumerate(layers,1)}
+    el['params'].pop('wall_type',None);arq.pop('TypeThickness',None)
+    if el['type_name']:
+        width=sum(float(t)for t,_ in layers)if layers else thickness
+        el['params']['wall_type']={'name':el['type_name'],'width':width,'layers':[[float(t),str(mat)]for t,mat in layers]}
+        arq['TypeThickness']=width
 
 
 def _faces_json(faces):

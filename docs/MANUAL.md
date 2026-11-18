@@ -19,7 +19,7 @@ El plugin calcula una sola vez la huella final de cada elemento, con los encuent
 
 ## Instalación
 
-El plugin se instala copiando una carpeta en IngeCAD, y la extensión copiando dos ficheros en IngeTrazo. No hace falta instalar Python aparte.
+El plugin se instala copiando una carpeta en IngeCAD, y la extensión copiando todo el contenido de `ingetrazo_ext/` en IngeTrazo. No hace falta instalar Python aparte.
 
 **En IngeCAD**
 
@@ -31,7 +31,7 @@ El plugin se instala copiando una carpeta en IngeCAD, y la extensión copiando d
 **En IngeTrazo**
 
 1. Abra *Extensiones > Abrir carpeta de plugins*.
-2. Copie en ella los **dos** ficheros de la carpeta `ingetrazo_ext` del ZIP: `arquitectura_bim.py` y `_arqbim_sync.py` (este, desde la 1.20; sin él, la importación se detiene y avisa de que falta).
+2. Copie en ella todo el contenido de `ingetrazo_ext/` del ZIP: `arquitectura_bim.py`, `_arqbim_sync.py`, `_arq_edit.py` y la subcarpeta `arq_shared/`. Reinicie IngeTrazo después de actualizar.
 3. Reinicie IngeTrazo. Aparece la orden *Importar arquitectura IngeCAD (.arqbim)…*.
 
 **Para actualizar**, sustituya la carpeta `arquitectura` y el fichero de la extensión por los de la versión nueva. Los dibujos hechos con versiones anteriores se siguen leyendo. Si alguno se ve desactualizado, ejecute `UNIONESARQ`.
@@ -411,7 +411,7 @@ Si encuentra alguno, abre un cuadro con la lista. Al seleccionar un problema, su
 
 **Estado.** Con la versión oficial actual de IngeTrazo, el IFC no relaciona aún las puertas y ventanas con su hueco ni escribe sus tipos de apertura, y coloca los recintos de una forma que el validador marca como error. Las correcciones están preparadas para proponerlas a su desarrollador. Con ellas, los modelos de prueba dan 0 errores en IfcOpenShell. La extensión valida el fichero completo antes de importarlo. Los modelos a más de 100 km del origen (coordenadas UTM) se desplazan cerca del origen con la misma regla que IngeTrazo aplica a cualquier fichero, y se avisa del desplazamiento.
 
-**Volver a importar (desde la 1.20).** Si cambia el plano en IngeCAD, exporte de nuevo el `.arqbim` y vuelva a abrirlo en IngeTrazo: el modelo se **actualiza** en lugar de duplicarse. Los elementos se reconocen por su identificador BIM; los cambiados se sustituyen, los nuevos se añaden y los borrados se retiran, todo en un solo `Deshacer`. Copie en la carpeta de extensiones de IngeTrazo los dos ficheros, `arquitectura_bim.py` y `_arqbim_sync.py`. Los modelos importados con versiones anteriores no se actualizan solos: bórrelos antes de la primera reimportación.
+**Volver a importar (desde la 1.20).** Si cambia el plano en IngeCAD, exporte de nuevo el `.arqbim` y vuelva a abrirlo en IngeTrazo: el modelo se **actualiza** en lugar de duplicarse. Los elementos se reconocen por su identificador BIM; los cambiados se sustituyen, los nuevos se añaden y los borrados se retiran, todo en un solo `Deshacer`. Copie en la carpeta de extensiones de IngeTrazo todo el contenido de `ingetrazo_ext/`, incluida la subcarpeta `arq_shared/`. Los modelos importados con versiones anteriores no se actualizan solos: bórrelos antes de la primera reimportación.
 
 ## Niveles y forjados
 
@@ -515,3 +515,9 @@ Estas son las limitaciones conocidas de la versión 1.28.0-dev; cada versión ac
 | 6-11-2026 | 1.6.2-dev | El muro se maneja como un objeto (grupos, sincronización) |
 
 El detalle técnico de cada versión está en `CHANGELOG.md`, dentro del ZIP y del repositorio.
+
+
+## R21: proponer cambios desde IngeTrazo
+
+Véase [Diseño y uso de R21](R21_DISENO_Y_USO.md). SINCRONIZARARQ acepta las
+propuestas de tipos, compara revisiones y recalcula el dibujo en un solo Deshacer.

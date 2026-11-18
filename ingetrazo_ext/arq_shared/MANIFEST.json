@@ -1,0 +1,17 @@
+{
+  "architectural.py": "95961f78cfea58de4ebd4dd2bdc64832ee17ae3bbbc4689e69a690dd4a7e4afc",
+  "cabinets.py": "3275593dfc7787bc91fdef6f94b99145a4da462928c65376c0a05236905812c5",
+  "curved_carpentry.py": "a487683820d45a9c84c64cf65e71dcb66cabf83bbe409820d2df48076b3b94ce",
+  "exchange.py": "4a99519897def1505ee18130d9f90e34d968a4fe0028bba0d5abe031902554ce",
+  "geom/__init__.py": "39c5cd3f08c3c9b5ad73100bd08845b4a88c12b1cfe31ba0520a4c28f6e96063",
+  "geom/bands.py": "307381ae98098f844abd7865a8fcc46c17be2bec508cc9e9f8d9e4c73cf0c533",
+  "geom/curves.py": "e795f6c30646b53e6d402d1d35810a59ed4bb76888f4689d5527356d8f892c09",
+  "geom/drafting.py": "d144926c7be8af81625ebb1e2b14cdc9b068a401e22d39a804e7348db2a8f143",
+  "geom/junctions.py": "05a74a9a4f1bfc28605443bae56e729948b9149e4ff30ec920414cf07e3d65b5",
+  "geom/polygon.py": "ed70cc3bcdd81780b44d268ce4242263f939880e092fda5d3bb457df2d5d3842",
+  "geom/solids.py": "0902b31f26988272640e15e69b0f3dabbe98b7a7cd310c5313a8f98f61ce1500",
+  "geom/spaces.py": "fb514b95f6c2e72c567e63d95a3df99182f38ed40a0abcf502ad70a62c569ef5",
+  "openings.py": "4db184c75ab3bf58e18f64b57c438dc265324b444fc83dfa40be82cf2334282e",
+  "roundtrip_model.py": "11afe4c5266b5c8b2f70ed1e7c777d81445591a2fda4094e5555d663a7453b7a",
+  "wall_categories.py": "e772af6dc8c1d115f2928f24865a06fdfa43750170df7d1e7c52eb2deeaf01b0"
+}

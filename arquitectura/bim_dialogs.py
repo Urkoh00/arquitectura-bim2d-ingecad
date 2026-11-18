@@ -1222,7 +1222,27 @@ def carpentry_form(ctx, record, *, editing=False):
     facet.valueChanged.connect(refresh)
     preset.currentIndexChanged.connect(on_preset)
     refresh()
-    dlg._arq = dict(typ=typ, operation=operation, leaves=leaves, preset=preset, leaf=leaf, leaf2=leaf2,
+    catalog_choice=QComboBox();catalog_choice.addItem('Parámetros actuales',None)
+    try:
+        from .parameters_arq import load_defaults
+        from .compat import require_document
+        for item in load_defaults(require_document(ctx))['opening_types']:
+            if not item.get('cabinet'):catalog_choice.addItem(item['name'],item)
+    except (RuntimeError,ValueError,AttributeError):pass
+    f.insertRow(0,'Tipo del dibujo:',catalog_choice)
+    def select_catalog(*_):
+        item=catalog_choice.currentData()
+        if not item:return
+        v=item['values'];typ.setCurrentIndex(typ.findData(item['type']))
+        for key,control in [('height',height),('sill',sill),('leaves',leaves),('leaf',leaf),('leaf2',leaf2),('width',width),('frame_width',frame_w),('frame_depth',frame_d),('setback',setback)]:
+            if key in v:control.setValue(v[key])
+        for key,control in [('operation',operation),('face',face),('sill_kind',sill_kind),('setback_from',setback_from),('curve_mode',curve_mode),('width_reference',width_reference)]:
+            if key in v:control.setCurrentIndex(control.findData(v[key]))
+        for key,control in [('frame_material',m_frame),('leaf_material',m_leaf),('glass_material',m_glass),('sill_material',m_sill)]:
+            if key in v:control.setCurrentText(v[key])
+        type_name.setText(item['name']);material.setText(v.get('material',''));refresh()
+    catalog_choice.currentIndexChanged.connect(select_catalog)
+    dlg._arq = dict(catalog_choice=catalog_choice,typ=typ, operation=operation, leaves=leaves, preset=preset, leaf=leaf, leaf2=leaf2,
                     width=width, height=height, sill=sill, face=face, sill_kind=sill_kind, name=name,
                     clear=status, status=status, ifc=ifc, preview=preview, frame_width=frame_w,
                     curve_mode=curve_mode,width_reference=width_reference,facet_sagitta=facet,
