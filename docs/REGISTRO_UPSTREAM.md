@@ -125,3 +125,19 @@ para paneles de extensiones. [Diseño, versiones y antecedentes](propuestas_upst
 El encargo llamaba T-15 a esta propuesta; T-15 ya está ocupado por IfcFurniture en
 la base v1.28 y se conserva sin renumerarlo. Panel, historial y datos de documento
 ya son utilizables en 0.6.1 y 0.6.2; el sondeo de selección es el único rodeo nuevo.
+
+### 18-11-2026: norte y ubicación del proyecto en el IFC
+
+**T-17**, preparada, sin enviar. En IngeTrazo 0.6.2.1, `formats/ifc.py::save_ifc` escribe
+`TrueNorth = $` y deja vacías la latitud, la longitud y la cota del `IfcSite`, aunque la
+escena guarda el norte (Herramientas ▸ Norte) y la ubicación. Comprobado [A] con el muro
+sintético de las pruebas oficiales y norte a 30°. Hay una corrección local probada de 33
+líneas en `formats/ifc.py`: 0 errores EXPRESS y las pruebas IFC oficiales intactas (11 correctas
+y 1 omitida). Sin duplicados en GitHub (búsqueda del 18-11). Importa para el cálculo energético: la orientación de
+cada fachada sale de `TrueNorth`. Mientras tanto, el plugin debe llevar el norte en su
+contrato y en el listado de envolvente.
+
+Mismo día: borrador de comentario en #1222 sobre `IsExternal`, `PredefinedType`
+(medianera, muro y solera en contacto con el terreno) y `Qto_SpaceBaseQuantities`, que
+necesitan los importadores de modelos para el cálculo energético (T-02, T-05). Pendiente de
+la aprobación del propietario.
