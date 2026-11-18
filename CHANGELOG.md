@@ -2,6 +2,30 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.32.0-dev — 2026-11-18
+
+Integra la **entrada revisada de LINEASAMURO** (R22, punto 3), entrega de Codex sobre la v1.31
+(`2a2b4a0`), verificada por SHA-256 y revisada por Claude. 824 pruebas (71 nuevas) con IngeCAD 0.8.0.
+
+- **Contrato `arq.entrada-revisada/v1`** (`entrada_revisada.py`, `docs/ENTRADA_REVISADA.md`): un DXF
+  `plano.dxf` puede llevar al lado `plano.dxf.procedencia.json`, con su SHA-256, unidades en metros,
+  escala comprobada, revisión terminada y el papel y estado de cada capa `REV-*` (y, si hace falta, de
+  cada entidad). Solo las caras de muro, puertas y ventanas **confirmadas** se convierten; ejes,
+  pendientes, rechazados y candidatos no. La fuente original (croquis, foto, PDF) es informativa y el
+  plugin nunca la abre.
+- Sin procedencia válida, LINEASAMURO trabaja como siempre, pero **nunca** reconoce las capas `REV-*`
+  por su nombre ni las usa como contexto o dentro de bloques.
+- Si un muro tiene una interrupción sin puerta o ventana confirmada, se conserva como dibujo y se avisa;
+  no se inventa ni vano ni relleno.
+- Cualquier cambio del DXF, del JSON o del dibujo invalida la vista previa (se comprueban los hashes al
+  analizar y al convertir).
+- LINEASAMURO busca la procedencia al empezar; también se carga con la opción `Procedencia` o desde el
+  cuadro de clasificación.
+- Revisión de Claude: importaciones de `entrada_revisada` al principio de los módulos, no dentro de los
+  bucles; la sección del manual pasa al manual principal.
+- Cadena con IngeTrazo 0.6.2.1 (caso sintético de un muro): 3,24 m³ en el análisis, el contrato y el
+  IFC, sin errores EXPRESS; el IFC sigue sin Psets ni tipos (T-02, T-05).
+
 ## 1.31.0-dev — 2026-11-18
 
 - **Retirado el puente antiguo a IngeTrazo** por decisión del propietario: EXPORTARIGZ, CONFIGIGZ y las

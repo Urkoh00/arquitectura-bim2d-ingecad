@@ -1,12 +1,12 @@
 # Manual de Arquitectura para IngeCAD
 
-Versión 1.31.0-dev · 2026-11-18
+Versión 1.32.0-dev · 18-11-2026
 
 > Copia del manual publicado como documento en claude.ai; se regenera con cada versión.
 
 ## Qué es
 
-Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.31.0-dev** y se actualiza con cada versión.
+Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.32.0-dev** y se actualiza con cada versión.
 
 Cada elemento guarda su identidad persistente, su clase IFC, su geometría editable en planta, sus parámetros 3D (altura, espesor, cota), sus propiedades constructivas (tipo, material, capas) y su nivel. Las carpinterías conocen su muro y los recintos siguen a los muros que los cierran.
 
@@ -23,7 +23,7 @@ El plugin se instala copiando una carpeta en IngeCAD, y la extensión copiando t
 
 **En IngeCAD**
 
-1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.31.0-dev.zip`.
+1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.32.0-dev.zip`.
 2. Copie la carpeta `arquitectura` en la carpeta de plugins de IngeCAD.
 3. Reinicie IngeCAD. Aparece el menú *Arquitectura* y su barra de herramientas.
 4. Escriba `ARQDIAG` en la línea de órdenes para comprobar que la versión cargada es la que acaba de copiar.
@@ -244,6 +244,16 @@ Un muro curvo es el mismo muro BIM que uno recto: sus caras son arcos concéntri
 Las puertas se crean de 2,10 m de altura; las ventanas, de 1,20 m con antepecho de 0,90 m. Los muros se crean por su eje. Ajuste tipos, alturas y carpinterías después.
 
 La lectura del plano usa el módulo libre `walldetect` del proyecto cad2ingetrazo (GPL-3.0), incorporado sin cambios.
+
+**Entrada revisada (capas REV-\*).** Un plano preparado y revisado fuera de IngeCAD puede llegar con sus elementos en capas `REV-*` (por ejemplo `REV-MURO-CARA`, `REV-PUERTA`, `REV-VENTANA`) y, junto al DXF, un fichero de procedencia con el mismo nombre más `.procedencia.json` (para `plano.dxf`, `plano.dxf.procedencia.json`). Ese fichero declara el papel y el estado de cada capa REV-\* (y, si hace falta, de cada objeto), que el plano está en metros con la escala comprobada y que la revisión está terminada; lleva además la huella SHA-256 del DXF, de modo que cualquier cambio en el plano lo invalida.
+
+- `LINEASAMURO` busca el fichero al empezar. También se carga con la opción `Procedencia` (y después la ruta) o desde el cuadro de clasificación, que muestra el estado de cada capa.
+- Solo se convierten las **caras de muro, puertas y ventanas confirmadas**. Los ejes, y todo lo pendiente, rechazado o candidato, se quedan como dibujo.
+- Si un muro tiene una interrupción sin puerta ni ventana confirmada, se conserva como dibujo y se avisa: el plugin no inventa el vano ni lo rellena.
+- **Sin fichero de procedencia válido**, `LINEASAMURO` trabaja como siempre, pero las capas REV-\* no se reconocen por su nombre ni se usan como apoyo.
+- La fuente original (croquis, foto o PDF) solo se cita por nombre; el plugin no la abre.
+
+El contrato completo, con un ejemplo, está en `docs/ENTRADA_REVISADA.md` dentro del ZIP.
 
 ## Pilares
 
@@ -492,7 +502,7 @@ Con niveles o forjados, el intercambio usa `.arqbim` v3 y necesita la extensión
 
 ## Limitaciones conocidas
 
-Estas son las limitaciones conocidas de la versión 1.31.0-dev; cada versión actualiza esta lista.
+Estas son las limitaciones conocidas de la versión 1.32.0-dev; cada versión actualiza esta lista.
 
 - **Plataforma:** las pruebas automáticas se ejecutan en Linux y en Windows con IngeCAD oficial (las versiones 0.7.0 y 0.8.0), pero sin pantalla. El usuario probó la v1.17 en Windows 10 con IngeCAD 0.8 e IngeTrazo 0.6.1: la cadena hasta el IFC funcionó; las correcciones de la v1.18 salen de esa prueba.
 - **Muros curvos:** cada muro llega como mucho a media circunferencia (un muro redondo son dos). MUROPARALELO y DIVIDEMURO solo toman líneas rectas como referencia. El gesto de esquina en L al terminar un MURO solo recorta muros rectos.
@@ -506,6 +516,7 @@ Estas son las limitaciones conocidas de la versión 1.31.0-dev; cada versión ac
 
 | Fecha | Versión | Novedades |
 | --- | --- | --- |
+| 18-11-2026 | 1.32.0-dev | Entrada revisada de LINEASAMURO: un DXF con su fichero de procedencia (plano.dxf.procedencia.json) convierte solo las caras, puertas y ventanas confirmadas; las capas REV-\* nunca se reconocen por su nombre |
 | 18-11-2026 | 1.31.0-dev | Retirado el puente antiguo a IngeTrazo (EXPORTARIGZ, CONFIGIGZ) y las órdenes 3D experimentales MURO3D y HUECO3D; el paso a IngeTrazo es EXPORTARBIM con la extensión |
 | 18-11-2026 | 1.30.0-dev | Cambiar tipos desde IngeTrazo con vuelta a IngeCAD (panel de propiedades, .arqcambios, SINCRONIZARARQ con conflictos); medidas negativas de carpintería rechazadas y señaladas en ARQVALIDAR; la extensión se instala copiando toda su carpeta |
 | 18-11-2026 | 1.29.0-dev | DEFENSA (barandilla, balaustrada o antepecho; IfcRailing) y PARTICIONVIRTUAL (límite de recinto sin muro); guía del código y resúmenes en español en cada módulo |

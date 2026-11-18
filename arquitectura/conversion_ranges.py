@@ -22,7 +22,8 @@ def analyse_ranges(drawing,lo,hi,classification,tmin,tmax,height,parallel,origin
         handles={k:v for k,v in classification.handles.items()if keep(v)and(i==0 or v!='pilares')}
         selected=set(selected_handles)if selected_handles is not None else{e.dxf.handle for e in drawing.modelspace()}
         selected-={k for k,v in classification.handles.items()if not keep(v)or(i>0 and v=='pilares')}
-        c=Classification(layers,handles,True)
+        c=Classification(layers,handles,True,reviewed_source=classification.reviewed_source,
+                         reviewed_wall_role=role)
         plans.append(analyse(drawing,lo,hi,c,*bounds[role],height,parallel,origin,selected))
     walls=[];ops=[];curves=[];curved_ops=[];columns=[];loose=[];blocks=0;sources=[];roles=[];details=[];review=[];warnings=[]
     for p in plans:
@@ -66,4 +67,5 @@ def analyse_ranges(drawing,lo,hi,classification,tmin,tmax,height,parallel,origin
     if all(details[i].get('face')=='distancia'for i,o in enumerate(ops)if o[3]=='window'):
         warnings=[w for w in warnings if not w.startswith('Ventana sin posición')]
     return Plan((walls,ops,[],curves,columns,loose,blocks),sources,list(dict.fromkeys(warnings)),
-        drawing,fingerprint(drawing),(lo,hi),height,origin,roles,curved_ops,details,list(dict.fromkeys(review)))
+        drawing,fingerprint(drawing),(lo,hi),height,origin,roles,curved_ops,details,list(dict.fromkeys(review)),
+        reviewed_source=classification.reviewed_source)

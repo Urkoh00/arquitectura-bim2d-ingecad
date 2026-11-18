@@ -1,55 +1,180 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Resumen: LINEASAMURO: cuadro de clasificación de capas y previsualización.
-#   (Guía del código: docs/GUIA_DEL_CODIGO.md)
-"""Classification sheet; graph picking is delegated back to the native tool."""
+# Resumen: cuadro de clasificación de LINEASAMURO y carga de procedencia revisada.
+"""El cuadro clasifica; la selección gráfica permanece en la herramienta CAD."""
+
+
 def classification_form(ctx, drawing, current):
-    from PySide6.QtWidgets import QTableWidget, QTableWidgetItem, QComboBox, QLabel, QPushButton, QHeaderView,QCheckBox,QDoubleSpinBox,QFormLayout,QHBoxLayout
+    from PySide6.QtWidgets import (
+        QCheckBox, QComboBox, QDoubleSpinBox, QFileDialog, QFormLayout,
+        QHBoxLayout, QHeaderView, QLabel, QMessageBox, QPushButton,
+        QTableWidget, QTableWidgetItem,
+    )
     from .bim_dialogs import _dialog
-    from .conversion_plan import Classification, ROLES, layers_present, guess_roles
-    dlg,layout,buttons=_dialog(ctx,'Arquitectura — LINEASAMURO',
-        'Clasifique por capas o designe objetos en el plano. Después delimite el área, revise '
-        'la previsualización y confirme. Rejas, barandillas y escaleras se conservan pendientes.')
-    present=layers_present(drawing)   # también las capas dentro de los bloques
-    table=QTableWidget(len(present),2);table.setHorizontalHeaderLabels(['Capa de origen','Categoría BIM']);table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch);table.setMaximumHeight(400)
-    combos=[]
-    proposed=(current.layers if current.layers_confirmed or current.layers
-              else guess_roles(present))   # explicit empty choice is not a new first visit
-    for row,name in enumerate(present):
-        table.setItem(row,0,QTableWidgetItem(name));box=QComboBox();box.addItem('No convertir',None)
-        for key,label in ROLES.items():box.addItem(label,key)
-        box.setCurrentIndex(max(0,box.findData(proposed.get(name))));table.setCellWidget(row,1,box);combos.append(box)
-    layout.addWidget(table)
-    separate=QCheckBox('Usar rangos independientes por categoría (m)');separate.setChecked(bool(current.thickness_ranges));layout.addWidget(separate)
-    range_form=QFormLayout();range_edit={}
-    for key,label,default in [('muros','Muros',(.07,.50)),('medianeras','Medianeras',(.07,.50)),('tabiques','Tabiques',(.05,.15))]:
-        row=QHBoxLayout();edit=[]
-        for value in current.thickness_ranges.get(key,default):
-            box=QDoubleSpinBox();box.setDecimals(4);box.setRange(.001,5.);box.setValue(value);box.setEnabled(separate.isChecked());separate.toggled.connect(box.setEnabled);row.addWidget(box);edit.append(box)
-        range_form.addRow(label+' mín./máx.',row);range_edit[key]=edit
-    layout.addLayout(range_form)
-    info=QLabel(f'{len(current.handles)} asignaciones gráficas; prevalecen sobre la capa.');layout.addWidget(info)
-    role=QComboBox()
-    for key,label in ROLES.items():role.addItem(label,key)
-    layout.addWidget(role)
-    pick=QPushButton('Designar gráficamente en el plano…');layout.addWidget(pick)
-    dlg._pick_role=None
-    def read():
-        ranges={k:tuple(b.value()for b in boxes)for k,boxes in range_edit.items()}if separate.isChecked()else{}
-        if any(a>b for a,b in ranges.values()):raise ValueError('El mínimo de espesor supera al máximo')
-        return Classification({name:box.currentData() for name,box in zip(present,combos) if box.currentData()},
-                              dict(current.handles),layers_confirmed=True,thickness_ranges=ranges)
-    def validate_and_accept(status):
-        from PySide6.QtWidgets import QMessageBox
-        try:read()
-        except ValueError as exc:
-            QMessageBox.warning(dlg,'LINEASAMURO',str(exc));return
-        if status==2:dlg._pick_role=role.currentData()
-        dlg.done(status)
-    buttons.accepted.disconnect();buttons.accepted.connect(lambda:validate_and_accept(1))
-    def graphical():validate_and_accept(2)
-    pick.clicked.connect(graphical)
-    # Button box remains the last row, coherent with the existing sheets.
-    layout.removeWidget(buttons);layout.addWidget(buttons)
-    dlg._arq={'table':table,'role':role,'pick':pick,'separate_ranges':separate,'ranges':range_edit}
-    dlg.resize(850,760)
-    return dlg,read
+    from .conversion_plan import Classification, ROLES, guess_roles, layers_present
+    from .entrada_revisada import cargar_procedencia, es_capa_revisada
+
+    dialogo, disposicion, botones = _dialog(
+        ctx,
+        "Arquitectura — LINEASAMURO",
+        "Clasifique por capas o designe objetos. Las capas REV-* necesitan "
+        "procedencia válida y confirmación por entidad. Revise la vista previa antes de convertir.",
+    )
+    capas = layers_present(drawing)
+    tabla = QTableWidget(len(capas), 2)
+    tabla.setHorizontalHeaderLabels(["Capa de origen", "Categoría BIM"])
+    tabla.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+    tabla.setMaximumHeight(400)
+    selectores = []
+    procedencia = [current.reviewed_source]
+    informacion_procedencia = QLabel()
+    informacion_procedencia.setWordWrap(True)
+    cargar = QPushButton("Cargar procedencia de entrada revisada…")
+    disposicion.addWidget(informacion_procedencia)
+    disposicion.addWidget(cargar)
+    if current.layers_confirmed or current.layers:
+        propuestas = current.layers
+    else:
+        propuestas = guess_roles(capas)
+    for numero, nombre in enumerate(capas):
+        tabla.setItem(numero, 0, QTableWidgetItem(nombre))
+        selector = QComboBox()
+        selector.addItem("No convertir", None)
+        for clave, etiqueta in ROLES.items():
+            selector.addItem(etiqueta, clave)
+        selector.setCurrentIndex(max(0, selector.findData(propuestas.get(nombre))))
+        tabla.setCellWidget(numero, 1, selector)
+        selectores.append(selector)
+    disposicion.addWidget(tabla)
+
+    separar = QCheckBox("Usar rangos independientes por categoría (m)")
+    separar.setChecked(bool(current.thickness_ranges))
+    disposicion.addWidget(separar)
+    formulario_rangos = QFormLayout()
+    rangos = {}
+    categorias = [
+        ("muros", "Muros", (.07, .50)),
+        ("medianeras", "Medianeras", (.07, .50)),
+        ("tabiques", "Tabiques", (.05, .15)),
+    ]
+    for clave, etiqueta, valores_iniciales in categorias:
+        fila = QHBoxLayout()
+        controles = []
+        for valor in current.thickness_ranges.get(clave, valores_iniciales):
+            control = QDoubleSpinBox()
+            control.setDecimals(4)
+            control.setRange(.001, 5.)
+            control.setValue(valor)
+            control.setEnabled(separar.isChecked())
+            separar.toggled.connect(control.setEnabled)
+            fila.addWidget(control)
+            controles.append(control)
+        formulario_rangos.addRow(etiqueta + " mín./máx.", fila)
+        rangos[clave] = controles
+    disposicion.addLayout(formulario_rangos)
+    informacion_grafica = QLabel(f"{len(current.handles)} asignaciones gráficas; prevalecen sobre la capa.")
+    disposicion.addWidget(informacion_grafica)
+    categoria_grafica = QComboBox()
+    for clave, etiqueta in ROLES.items():
+        categoria_grafica.addItem(etiqueta, clave)
+    disposicion.addWidget(categoria_grafica)
+    designar = QPushButton("Designar gráficamente en el plano…")
+    disposicion.addWidget(designar)
+    dialogo._pick_role = None
+
+    def actualizar_procedencia():
+        revision = procedencia[0]
+        for nombre, selector in zip(capas, selectores):
+            if revision is not None:
+                selector.clear()
+                selector.addItem(revision.resumen_capa(drawing, nombre), None)
+                selector.setEnabled(False)
+            else:
+                selector.clear()
+                selector.addItem("No convertir", None)
+                for clave, etiqueta in ROLES.items():
+                    selector.addItem(etiqueta, clave)
+                selector.setCurrentIndex(max(0, selector.findData(propuestas.get(nombre))))
+                selector.setEnabled(not es_capa_revisada(nombre))
+                if es_capa_revisada(nombre):
+                    selector.setCurrentIndex(0)
+        if revision is None:
+            informacion_procedencia.setText("Entrada normal. REV-*: No convertir sin procedencia válida.")
+        else:
+            cantidad = len(revision.asignaciones)
+            informacion_procedencia.setText(
+                f"Entrada revisada: {cantidad} entidades confirmadas. "
+                "Ejes, pendientes, rechazadas, candidatos y entidades no incluidas: No convertir."
+            )
+        if revision is None:
+            informacion_grafica.setText(f"{len(current.handles)} asignaciones gráficas; prevalecen sobre la capa.")
+        else:
+            informacion_grafica.setText("Las asignaciones gráficas no alteran los estados de revisión.")
+        designar.setEnabled(revision is None)
+        categoria_grafica.setEnabled(revision is None)
+
+    def elegir_procedencia():
+        ruta, _filtro = QFileDialog.getOpenFileName(
+            dialogo, "Procedencia de entrada revisada", "", "Procedencia (*.procedencia.json)",
+        )
+        if not ruta:
+            return
+        try:
+            revision = cargar_procedencia(ruta, drawing)
+        except ValueError as error:
+            procedencia[0] = None
+            actualizar_procedencia()
+            QMessageBox.warning(dialogo, "Entrada revisada", str(error))
+            return
+        procedencia[0] = revision
+        actualizar_procedencia()
+
+    def leer():
+        limites = {}
+        if separar.isChecked():
+            limites = {clave: tuple(control.value() for control in controles) for clave, controles in rangos.items()}
+        if any(minimo > maximo for minimo, maximo in limites.values()):
+            raise ValueError("El mínimo de espesor supera al máximo")
+        revision = procedencia[0]
+        if revision is not None:
+            revision.comprobar(drawing)
+        asignaciones = {
+            nombre: selector.currentData()
+            for nombre, selector in zip(capas, selectores)
+            if selector.currentData() is not None and not es_capa_revisada(nombre)
+        }
+        return Classification(
+            asignaciones,
+            dict(current.handles),
+            layers_confirmed=True,
+            thickness_ranges=limites,
+            reviewed_source=revision,
+        )
+
+    def aceptar(estado):
+        try:
+            leer()
+        except ValueError as error:
+            QMessageBox.warning(dialogo, "LINEASAMURO", str(error))
+            return
+        if estado == 2:
+            dialogo._pick_role = categoria_grafica.currentData()
+        dialogo.done(estado)
+
+    botones.accepted.disconnect()
+    botones.accepted.connect(lambda: aceptar(1))
+    designar.clicked.connect(lambda: aceptar(2))
+    cargar.clicked.connect(elegir_procedencia)
+    actualizar_procedencia()
+    disposicion.removeWidget(botones)
+    disposicion.addWidget(botones)
+    dialogo._arq = {
+        "table": tabla,
+        "role": categoria_grafica,
+        "pick": designar,
+        "separate_ranges": separar,
+        "ranges": rangos,
+        "review_info": informacion_procedencia,
+        "load_review": cargar,
+    }
+    dialogo.resize(850, 800)
+    return dialogo, leer

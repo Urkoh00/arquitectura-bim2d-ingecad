@@ -2,7 +2,7 @@
 
 Esta guía es para quien vaya a **leer, estudiar o mantener** el código. No sustituye al manual de uso (`docs/MANUAL.md`). Explica cómo está organizado el plugin, qué recorrido hace un elemento desde el clic hasta el IFC y dónde buscar cada cosa.
 
-Versión de referencia: **1.31.0-dev**, con 63 módulos y unas 20 000 líneas en `arquitectura/`, más la extensión de IngeTrazo en `ingetrazo_ext/`.
+Versión de referencia: **1.32.0-dev**, con 64 módulos y unas 20 000 líneas en `arquitectura/`, más la extensión de IngeTrazo en `ingetrazo_ext/`.
 
 ---
 
@@ -124,6 +124,7 @@ Las órdenes solo interactúan: piden puntos, leen opciones y crean las órdenes
 | `slab_tools.py` | FORJADO, HUECOFORJADO |
 | `grid_tools.py`, `grids.py` | EJES, EDITAREJE, REJILLA, PILARESENEJES, ACTUALIZAEJES |
 | `levels.py` | NIVELES, NIVELASIGNAR |
+| `entrada_revisada.py` | Contrato de procedencia, hashes y autorización por capa/entidad de las entradas revisadas. |
 | `convert_tools.py` y `conversion_*.py` | LINEASAMURO (de un plano de líneas a muros BIM) |
 | `cotas.py` | COTAMUROS |
 | `superficies.py` | SUPERFICIES |

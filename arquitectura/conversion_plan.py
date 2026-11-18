@@ -8,9 +8,11 @@ No external recognizer is copied. INSERT contents are read virtually and never
 hidden; ambiguous/unsupported categories remain visible for manual processing.
 """
 from __future__ import annotations
-from dataclasses import dataclass, field
 import copy
 import math
+from dataclasses import dataclass, field
+
+from .entrada_revisada import es_capa_revisada, filtrar_huecos
 
 ROLES = {'muros': 'Muros', 'medianeras': 'Medianeras', 'tabiques': 'Tabiques',
          'pilares': 'Pilares',
@@ -31,14 +33,27 @@ class Classification:
     handles: dict = field(default_factory=dict)
     layers_confirmed: bool = False
     thickness_ranges: dict = field(default_factory=dict)
+    reviewed_source: object = None
+    reviewed_wall_role: str = ""
 
     def role(self, entity):
+        if self.reviewed_source is not None:
+            categoria = self.reviewed_source.categoria(entity)
+            if self.reviewed_wall_role and categoria in WALLS and categoria != self.reviewed_wall_role:
+                return None
+            return categoria
+        if es_capa_revisada(entity.dxf.layer):
+            return None
         return self.handles.get(entity.dxf.handle, self.layers.get(entity.dxf.layer))
 
     def leaf_role(self, part, insert_layer, forced):
         """Role of an entity read inside a block: a graphical assignment of the
         block reference wins; otherwise the entity's OWN layer (layer «0» takes the
         reference's layer, as in DXF)."""
+        if self.reviewed_source is not None:
+            return None
+        if es_capa_revisada(part.dxf.layer) or es_capa_revisada(insert_layer):
+            return None
         if forced:
             return forced
         layer = part.dxf.layer
@@ -67,6 +82,7 @@ class Plan:
     review_segments: list = field(default_factory=list)
     opening_reader: object = field(default=None,repr=False)
     _preview_symbols: object = field(default=None,init=False,repr=False)
+    reviewed_source: object = field(default=None, repr=False)
 
     @property
     def segments(self):
@@ -155,6 +171,8 @@ def guess_roles(layers):
     changes them in the sheet. Layers with no hint are left out (not converted)."""
     out = {}
     for name in layers:
+        if es_capa_revisada(name):
+            continue
         n = str(name).lower()
         canonical={'arq-muros':'muros','arq-tabiques':'tabiques','arq-pilares':'pilares',
                    'arq-puertas':'puertas','arq-ventanas':'ventanas','arq-armarios':'armarios','arq-escaleras':'escaleras'}
@@ -266,6 +284,8 @@ def scale_check(leaves):
 
 def analyse(drawing, lo, hi, classification, tmin=.07, tmax=.5, height=2.7,
             parallel=.005, origin='ocultar', selected_handles=None):
+    if classification.reviewed_source is not None:
+        classification.reviewed_source.comprobar(drawing)
     if classification.thickness_ranges:
         from .conversion_ranges import analyse_ranges
         return analyse_ranges(drawing,lo,hi,classification,tmin,tmax,height,parallel,origin,selected_handles)
@@ -497,6 +517,37 @@ def analyse(drawing, lo, hi, classification, tmin=.07, tmax=.5, height=2.7,
                 review.extend(((s[0],s[1]),(s[2],s[3]))for s in C._segments(entity))
                 unresolved.add(entity.dxf.handle or id(entity))
     if unresolved:warnings.append(f'Carpintería: {len(unresolved)} objetos sin lectura completa; se conservan y resaltan para designación o revisión')
+    if classification.reviewed_source is not None:
+        muros_revisados, ops, curvas_revisadas, curved_ops, details, pendientes = filtrar_huecos(
+            result[0], ops, result[3], curved_ops, details, leaves,
+        )
+        result = (muros_revisados, ops, result[2], curvas_revisadas, *result[4:])
+        curve_specs = [Wall('revision', a, b, t, 'eje', bulge=bulge) for a, b, t, bulge in curvas_revisadas]
+        source_specs = [Wall('revision', a, b, t, 'eje') for a, b, t in muros_revisados] + curve_specs
+        fuentes_revisadas = []
+        for entidad in used:
+            categoria = classification.role(entidad)
+            if categoria in WALLS:
+                segmentos, arcos = C._pieces(entidad)
+                contornos = _outlines(entidad)
+                if contornos:
+                    segmentos = [
+                        (*inicio, *fin)
+                        for contorno in contornos
+                        for inicio, fin in zip(contorno, contorno[1:] + contorno[:1])
+                    ]
+                if (segmentos or arcos) and all(represented_line(segmento) for segmento in segmentos) and all(represented_arc(arco) for arco in arcos):
+                    fuentes_revisadas.append(entidad)
+            elif categoria in ('puertas', 'ventanas'):
+                for numero, (indice, posicion, ancho, clase, bisagra, lado) in enumerate(ops):
+                    muro = Wall('revision', *muros_revisados[indice], 'eje')
+                    centro = muro.point(posicion, 0.)
+                    if reader.owns(entidad, centro, ancho, muro.u, muro.thickness, clase, details[numero]):
+                        fuentes_revisadas.append(entidad)
+                        break
+        used = fuentes_revisadas
+        if pendientes:
+            warnings.append(f'Entrada revisada: {pendientes} muros con vanos sin confirmar se conservan para revisión')
     wall_roles=[]
     for a,b,_t in result[0]:
         center=((a[0]+b[0])/2,(a[1]+b[1])/2);nearest=None
@@ -510,7 +561,7 @@ def analyse(drawing, lo, hi, classification, tmin=.07, tmax=.5, height=2.7,
             except Exception:continue
         wall_roles.append(nearest[1] if nearest else 'muros')
     result=(result[0],ops,*result[2:])
-    return Plan(result,used,list(dict.fromkeys(warnings)),drawing,fingerprint(drawing),(lo,hi),height,origin,wall_roles,curved_ops,details,review,opening_reader=reader)
+    return Plan(result,used,list(dict.fromkeys(warnings)),drawing,fingerprint(drawing),(lo,hi),height,origin,wall_roles,curved_ops,details,review,opening_reader=reader, reviewed_source=classification.reviewed_source)
 
 
 def commit(ctx, plan):
@@ -525,6 +576,8 @@ def commit(ctx, plan):
     doc=require_document(ctx)
     if doc.doc is not plan.drawing or fingerprint(doc.doc)!=plan.fingerprint:
         raise ValueError('El dibujo cambió después de la previsualización; vuelva a analizar')
+    if plan.reviewed_source is not None:
+        plan.reviewed_source.comprobar(doc.doc)
     walls,ops,_src,curved,cols,_loose,_blocks=plan.result
     if not walls and not curved and not cols:return False
     commands=[create_wall(a,b,float(t),plan.height,0.,'eje',name=ROLES[plan.wall_roles[k]],

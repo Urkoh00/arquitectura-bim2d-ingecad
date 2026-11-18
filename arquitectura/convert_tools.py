@@ -23,6 +23,7 @@ import math
 from tools.base import Tool
 
 from .architectural import metadata
+from .entrada_revisada import cargar_procedencia, es_capa_revisada, ruta_contigua
 
 ORIGIN_LAYER = "ARQ-PLANO-ORIGEN"
 SAGITTA = 0.01          # m: arcs flattened this finely for the swing reading
@@ -103,17 +104,23 @@ def _entities(drawing):
     """(entity, from_block) of the model space and of the blocks inserted in
     it (their entities as placed, read only: a block is never changed)."""
     def walk(insert, depth):
+        if es_capa_revisada(insert.dxf.layer):
+            return
         try:
             parts = list(insert.virtual_entities())
         except Exception:  # noqa: BLE001  (an unreadable block is skipped)
             return
         for v in parts:
+            if es_capa_revisada(v.dxf.layer):
+                continue
             if v.dxftype() == "INSERT":
                 if depth < MAX_DEPTH:
                     yield from walk(v, depth + 1)
             elif v.dxftype() in ("LINE", "LWPOLYLINE", "ARC", "CIRCLE"):
                 yield v, True
     for e in drawing.modelspace():
+        if es_capa_revisada(e.dxf.layer):
+            continue
         if e.dxftype() == "INSERT":
             if not str(e.dxf.layer).upper().startswith("ARQ"):
                 yield from walk(e, 1)
@@ -370,7 +377,10 @@ def indexed_entities(drawing,index,a,b,crossing=False):
 
 
 def classified_source(entity,classification):
-    if classification is None:return True
+    if classification is None:
+        return not es_capa_revisada(entity.dxf.layer)
+    if classification.reviewed_source is not None or es_capa_revisada(entity.dxf.layer):
+        return bool(classification.role(entity))
     if classification.handles.get(entity.dxf.handle):return True
     if entity.dxftype()!='INSERT':return bool(classification.role(entity))
     def walk(part,layer,depth):
@@ -455,10 +465,36 @@ class LineasAMuroTool(Tool):
         self.conversion_preview = None
         self.pick_role = None
         self.pick_first = None
+        ruta_procedencia = ruta_contigua(require_document(self.ctx))
+        if ruta_procedencia is not None:
+            self._cargar_procedencia(ruta_procedencia)
         self._prompt()
         from . import bim_dialogs
         if self._classification_available():
             self._classification_dialog()
+
+    def _cargar_procedencia(self, ruta):
+        from .compat import require_document
+        from .conversion_plan import Classification
+        self.conversion_preview = None
+        anterior = self.classification
+        if anterior is not None:
+            anterior.reviewed_source = None
+        try:
+            procedencia = cargar_procedencia(ruta, require_document(self.ctx).doc)
+        except ValueError as error:
+            if anterior is not None and not anterior.layers_confirmed and not anterior.layers and not anterior.handles:
+                self.classification = None
+            # El lector normal mantiene su comportamiento, salvo que nunca
+            # reconoce REV-* por el nombre de capa ni como contexto auxiliar.
+            self.ctx.echo("Entrada revisada no activada: " + str(error))
+            return False
+        if self.classification is None:
+            self.classification = Classification()
+        self.classification.reviewed_source = procedencia
+        cantidad = len(procedencia.asignaciones)
+        self.ctx.echo(f"Entrada revisada: {cantidad} entidades confirmadas; las demás no se convierten.")
+        return True
 
     def _layers_text(self):
         def show(v):
@@ -495,10 +531,15 @@ class LineasAMuroTool(Tool):
         self.prompt(f"LINEASAMURO (espesores {fmt(self.tmin)}–{fmt(self.tmax)} m, altura {fmt(self.height)} m, "
                     f"paralelismo {fmt(self.lineas['paralelismo'])} m, {self._layers_text()}, "
                     f"líneas de origen: {self.origin}): primera esquina de la ventana o "
-                    "[Diálogo/Espesores/Altura/Origen/capas de muro K/capas de piLar/capas de caRpintería/Paralelismo]:")
+                    "[Diálogo/Procedencia/Espesores/Altura/Origen/capas de muro K/capas de piLar/capas de caRpintería/Paralelismo]:")
 
     def on_option(self, text):
         t = str(text).strip().lower()
+        if t == "procedencia":
+            self.pending = "procedencia"
+            self.conversion_preview = None
+            self.prompt("Fichero de procedencia revisada (.procedencia.json):")
+            return True
         if t in ('d', 'dialogo', 'diálogo', 'clasificar'):
             return self._classification_dialog()
         if self.conversion_preview is not None:
@@ -513,7 +554,9 @@ class LineasAMuroTool(Tool):
         if self.pending:
             key, self.pending = self.pending, None
             try:
-                if key == "espesores":
+                if key == "procedencia":
+                    self._cargar_procedencia(str(text).strip().strip('"'))
+                elif key == "espesores":
                     vals = [_num(v) for v in t.replace(";", " ").split()]
                     if len(vals) != 2 or min(vals) <= 0:
                         raise ValueError("dos espesores positivos, p. ej. 0,05 0,50")
