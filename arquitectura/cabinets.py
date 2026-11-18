@@ -1,4 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Resumen: ARMARIOBIM: armarios adosados a un muro (por defecto) o empotrados como nicho, con sus
+#   frentes como puertas.
+#   (Guía del código: docs/GUIA_DEL_CODIGO.md)
 """Partial wall niches using the existing opening and door pipeline."""
 from . import openings as OP
 

@@ -1,4 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Resumen: COTAMUROS: cotas automáticas en cadena a través de los muros.
+#   (Guía del código: docs/GUIA_DEL_CODIGO.md)
 """COTAMUROS: automatic chain dimensions across walls.
 
 Two clicks draw a line through the plan; every wall face, column outline

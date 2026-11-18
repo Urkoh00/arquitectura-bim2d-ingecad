@@ -1,4 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Resumen: Clasificación normativa de un recinto (usos del CTE e ITC-BT-25).
+#   (Guía del código: docs/GUIA_DEL_CODIGO.md)
 """Normative classification of a space (IfcSpace) under the Spanish building code
 (CTE) and the low-voltage regulation (ITC-BT-25).
 

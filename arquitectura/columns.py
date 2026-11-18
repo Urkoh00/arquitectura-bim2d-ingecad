@@ -1,4 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Resumen: Pilares BIM: su huella en planta y su registro en XDATA.
+#   (Guía del código: docs/GUIA_DEL_CODIGO.md)
 """BIM column footprints for IngeCAD, persisted in DXF XDATA."""
 from __future__ import annotations
 import math,uuid

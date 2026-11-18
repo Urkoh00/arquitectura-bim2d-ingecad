@@ -1,4 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Resumen: Perfiles de acero para pilares: tablas normalizadas y contornos exactos.
+#   (Guía del código: docs/GUIA_DEL_CODIGO.md)
 """Steel column sections: standard tables and exact plan outlines.
 
 Dimensions in mm, area A in cm² (as published). Sources (consulted

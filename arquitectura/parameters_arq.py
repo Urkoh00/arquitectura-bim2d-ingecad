@@ -1,4 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Resumen: Valores por defecto del dibujo, catálogo de tipos de muro y usos (PARAMETROSARQ, TIPOSMURO,
+#   USOSARQ).
+#   (Guía del código: docs/GUIA_DEL_CODIGO.md)
 """Drawing-scoped architectural defaults, in native DXF root dictionary.
 
 No global JSON or machine-specific path: the drawing carries its defaults.

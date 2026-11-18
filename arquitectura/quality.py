@@ -1,4 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Resumen: ARQVALIDAR: auditoría de solo lectura de la coherencia CAD/BIM.
+#   (Guía del código: docs/GUIA_DEL_CODIGO.md)
 """Read-only CAD/BIM integrity audit; no geometric edits, no new dependencies."""
 from __future__ import annotations
 import math
@@ -187,7 +189,8 @@ def _space_issues(drawing):
         records, columns, _ops, _issues = read_model(drawing, strict=False)
         from .geom.bands import column_inputs
         from .geom.bands import solve_records
-        result = solve_records(records, columns)
+        from . import particiones_virtuales as VP
+        result = solve_records(records, columns, VP.read(drawing))
         SP.components(result)      # fails here, not halfway through the rooms
     except Exception as exc:  # noqa: BLE001
         return [f'No se pudieron comprobar los recintos ({type(exc).__name__}: {exc})']

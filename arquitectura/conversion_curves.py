@@ -1,4 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Resumen: LINEASAMURO: une tramos de muro curvo detectados, solo a través de huecos comprobados.
+#   (Guía del código: docs/GUIA_DEL_CODIGO.md)
 """Join detected circular wall runs only across evidenced openings.
 
 Reuse the existing arc pairing and swing reader. The result is the normal

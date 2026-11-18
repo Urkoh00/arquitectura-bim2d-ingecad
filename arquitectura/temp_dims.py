@@ -1,4 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Resumen: Cotas temporales al dibujar muros y colocar carpinterías (distancias a referencias; escribir
+#   un número coloca el elemento).
+#   (Guía del código: docs/GUIA_DEL_CODIGO.md)
 """Temporary dimensions while drawing walls and placing carpentry.
 
 The behaviour of the usual BIM programs, described functionally: while the

@@ -1,4 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Resumen: Detecta las ediciones hechas con órdenes de IngeCAD sobre elementos BIM y lanza la
+#   regeneración, como parte del mismo paso de Deshacer.
+#   (Guía del código: docs/GUIA_DEL_CODIGO.md)
 """Keeps BIM data true after edits made with IngeCAD's own commands.
 
 IngeCAD 0.8 runs plugin reactors (``PluginSpec.reactors``, the
@@ -19,7 +22,7 @@ from core.commands import Command
 from .architectural import APPID, metadata
 from .frame import FRAME_APPID
 
-KINDS = ("wall", "column", "space", "opening")
+KINDS = ("wall", "column", "space", "opening", "virtual_partition")
 
 
 def _fingerprint(e):

@@ -1,4 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Resumen: Una acción arquitectónica = un solo paso de Deshacer: la orden más la regeneración de la
+#   planta.
+#   (Guía del código: docs/GUIA_DEL_CODIGO.md)
 """Atomic architectural actions: the native IngeCAD history records one step.
 
 Unlike CompositeCommand.do, this variant rolls already-applied member commands
@@ -76,6 +79,9 @@ def apply_architectural_change(ctx, change, *, kind='wall'):
         needed.insert(0, (PILLAR_LAYER, 4))
     if kind == 'space':
         needed.append(('ARQ-RECINTOS', 3))
+    if kind == 'virtual_partition':
+        from .particiones_virtuales import LAYER, LAYER_COLOR
+        needed.append((LAYER, LAYER_COLOR))
     if kind == 'opening':
         from .architectural import OPENING_LAYER
         from .openings import SYMBOL_LAYER

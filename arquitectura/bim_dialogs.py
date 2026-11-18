@@ -1,4 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Resumen: Fichas de propiedades (ventanas Qt): muro, carpintería, recinto, pilar… Usan la paleta de
+#   IngeCAD, sin tema propio.
+#   (Guía del código: docs/GUIA_DEL_CODIGO.md)
 """Native PySide6 BIM property sheets. No custom theme: inherit IngeCAD's Qt palette.
 
 Imports are intentionally delayed: CLI/headless tools keep working without Qt.

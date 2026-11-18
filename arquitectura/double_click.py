@@ -1,4 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Resumen: Doble clic sobre un elemento BIM (IngeCAD 0.8): abre su ficha o retoma su orden.
+#   (Guía del código: docs/GUIA_DEL_CODIGO.md)
 """Double-click on a BIM element (IngeCAD 0.8: ``PluginSpec.on_double_click``,
 asked for by this plugin): the drawing order starts with its properties,
 the way the reference program's «menú virtual» does.

@@ -1,4 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Resumen: MUROCURVO (dibujar un muro curvo) y CURVAMURO (curvar o enderezar uno existente).
+#   (Guía del código: docs/GUIA_DEL_CODIGO.md)
 """Curved walls: MUROCURVO draws them, CURVAMURO bends (or straightens) one.
 
 A curved wall is the same BIM wall as a straight one, with a ``bulge`` in

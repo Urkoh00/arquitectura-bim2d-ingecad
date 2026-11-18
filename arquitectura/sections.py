@@ -1,4 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Resumen: Geometría en planta de los pilares, común a la entidad, al motor de encuentros y a la
+#   exportación.
+#   (Guía del código: docs/GUIA_DEL_CODIGO.md)
 """Column plan geometry, shared by the DXF entity, the junction engine and
 the IngeTrazo export.
 

@@ -1,4 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Resumen: MOTOR DE ENCUENTROS: de los muros (eje, espesor, referencia) a una única huella por muro,
+#   con esquinas, T, cruces, encuentros a cara y pilares. De aquí salen la planta, el 3D y las
+#   cantidades.
+#   (Guía del código: docs/GUIA_DEL_CODIGO.md)
 """Wall junction engine: ONE constructive footprint per element.
 
 Pure Python, no IngeCAD/IngeTrazo imports, so the same module computes the

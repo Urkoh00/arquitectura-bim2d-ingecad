@@ -1,4 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Resumen: Fichas auxiliares de viga, pasamanos, barandilla y reja (datos de referencia, no órdenes de
+#   dibujo).
+#   (Guía del código: docs/GUIA_DEL_CODIGO.md)
 """Auxiliary coherent sheets; beam/railing records are NOT authoring commands.
 
 Walls and columns reuse the existing forms. Other sheets return validated

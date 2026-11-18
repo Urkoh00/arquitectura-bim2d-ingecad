@@ -1,4 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Resumen: LINEASAMURO: reconocimiento de huecos rectos (puertas, ventanas, vanos) en un plano de
+#   líneas.
+#   (Guía del código: docs/GUIA_DEL_CODIGO.md)
 """Evidence for straight openings. Does not infer height from a 2D stroke.
 
 The existing reader still owns face pairing and wall topology. This adapter

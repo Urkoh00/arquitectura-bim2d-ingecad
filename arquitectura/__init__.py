@@ -1,3 +1,7 @@
+# Resumen: Registro del plugin en IngeCAD: órdenes, menú, barra y capas estándar. Contiene además las
+#   herramientas heredadas de la v1.5 (menú «Herramientas antiguas»). Guía:
+#   docs/GUIA_DEL_CODIGO.md.
+#   (Guía del código: docs/GUIA_DEL_CODIGO.md)
 # -*- coding: utf-8 -*-
 """
 Arquitectura — plugin de dibujo arquitectónico para IngeCAD
@@ -32,7 +36,7 @@ import os
 from collections import defaultdict
 from pathlib import Path
 
-_VERSION = "1.28.0-dev"
+_VERSION = "1.29.0-dev"
 
 from core.plugins import SEPARATOR, MenuItem, PluginSpec, Submenu, ToolbarItem
 from tools.base import Tool
@@ -48,6 +52,8 @@ LAYERS = {
     "ARQ-TABIQUES":      {"color": 8,  "linetype": "Continuous"},
     "ARQ-MEDIANERAS":    {"color": 8,  "linetype": "Continuous"},
     "ARQ-SOTANO":        {"color": 8,  "linetype": "Continuous"},
+    "ARQ-DEFENSAS":      {"color": 8,  "linetype": "Continuous"},
+    "ARQ-PARTICIONES-VIRTUALES": {"color": 8, "linetype": "DASHED"},
     "ARQ-PILARES":       {"color": 4,  "linetype": "Continuous"},
     "ARQ-PUERTAS":       {"color": 3,  "linetype": "Continuous"},
     "ARQ-VENTANAS":      {"color": 5,  "linetype": "Continuous"},
@@ -1486,6 +1492,8 @@ def diagnostico_arq(ctx, *args):
     except (ValueError,KeyError,TypeError) as err:
         ctx.echo('DIAGNOSTICOARQ: '+str(err))
 
+from .particiones_virtuales import ParticionVirtualTool
+from .wall_tools import DefensaTool
 from .wall_tools import MuroCarasTool, MuroParaleloTool, EstiraMuroTool, PivotaMuroTool, RecintoTool, DivideMuroTool, BorraTramoTool, ParteMuroTool, UnirMuroTool
 from .column_tools import PilarTool as PilarPerfilesTool
 from .convert_tools import LineasAMuroTool
@@ -1494,7 +1502,7 @@ from .cotas import CotaMurosTool
 from .curve_tools import CurvaMuroTool, MuroCurvoTool
 from .opening_tools import (CarpinteriaTool as CarpinteriaArqTool, PuertaTool as PuertaArqTool,
                             VentanaTool as VentanaArqTool2, HuecoTool as HuecoArqTool, MoverCarpinteriaTool)
-TOOL_CLASSES = tuple(MuroCarasTool if t.name == "MURO" else PilarPerfilesTool if t.name == "PILAR" else t for t in TOOL_CLASSES) + (SuperficiesTool, CotaMurosTool, LineasAMuroTool, MuroCurvoTool, CurvaMuroTool, CarpinteriaArqTool, PuertaArqTool, VentanaArqTool2, HuecoArqTool, EditarArqTool, ArqPropiedadesTool, MuroParaleloTool, EstiraMuroTool, PivotaMuroTool, RecintoTool, DivideMuroTool, BorraTramoTool, ParteMuroTool, UnirMuroTool, MoverCarpinteriaTool)
+TOOL_CLASSES = tuple(MuroCarasTool if t.name == "MURO" else PilarPerfilesTool if t.name == "PILAR" else t for t in TOOL_CLASSES) + (SuperficiesTool, CotaMurosTool, LineasAMuroTool, MuroCurvoTool, CurvaMuroTool, CarpinteriaArqTool, PuertaArqTool, VentanaArqTool2, HuecoArqTool, EditarArqTool, ArqPropiedadesTool, MuroParaleloTool, EstiraMuroTool, PivotaMuroTool, RecintoTool, DivideMuroTool, BorraTramoTool, ParteMuroTool, UnirMuroTool, MoverCarpinteriaTool, DefensaTool, ParticionVirtualTool)
 
 def arqdiag(ctx, *args):
     """Diagnóstico sin mutar el dibujo y sin depender de PySide6."""
@@ -1582,6 +1590,8 @@ def plugin_spec() -> PluginSpec:
                 MenuItem("Muro curvo (inicio, fin y punto de paso)", "MUROCURVO", icon=glyph / "murocurvo.svg"),
                 MenuItem("Curvar o enderezar un muro", "CURVAMURO", icon=glyph / "curvamuro.svg"),
                 MenuItem("Muro paralelo a una cara", "MUROPARALELO", icon=glyph / "muroparalelo.svg"),
+                MenuItem("Defensa (barandilla, balaustrada o antepecho)", "DEFENSA", icon=glyph / "defensa.svg"),
+                MenuItem("Partición virtual (límite de recinto sin muro)", "PARTICIONVIRTUAL", icon=glyph / "particionvirtual.svg"),
                 MenuItem("Alargar o acortar muro hasta una línea", "ESTIRAMURO", icon=glyph / "estiramuro.svg"),
                 MenuItem("Mover un extremo de muro", "PIVOTAMURO", icon=glyph / "pivotamuro.svg"),
                 MenuItem("Dividir un tramo en partes iguales con muros", "DIVIDEMURO", icon=glyph / "dividemuro.svg"),

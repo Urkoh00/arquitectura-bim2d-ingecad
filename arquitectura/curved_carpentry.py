@@ -1,4 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Resumen: Carpintería curva para muros curvos, a partir de la misma definición que la recta.
+#   (Guía del código: docs/GUIA_DEL_CODIGO.md)
 """Circular carpentry from the existing straight piece definition.
 
 The common station list is used by both plan sections and closed 3D cells.

@@ -1,4 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Resumen: Integridad de los datos BIM antes de exportar: informa, nunca bloquea.
+#   (Guía del código: docs/GUIA_DEL_CODIGO.md)
 """Integrity of the BIM data before exporting: report, never block.
 
 Before an export the whole drawing is checked and every problem is listed

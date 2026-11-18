@@ -1,4 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Resumen: Recintos: el hueco que dejan los muros alrededor de un punto, su reparto por particiones
+#   virtuales y los muros exteriores del edificio.
+#   (Guía del código: docs/GUIA_DEL_CODIGO.md)
 """Spaces (rooms) from the junction engine's footprints.
 
 The footprints of walls and columns tile without overlaps (junctions.solve).
@@ -60,11 +63,23 @@ def _perimeter(loop):
     return sum(math.dist(a, b) for a, b in zip(loop, loop[1:] + loop[:1]))
 
 
-def space_at(result, seed, comps=None):
+def space_at(result, seed, comps=None, partitions=()):
     """The room containing ``seed``: a dict with ``outer`` (ccw), ``holes``
     (islands, cw), ``pieces`` (convex, for solids), ``area`` and
     ``perimeter``; or ``(None, reason)`` with reason "muro" (the seed lies
-    inside a wall or column) or "abierto" (it is not enclosed)."""
+    inside a wall or column) or "abierto" (it is not enclosed).
+
+    ``partitions``: tramos [(a, b, id)] de particiones virtuales (v1.29). El
+    hueco que dejan los muros se reparte por ellas y el recinto es la parte
+    que contiene ``seed`` (split_by_partitions). Sin particiones, el
+    resultado es exactamente el de siempre."""
+    room, why = _space_at(result, seed, comps)
+    if room is None or not partitions:
+        return room, why
+    return split_by_partitions(room, seed, partitions), ""
+
+
+def _space_at(result, seed, comps=None):
     comps = comps if comps is not None else components(result)
     seed = (float(seed[0]), float(seed[1]))
     for outer, holes in comps:
@@ -116,3 +131,153 @@ def _on_segment(m, p, q, tol):
     if t < -1e-9 or t > 1 + 1e-9:
         return False
     return abs(P.cross(d, P.sub(m, p))) / math.sqrt(L2) <= tol
+
+
+# --- Particiones virtuales (v1.29) -----------------------------------------------------
+# El recinto que dejan los muros se reparte por las particiones virtuales:
+#   1. cada trozo convexo del recinto se corta por la recta de cada partición
+#      que pasa por él (un corte de más no importa: el paso 2 lo deshace);
+#   2. dos celdas vecinas siguen unidas salvo que una partición cubra ENTERO
+#      el lado que comparten;
+#   3. el recinto son las celdas a las que se llega desde el punto designado.
+# El área es la suma exacta de las celdas: no hay bandas finas ni tolerancias
+# de área. Una partición que no cruza la estancia de lado a lado deja todas
+# las celdas unidas, y el recinto sale igual que sin ella.
+
+_ON_LINE = 1e-7          # m: un punto a esta distancia está sobre la línea
+
+
+def _clip_segment(a, b, poly):
+    """Parte del segmento a–b dentro del polígono convexo ``poly`` (ccw), o None."""
+    t0, t1 = 0.0, 1.0
+    d = P.sub(b, a)
+    n = len(poly)
+    for i in range(n):
+        q, r = poly[i], poly[(i + 1) % n]
+        e = P.sub(r, q)
+        num = P.cross(e, P.sub(a, q))        # > 0: a a la izquierda (dentro)
+        den = P.cross(e, d)
+        if abs(den) < 1e-15:
+            if num < 0:
+                return None
+            continue
+        t = -num / den
+        if den > 0:
+            t0 = max(t0, t)
+        else:
+            t1 = min(t1, t)
+        if t0 > t1:
+            return None
+    if (t1 - t0) * math.hypot(*d) <= _ON_LINE:
+        return None
+    return t0, t1
+
+
+def _cut_cells(cells, segments):
+    """Corta las celdas convexas por la recta de cada tramo que las atraviesa."""
+    for a, b, _ident in segments:
+        d = P.sub(b, a)
+        if math.hypot(*d) < 1e-9:
+            continue
+        nxt = []
+        for c in cells:
+            side = [P.cross(d, P.sub(q, a)) for q in c]
+            scale = math.hypot(*d) * _ON_LINE
+            straddles = max(side) > scale and min(side) < -scale
+            if straddles and _clip_segment(a, b, c) is not None:
+                left = P.clip_halfplane(c, a, d)
+                right = P.clip_halfplane(c, a, (-d[0], -d[1]))
+                nxt += [x for x in (left, right) if x]
+            else:
+                nxt.append(c)
+        cells = nxt
+    return cells
+
+
+def _shared(ci, cj):
+    """Lados comunes de dos celdas: [(p, q)] donde coinciden (en sentidos opuestos)."""
+    out = []
+    for i in range(len(ci)):
+        a, b = ci[i], ci[(i + 1) % len(ci)]
+        d = P.sub(b, a)
+        L = math.hypot(*d)
+        if L < 1e-12:
+            continue
+        u = (d[0] / L, d[1] / L)
+        for j in range(len(cj)):
+            c, e = cj[j], cj[(j + 1) % len(cj)]
+            if abs(P.cross(u, P.sub(c, a))) > _ON_LINE or abs(P.cross(u, P.sub(e, a))) > _ON_LINE:
+                continue
+            s0, s1 = sorted((P.dot(P.sub(c, a), u), P.dot(P.sub(e, a), u)))
+            lo, hi = max(0.0, s0), min(L, s1)
+            if hi - lo > _ON_LINE:
+                out.append(((a[0] + u[0] * lo, a[1] + u[1] * lo), (a[0] + u[0] * hi, a[1] + u[1] * hi)))
+    return out
+
+
+def _covered(p, q, segments):
+    """(cubierto, ids): si los tramos de partición tapan entero el lado p–q."""
+    d = P.sub(q, p)
+    L = math.hypot(*d)
+    u = (d[0] / L, d[1] / L)
+    spans, ids = [], set()
+    for a, b, ident in segments:
+        if abs(P.cross(u, P.sub(a, p))) > _ON_LINE or abs(P.cross(u, P.sub(b, p))) > _ON_LINE:
+            continue
+        s0, s1 = sorted((P.dot(P.sub(a, p), u), P.dot(P.sub(b, p), u)))
+        if s1 > _ON_LINE and s0 < L - _ON_LINE:
+            spans.append((max(0.0, s0), min(L, s1)))
+            ids.add(ident)
+    reach = 0.0
+    for s0, s1 in sorted(spans):
+        if s0 > reach + _ON_LINE:
+            return False, ids
+        reach = max(reach, s1)
+    return reach >= L - _ON_LINE, ids
+
+
+def split_by_partitions(room, seed, segments):
+    """El recinto ``room`` (de space_at) recortado por las particiones virtuales.
+
+    Devuelve ``room`` tal cual si ninguna partición lo divide; si no, un
+    recinto nuevo con las mismas claves y ``virtual_boundaries`` (los ids de
+    las particiones que lo limitan)."""
+    box = P.bbox(room["pieces"])
+    near = [s for s in segments
+            if not (max(s[0][0], s[1][0]) < box[0] - _ON_LINE or min(s[0][0], s[1][0]) > box[2] + _ON_LINE
+                    or max(s[0][1], s[1][1]) < box[1] - _ON_LINE or min(s[0][1], s[1][1]) > box[3] + _ON_LINE)]
+    if not near:
+        return room
+    cells = _cut_cells([P.ccw(list(c)) for c in room["pieces"]], near)
+    if len(cells) <= len(room["pieces"]):
+        return room
+    seed = (float(seed[0]), float(seed[1]))
+    start = next((k for k, c in enumerate(cells) if _inside(seed, c)), None)
+    if start is None:                     # el punto cae sobre una partición
+        start = min(range(len(cells)),
+                    key=lambda k: math.dist(seed, P.mul(P.add(cells[k][0], cells[k][len(cells[k]) // 2]), 0.5)))
+    reached, frontier, bounds = {start}, [start], set()
+    boxes = [P.bbox([c]) for c in cells]
+    while frontier:
+        i = frontier.pop()
+        for j in range(len(cells)):
+            if j in reached or P.boxes_apart(boxes[i], boxes[j], 1e-6):
+                continue
+            if any(not _covered(p, q, near)[0] for p, q in _shared(cells[i], cells[j])):
+                reached.add(j)
+                frontier.append(j)
+    if len(reached) == len(cells):
+        return room                          # ninguna partición cierra: un solo recinto
+    # las particiones que separan lo alcanzado de lo demás son sus límites
+    for i in reached:
+        for j in range(len(cells)):
+            if j not in reached and not P.boxes_apart(boxes[i], boxes[j], 1e-6):
+                for p, q in _shared(cells[i], cells[j]):
+                    bounds |= _covered(p, q, near)[1]
+    pieces = [cells[k] for k in sorted(reached)]
+    comps = P.merge(pieces)
+    outer, holes = max(comps, key=lambda c: P.area(c[0]))
+    area = math.fsum(P.area(c) for c in pieces)
+    return {"outer": outer, "holes": holes, "pieces": pieces, "area": area,
+            "perimeter": _perimeter(outer) + sum(_perimeter(h) for h in holes),
+            "virtual_boundaries": sorted(x for x in bounds if x)}

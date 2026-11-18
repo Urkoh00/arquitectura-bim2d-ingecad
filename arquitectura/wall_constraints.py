@@ -1,4 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Resumen: Altura de un muro de nivel a nivel (restricción superior); todos reciben el mismo registro
+#   resuelto.
+#   (Guía del código: docs/GUIA_DEL_CODIGO.md)
 """Wall vertical constraints; every consumer receives the same resolved record."""
 import math
 

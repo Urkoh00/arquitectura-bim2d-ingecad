@@ -1,4 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Resumen: FORJADO y HUECOFORJADO: dibujo de forjados y sus huecos.
+#   (Guía del código: docs/GUIA_DEL_CODIGO.md)
 """Slab drafting through native point input, picking and history."""
 from tools.base import Tool
 from . import slabs as S

@@ -1,4 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Resumen: El contrato .arqbim: read_model lee muros, pilares y huecos del dibujo; build compone
+#   elementos, sólidos 3D, cantidades, Psets, niveles y relaciones para IngeTrazo.
+#   (Guía del código: docs/GUIA_DEL_CODIGO.md)
 """IngeCAD -> IngeTrazo exchange contract ``arqbim`` v1 (JSON, metres).
 
 The plugin computes the FINAL constructive geometry once (geom.junctions +
@@ -30,6 +33,7 @@ VERSION = 1
 _GUID_CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_$"
 
 PSET = {"IfcWall": "Pset_WallCommon", "IfcColumn": "Pset_ColumnCommon", "IfcSpace": "Pset_SpaceCommon",
+        "IfcRailing": "Pset_RailingCommon",
         "IfcCovering": "Pset_CoveringCommon", "IfcDoor": "Pset_DoorCommon",
         "IfcWindow": "Pset_WindowCommon", "IfcBuildingElementProxy":"Pset_BuildingElementProxyCommon"}
 
@@ -154,7 +158,9 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD", problem
     issues = [p["text"] for p in problems] + issues
     specs = J.walls_from_records(walls)
     from .geom.bands import solve_records
-    result = solve_records(walls, columns)           # by height bands (0002)
+    from . import particiones_virtuales as VP
+    partitions = VP.read(drawing)
+    result = solve_records(walls, columns, partitions)   # by height bands (0002)
     issues += result.warnings
     from .geom import spaces as SP
     external = set().union(*(SP.external_walls(part) for _z, part in result.vertical_networks))
@@ -168,17 +174,36 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD", problem
         levels.setdefault(level, float(m.get("base", 0.0)))
         ops = sorted(by_wall.get(ident, []), key=lambda o: float(o["offset"]))
         geo = result.walls[ident]
-        faces, volume = S.layered_wall_solid(geo["bands"], spec, float(m.get("base", 0.0)), ops)
-        el = _element(ident, "IfcWall", m, faces, volume, geo["area"], level)
         from .wall_categories import category
         cat=category(m,ident in external)
-        el['enums']={'PredefinedType':'PARTITIONING' if cat=='tabique' else 'STANDARD'}
+        if cat=='defensa':
+            # barandilla, balaustrada o antepecho (defensas.py): misma huella
+            # que en planta; la barandilla con pasamanos y montantes
+            from . import defensas as DF
+            cls,predefined=DF.ifc(m)
+            voids=DF.void_ratio(m)
+            if voids>0 and not spec.curved:
+                faces, volume = DF.railing_solid(geo, spec, float(m.get("base", 0.0)), float(m["height"]), voids)
+            else:
+                faces, volume = S.layered_wall_solid(geo["bands"], spec, float(m.get("base", 0.0)), ())
+            el = _element(ident, cls, m, faces, volume, geo["area"], level)
+            el['enums']={'PredefinedType':predefined}
+        else:
+            faces, volume = S.layered_wall_solid(geo["bands"], spec, float(m.get("base", 0.0)), ops)
+            el = _element(ident, "IfcWall", m, faces, volume, geo["area"], level)
+            el['enums']={'PredefinedType':'PARTITIONING' if cat=='tabique' else 'STANDARD'}
         el['params'].update(wall_category=cat,wall_role=m.get('wall_role',''))
         el['psets']['ARQ_IngeCAD'].update(Categoria=cat,Medianera=cat=='medianera',ContactoTerreno=cat=='sotano')
         # envelope: a face on the outer boundary of the building (calculated)
         el["psets"].setdefault("Pset_WallCommon", {})["IsExternal"] = cat in ("fachada","medianera","sotano")
         el["psets"]["ARQ_IngeCAD"]["IsExternalSource"] = "categoría" if m.get("wall_category") else "deducido"
         el["is_external"] = cat in ("fachada","medianera","sotano")
+        if cat=='defensa':
+            # exterior si está en el contorno del edificio (terraza, balcón)
+            el["is_external"] = ident in external
+            el["psets"].pop("Pset_WallCommon", None)
+            el["psets"].update(DF.psets(m, el["is_external"]))
+            el["params"].update(defense_type=DF.defense_type(m), void_ratio=voids)
         el["footprint"] = [[list(map(list, o)), [list(map(list, h)) for h in hs]]
                            for o, hs in geo["loops"]]
         el["params"].update({k:m[k] for k in ("height_constraint","level_id","base_offset","top_level_id","top_offset")if k in m})
@@ -314,7 +339,7 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD", problem
                                     "NetVolume": cv}
             elements.append(ce)
     from . import superficies as SU
-    res_u = SU.useful_result(specs, columns, records=walls)
+    res_u = SU.useful_result(specs, columns, records=walls, partitions=partitions)
     from .parameters_arq import general_options
     by_use = general_options(drawing)["usar_usos"]
     from . import space_envelope as SE
@@ -375,6 +400,9 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD", problem
             el["psets"]["ARQ_ClasificacionCTE"] = cte
         el["params"].update(seed=list(map(float, m["seed"])))
         el["footprint"] = [[[list(q) for q in room["outer"]], [[list(q) for q in h] for h in room["holes"]]]]
+        if room.get("virtual_boundaries"):
+            # particiones virtuales que lo limitan (contrato: virtual_partitions)
+            el["params"]["virtual_boundaries"] = list(room["virtual_boundaries"])
         el["quantities"] = {"Height": height, "GrossFloorArea": room["area"], "NetFloorArea": net_room["area"],
                             "GrossPerimeter": room["perimeter"], "NetPerimeter": net_room["perimeter"],
                             "GrossVolume": gross_volume, "NetVolume": volume}
@@ -425,6 +453,11 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD", problem
         "levels": level_rows,
         **({'active_level_id':catalog['active']}if catalog else{}),
         "elements": elements,
+        # particiones virtuales: límites de recinto sin geometría (IfcVirtualElement
+        # cuando IngeTrazo lo admita; véase particiones_virtuales.py)
+        "virtual_partitions": [{"id": p["id"], "guid": ifc_guid(p["id"]), "ifc_class": "IfcVirtualElement",
+                                "level": p["level"], "base": p["base"], "height": p["height"],
+                                "points": [list(q) for q in p["points"]]} for p in partitions],
         "joins": {"nodes": [{"walls": n["walls"], "point": list(n["point"])} for n in result.nodes],
                   "tees": result.tees,
                   "clips": [{"loser": c["loser"], "winner": c["winner"], "area": c["area"]}
@@ -641,6 +674,7 @@ def _wall_prism(spec, outline, holes, p, q):
 
 def _element(ident, cls, m, faces, volume, plan_area, level):
     name = m.get("name") or {"IfcWall": "Muro", "IfcColumn": "Pilar", "IfcSpace": "Recinto",
+                             "IfcRailing": "Barandilla",
                              "IfcCovering": "Revestimiento", "IfcDoor": "Puerta",
                              "IfcWindow": "Ventana"}.get(cls, cls)
     material = m.get("material") or ""

@@ -1,4 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Resumen: LINEASAMURO: de un plano antiguo dibujado con líneas a muros y carpinterías BIM.
+#   (Guía del código: docs/GUIA_DEL_CODIGO.md)
 """LINEASAMURO: an old plan drawn with lines becomes BIM walls and openings.
 
 Two clicks frame the part of the plan to convert. Inside the window, pairs

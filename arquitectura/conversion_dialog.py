@@ -1,4 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Resumen: LINEASAMURO: cuadro de clasificación de capas y previsualización.
+#   (Guía del código: docs/GUIA_DEL_CODIGO.md)
 """Classification sheet; graph picking is delegated back to the native tool."""
 def classification_form(ctx, drawing, current):
     from PySide6.QtWidgets import QTableWidget, QTableWidgetItem, QComboBox, QLabel, QPushButton, QHeaderView,QCheckBox,QDoubleSpinBox,QFormLayout,QHBoxLayout

@@ -1,4 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Resumen: Arcos de los muros curvos (Python puro).
+#   (Guía del código: docs/GUIA_DEL_CODIGO.md)
 """Circular arcs for curved walls (pure Python).
 
 A curved wall is stored as a DXF polyline does it: its two end points and a

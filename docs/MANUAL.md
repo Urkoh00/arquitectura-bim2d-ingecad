@@ -1,12 +1,12 @@
 # Manual de Arquitectura para IngeCAD
 
-Versión 1.28.0-dev · 2026-11-17
+Versión 1.29.0-dev · 2026-11-18
 
 > Copia del manual publicado como documento en claude.ai; se regenera con cada versión.
 
 ## Qué es
 
-Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.28.0-dev** y se actualiza con cada versión.
+Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.29.0-dev** y se actualiza con cada versión.
 
 Cada elemento guarda su identidad persistente, su clase IFC, su geometría editable en planta, sus parámetros 3D (altura, espesor, cota), sus propiedades constructivas (tipo, material, capas) y su nivel. Las carpinterías conocen su muro y los recintos siguen a los muros que los cierran.
 
@@ -23,7 +23,7 @@ El plugin se instala copiando una carpeta en IngeCAD, y la extensión copiando d
 
 **En IngeCAD**
 
-1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.28.0-dev.zip`.
+1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.29.0-dev.zip`.
 2. Copie la carpeta `arquitectura` en la carpeta de plugins de IngeCAD.
 3. Reinicie IngeCAD. Aparece el menú *Arquitectura* y su barra de herramientas.
 4. Escriba `ARQDIAG` en la línea de órdenes para comprobar que la versión cargada es la que acaba de copiar.
@@ -128,6 +128,14 @@ El catálogo inicial trae tabiques de placa de yeso laminado y fábricas de term
 **MURO.** Antes del primer punto, un número se lee como el **espesor total** y el programa ofrece los tipos de muro que lo tienen. Después, un número es la longitud del tramo en la dirección del cursor. `Intro` empieza un tramo nuevo; otro `Intro` termina. Al empezar, la ficha de muro permite elegir un tipo del catálogo: muestra sus capas y fija el espesor; «Genérico» deja el espesor libre.
 
 **Escribir el espesor.** En IngeCAD, `x,y` es un punto y los decimales llevan punto. El plugin acepta también la coma decimal para el espesor (`0,25`), pero solo cuando el valor es un espesor razonable, hasta 1,5 m. Si no lo es, se toma como punto: `3,4` empieza el muro en el punto (3, 4). Un número sin coma mayor de 1,5 se entiende en **centímetros** hasta 100 (`25` = 0,25 m) y en **milímetros** hasta 1500 (`250` = 0,25 m), y el programa dice cómo lo ha leído. Un valor fuera de esos márgenes se rechaza con un aviso. Lo mismo vale en `MUROPARALELO` y `MUROCURVO`.
+
+**DEFENSA (desde la 1.29).** Dibuja barandillas, balaustradas y antepechos (petos) igual que un muro: por puntos, por una cara o por el eje. Forma encuentros con los muros y **cierra recintos**, por ejemplo una terraza limitada por su barandilla. Empieza como barandilla de 0,05 m de espesor y 1,10 m de altura. Opciones:
+
+- `Barandilla`, `baLaustrada` y `antePecho` cambian el tipo y sus valores de partida. El antepecho es macizo, de 0,15 m.
+- `Huecos` fija la proporción de huecos del alzado, en %. En 3D, la barandilla se construye con pasamanos y montantes dentro de la misma huella que se ve en planta.
+- `Altura`, `Espesor`, `Cota` y `Referencia` funcionan como en MURO. Si la altura no llega a 1,10 m, avisa de lo que pide el DB-SUA 1: 0,90 m si el desnivel no supera 6 m, y 1,10 m en los demás casos.
+
+Una defensa va en la capa `ARQ-DEFENSAS` y no admite carpinterías. Es un muro con la categoría «Defensa», así que se edita con las mismas órdenes que un muro. Se exporta como `IfcRailing` (GUARDRAIL o BALUSTRADE); el antepecho, como `IfcWall` PARAPET.
 
 | Opción | Efecto |
 | --- | --- |
@@ -343,6 +351,8 @@ Un recinto (IfcSpace) se crea con un clic dentro de la estancia y sigue a los mu
 | `T` Tipo | Interior o exterior cubierto (terraza, balcón, porche, galería, tendedero) |
 | `U` Uso | Uso de la estancia (texto) |
 
+**PARTICIONVIRTUAL (desde la 1.29).** Separa dos recintos que no tienen muro entre ellos, como la cocina abierta y el salón. Se dibuja por puntos, como una polilínea, e `Intro` termina. Conviene que empiece y acabe sobre un muro, en su cara o en su eje: si se queda corta, no separa nada. RECINTO la usa como borde, y la suma de las superficies de los dos lados es exactamente la de la estancia completa. Es una línea de trazos en la capa `ARQ-PARTICIONES-VIRTUALES`, del nivel activo, y se edita con las órdenes de IngeCAD (pinzamientos, DESPLAZA…): los recintos se rehacen solos. No tiene volumen ni aparece en 3D. En la exportación viaja como límite de los recintos, porque IngeTrazo todavía no escribe `IfcVirtualElement` en el IFC.
+
 El rótulo muestra el nombre y la superficie útil, y «(computa X)» cuando la superficie computable es distinta.
 
 **SUPERFICIES** escribe el cuadro de superficies en la línea de órdenes y lo dibuja en la planta, con la esquina superior izquierda en el punto que se indique. El cuadro tiene las columnas Nº, Recinto, Uso, superficie útil, coeficiente, superficie computable, altura y habitable, los totales y el criterio de cómputo, y va en la capa ARQ-CUADROS. La opción A actualiza en su sitio el cuadro ya dibujado y T cambia la altura del texto (0,20 m a escala 1:100). Dibujarlo se deshace en un paso. Aplica el Decreto 10/2019 de Extremadura (art. 2.3 y 2.4):
@@ -470,7 +480,7 @@ Con niveles o forjados, el intercambio usa `.arqbim` v3 y necesita la extensión
 
 ## Limitaciones conocidas
 
-Estas son las limitaciones conocidas de la versión 1.28.0-dev; cada versión actualiza esta lista.
+Estas son las limitaciones conocidas de la versión 1.29.0-dev; cada versión actualiza esta lista.
 
 - **Plataforma:** las pruebas automáticas se ejecutan en Linux y en Windows con IngeCAD oficial (las versiones 0.7.0 y 0.8.0), pero sin pantalla. El usuario probó la v1.17 en Windows 10 con IngeCAD 0.8 e IngeTrazo 0.6.1: la cadena hasta el IFC funcionó; las correcciones de la v1.18 salen de esa prueba.
 - **Muros curvos:** cada muro llega como mucho a media circunferencia (un muro redondo son dos). MUROPARALELO y DIVIDEMURO solo toman líneas rectas como referencia. El gesto de esquina en L al terminar un MURO solo recorta muros rectos.
@@ -484,6 +494,7 @@ Estas son las limitaciones conocidas de la versión 1.28.0-dev; cada versión ac
 
 | Fecha | Versión | Novedades |
 | --- | --- | --- |
+| 18-11-2026 | 1.29.0-dev | DEFENSA (barandilla, balaustrada o antepecho; IfcRailing) y PARTICIONVIRTUAL (límite de recinto sin muro); guía del código y resúmenes en español en cada módulo |
 | 17-11-2026 | 1.28.0-dev | Revisión general: planos grandes hasta seis veces más rápidos; el espesor escrito en MURO se lee en m, cm o mm y «3,4» es un punto; guardar y reabrir conserva el modelo BIM (prueba nueva) |
 | 16-11-2026 | 1.27.0-dev | Iconos en todas las órdenes; selector de nivel con encendido, inutilizado y bloqueado; categoría del muro (fachada, tabique, medianera, sótano) con su capa; muro hasta un nivel con desfases; armario adosado; vista previa de carpintería a una sola escala |
 | 16-11-2026 | 1.26.0-dev | Cotas temporales: CARPINTERIA muestra las distancias a las referencias del muro y coloca el hueco con la distancia escrita (F6 cambia de cota, F4 mide al eje); MOVERCARP mueve una carpintería con sus cotas; MURO muestra longitud, ángulo y distancia a los muros paralelos |

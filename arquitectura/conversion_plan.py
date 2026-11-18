@@ -1,4 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Resumen: LINEASAMURO: plan de conversión de solo lectura (clasificación y vista previa) y su
+#   confirmación.
+#   (Guía del código: docs/GUIA_DEL_CODIGO.md)
 """Read-only classification/preview and explicit commit, using the existing reader.
 
 No external recognizer is copied. INSERT contents are read virtually and never

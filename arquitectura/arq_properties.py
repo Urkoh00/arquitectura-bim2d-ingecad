@@ -1,4 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Resumen: PROPIEDADESARQ: designar un elemento BIM por su dibujo en planta y abrir su ficha.
+#   (Guía del código: docs/GUIA_DEL_CODIGO.md)
 """Select architectural objects through their 2D representation.
 
 The official IngeCAD plugin API (2026-11) has no property-panel providers.

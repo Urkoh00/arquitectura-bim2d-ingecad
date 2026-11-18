@@ -1,4 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Resumen: EXPORTARBIM: escribe el fichero .arqbim (el contrato que lee la extensión de IngeTrazo).
+#   (Guía del código: docs/GUIA_DEL_CODIGO.md)
 """EXPORTARBIM: write the ``.arqbim`` contract for IngeTrazo.
 
 Replaces the IGZ bridge for end users: no IngeTrazo sources, no external

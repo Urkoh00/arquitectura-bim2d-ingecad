@@ -1,4 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Resumen: Núcleo de polígonos (Python puro): área, recorte por semiplano, trozos convexos, unión y
+#   resta.
+#   (Guía del código: docs/GUIA_DEL_CODIGO.md)
 """Planar polygon kernel for Arquitectura (pure Python, no host imports).
 
 Small and deterministic on purpose: architectural footprints are built from

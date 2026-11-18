@@ -1,4 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Resumen: SUPERFICIES: superficie útil de los recintos según criterio normativo, y su tabla.
+#   (Guía del código: docs/GUIA_DEL_CODIGO.md)
 """Useful floor area («superficie útil») of a room by a regulatory criterion.
 
 The geometric room (``geom.spaces``) is the free floor between the faces of
@@ -61,7 +63,7 @@ def small_columns(columns, crit=None):
     return out
 
 
-def useful_result(specs, columns, crit=None, records=None):
+def useful_result(specs, columns, crit=None, records=None, partitions=()):
     """The junction solution without the columns that are not deducted
     (or None when there is none: then it is the ordinary solution)."""
     from .geom import junctions as J
@@ -70,7 +72,7 @@ def useful_result(specs, columns, crit=None, records=None):
         return None
     if records is not None:
         from .geom.bands import solve_records
-        return solve_records(records, [(cid, m) for cid, m in columns if cid not in small])
+        return solve_records(records, [(cid, m) for cid, m in columns if cid not in small], partitions)
     from .geom.bands import column_inputs
     return J.solve(specs, column_inputs([(cid, m) for cid, m in columns if cid not in small]))
 
@@ -170,8 +172,9 @@ def table(drawing, crit=None):
     records, columns, _ops, _issues = read_model(drawing, strict=False)
     specs = J.walls_from_records(records)
     from .geom.bands import solve_records
-    result = solve_records(records, columns)
-    res_u = useful_result(specs, columns, crit, records=records)
+    from . import particiones_virtuales as VP
+    result = solve_records(records, columns, VP.read(drawing))
+    res_u = useful_result(specs, columns, crit, records=records, partitions=result.virtual_partitions)
     from .parameters_arq import general_options
     by_use = general_options(drawing)["usar_usos"]
     rows, totals = [], {"useful_interior": 0.0, "exterior_computable": 0.0, "computable": 0.0,

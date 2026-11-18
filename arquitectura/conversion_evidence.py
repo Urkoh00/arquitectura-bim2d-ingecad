@@ -1,4 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Resumen: LINEASAMURO: lecturas de evidencia (muros y geometría) para la conversión.
+#   (Guía del código: docs/GUIA_DEL_CODIGO.md)
 """Narrow evidence adapters for the existing wall/geometry readers."""
 from __future__ import annotations
 import math

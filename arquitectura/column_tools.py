@@ -1,4 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Resumen: PILAR: colocación de pilares como lo hace un arquitecto (por punto de inserción, en ejes,
+#   junto a muros).
+#   (Guía del código: docs/GUIA_DEL_CODIGO.md)
 """PILAR: placing BIM columns the way architects place them.
 
 * Free placement by one of 9 anchors (numeric keypad: 7 8 9 / 4 5 6 /

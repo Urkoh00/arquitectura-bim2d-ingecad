@@ -1,4 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Resumen: Órdenes de muros: MURO, DEFENSA, MUROPARALELO, ESTIRAMURO, PIVOTAMURO, BORRATRAMO,
+#   PARTEMURO, UNIRMURO, DIVIDEMURO y RECINTO. Solo interacción; la geometría está en geom/.
+#   (Guía del código: docs/GUIA_DEL_CODIGO.md)
 """Phase 2 wall drawing tools (interaction only; geometry in geom/drafting.py).
 
 * ``MURO`` (extends the v1.0 tool):
@@ -603,6 +606,108 @@ class MuroCarasTool(WallTypeChoice, _MuroV10):
 
 
 # --- MUROPARALELO ----------------------------------------------------------------
+
+
+class DefensaTool(MuroCarasTool):
+    """DEFENSA: barandilla, balaustrada o antepecho a lo largo de una línea.
+
+    Es la orden MURO con la categoría «defensa» ya puesta (véase
+    defensas.py): se dibuja igual, por puntos y por una de sus caras o su
+    eje, forma encuentros con los muros y cierra recintos, como el borde de
+    una terraza. Lo que cambia son sus valores de partida (espesor 0,05 m y
+    altura 1,10 m para una barandilla) y sus opciones:
+
+        Barandilla / baLaustrada / antePecho   cambia el tipo
+        Huecos                                 proporción de huecos, en %
+        Altura, Espesor, Cota, Referencia      como en MURO
+
+    No abre la ficha de muro: no tiene capas ni admite carpinterías. Al
+    cambiar la altura avisa si no llega a lo que pide el DB-SUA 1.
+    """
+    name = "DEFENSA"
+    sheet = False                        # tools_v10.MuroTool.start: sin ficha
+
+    def start(self):
+        from . import defensas as DF
+        super().start()
+        self.bim["wall_category"] = "defensa"
+        self.bim.pop("layers", None)
+        self.bim["type_name"] = ""
+        self._set_defense(DF.DEFAULT_TYPE)
+
+    # --- tipo y valores --------------------------------------------------------------------
+    def _set_defense(self, kind):
+        """Pone el tipo y sus valores de partida, y lo dice."""
+        from . import defensas as DF
+        d = DF.defaults(kind)
+        self.thickness, self.height = d["thickness"], d["height"]
+        self.bim["defense_type"], self.bim["void_ratio"] = kind, d["void_ratio"]
+        # el nombre visible sigue al tipo, salvo que el usuario le haya dado otro
+        if self.bim.get("name") in (None, "", "Muro", *[v[0] for v in DF.TYPES.values()]):
+            self.bim["name"] = DF.TYPES[kind][0]
+        self._status()
+        self._reprompt()
+
+    def _set_thickness(self, value):
+        # una defensa no elige tipos de muro del catálogo: el espesor es el escrito
+        self.thickness = float(value)
+        return False
+
+    def _type_label(self):
+        from . import defensas as DF
+        kind = self.bim.get("defense_type") or DF.DEFAULT_TYPE
+        txt = f"{DF.TYPES[kind][0].lower()} {self.thickness:g} × {self.height:g} m"
+        if kind != "antepecho":
+            txt += f", {round(float(self.bim.get('void_ratio') or 0) * 100):g} % de huecos"
+        return txt.replace(".", ",")
+
+    def _reprompt(self):
+        lab = self._type_label()
+        if self.startpoint is not None:
+            self.prompt(f"DEFENSA ({lab}): siguiente punto o longitud; [Altura/Espesor/Huecos/Invertir/Fin]:")
+        else:
+            self.prompt(f"DEFENSA ({lab}): primer punto o "
+                        "[Barandilla/baLaustrada/antePecho/Altura/Espesor/Huecos/Cota/Referencia/Fin]:")
+
+    def _status(self):
+        self.ctx.echo(f"DEFENSA: {self._type_label()}")
+
+    # --- opciones ---------------------------------------------------------------------
+    def on_option(self, text):
+        from . import defensas as DF
+        txt = str(text).strip().lower()
+        if getattr(self, "pending", None) == "voids":
+            self.pending = None
+            try:
+                v = float(txt.replace(",", ".").rstrip("%")) / 100.0
+                DF.void_ratio({"defense_type": self.bim["defense_type"], "void_ratio": v})
+            except ValueError as exc:
+                self.ctx.echo(f"DEFENSA: {exc}")
+            else:
+                self.bim["void_ratio"] = v
+                self._status()
+            self._reprompt()
+            return True
+        kinds = {"b": "barandilla", "barandilla": "barandilla",
+                 "l": "balaustrada", "balaustrada": "balaustrada",
+                 "p": "antepecho", "antepecho": "antepecho", "peto": "antepecho"}
+        if not getattr(self, "pending", None) and txt in kinds:
+            self._set_defense(kinds[txt])
+            return True
+        if not getattr(self, "pending", None) and txt in ("h", "huecos"):
+            if self.bim.get("defense_type") == "antepecho":
+                self.ctx.echo("DEFENSA: un antepecho es macizo; elija Barandilla o baLaustrada.")
+                return True
+            self.pending = "voids"
+            self.prompt("DEFENSA: proporción de huecos del alzado (%):")
+            return True
+        before = self.height
+        handled = super().on_option(text)
+        if abs(self.height - before) > 1e-12:
+            note = DF.sua_warning(self.height)
+            if note:
+                self.ctx.echo("DEFENSA: " + note + ".")
+        return handled
 
 class MuroParaleloTool(WallTypeChoice, Tool):
     """Wall parallel to a line: distance, base line, side, thickness side.
@@ -1538,8 +1643,10 @@ class RecintoTool(Tool):
         from .levels import load
         catalog = load(doc)
         lv = next(v for v in catalog['levels'] if v['id'] == catalog['active'])
-        result = solve_records(records, columns)
-        room, why = SP.space_at(SP.network_at(result, lv['elevation']), p)
+        from . import particiones_virtuales as VP
+        result = solve_records(records, columns, VP.read(doc))
+        room, why = SP.space_at(SP.network_at(result, lv['elevation']), p,
+                                partitions=VP.segments_at(result.virtual_partitions, lv['elevation']))
         if room is None:
             self.ctx.echo("RECINTO: " + ("el punto está dentro de un muro o pilar."
                                          if why == "muro" else

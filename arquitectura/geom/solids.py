@@ -1,4 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Resumen: Sólidos 3D cerrados a partir de las huellas: prismas, muros con huecos y volumen exacto.
+#   (Guía del código: docs/GUIA_DEL_CODIGO.md)
 """Closed boundary solids from the junction footprints (pure Python).
 
 A wall is a 2.5D cell complex: its footprint pieces are cut by the opening

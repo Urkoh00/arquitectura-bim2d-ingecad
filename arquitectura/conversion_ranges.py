@@ -1,4 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Resumen: LINEASAMURO: rangos de espesor por categoría (muros, tabiques, medianeras).
+#   (Guía del código: docs/GUIA_DEL_CODIGO.md)
 """Category ranges by composing existing read-only conversion plans."""
 import math
 from .conversion_plan import Classification,WALLS,analyse,Plan,fingerprint

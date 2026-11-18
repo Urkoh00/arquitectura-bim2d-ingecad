@@ -1,4 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Resumen: Diferencias entre versiones de IngeCAD (contexto del plugin y de la herramienta).
+#   (Guía del código: docs/GUIA_DEL_CODIGO.md)
 """Contexto IngeCAD: PluginContext y ToolContext son tipos distintos.
 
 Los comandos reciben PluginContext.document. Las herramientas reciben

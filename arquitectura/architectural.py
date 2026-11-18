@@ -1,4 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Resumen: Lectura y escritura de los datos BIM de una entidad en XDATA (metadata, _xdata) y
+#   comprobación de un muro con sus huecos (validate_wall). Base de todos los elementos.
+#   (Guía del código: docs/GUIA_DEL_CODIGO.md)
 """Architectural wall/opening entities for IngeCAD.
 
 DXF is authoritative; app-specific data lives in XDATA under ARQINGECAD.
@@ -146,6 +149,8 @@ def validate_wall(w):
         sweep=4*math.atan(bulge)
         length=length/(2*math.sin(abs(sweep)/2))*abs(sweep)
     finite(w['thickness'],True); finite(w['height'],True)
+    from . import defensas
+    defensas.validate(w)           # una defensa no admite huecos
     existing=[]
     for o in w.get('openings',[]):
         for prev_o in existing:

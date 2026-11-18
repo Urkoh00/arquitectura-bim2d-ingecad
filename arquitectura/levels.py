@@ -1,4 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Resumen: Niveles del edificio (NIVELES, NIVELASIGNAR): catálogo guardado en el dibujo y referencias
+#   estables de los elementos.
+#   (Guía del código: docs/GUIA_DEL_CODIGO.md)
 """Document-owned BIM levels, native commands and stable references."""
 from __future__ import annotations
 import copy,json,math,uuid

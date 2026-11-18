@@ -1,4 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Resumen: EJES, EDITAREJE, REJILLA y PILARESENEJES: órdenes de las rejillas de ejes estructurales.
+#   (Guía del código: docs/GUIA_DEL_CODIGO.md)
 """Grid tools using the host's point input, property widgets and history."""
 from tools.base import Tool
 from . import grids as G

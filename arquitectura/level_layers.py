@@ -1,4 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Resumen: Estados de los niveles (encendido, inutilizado, bloqueado) sobre las capas nativas de
+#   IngeCAD, y el selector de nivel de la barra.
+#   (Guía del código: docs/GUIA_DEL_CODIGO.md)
 """Level controls backed exclusively by native DXF layer states."""
 import hashlib
 import json

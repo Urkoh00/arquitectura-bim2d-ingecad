@@ -1,4 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Resumen: Encuentros por franjas de altura (muros de distinta altura) y entrada de pilares al motor.
+#   Lleva las particiones virtuales al resultado.
+#   (Guía del código: docs/GUIA_DEL_CODIGO.md)
 """Junctions solved by height bands (independent audit of v1.15,
 ARQ-AUD-0002: walls that do not share any height must not cut each other).
 
@@ -34,14 +37,20 @@ def column_inputs(columns):
     return out
 
 
-def solve_records(walls, columns):
+def solve_records(walls, columns, partitions=()):
     """Junction result with ``vertical_networks`` [((lo, hi), result)] and,
-    per wall, ``bands`` [(lo, hi, geometry)] besides the usual fields."""
+    per wall, ``bands`` [(lo, hi, geometry)] besides the usual fields.
+
+    ``partitions``: las particiones virtuales del dibujo
+    (particiones_virtuales.read). No intervienen en los encuentros; se
+    cuelgan del resultado (``virtual_partitions``) para que los recintos se
+    repartan por ellas (space_envelope.outline)."""
     specs = J.walls_from_records(walls)
     wall_z = {i: (float(m.get('base', 0)), float(m.get('base', 0)) + float(m['height'])) for i, m in walls}
     col_z = {i: (float(m.get('base', 0)), float(m.get('base', 0)) + float(m['height'])) for i, m in columns}
     heights = sorted({v for z in list(wall_z.values()) + list(col_z.values()) for v in z})
     combined = J.Result()
+    combined.virtual_partitions = list(partitions or ())
     combined.specs = {w.id: w for w in specs}
     combined.vertical_networks = []
     combined.columns = {i: m['polygon'] for i, m in columns}

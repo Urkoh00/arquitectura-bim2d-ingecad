@@ -1,4 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Resumen: ARQMIGRAR: migración explícita y deshacible de muros de versiones antiguas.
+#   (Guía del código: docs/GUIA_DEL_CODIGO.md)
 """Explicit, reversible legacy wall migration to an authoritative open axis.
 
 Old closed footprint polylines and v1.2.4 POINT records remain valid without

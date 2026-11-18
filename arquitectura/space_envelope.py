@@ -1,4 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Resumen: Contorno y límites verticales de un recinto (forjados, falso techo), común a planta, fichas
+#   y exportación. Aplica las particiones virtuales.
+#   (Guía del código: docs/GUIA_DEL_CODIGO.md)
 """Room footprint and horizontal limits, shared by plan, sheets and export.
 
 Slab HATCHes are read through the existing slab reader. No roof geometry is
@@ -16,7 +19,10 @@ def outline(record, result, entity=None):
     if record.get('boundary_mode', 'walls') not in ('walls', 'polyline'):
         raise ValueError('Modo de contorno de recinto no válido')
     if record.get('boundary_mode') != 'polyline':
-        return SP.space_at(SP.network_at(result, float(record.get('base', 0))), record['seed'])
+        from .particiones_virtuales import segments_at
+        base = float(record.get('base', 0))
+        segs = segments_at(getattr(result, 'virtual_partitions', ()), base)
+        return SP.space_at(SP.network_at(result, base), record['seed'], partitions=segs)
     from .slabs import region
     if entity is None:
         points = record['boundary']

@@ -2,6 +2,28 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.29.0-dev — 2026-11-18
+
+Dos elementos nuevos, estudiados en los manuales de herramientas BIM de arquitectura que aportó el
+propietario, y la primera etapa de ordenación del código. 738 pruebas con IngeCAD 0.8 y 729 + 9 con la
+0.7; cadena real con IngeTrazo 0.6.2.1 comprobada.
+
+- **DEFENSA** (`defensas.py`): barandilla, balaustrada o antepecho dibujado como un muro con la categoría
+  «defensa». Hereda encuentros, niveles, edición y Deshacer; cierra recintos (terrazas); no admite
+  carpinterías; avisa del DB-SUA 1 si mide menos de 1,10 m. Exporta `IfcRailing` (GUARDRAIL o BALUSTRADE)
+  con `Pset_RailingCommon`, o `IfcWall` PARAPET si es macizo. En 3D, la barandilla lleva pasamanos y
+  montantes dentro de la huella de planta. La extensión de IngeTrazo admite `IfcRailing` (capa
+  ARQ-DEFENSAS): **actualice también el fichero de la extensión**.
+- **PARTICIONVIRTUAL** (`particiones_virtuales.py`): línea sin espesor que separa recintos. El reparto
+  (`geom/spaces.split_by_partitions`) es exacto: las superficies de los dos lados suman la de la estancia.
+  Una partición que no cruza la estancia no separa. Se edita con órdenes de IngeCAD y los recintos se
+  rehacen solos. En el contrato va en `virtual_partitions`, y cada recinto cita las suyas
+  (`virtual_boundaries`). IngeTrazo no escribe aún `IfcVirtualElement`.
+- **CARPINTERIA**: una distancia escrita que no cabe en el muro (por ejemplo, en una defensa) ahora
+  se informa; antes interrumpía la orden con un error.
+- **Código:** guía en español (`docs/GUIA_DEL_CODIGO.md`) y resumen en español en la cabecera de los
+  60 módulos.
+
 ## 1.28.0-dev — 2026-11-17
 
 Revisión general de la aplicación (dirección técnica). Informe completo en el proyecto:

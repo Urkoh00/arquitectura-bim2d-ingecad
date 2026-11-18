@@ -1,4 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Resumen: CARPINTERIA, PUERTAARQ, VENTANAARQ, HUECOARQ y MOVERCARP: colocar y mover puertas, ventanas
+#   y huecos en los muros, con cotas temporales.
+#   (Guía del código: docs/GUIA_DEL_CODIGO.md)
 """CARPINTERIA: doors, windows and plain gaps inserted in walls and partitions.
 
 One click on the face of the wall toward which the door swings (the window
@@ -565,7 +568,12 @@ class CarpinteriaTool(Tool):
             return
         self.first = None
         hinge = 0 if self.dim_active == "left" else 1
-        self._create(wall, spec, s0, hinge, width, side)
+        try:
+            self._create(wall, spec, s0, hinge, width, side)
+        except ValueError as exc:
+            # lo mismo que con un clic: se informa y la orden sigue (v1.29)
+            self.ctx.echo(f"CARPINTERIA: {exc}")
+            return
         self._hover = None
         self._ops_cache = None
 

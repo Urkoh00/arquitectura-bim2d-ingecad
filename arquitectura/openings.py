@@ -1,4 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Resumen: Carpinterías alojadas en un muro: una sola definición para el hueco, las piezas 3D (marco,
+#   hojas, vidrio), el símbolo en planta y las medidas.
+#   (Guía del código: docs/GUIA_DEL_CODIGO.md)
 """Carpentry (doors, windows, plain gaps) hosted by a wall: one definition
 for the plan symbol, the plan cut of the wall, the 3D void and the filling
 element exported to IngeTrazo.

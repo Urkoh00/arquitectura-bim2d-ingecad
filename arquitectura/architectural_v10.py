@@ -1,4 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Resumen: Crear y editar muros y carpinterías como órdenes deshacibles de IngeCAD (create_wall,
+#   edit_wall, create_opening, edit_opening). Es el núcleo actual de los elementos, pese al
+#   «v10» del nombre.
+#   (Guía del código: docs/GUIA_DEL_CODIGO.md)
 """Extend IngeCAD architectural entities with reference faces, safe editing and join diagnostics.
 
 DXF is authoritative; all edits are undoable through the official IngeCAD Command interface.
@@ -53,10 +57,17 @@ def create_wall(a, b, thickness=0.15, height=2.7, base=0.0, reference='eje', bul
     rec={'kind':'wall','schema':2,'id':uuid.uuid4().hex,'a':list(map(float,a[:2])),
          'b':list(map(float,b[:2])),'thickness':float(thickness),
          'height':height,'base':base,'reference':reference,
-         'ifc_class':'IfcWall',**{k:v for k,v in bim.items() if k in ('name','type_name','material','level','layers','wall_role','wall_category','height_constraint','top_level_id','top_offset','base_offset','level_id')}}
+         'ifc_class':'IfcWall',**{k:v for k,v in bim.items() if k in ('name','type_name','material','level','layers','wall_role','wall_category','height_constraint','top_level_id','top_offset','base_offset','level_id','defense_type','void_ratio')}}
     from .wall_categories import category
     rec['wall_category']=category(rec)
     rec.setdefault('height_constraint','fixed')
+    if rec['wall_category']=='defensa':
+        # barandilla, balaustrada o antepecho: sus datos propios (defensas.py)
+        from . import defensas
+        rec['defense_type']=defensas.defense_type(rec);rec['void_ratio']=defensas.void_ratio(rec)
+        defensas.validate(rec)
+    else:
+        rec.pop('defense_type',None);rec.pop('void_ratio',None)
     if abs(finite(bulge))>1e-9:
         rec['bulge']=float(bulge)
         check_curve(rec)
@@ -193,7 +204,8 @@ class EditArchitecturalCommand:
 
 
 def edit_wall(entity,*,thickness=None,height=None,base=None,reference=None,
-              name=None,type_name=None,material=None,level=None,layers=None,wall_category=None,height_constraint=None,top_level_id=None,top_offset=None,base_offset=None,level_id=None):
+              name=None,type_name=None,material=None,level=None,layers=None,wall_category=None,height_constraint=None,top_level_id=None,top_offset=None,base_offset=None,level_id=None,
+              defense_type=None,void_ratio=None):
     d=metadata(entity)
     if not d or d.get('kind')!='wall':raise ValueError('Entidad no es un muro ARQ')
     d=copy.deepcopy(d)
@@ -204,6 +216,14 @@ def edit_wall(entity,*,thickness=None,height=None,base=None,reference=None,
     if wall_category is not None:
         from .wall_categories import category
         d['wall_category']=category({'wall_category':wall_category})
+    # datos de una defensa (defensas.py); se quitan si deja de serlo
+    if defense_type is not None:d['defense_type']=defense_type
+    if void_ratio is not None:d['void_ratio']=float(void_ratio)
+    if d.get('wall_category')=='defensa':
+        from . import defensas
+        d['defense_type']=defensas.defense_type(d);d['void_ratio']=defensas.void_ratio(d)
+    else:
+        d.pop('defense_type',None);d.pop('void_ratio',None)
     if thickness is not None:d['thickness']=finite(thickness,True)
     if height is not None:d['height']=finite(height,True)
     if base is not None:d['base']=finite(base)

@@ -1,4 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Resumen: LA REGENERACIÓN: tras cada cambio rehace contornos de muros, recintos, rótulos, símbolos y
+#   grupos de selección (y UNIONESARQ).
+#   (Guía del código: docs/GUIA_DEL_CODIGO.md)
 """Regeneration of the derived plan drawing (UNIONESARQ and every
 architectural change): wall outlines from geom.junctions, room outlines,
 labels, opening symbols and selection groups, in one undoable step.
@@ -370,9 +373,11 @@ class RegenerateContoursCommand(Command):
                 records, columns, _ops, issues = read_model(document.doc, strict=False)
                 specs = J.walls_from_records(records)
                 from .geom.bands import solve_records
-                result = solve_records(records, columns)        # by height bands
+                from . import particiones_virtuales as VP
+                result = solve_records(records, columns, VP.read(document.doc))   # by height bands
                 from .superficies import useful_result
-                self.useful = useful_result(specs, columns, records=records)
+                self.useful = useful_result(specs, columns, records=records,
+                                            partitions=result.virtual_partitions)
                 from .parameters_arq import general_options
                 self.by_use = general_options(document.doc)["usar_usos"]
                 self.issues = issues + result.warnings + getattr(self,'sync_notes',[])

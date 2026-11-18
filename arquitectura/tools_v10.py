@@ -1,4 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Resumen: Clase base de la orden MURO (puntos, opciones, ficha) y EDITARARQ. Las órdenes de
+#   wall_tools.py derivan de aquí.
+#   (Guía del código: docs/GUIA_DEL_CODIGO.md)
 """IngeCAD interactive drawing tools: 2D in modelspace, architectural data in XDATA."""
 from __future__ import annotations
 import math
@@ -34,6 +37,10 @@ class MuroTool(Tool):
             self.ctx.echo('MURO: con las propiedades de '+(taken.get('name') or 'muro')
                           +f" (espesor {self.thickness:g} m)".replace('.',','))
             self.prompt('MURO: primer punto o [Espesor/Altura/Cota/Referencia/Fin]:')
+            return
+        if getattr(self,'sheet',True) is False:
+            # una orden derivada (DEFENSA) pide sus datos por la línea de órdenes
+            self.prompt(f'{self.name}: primer punto:')
             return
         try:
             from . import bim_dialogs

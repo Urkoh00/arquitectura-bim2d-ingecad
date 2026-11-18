@@ -1,4 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Resumen: extensión de IngeTrazo. Valida el contrato .arqbim (clases, niveles, sólidos cerrados,
+#   relaciones) y crea en IngeTrazo los grupos, capas y materiales de cada elemento BIM.
+#   (Guía del código: docs/GUIA_DEL_CODIGO.md)
 """IngeTrazo extension: open ``.arqbim`` files written by the IngeCAD
 Arquitectura plugin.
 
@@ -136,7 +139,8 @@ def validate_contract(data):
         if data['version']==3:
             identity(lv);level_ids[lv['id']]=lv
     if data['version']==3 and data.get('active_level_id')not in level_ids:raise ValueError('Nivel activo no válido')
-    allowed = {"IfcWall", "IfcColumn", "IfcDoor", "IfcWindow", "IfcSpace", "IfcCovering", "IfcSlab", "IfcBuildingElementProxy"}
+    allowed = {"IfcWall", "IfcColumn", "IfcDoor", "IfcWindow", "IfcSpace", "IfcCovering", "IfcSlab", "IfcBuildingElementProxy",
+               "IfcRailing"}          # defensas (barandillas), v1.29
     by_id = {}
     for el in data["elements"]:
         identity(el)
@@ -309,7 +313,10 @@ def build_scene(data, offset=None):
     scene = Scene()
     layer_of = {"IfcWall": "ARQ-MUROS", "IfcColumn": "ARQ-PILARES", "IfcSpace": "ARQ-RECINTOS",
                 "IfcCovering": "ARQ-PILARES", "IfcDoor": "ARQ-CARPINTERIA",
-                "IfcWindow": "ARQ-CARPINTERIA", "IfcSlab":"ARQ-FORJADOS", "IfcBuildingElementProxy":"ARQ-ARMARIOS"}
+                "IfcWindow": "ARQ-CARPINTERIA", "IfcSlab":"ARQ-FORJADOS", "IfcBuildingElementProxy":"ARQ-ARMARIOS",
+                "IfcRailing": "ARQ-DEFENSAS"}
+    if any(el["ifc_class"]=="IfcRailing" or (el.get("params") or {}).get("defense_type") for el in data["elements"]):
+        scene.layers.append(Layer("ARQ-DEFENSAS",color=(.45,.47,.50)))
     if any(el["ifc_class"]=="IfcBuildingElementProxy" for el in data["elements"]):scene.layers.append(Layer("ARQ-ARMARIOS",color=(.62,.45,.30)))
     for name in ("ARQ-MUROS", "ARQ-PILARES"):
         scene.layers.append(Layer(name, color=(0.72, 0.72, 0.70)))
@@ -353,6 +360,7 @@ def build_scene(data, offset=None):
             raise ValueError("Elemento sin geometría: %s" % el["id"])
         g = Group(mesh, name=el.get("name") or el["ifc_class"])
         g.layer = ("ARQ-TECHOS" if (el.get("enums") or {}).get("PredefinedType") == "CEILING"
+                   else "ARQ-DEFENSAS" if (el.get("params") or {}).get("defense_type")
                    else layer_of.get(el["ifc_class"]))
         tag = {"class": el["ifc_class"], "name": g.name, "guid": el["guid"]}
         if el.get("level"):

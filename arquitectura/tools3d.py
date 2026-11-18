@@ -1,4 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Resumen: Herramientas 3D experimentales y puente antiguo (EXPORTARIGZ, MURO3D, HUECO3D). Pendiente de
+#   retirar.
+#   (Guía del código: docs/GUIA_DEL_CODIGO.md)
 """Interactive tools for experimental architectural entities."""
 from __future__ import annotations
 import os

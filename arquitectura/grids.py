@@ -1,4 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Resumen: Rejillas de ejes estructurales: entidades nativas de CAD, vínculos estables y ACTUALIZAEJES.
+#   (Guía del código: docs/GUIA_DEL_CODIGO.md)
 """Structural reference grids: native CAD entities, stable links and commands.
 
 Grid axes are references, never solid IFC proxies. Dimensions and symbols

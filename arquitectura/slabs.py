@@ -1,4 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Resumen: Forjados horizontales: el sombreado nativo de IngeCAD es su geometría.
+#   (Guía del código: docs/GUIA_DEL_CODIGO.md)
 """Horizontal slabs: native HATCH boundaries are the authoritative geometry."""
 from __future__ import annotations
 import copy,math,uuid

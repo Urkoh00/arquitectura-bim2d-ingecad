@@ -1,4 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Resumen: Puente antiguo a IGZ (se ejecuta con el Python de IngeTrazo). Superado por EXPORTARBIM y la
+#   extensión; pendiente de retirar.
+#   (Guía del código: docs/GUIA_DEL_CODIGO.md)
 """Standalone converter: run with IngeTrazo's Python interpreter.
 
 Usage: cd /path/to/ingetrazo && python /path/to/igz_bridge.py spec.json file.igz

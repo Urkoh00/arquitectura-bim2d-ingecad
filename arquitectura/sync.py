@@ -1,4 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Resumen: Mantiene juntos los datos BIM y su representación en planta sin depender de ganchos del
+#   anfitrión.
+#   (Guía del código: docs/GUIA_DEL_CODIGO.md)
 """Keep BIM data and plan representation together without host hooks.
 
 Two pieces, both used by ``UNIONESARQ`` (RegenerateContoursCommand) inside

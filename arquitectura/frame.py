@@ -1,4 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Resumen: Ediciones con órdenes de IngeCAD (DESPLAZA, GIRA, ESCALA, SIMETRÍA) sobre elementos BIM:
+#   traduce el movimiento a sus datos.
+#   (Guía del código: docs/GUIA_DEL_CODIGO.md)
 """Accept IngeCAD's own editing orders on BIM elements (user, 9-11-2026:
 «no deseo hacer un programa dentro de otro»).
 

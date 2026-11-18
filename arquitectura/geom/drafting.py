@@ -1,4 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Resumen: Geometría de los gestos de dibujo de muros: dónde termina un tramo, qué cara se pincha, etc.
+#   (Guía del código: docs/GUIA_DEL_CODIGO.md)
 """Wall drafting geometry: the decisions behind the drawing gestures.
 
 Pure Python (no IngeCAD, no Qt): every rule here is tested against the

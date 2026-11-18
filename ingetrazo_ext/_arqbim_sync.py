@@ -1,4 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Resumen: reimportación de un .arqbim en IngeTrazo por identificador BIM: actualiza el modelo
+#   sin duplicarlo, en un solo Deshacer.
+#   (Guía del código: docs/GUIA_DEL_CODIGO.md)
 """Auxiliary proposal: source-owned groups, one native undo command.
 
 Loaded next to arquitectura_bim.py; never modifies the host. Legacy imports

@@ -1,9 +1,18 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""One wall category vocabulary for tools, types, conversion and exchange."""
+"""Categorías de muro: un único vocabulario para órdenes, tipos, conversión y
+exportación.
+
+Cada categoría tiene su capa. La categoría decide además cómo se exporta el
+muro (exchange.build): fachada, medianera y sótano son exteriores; el tabique
+es PARTITIONING; la defensa (v1.29) es una barandilla o un antepecho, con
+sus datos propios en defensas.py.
+"""
 CATEGORIES = (('Fachada (exterior)', 'fachada'), ('Tabique', 'tabique'),
-              ('Medianera', 'medianera'), ('Muro de sótano', 'sotano'))
+              ('Medianera', 'medianera'), ('Muro de sótano', 'sotano'),
+              ('Defensa (barandilla o antepecho)', 'defensa'))
 LAYERS = {'fachada':'ARQ-MUROS', 'tabique':'ARQ-TABIQUES',
-          'medianera':'ARQ-MEDIANERAS', 'sotano':'ARQ-SOTANO'}
+          'medianera':'ARQ-MEDIANERAS', 'sotano':'ARQ-SOTANO',
+          'defensa':'ARQ-DEFENSAS'}
 ROLES = {'muros':'fachada', 'tabiques':'tabique', 'medianeras':'medianera'}
 
 
