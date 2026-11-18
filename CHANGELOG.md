@@ -2,6 +2,18 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.31.0-dev — 2026-11-18
+
+- **Retirado el puente antiguo a IngeTrazo** por decisión del propietario: EXPORTARIGZ, CONFIGIGZ y las
+  órdenes 3D experimentales MURO3D y HUECO3D, cuyos elementos solo leía ese puente (`igz_bridge.py`,
+  `tools3d.py` y las funciones `wall_command`, `opening_command`, `partition_solids` y `export_spec` de
+  `architectural.py`). El paso a IngeTrazo es EXPORTARBIM con la extensión. `ensure_arch_layers` pasa a
+  `architectural.py`.
+- `arquitectura/README.md` (un leeme de la v1.2 ya sin validez) se sustituye por una nota que remite al
+  manual y a la guía del código.
+- Solo se prueba con la última versión de IngeCAD (0.8.0) e IngeTrazo (0.6.2.1), por directriz del
+  propietario.
+
 ## 1.30.0-dev — 2026-11-18
 
 Integra **R21 de Codex** (cambiar tipos desde IngeTrazo con vuelta a IngeCAD) y su revisión general de la

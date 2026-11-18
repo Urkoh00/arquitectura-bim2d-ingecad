@@ -36,7 +36,7 @@ import os
 from collections import defaultdict
 from pathlib import Path
 
-_VERSION = "1.30.0-dev"
+_VERSION = "1.31.0-dev"
 
 from core.plugins import SEPARATOR, MenuItem, PluginSpec, Submenu, ToolbarItem
 from tools.base import Tool
@@ -1470,7 +1470,6 @@ TOOL_CLASSES = (
 )
 
 
-from .tools3d import Muro3DTool, Hueco3DTool, exportar_igz, configurar_igz
 from .tools_v10 import MuroTool as MuroV10Tool, CarpinteriaTool, VentanaArqTool, EditarArqTool
 from .columns import PilarBimTool
 from .levels import niveles,asignar as asignar_nivel
@@ -1572,8 +1571,8 @@ def plugin_spec() -> PluginSpec:
         name="Arquitectura",
         version=_VERSION,
         description="Dibujo arquitectónico 2D con objetos BIM (muros, pilares, carpinterías) y exportación a IngeTrazo/IFC",
-        tools={tool.name: tool for tool in (*TOOL_CLASSES, SlabTool,SlabHoleTool,CabinetTool,Muro3DTool, Hueco3DTool,GridTool,RejillaTool,GridEditTool,GridColumnsTool)},
-        commands={"SINCRONIZARARQ":sincronizar_arq,"NIVELES":niveles,"NIVELASIGNAR":asignar_nivel,"ACTUALIZAEJES":update,"EXPORTARBIM": exportar_bim, "EXPORTARIGZ": exportar_igz, "CONFIGIGZ": configurar_igz, "DIAGNOSTICOARQ": diagnostico_arq, "ARQDIAG": arqdiag, "UNIONESARQ": unionesarq, "ARQVALIDAR": validar_arq, "ARQMIGRAR": migrar_arq, "PARAMETROSARQ": parametros_arq, "TIPOSMURO": tipos_muro, "USOSARQ": usos_arq},
+        tools={tool.name: tool for tool in (*TOOL_CLASSES, SlabTool,SlabHoleTool,CabinetTool,GridTool,RejillaTool,GridEditTool,GridColumnsTool)},
+        commands={"SINCRONIZARARQ":sincronizar_arq,"NIVELES":niveles,"NIVELASIGNAR":asignar_nivel,"ACTUALIZAEJES":update,"EXPORTARBIM": exportar_bim, "DIAGNOSTICOARQ": diagnostico_arq, "ARQDIAG": arqdiag, "UNIONESARQ": unionesarq, "ARQVALIDAR": validar_arq, "ARQMIGRAR": migrar_arq, "PARAMETROSARQ": parametros_arq, "TIPOSMURO": tipos_muro, "USOSARQ": usos_arq},
         menu=(
             MenuItem("Opciones generales y parámetros iniciales...", "PARAMETROSARQ", icon=glyph / "parametros.svg"),
             MenuItem("Tipos de muro (espesor total y capas)...", "TIPOSMURO", icon=glyph / "tiposmuro.svg"),
@@ -1627,8 +1626,6 @@ def plugin_spec() -> PluginSpec:
                 MenuItem("Exportar modelo BIM para IngeTrazo (.arqbim)", "EXPORTARBIM", icon=glyph / "exportarbim.svg"),
             )),
             Submenu("Herramientas antiguas (sin datos BIM)", (
-                MenuItem("Muro arquitectónico 3D", "MURO3D", icon=glyph / "heredado.svg"),
-                MenuItem("Hueco en muro 3D", "HUECO3D", icon=glyph / "heredado.svg"),
                 MenuItem("Puerta (bloque)", "PUERTA", icon=glyph / "heredado.svg"),
                 MenuItem("Ventana (bloque)", "VENTANA", icon=glyph / "heredado.svg"),
                 MenuItem("Armario", "ARMARIO", icon=glyph / "heredado.svg"),
@@ -1644,8 +1641,6 @@ def plugin_spec() -> PluginSpec:
                 MenuItem("Activar / Desactivar elementos", "ELEMENTOS", icon=glyph / "heredado.svg"),
                 MenuItem("Hipervínculo", "HIPERVINCULO", icon=glyph / "heredado.svg"),
                 MenuItem("Curvas de nivel a 3D", "CURVAS3D", icon=glyph / "heredado.svg"),
-                MenuItem("Configurar IngeTrazo (puente antiguo)...", "CONFIGIGZ", icon=glyph / "heredado.svg"),
-                MenuItem("Exportar IGZ (puente antiguo, requiere fuentes)", "EXPORTARIGZ", icon=glyph / "heredado.svg"),
             )),
             SEPARATOR,
             MenuItem("Diagnóstico del plugin", "ARQDIAG", icon=glyph / "arqdiag.svg"),

@@ -6,7 +6,7 @@ from __future__ import annotations
 import math,uuid
 from tools.base import Tool
 from .architectural import _xdata
-from .tools3d import ensure_arch_layers
+from .architectural import ensure_arch_layers
 
 PILLAR_LAYER='ARQ-PILARES'
 

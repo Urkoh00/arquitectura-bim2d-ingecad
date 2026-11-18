@@ -1,12 +1,12 @@
 # Manual de Arquitectura para IngeCAD
 
-Versión 1.30.0-dev · 2026-11-18
+Versión 1.31.0-dev · 2026-11-18
 
 > Copia del manual publicado como documento en claude.ai; se regenera con cada versión.
 
 ## Qué es
 
-Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.30.0-dev** y se actualiza con cada versión.
+Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.31.0-dev** y se actualiza con cada versión.
 
 Cada elemento guarda su identidad persistente, su clase IFC, su geometría editable en planta, sus parámetros 3D (altura, espesor, cota), sus propiedades constructivas (tipo, material, capas) y su nivel. Las carpinterías conocen su muro y los recintos siguen a los muros que los cierran.
 
@@ -23,7 +23,7 @@ El plugin se instala copiando una carpeta en IngeCAD, y la extensión copiando t
 
 **En IngeCAD**
 
-1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.30.0-dev.zip`.
+1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.31.0-dev.zip`.
 2. Copie la carpeta `arquitectura` en la carpeta de plugins de IngeCAD.
 3. Reinicie IngeCAD. Aparece el menú *Arquitectura* y su barra de herramientas.
 4. Escriba `ARQDIAG` en la línea de órdenes para comprobar que la versión cargada es la que acaba de copiar.
@@ -488,11 +488,11 @@ Con niveles o forjados, el intercambio usa `.arqbim` v3 y necesita la extensión
 | `EXPORTARBIM` | Exportar a IngeTrazo (.arqbim) | Sí |
 | `ARQDIAG` / `AYUDAARQ` | Diagnóstico y ayuda | No |
 
-**Órdenes heredadas.** El submenú «Herramientas antiguas (sin datos BIM)» reúne utilidades de versiones antiguas que dibujan geometría sin datos BIM y no se exportan al modelo: PUERTA, VENTANA, ARMARIO, CAMARA, ESCALERA, MURO3D, HUECO3D, SUPERFICIE, BLOQUE, TRAMA, MEMORIACARP, VERTPOLY, LISTATEXTOS, SELATRIB, ELEMENTOS, HIPERVINCULO, CURVAS3D y el puente antiguo CONFIGIGZ / EXPORTARIGZ. Para el modelo BIM use las órdenes de la tabla.
+**Órdenes heredadas.** El submenú «Herramientas antiguas (sin datos BIM)» reúne utilidades de versiones antiguas que dibujan geometría sin datos BIM y no se exportan al modelo: PUERTA, VENTANA, ARMARIO, CAMARA, ESCALERA, SUPERFICIE, BLOQUE, TRAMA, MEMORIACARP, VERTPOLY, LISTATEXTOS, SELATRIB, ELEMENTOS, HIPERVINCULO, CURVAS3D. Para el modelo BIM use las órdenes de la tabla.
 
 ## Limitaciones conocidas
 
-Estas son las limitaciones conocidas de la versión 1.30.0-dev; cada versión actualiza esta lista.
+Estas son las limitaciones conocidas de la versión 1.31.0-dev; cada versión actualiza esta lista.
 
 - **Plataforma:** las pruebas automáticas se ejecutan en Linux y en Windows con IngeCAD oficial (las versiones 0.7.0 y 0.8.0), pero sin pantalla. El usuario probó la v1.17 en Windows 10 con IngeCAD 0.8 e IngeTrazo 0.6.1: la cadena hasta el IFC funcionó; las correcciones de la v1.18 salen de esa prueba.
 - **Muros curvos:** cada muro llega como mucho a media circunferencia (un muro redondo son dos). MUROPARALELO y DIVIDEMURO solo toman líneas rectas como referencia. El gesto de esquina en L al terminar un MURO solo recorta muros rectos.
@@ -506,6 +506,7 @@ Estas son las limitaciones conocidas de la versión 1.30.0-dev; cada versión ac
 
 | Fecha | Versión | Novedades |
 | --- | --- | --- |
+| 18-11-2026 | 1.31.0-dev | Retirado el puente antiguo a IngeTrazo (EXPORTARIGZ, CONFIGIGZ) y las órdenes 3D experimentales MURO3D y HUECO3D; el paso a IngeTrazo es EXPORTARBIM con la extensión |
 | 18-11-2026 | 1.30.0-dev | Cambiar tipos desde IngeTrazo con vuelta a IngeCAD (panel de propiedades, .arqcambios, SINCRONIZARARQ con conflictos); medidas negativas de carpintería rechazadas y señaladas en ARQVALIDAR; la extensión se instala copiando toda su carpeta |
 | 18-11-2026 | 1.29.0-dev | DEFENSA (barandilla, balaustrada o antepecho; IfcRailing) y PARTICIONVIRTUAL (límite de recinto sin muro); guía del código y resúmenes en español en cada módulo |
 | 17-11-2026 | 1.28.0-dev | Revisión general: planos grandes hasta seis veces más rápidos; el espesor escrito en MURO se lee en m, cm o mm y «3,4» es un punto; guardar y reabrir conserva el modelo BIM (prueba nueva) |

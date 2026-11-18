@@ -2,7 +2,7 @@
 
 Esta guía es para quien vaya a **leer, estudiar o mantener** el código. No sustituye al manual de uso (`docs/MANUAL.md`). Explica cómo está organizado el plugin, qué recorrido hace un elemento desde el clic hasta el IFC y dónde buscar cada cosa.
 
-Versión de referencia: **1.30.0-dev**, con 65 módulos y unas 20 000 líneas en `arquitectura/`, más la extensión de IngeTrazo en `ingetrazo_ext/`.
+Versión de referencia: **1.31.0-dev**, con 63 módulos y unas 20 000 líneas en `arquitectura/`, más la extensión de IngeTrazo en `ingetrazo_ext/`.
 
 ---
 
@@ -108,7 +108,6 @@ Se puede probar sin IngeCAD. Es la parte más delicada y la mejor probada.
 | `ingetrazo_ext/_arq_edit.py` | Panel «Propiedades de Arquitectura» en IngeTrazo: proponer cambios de tipo y medidas y exportar el `.arqcambios`. |
 | `ingetrazo_ext/arq_shared/` | **Copia generada** del código del plugin que necesita la extensión (geometría, carpinterías, contrato). La crea `scripts/bundle_roundtrip.py` al construir el ZIP y al pasar las pruebas. **No se edita ni se guarda en el repositorio**: se corrige la fuente en `arquitectura/`. |
 | `roundtrip.py`, `roundtrip_model.py` | Ida y vuelta con IngeTrazo: instantánea del dibujo en el contrato, propuestas de cambio, conflictos y SINCRONIZARARQ. |
-| `igz_bridge.py`, `tools3d.py` | Puente antiguo (EXPORTARIGZ) y herramientas 3D experimentales. Pendiente de retirar (P2). |
 
 ### 3.5 Órdenes (interacción con el usuario)
 Las órdenes solo interactúan: piden puntos, leen opciones y crean las órdenes de 3.2. No contienen geometría propia.
@@ -214,4 +213,4 @@ INGECAD_SRC=/ruta/a/ingecad QT_QPA_PLATFORM=offscreen python3 -m pytest -q
 | 1 | Esta guía y un **resumen en español** en la cabecera de cada módulo | **Hecho en la v1.29** |
 | 2 | Cambiar de nombre `architectural_v10.py` → `elementos.py` y `tools_v10.py` → `muro_base.py`. Llevar las herramientas heredadas de `__init__.py` a `heredadas.py`. Dividir `wall_tools.py` (1700 líneas) en un módulo por familia de órdenes | Tras integrar R21-a, para no chocar con el trabajo de Codex |
 | 3 | Documentar en español todas las funciones públicas (hoy, el 28 % de 1222 funciones y clases), empezando por el núcleo: `geom/junctions`, `geom/spaces`, `geom/solids`, `exchange` y `wall_network` | Después de la etapa 2 |
-| 4 | Retirar el puente antiguo (`igz_bridge.py`, `tools3d.py`) si el propietario lo decide | Pendiente de decisión |
+| 4 | Retirar el puente antiguo (EXPORTARIGZ, CONFIGIGZ, MURO3D, HUECO3D: `igz_bridge.py` y `tools3d.py`) | **Hecho en la v1.31**, por decisión del propietario |

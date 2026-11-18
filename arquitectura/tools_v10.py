@@ -9,7 +9,7 @@ from tools.base import Tool
 from .architectural import metadata
 from .architectural_v10 import (create_wall,create_opening,edit_wall,edit_opening,
                                WALL_LAYER,OPENING_LAYER)
-from .tools3d import ensure_arch_layers
+from .architectural import ensure_arch_layers
 
 class MuroTool(Tool):
     name='MURO'
