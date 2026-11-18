@@ -5,12 +5,13 @@
 """IngeTrazo extension: open ``.arqbim`` files written by the IngeCAD
 Arquitectura plugin.
 
-Install: copy this file to IngeTrazo's plugins folder (Extensions > Open
+Install: copy the complete ingetrazo_ext folder contents to IngeTrazo's plugins folder (Extensions > Open
 plugins folder). It runs inside IngeTrazo's own interpreter, so it works
 with the installed or portable IngeTrazo: no Python, no source checkout and
 no CONFIGIGZ on the user's side.
 
-It computes NO geometry: every face comes from the contract, built once by
+Imported faces come from the contract; R21 proposals reuse the exact bundled
+plugin geometry. The source contract is built by
 the IngeCAD plugin from the same footprints as the plan. Here we only build
 IngeTrazo meshes with the official ``Mesh``/``Group`` classes, tag them with
 ``group.ifc`` (class, name, stable GlobalId, storey, material, type,
@@ -289,7 +290,8 @@ def definition(data, source=""):
     return {"schema": 1, "format": data.get("format"), "version": data.get("version"),
             "generator": data.get("generator"), "project": data.get("project"),
             "levels": data.get("levels"), "active_level_id":data.get('active_level_id'), "source": str(source), "elements": elements,
-            "reference_grids":data.get("reference_grids",{})}
+            "reference_grids":data.get("reference_grids",{}),
+            "editing": __import_edit().initialise(data)}
 
 
 def build_scene(data, offset=None):
@@ -488,14 +490,22 @@ def to_igz(contract_path, igz_path, offset="auto"):
 
 # -- inside IngeTrazo ----------------------------------------------------------------------
 
+def __import_edit():
+    import importlib.util
+    spec=importlib.util.spec_from_file_location("_arq_edit",Path(__file__).with_name("_arq_edit.py"))
+    module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module);return module
+
+
 def setup(app):
     app.key = DATA_KEY              # our data under our own key, whatever file loaded us
 
     def open_arqbim(path):
         if not Path(__file__).with_name("_arqbim_sync.py").is_file():
             raise RuntimeError("Falta _arqbim_sync.py junto a arquitectura_bim.py en la carpeta de "
-                               "extensiones de IngeTrazo. Desde la v1.20 se copian los dos ficheros "
+                               "extensiones de IngeTrazo. Copie todos los ficheros y subcarpetas "
                                "de la carpeta ingetrazo_ext del ZIP.")
+        if any(not Path(__file__).with_name(name).exists() for name in ("_arq_edit.py","arq_shared")):
+            raise RuntimeError("Instale todo ingetrazo_ext, incluidos _arq_edit.py y arq_shared, y reinicie IngeTrazo.")
         stored = app.document_data({}) or {}
         # a second model goes where the first one went (same offset)
         previous = stored.get("survey_offset")
@@ -543,6 +553,10 @@ def setup(app):
                                                                            type(exc).__name__, exc))
                 raise
 
+    import sys
+    from types import SimpleNamespace
+    if hasattr(app,"add_panel") and Path(__file__).with_name("_arq_edit.py").is_file():
+        __import_edit().setup(app,SimpleNamespace(build_scene=build_scene))
     app.add_file_opener(SUFFIX, open_arqbim)
     app.add_menu_action("Importar arquitectura IngeCAD (.arqbim)…", ask_and_open)
 

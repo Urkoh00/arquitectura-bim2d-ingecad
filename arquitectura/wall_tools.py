@@ -709,6 +709,62 @@ class DefensaTool(MuroCarasTool):
                 self.ctx.echo("DEFENSA: " + note + ".")
         return handled
 
+
+class ParticionVirtualTool(Tool):
+    """PARTICIONVIRTUAL: una línea sin espesor que separa dos recintos.
+
+    Se dibuja por puntos, como una polilínea: cada clic añade un vértice e
+    Intro la termina. Conviene que empiece y acabe en una cara o en el eje de
+    un muro (o más allá): si queda corta, no separa nada. Al terminar, los
+    recintos de los dos lados se rehacen y cada uno toma su parte."""
+    name = "PARTICIONVIRTUAL"
+
+    def start(self):
+        self.name = type(self).name
+        self.points = []
+        self.last_point = None            # ancla de ORTO/POLAR de IngeCAD
+        self.prompt("PARTICIONVIRTUAL: primer punto (en un muro o más allá):")
+
+    def on_point(self, p):
+        p = (float(p[0]), float(p[1]))
+        if self.points and math.dist(p, self.points[-1]) < 1e-6:
+            self.ctx.echo("Seleccione un punto distinto del anterior.")
+            return
+        self.points.append(p)
+        self.last_point = p
+        self.prompt("PARTICIONVIRTUAL: siguiente punto (Intro: terminar; Deshacer: quitar el último):"
+                    if len(self.points) > 1 else "PARTICIONVIRTUAL: siguiente punto:")
+
+    def preview_segments(self, cursor):
+        pts = self.points + [tuple(cursor[:2])]
+        return list(zip(pts, pts[1:])) if self.points else []
+
+    def on_option(self, text):
+        txt = str(text).strip().lower()
+        if txt in ("d", "deshacer", "u") and self.points:
+            self.points.pop()
+            self.last_point = self.points[-1] if self.points else None
+            return True
+        if txt in ("f", "fin"):
+            self.on_enter()
+            return True
+        return False
+
+    def on_enter(self):
+        if len(self.points) < 2:
+            self.ctx.finish()
+            return
+        try:
+            from .transactions import apply_architectural_change
+            from .particiones_virtuales import KIND, create
+            apply_architectural_change(self.ctx, create(self.points), kind=KIND)
+        except Exception as exc:  # noqa: BLE001  (se informa y se puede repetir)
+            self.ctx.echo(f"PARTICIONVIRTUAL: no se pudo crear ({type(exc).__name__}: {exc}).")
+            return
+        self.ctx.echo("PARTICIONVIRTUAL: creada; los recintos se han actualizado.")
+        self.points, self.last_point = [], None
+        self.prompt("PARTICIONVIRTUAL: primer punto de otra partición (Intro: terminar):")
+
 class MuroParaleloTool(WallTypeChoice, Tool):
     """Wall parallel to a line: distance, base line, side, thickness side.
     After a wall, a click on empty space (no line) is the side of the next

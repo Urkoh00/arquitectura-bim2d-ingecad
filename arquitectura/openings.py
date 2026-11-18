@@ -81,6 +81,31 @@ def kind_of(text):
             "h": "gap"}.get(t)
 
 
+# medidas de la carpintería que no pueden ser negativas (RG-01, revisión de Codex)
+NON_NEGATIVE = (("frame_width", "ancho de cerco"), ("frame_depth", "fondo de cerco"),
+                ("leaf", "hoja"), ("leaf2", "segunda hoja"), ("leaf_thickness", "grueso de hoja"),
+                ("setback", "retranqueo"), ("niche_depth", "fondo de nicho"))
+
+
+def dimension_problems(rec):
+    """Medidas imposibles de una carpintería (negativas o no finitas), una
+    frase por cada una. La usan la ficha, la creación y edición
+    (opening_record) y ARQVALIDAR: un registro antiguo con una medida
+    imposible se señala, pero no se corrige en silencio."""
+    out = []
+    for key, name in NON_NEGATIVE:
+        if rec.get(key) is None:
+            continue
+        try:
+            v = float(rec[key])
+        except (TypeError, ValueError):
+            out.append(f"{name} no numérico")
+            continue
+        if not math.isfinite(v) or v < 0:
+            out.append(f"{name} negativo o no válido ({rec[key]})")
+    return out
+
+
 def normalise(rec):
     """A copy of ``rec`` with every schema-3 field (older records: defaults
     that keep their hole: a schema-2 door keeps its width as the hole)."""

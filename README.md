@@ -11,7 +11,7 @@ IngeCAD + plugin Arquitectura  ──.arqbim──▶  IngeTrazo (extensión)  �
        (planta 2D BIM)                          (modelo 3D)
 ```
 
-**Estado: experimental (v1.29.0-dev).** No usar todavía en proyectos reales.
+**Estado: experimental (v1.30.0-dev).** No usar todavía en proyectos reales.
 
 **Manual de uso:** [`docs/MANUAL.md`](docs/MANUAL.md) (también dentro del ZIP), actualizado en cada versión.
 
@@ -41,7 +41,7 @@ contorno en planta, el sólido estanco y las cantidades. IngeTrazo no recalcula 
 
 1. Descargue el ZIP de la última versión (o genérelo con `python scripts/empaquetar.py`).
 2. Copie la carpeta `arquitectura` en la carpeta de plugins de IngeCAD y reinicie.
-3. Para IngeTrazo: copie `ingetrazo_ext/arquitectura_bim.py` en su carpeta de extensiones;
+3. Para IngeTrazo: copie todo el contenido de `ingetrazo_ext/` en su carpeta de extensiones, incluida `arq_shared/`;
    aparecerá *Importar arquitectura IngeCAD (.arqbim)…*.
 
 ## Pruebas
@@ -71,3 +71,7 @@ Véase `LICENSE`.
 
 Parte del código se ha desarrollado con ayuda de un asistente de IA (Claude, de Anthropic),
 revisado y probado por el autor.
+
+
+R21: [edición de tipos en IngeTrazo y SINCRONIZARARQ](docs/R21_DISENO_Y_USO.md).
+Revisión independiente: [informe v1.28](docs/REVISION_GENERAL_CODEX_v1.28_2026-11-18.md).

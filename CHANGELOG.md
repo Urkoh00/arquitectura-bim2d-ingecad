@@ -2,6 +2,31 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.30.0-dev — 2026-11-18
+
+Integra **R21 de Codex** (cambiar tipos desde IngeTrazo con vuelta a IngeCAD) y su revisión general de la
+v1.28, sobre la v1.29. Entrega verificada (SHA-256); 753 pruebas con IngeCAD 0.8 y 744 + 9 con la 0.7.
+
+- **Panel «Propiedades de Arquitectura» en IngeTrazo** (`ingetrazo_ext/_arq_edit.py`): tipo, apertura,
+  hojas, materiales y perfiles de muros, puertas, ventanas y armarios, regenerados con el mismo código del
+  plugin. Los cambios que alteran la planta quedan pendientes hasta aceptarlos en IngeCAD.
+- **`.arqcambios` y SINCRONIZARARQ** (`roundtrip.py`, `roundtrip_model.py`): comprobación del dibujo de
+  origen, conflictos elemento a elemento (por defecto se conserva IngeCAD), validación en una copia y un
+  solo Deshacer.
+- **Instalación de la extensión:** ahora se copia **toda** la carpeta `ingetrazo_ext` (incluida
+  `arq_shared`), y hay que reiniciar IngeTrazo. Los modelos antiguos deben exportarse de nuevo para ser
+  editables.
+- **RG-01 (revisión de Codex):** una carpintería con medidas negativas (cerco, hojas, retranqueo…) se
+  rechaza en la ficha y al crearla o editarla, y ARQVALIDAR señala los registros antiguos sin corregirlos
+  en silencio (`openings.dimension_problems`).
+- **Integración (dirección técnica):**
+  - `ingetrazo_ext/arq_shared/` ya no se guarda en el repositorio: se copia de la fuente al construir el
+    ZIP y al pasar las pruebas, así no puede quedar desfasada. Incluye `defensas.py` y
+    `particiones_virtuales.py`; la orden PARTICIONVIRTUAL pasa a `wall_tools.py`, porque
+    `particiones_virtuales.py` debe poder cargarse sin IngeCAD.
+  - **La guía del código va en cada ZIP con su versión** (`GUIA_DEL_CODIGO_v<versión>.md` en la raíz y en
+    `docs/`); una prueba lo comprueba.
+
 ## 1.29.0-dev — 2026-11-18
 
 Dos elementos nuevos, estudiados en los manuales de herramientas BIM de arquitectura que aportó el

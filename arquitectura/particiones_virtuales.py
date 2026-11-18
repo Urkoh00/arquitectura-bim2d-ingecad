@@ -34,8 +34,13 @@ EXPORTACIÓN
     ``params.virtual_boundaries``. Cuando IngeTrazo admita IfcVirtualElement,
     bastará con exportarla desde esa lista.
 
+SIN DEPENDENCIAS DEL ANFITRIÓN
+    Este módulo no importa IngeCAD al cargarse: viaja también a la extensión
+    de IngeTrazo (arq_shared), donde exchange.py lo necesita. Por eso la orden
+    de usuario está en wall_tools.py.
+
 QUIÉN LO USA
-    PARTICIONVIRTUAL (la orden, al final de este fichero), geom/bands
+    PARTICIONVIRTUAL (la orden, en wall_tools.py), geom/bands
     (solve_records la cuelga del resultado de los muros), geom/spaces
     (reparto del recinto), exchange (contrato) y reactor (edición nativa).
 """
@@ -44,7 +49,6 @@ from __future__ import annotations
 import math
 import uuid
 
-from tools.base import Tool
 
 KIND = "virtual_partition"
 LAYER = "ARQ-PARTICIONES-VIRTUALES"
@@ -136,59 +140,3 @@ def create(points, name=""):
                                dxfattribs={"linetype": _ensure_linetype(msp.doc)})
         return _xdata(msp, e, rec)
     return tagged(AddEntityCommand("ARQ PARTICIÓN VIRTUAL", factory, layer=LAYER), rec)
-
-
-# --- Orden PARTICIONVIRTUAL ---------------------------------------------------------
-class ParticionVirtualTool(Tool):
-    """PARTICIONVIRTUAL: una línea sin espesor que separa dos recintos.
-
-    Se dibuja por puntos, como una polilínea: cada clic añade un vértice e
-    Intro la termina. Conviene que empiece y acabe en una cara o en el eje de
-    un muro (o más allá): si queda corta, no separa nada. Al terminar, los
-    recintos de los dos lados se rehacen y cada uno toma su parte."""
-    name = "PARTICIONVIRTUAL"
-
-    def start(self):
-        self.name = type(self).name
-        self.points = []
-        self.last_point = None            # ancla de ORTO/POLAR de IngeCAD
-        self.prompt("PARTICIONVIRTUAL: primer punto (en un muro o más allá):")
-
-    def on_point(self, p):
-        p = (float(p[0]), float(p[1]))
-        if self.points and math.dist(p, self.points[-1]) < 1e-6:
-            self.ctx.echo("Seleccione un punto distinto del anterior.")
-            return
-        self.points.append(p)
-        self.last_point = p
-        self.prompt("PARTICIONVIRTUAL: siguiente punto (Intro: terminar; Deshacer: quitar el último):"
-                    if len(self.points) > 1 else "PARTICIONVIRTUAL: siguiente punto:")
-
-    def preview_segments(self, cursor):
-        pts = self.points + [tuple(cursor[:2])]
-        return list(zip(pts, pts[1:])) if self.points else []
-
-    def on_option(self, text):
-        txt = str(text).strip().lower()
-        if txt in ("d", "deshacer", "u") and self.points:
-            self.points.pop()
-            self.last_point = self.points[-1] if self.points else None
-            return True
-        if txt in ("f", "fin"):
-            self.on_enter()
-            return True
-        return False
-
-    def on_enter(self):
-        if len(self.points) < 2:
-            self.ctx.finish()
-            return
-        try:
-            from .transactions import apply_architectural_change
-            apply_architectural_change(self.ctx, create(self.points), kind=KIND)
-        except Exception as exc:  # noqa: BLE001  (se informa y se puede repetir)
-            self.ctx.echo(f"PARTICIONVIRTUAL: no se pudo crear ({type(exc).__name__}: {exc}).")
-            return
-        self.ctx.echo("PARTICIONVIRTUAL: creada; los recintos se han actualizado.")
-        self.points, self.last_point = [], None
-        self.prompt("PARTICIONVIRTUAL: primer punto de otra partición (Intro: terminar):")

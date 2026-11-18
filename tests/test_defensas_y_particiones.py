@@ -163,3 +163,24 @@ def test_particion_en_l(plugin):
     r.on_point((5.5, 1.0))
     [sp] = _spaces(s)
     assert s.meta(sp)['area'] == pytest.approx((7.85 - 3.0) * (2.0 - 0.15))
+
+
+# --- RG-01 (revisión de Codex): medidas negativas de carpintería -----------------
+def test_cerco_negativo_se_rechaza_y_un_registro_antiguo_se_senala(plugin):
+    from importlib import import_module
+    s = Session(plugin)
+    _box(s)
+    root = s.plugin.commands['EXPORTARBIM'].__module__.rsplit('.', 1)[0]
+    V10 = import_module(root + '.architectural_v10')
+    A = import_module(root + '.architectural')
+    IG = import_module(root + '.integrity')
+    wall = next(iter(s.walls().values()))
+    with pytest.raises(ValueError, match='cerco'):
+        V10.create_opening(wall, 2.0, 1.2, 0.9, 1.2, kind='ventana', frame_width=-0.05)
+    s.history.execute(V10.create_opening(wall, 2.0, 1.2, 0.9, 1.2, kind='ventana'))
+    [win] = [e for e in s.document.doc.modelspace() if (s.meta(e) or {}).get('kind') == 'opening']
+    old = dict(s.meta(win), frame_width=-0.05)        # un dibujo antiguo con la medida imposible
+    A._xdata(s.document.doc.modelspace(), win, old)
+    texts = [p['text'] for p in IG.audit(s.document.doc)]
+    assert any('cerco negativo' in t for t in texts)
+    assert s.meta(win)['frame_width'] == pytest.approx(-0.05)   # se señala, no se corrige en silencio

@@ -2,7 +2,7 @@
 
 Esta guía es para quien vaya a **leer, estudiar o mantener** el código. No sustituye al manual de uso (`docs/MANUAL.md`). Explica cómo está organizado el plugin, qué recorrido hace un elemento desde el clic hasta el IFC y dónde buscar cada cosa.
 
-Versión de referencia: **1.29.0-dev**, con 62 módulos y unas 20 000 líneas en `arquitectura/`, más la extensión de IngeTrazo en `ingetrazo_ext/`.
+Versión de referencia: **1.30.0-dev**, con 65 módulos y unas 20 000 líneas en `arquitectura/`, más la extensión de IngeTrazo en `ingetrazo_ext/`.
 
 ---
 
@@ -105,6 +105,9 @@ Se puede probar sin IngeCAD. Es la parte más delicada y la mejor probada.
 | `bim_export.py` | Orden EXPORTARBIM (escribe el fichero). |
 | `ingetrazo_ext/arquitectura_bim.py` | Extensión de IngeTrazo: valida el contrato y crea grupos, capas y materiales. |
 | `ingetrazo_ext/_arqbim_sync.py` | Reimportación por identificador, sin duplicar. |
+| `ingetrazo_ext/_arq_edit.py` | Panel «Propiedades de Arquitectura» en IngeTrazo: proponer cambios de tipo y medidas y exportar el `.arqcambios`. |
+| `ingetrazo_ext/arq_shared/` | **Copia generada** del código del plugin que necesita la extensión (geometría, carpinterías, contrato). La crea `scripts/bundle_roundtrip.py` al construir el ZIP y al pasar las pruebas. **No se edita ni se guarda en el repositorio**: se corrige la fuente en `arquitectura/`. |
+| `roundtrip.py`, `roundtrip_model.py` | Ida y vuelta con IngeTrazo: instantánea del dibujo en el contrato, propuestas de cambio, conflictos y SINCRONIZARARQ. |
 | `igz_bridge.py`, `tools3d.py` | Puente antiguo (EXPORTARIGZ) y herramientas 3D experimentales. Pendiente de retirar (P2). |
 
 ### 3.5 Órdenes (interacción con el usuario)
@@ -112,14 +115,14 @@ Las órdenes solo interactúan: piden puntos, leen opciones y crean las órdenes
 
 | Módulo | Órdenes |
 |---|---|
-| `wall_tools.py` | MURO, DEFENSA, MUROPARALELO, ESTIRAMURO, PIVOTAMURO, BORRATRAMO, PARTEMURO, UNIRMURO, DIVIDEMURO, RECINTO |
+| `wall_tools.py` | MURO, DEFENSA, PARTICIONVIRTUAL, MUROPARALELO, ESTIRAMURO, PIVOTAMURO, BORRATRAMO, PARTEMURO, UNIRMURO, DIVIDEMURO, RECINTO |
 | `curve_tools.py` | MUROCURVO, CURVAMURO |
 | `opening_tools.py` | CARPINTERIA, PUERTAARQ, VENTANAARQ, HUECOARQ, MOVERCARP |
 | `temp_dims.py` | Cotas temporales de MURO y CARPINTERIA |
 | `column_tools.py` | PILAR |
-| `cabinets.py` | ARMARIOBIM |
+| `cabinet_tools.py` | ARMARIOBIM (la geometría está en `cabinets.py`) |
+| `roundtrip.py` | SINCRONIZARARQ |
 | `slab_tools.py` | FORJADO, HUECOFORJADO |
-| `particiones_virtuales.py` | PARTICIONVIRTUAL |
 | `grid_tools.py`, `grids.py` | EJES, EDITAREJE, REJILLA, PILARESENEJES, ACTUALIZAEJES |
 | `levels.py` | NIVELES, NIVELASIGNAR |
 | `convert_tools.py` y `conversion_*.py` | LINEASAMURO (de un plano de líneas a muros BIM) |
@@ -143,6 +146,8 @@ Las órdenes solo interactúan: piden puntos, leen opciones y crean las órdenes
 - **Errores de usuario:** las funciones de 3.2 lanzan `ValueError` con un mensaje en español. Las órdenes de 3.5 lo capturan y lo muestran (`ctx.echo`). La orden sigue viva.
 - **Compatibilidad:** debe funcionar con IngeCAD 0.7 y 0.8. Lo que solo existe en 0.8 se pregunta antes de usarlo (`hasattr`) y tiene alternativa.
 - **Sin marcas comerciales** en código, comentarios ni interfaz. Se describe el comportamiento, no el programa que lo inspira.
+- **Código que viaja a IngeTrazo:** los módulos de `scripts/bundle_roundtrip.py` (geometría, carpinterías, contrato, defensas, particiones) **no pueden importar IngeCAD al cargarse**. Si necesitan algo del anfitrión, lo importan dentro de la función que lo usa.
+- **Estilo:** una instrucción por línea, nombres descriptivos y un comentario que explique el porqué de cada paso no evidente. El código compacto de varias instrucciones por línea (como el de R21) se irá reescribiendo en la etapa 3.
 - **Idioma:** los mensajes al usuario están en español. Los comentarios antiguos están en inglés. Los módulos nuevos (`defensas.py`, `particiones_virtuales.py`) y los resúmenes de cabecera están ya en español, y los demás se irán pasando por etapas (apartado 8).
 
 ---
@@ -164,7 +169,7 @@ La v1.29 añadió dos elementos por caminos distintos. Sirven de plantilla.
 Todo lo demás (encuentros, recintos, niveles, Deshacer, edición) se hereda.
 
 ### Camino B: el elemento es nuevo. Ejemplo: la **partición virtual**.
-1. **Módulo propio** (`particiones_virtuales.py`): `kind`, capa, `read(drawing)`, `create(...)` (una orden deshacible) y la orden de usuario.
+1. **Módulo propio** (`particiones_virtuales.py`): `kind`, capa, `read(drawing)` y `create(...)` (una orden deshacible). La orden de usuario va en `wall_tools.py`, porque el módulo no debe importar IngeCAD: viaja también a IngeTrazo.
 2. **Dónde interviene:** aquí, en los recintos. `solve_records(..., partitions)` la lleva al resultado y `geom/spaces.split_by_partitions` reparte el recinto.
 3. **Edición nativa:** añadir el `kind` a `reactor.KINDS`.
 4. **Capa** en `transactions.apply_architectural_change`.

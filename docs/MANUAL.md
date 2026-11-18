@@ -1,12 +1,12 @@
 # Manual de Arquitectura para IngeCAD
 
-Versión 1.29.0-dev · 2026-11-18
+Versión 1.30.0-dev · 2026-11-18
 
 > Copia del manual publicado como documento en claude.ai; se regenera con cada versión.
 
 ## Qué es
 
-Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.29.0-dev** y se actualiza con cada versión.
+Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.30.0-dev** y se actualiza con cada versión.
 
 Cada elemento guarda su identidad persistente, su clase IFC, su geometría editable en planta, sus parámetros 3D (altura, espesor, cota), sus propiedades constructivas (tipo, material, capas) y su nivel. Las carpinterías conocen su muro y los recintos siguen a los muros que los cierran.
 
@@ -19,11 +19,11 @@ El plugin calcula una sola vez la huella final de cada elemento, con los encuent
 
 ## Instalación
 
-El plugin se instala copiando una carpeta en IngeCAD, y la extensión copiando dos ficheros en IngeTrazo. No hace falta instalar Python aparte.
+El plugin se instala copiando una carpeta en IngeCAD, y la extensión copiando todo el contenido de su carpeta en IngeTrazo. No hace falta instalar Python aparte.
 
 **En IngeCAD**
 
-1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.29.0-dev.zip`.
+1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.30.0-dev.zip`.
 2. Copie la carpeta `arquitectura` en la carpeta de plugins de IngeCAD.
 3. Reinicie IngeCAD. Aparece el menú *Arquitectura* y su barra de herramientas.
 4. Escriba `ARQDIAG` en la línea de órdenes para comprobar que la versión cargada es la que acaba de copiar.
@@ -31,7 +31,7 @@ El plugin se instala copiando una carpeta en IngeCAD, y la extensión copiando d
 **En IngeTrazo**
 
 1. Abra *Extensiones > Abrir carpeta de plugins*.
-2. Copie en ella los **dos** ficheros de la carpeta `ingetrazo_ext` del ZIP: `arquitectura_bim.py` y `_arqbim_sync.py` (este, desde la 1.20; sin él, la importación se detiene y avisa de que falta).
+2. Copie en ella **todo el contenido** de la carpeta `ingetrazo_ext` del ZIP: `arquitectura_bim.py`, `_arqbim_sync.py`, `_arq_edit.py` y la subcarpeta `arq_shared` (desde la 1.30). Si falta algo, la importación se detiene y avisa. Reinicie IngeTrazo después de actualizar.
 3. Reinicie IngeTrazo. Aparece la orden *Importar arquitectura IngeCAD (.arqbim)…*.
 
 **Para actualizar**, sustituya la carpeta `arquitectura` y el fichero de la extensión por los de la versión nueva. Los dibujos hechos con versiones anteriores se siguen leyendo. Si alguno se ve desactualizado, ejecute `UNIONESARQ`.
@@ -421,7 +421,19 @@ Si encuentra alguno, abre un cuadro con la lista. Al seleccionar un problema, su
 
 **Estado.** Con la versión oficial actual de IngeTrazo, el IFC no relaciona aún las puertas y ventanas con su hueco ni escribe sus tipos de apertura, y coloca los recintos de una forma que el validador marca como error. Las correcciones están preparadas para proponerlas a su desarrollador. Con ellas, los modelos de prueba dan 0 errores en IfcOpenShell. La extensión valida el fichero completo antes de importarlo. Los modelos a más de 100 km del origen (coordenadas UTM) se desplazan cerca del origen con la misma regla que IngeTrazo aplica a cualquier fichero, y se avisa del desplazamiento.
 
-**Volver a importar (desde la 1.20).** Si cambia el plano en IngeCAD, exporte de nuevo el `.arqbim` y vuelva a abrirlo en IngeTrazo: el modelo se **actualiza** en lugar de duplicarse. Los elementos se reconocen por su identificador BIM; los cambiados se sustituyen, los nuevos se añaden y los borrados se retiran, todo en un solo `Deshacer`. Copie en la carpeta de extensiones de IngeTrazo los dos ficheros, `arquitectura_bim.py` y `_arqbim_sync.py`. Los modelos importados con versiones anteriores no se actualizan solos: bórrelos antes de la primera reimportación.
+**Volver a importar (desde la 1.20).** Si cambia el plano en IngeCAD, exporte de nuevo el `.arqbim` y vuelva a abrirlo en IngeTrazo: el modelo se **actualiza** en lugar de duplicarse. Los elementos se reconocen por su identificador BIM; los cambiados se sustituyen, los nuevos se añaden y los borrados se retiran, todo en un solo `Deshacer`. Copie en la carpeta de extensiones de IngeTrazo todo el contenido de `ingetrazo_ext`. Los modelos importados con versiones anteriores no se actualizan solos: bórrelos antes de la primera reimportación.
+
+**Cambiar tipos desde IngeTrazo (desde la 1.30).** IngeTrazo puede proponer cambios, pero el edificio sigue definiéndose en IngeCAD:
+
+1. En IngeTrazo, seleccione un muro, una puerta, una ventana o un armario importado. El panel **Propiedades de Arquitectura** muestra su clase, su tipo y sus medidas. Al seleccionar un muro, puede elegir también sus huecos.
+2. Cambie el tipo, la apertura, las hojas, los materiales o los perfiles: el elemento se regenera al momento con el mismo código del plugin, en un solo `Deshacer` de IngeTrazo.
+3. Los cambios que alteran la planta, como el espesor del muro, el tamaño o la posición de un hueco, la altura o la categoría, quedan **pendientes**: el modelo conserva la geometría anterior y el panel lo avisa. Se resuelven al volver a IngeCAD, que recalcula encuentros y recintos.
+4. **Guardar como tipo** añade el tipo al catálogo propuesto.
+5. **Exportar cambios a IngeCAD** escribe un fichero `.arqcambios` con lo propuesto.
+6. En IngeCAD, `SINCRONIZARARQ` lee ese fichero y comprueba que el dibujo es el mismo. Si algo ha cambiado también en IngeCAD, lo muestra como **conflicto** y usted decide, elemento por elemento, qué conservar; por defecto se conserva lo de IngeCAD. Un dibujo distinto se rechaza. Todo se comprueba antes en una copia y se aplica en un solo `Deshacer`.
+7. Exporte de nuevo con `EXPORTARBIM` y reimporte: los dos programas quedan iguales.
+
+Para poder editarlos, los modelos exportados con versiones anteriores deben exportarse de nuevo. Los movimientos o ediciones libres hechos con otras herramientas de IngeTrazo no vuelven a IngeCAD.
 
 ## Niveles y forjados
 
@@ -480,7 +492,7 @@ Con niveles o forjados, el intercambio usa `.arqbim` v3 y necesita la extensión
 
 ## Limitaciones conocidas
 
-Estas son las limitaciones conocidas de la versión 1.29.0-dev; cada versión actualiza esta lista.
+Estas son las limitaciones conocidas de la versión 1.30.0-dev; cada versión actualiza esta lista.
 
 - **Plataforma:** las pruebas automáticas se ejecutan en Linux y en Windows con IngeCAD oficial (las versiones 0.7.0 y 0.8.0), pero sin pantalla. El usuario probó la v1.17 en Windows 10 con IngeCAD 0.8 e IngeTrazo 0.6.1: la cadena hasta el IFC funcionó; las correcciones de la v1.18 salen de esa prueba.
 - **Muros curvos:** cada muro llega como mucho a media circunferencia (un muro redondo son dos). MUROPARALELO y DIVIDEMURO solo toman líneas rectas como referencia. El gesto de esquina en L al terminar un MURO solo recorta muros rectos.
@@ -494,6 +506,7 @@ Estas son las limitaciones conocidas de la versión 1.29.0-dev; cada versión ac
 
 | Fecha | Versión | Novedades |
 | --- | --- | --- |
+| 18-11-2026 | 1.30.0-dev | Cambiar tipos desde IngeTrazo con vuelta a IngeCAD (panel de propiedades, .arqcambios, SINCRONIZARARQ con conflictos); medidas negativas de carpintería rechazadas y señaladas en ARQVALIDAR; la extensión se instala copiando toda su carpeta |
 | 18-11-2026 | 1.29.0-dev | DEFENSA (barandilla, balaustrada o antepecho; IfcRailing) y PARTICIONVIRTUAL (límite de recinto sin muro); guía del código y resúmenes en español en cada módulo |
 | 17-11-2026 | 1.28.0-dev | Revisión general: planos grandes hasta seis veces más rápidos; el espesor escrito en MURO se lee en m, cm o mm y «3,4» es un punto; guardar y reabrir conserva el modelo BIM (prueba nueva) |
 | 16-11-2026 | 1.27.0-dev | Iconos en todas las órdenes; selector de nivel con encendido, inutilizado y bloqueado; categoría del muro (fachada, tabique, medianera, sótano) con su capa; muro hasta un nivel con desfases; armario adosado; vista previa de carpintería a una sola escala |

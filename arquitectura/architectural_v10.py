@@ -122,6 +122,8 @@ def opening_record(wall, offset, width, sill, height, kind, existing=None, **bim
         rec['chord']=OP.chord_of(spec,width)    # the planar carpentry between its jambs
     else:
         rec.pop('chord',None)
+    bad=OP.dimension_problems(rec)
+    if bad:raise ValueError('Carpintería con medidas no válidas: '+'; '.join(bad))
     rec=OP.normalise(rec)
     OP.cut_band(spec,rec)
     if typ != "gap" and rec.get("cabinet_mode")!="adosado":

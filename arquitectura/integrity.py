@@ -141,6 +141,9 @@ def audit(drawing):
                     bad.append("eje")
             except (KeyError, TypeError, ValueError, IndexError):
                 bad.append("eje")
+        if kind == "opening":
+            from .openings import dimension_problems
+            bad += dimension_problems(m)
         if kind == "space":
             if m.get('height_mode', 'manual') not in ('auto', 'manual'):
                 bad.append('modo de altura')

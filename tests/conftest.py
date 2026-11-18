@@ -20,3 +20,11 @@ if not (INGECAD / "core").is_dir():
     raise SystemExit(
         f"No encuentro las fuentes de IngeCAD en {INGECAD}. Clone "
         "https://github.com/ingelibre/ingecad junto a este repositorio o defina INGECAD_SRC.")
+
+# El código compartido con la extensión de IngeTrazo (ingetrazo_ext/arq_shared)
+# no se guarda en el repositorio: se copia de su fuente antes de las pruebas,
+# como al construir el ZIP (scripts/bundle_roundtrip.py).
+if (ROOT / "scripts" / "bundle_roundtrip.py").is_file():
+    sys.path.insert(0, str(ROOT / "scripts"))
+    from bundle_roundtrip import bundle  # noqa: E402
+    bundle()
