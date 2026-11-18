@@ -128,7 +128,7 @@ ya son utilizables en 0.6.1 y 0.6.2; el sondeo de selección es el único rodeo 
 
 ### 18-11-2026: norte y ubicación del proyecto en el IFC
 
-**T-17**, preparada, sin enviar. En IngeTrazo 0.6.2.1, `formats/ifc.py::save_ifc` escribe
+**T-17**, **comunicada el 18-11-2026 como [#1493](https://github.com/ingelibre/ingetrazo/issues/1493)** (Urkoh00), con el parche revisado que reutiliza `core.sun.scene_north_deg` y `north_vector_xy`. En IngeTrazo 0.6.2.1, `formats/ifc.py::save_ifc` escribe
 `TrueNorth = $` y deja vacías la latitud, la longitud y la cota del `IfcSite`, aunque la
 escena guarda el norte (Herramientas ▸ Norte) y la ubicación. Comprobado [A] con el muro
 sintético de las pruebas oficiales y norte a 30°. Hay una corrección local probada de 33
@@ -137,7 +137,6 @@ y 1 omitida). Sin duplicados en GitHub (búsqueda del 18-11). Importa para el c�
 cada fachada sale de `TrueNorth`. Mientras tanto, el plugin debe llevar el norte en su
 contrato y en el listado de envolvente.
 
-Mismo día: borrador de comentario en #1222 sobre `IsExternal`, `PredefinedType`
+Mismo día, **publicado** como [comentario en #1222](https://github.com/ingelibre/ingetrazo/issues/1222#issuecomment-6992226477): el comentario sobre `IsExternal`, `PredefinedType`
 (medianera, muro y solera en contacto con el terreno) y `Qto_SpaceBaseQuantities`, que
-necesitan los importadores de modelos para el cálculo energético (T-02, T-05). Pendiente de
-la aprobación del propietario.
+necesitan los importadores de modelos para el cálculo energético (T-02, T-05).
