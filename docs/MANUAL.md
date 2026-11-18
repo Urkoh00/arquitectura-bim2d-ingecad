@@ -1,12 +1,12 @@
 # Manual de Arquitectura para IngeCAD
 
-Versión 1.32.0-dev · 18-11-2026
+Versión 1.33.0-dev · 19-11-2026
 
 > Copia del manual publicado como documento en claude.ai; se regenera con cada versión.
 
 ## Qué es
 
-Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.32.0-dev** y se actualiza con cada versión.
+Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.33.0-dev** y se actualiza con cada versión.
 
 Cada elemento guarda su identidad persistente, su clase IFC, su geometría editable en planta, sus parámetros 3D (altura, espesor, cota), sus propiedades constructivas (tipo, material, capas) y su nivel. Las carpinterías conocen su muro y los recintos siguen a los muros que los cierran.
 
@@ -23,7 +23,7 @@ El plugin se instala copiando una carpeta en IngeCAD, y la extensión copiando t
 
 **En IngeCAD**
 
-1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.32.0-dev.zip`.
+1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.33.0-dev.zip`.
 2. Copie la carpeta `arquitectura` en la carpeta de plugins de IngeCAD.
 3. Reinicie IngeCAD. Aparece el menú *Arquitectura* y su barra de herramientas.
 4. Escriba `ARQDIAG` en la línea de órdenes para comprobar que la versión cargada es la que acaba de copiar.
@@ -327,7 +327,7 @@ En planta, el símbolo (hoja y giro, cerco, vidrio, alféizar) se dibuja en la c
 
 Las capas de cada nivel llevan `@` y una clave fija del nivel; su descripción tiene el nombre, que se puede cambiar sin afectarlas. Esta organización se activa desde `NIVELES`; abrir un dibujo no cambia sus capas. En IngeCAD 0.7, o con la barra oculta, se usa la orden `NIVELES ESTADO <id> on|frozen|locked 0|1`.
 
-**Categoría del muro.** `MURO`, su ficha y `TIPOSMURO` ofrecen **Fachada**, **Tabique**, **Medianera** y **Muro de sótano**, que van a las capas `ARQ-MUROS`, `ARQ-TABIQUES`, `ARQ-MEDIANERAS` y `ARQ-SOTANO`. Cambiar la categoría cambia la capa y conserva la identidad BIM. Al exportar, el tabique es `IfcWall` PARTITIONING y los demás STANDARD; fachada y medianera son exteriores (`IsExternal`), y medianera y sótano llevan su marca (medianera, contacto con el terreno). `LINEASAMURO` usa las mismas categorías. `ARQMIGRAR` asigna categoría a los muros antiguos y avisa para revisar medianeras y sótanos.
+**Categoría del muro.** `MURO`, su ficha y `TIPOSMURO` ofrecen **Fachada**, **Tabique**, **Medianera** y **Muro de sótano**, que van a las capas `ARQ-MUROS`, `ARQ-TABIQUES`, `ARQ-MEDIANERAS` y `ARQ-SOTANO`. Cambiar la categoría cambia la capa y conserva la identidad BIM. Al exportar, el tabique es `IfcWall` PARTITIONING; la fachada, USERDEFINED con ObjectType EXTERNALWALL; la medianera, USERDEFINED con PARTYWALL; y el muro de sótano, USERDEFINED con BASEMENTWALL, como los escribe un modelador IFC de referencia y como los piden los programas de cálculo energético. Fachada, medianera y sótano son exteriores (`IsExternal`), y medianera y sótano llevan su marca (medianera, contacto con el terreno). `LINEASAMURO` usa las mismas categorías. `ARQMIGRAR` asigna categoría a los muros antiguos y avisa para revisar medianeras y sótanos.
 
 **Muro hasta un nivel.** Por defecto, el muro tiene **altura fija**, como siempre. En su ficha se puede elegir **Hasta un nivel**, con nivel base, nivel superior y un desfase en cada uno; la altura resultante se muestra sin poder editarla:
 
@@ -502,7 +502,7 @@ Con niveles o forjados, el intercambio usa `.arqbim` v3 y necesita la extensión
 
 ## Limitaciones conocidas
 
-Estas son las limitaciones conocidas de la versión 1.32.0-dev; cada versión actualiza esta lista.
+Estas son las limitaciones conocidas de la versión 1.33.0-dev; cada versión actualiza esta lista.
 
 - **Plataforma:** las pruebas automáticas se ejecutan en Linux y en Windows con IngeCAD oficial (las versiones 0.7.0 y 0.8.0), pero sin pantalla. El usuario probó la v1.17 en Windows 10 con IngeCAD 0.8 e IngeTrazo 0.6.1: la cadena hasta el IFC funcionó; las correcciones de la v1.18 salen de esa prueba.
 - **Muros curvos:** cada muro llega como mucho a media circunferencia (un muro redondo son dos). MUROPARALELO y DIVIDEMURO solo toman líneas rectas como referencia. El gesto de esquina en L al terminar un MURO solo recorta muros rectos.
@@ -516,6 +516,7 @@ Estas son las limitaciones conocidas de la versión 1.32.0-dev; cada versión ac
 
 | Fecha | Versión | Novedades |
 | --- | --- | --- |
+| 19-11-2026 | 1.33.0-dev | Tipo IFC de los muros como en un IFC de referencia: fachada EXTERNALWALL, medianera PARTYWALL y muro de sótano BASEMENTWALL (USERDEFINED con ObjectType); el tabique sigue PARTITIONING |
 | 18-11-2026 | 1.32.0-dev | Entrada revisada de LINEASAMURO: un DXF con su fichero de procedencia (plano.dxf.procedencia.json) convierte solo las caras, puertas y ventanas confirmadas; las capas REV-\* nunca se reconocen por su nombre |
 | 18-11-2026 | 1.31.0-dev | Retirado el puente antiguo a IngeTrazo (EXPORTARIGZ, CONFIGIGZ) y las órdenes 3D experimentales MURO3D y HUECO3D; el paso a IngeTrazo es EXPORTARBIM con la extensión |
 | 18-11-2026 | 1.30.0-dev | Cambiar tipos desde IngeTrazo con vuelta a IngeCAD (panel de propiedades, .arqcambios, SINCRONIZARARQ con conflictos); medidas negativas de carpintería rechazadas y señaladas en ARQVALIDAR; la extensión se instala copiando toda su carpeta |

@@ -191,7 +191,12 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD", problem
         else:
             faces, volume = S.layered_wall_solid(geo["bands"], spec, float(m.get("base", 0.0)), ops)
             el = _element(ident, "IfcWall", m, faces, volume, geo["area"], level)
-            el['enums']={'PredefinedType':'PARTITIONING' if cat=='tabique' else 'STANDARD'}
+            # tipo IFC según la categoría (wall_categories.IFC_TYPES)
+            from .wall_categories import ifc_type
+            predefined, object_type = ifc_type(cat)
+            el['enums'] = {'PredefinedType': predefined}
+            if object_type:
+                el.setdefault('attributes', {})['ObjectType'] = object_type
         el['params'].update(wall_category=cat,wall_role=m.get('wall_role',''))
         el['psets']['ARQ_IngeCAD'].update(Categoria=cat,Medianera=cat=='medianera',ContactoTerreno=cat=='sotano')
         # envelope: a face on the outer boundary of the building (calculated)

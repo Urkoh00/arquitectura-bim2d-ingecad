@@ -2,6 +2,24 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.33.0-dev — 2026-11-19
+
+Tipo IFC de los muros alineado con un IFC de referencia de un modelador comercial (prueba del
+propietario: una medianera, tres muros de fachada, un tabique, una puerta, una ventana y una solera).
+Son también los valores que piden los generadores de modelo analítico para el cálculo energético.
+
+| Categoría | Antes | Ahora |
+|---|---|---|
+| Fachada | `STANDARD` | `USERDEFINED` + `ObjectType` `EXTERNALWALL` |
+| Tabique | `PARTITIONING` | sin cambio |
+| Medianera | `STANDARD` | `USERDEFINED` + `ObjectType` `PARTYWALL` |
+| Muro de sótano | `STANDARD` | `USERDEFINED` + `ObjectType` `BASEMENTWALL` |
+
+- `IsExternal` no cambia: verdadero en fachada, medianera y sótano, como en la referencia.
+- La tabla está en `wall_categories.IFC_TYPES`, y `ifc_type()` da el par de cada categoría.
+- El IFC de IngeTrazo 0.6.2.1 sigue perdiendo `PredefinedType` y `ObjectType` (T-02, T-05). Los
+  valores viajan en el contrato y en el IGZ.
+
 ## 1.32.0-dev — 2026-11-18
 
 Integra la **entrada revisada de LINEASAMURO** (R22, punto 3), entrega de Codex sobre la v1.31

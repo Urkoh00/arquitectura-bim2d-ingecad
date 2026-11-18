@@ -63,15 +63,17 @@ def make_wall(s, **values):
 
 
 @pytest.mark.parametrize('category,layer,predefined,external', [
-    ('fachada','ARQ-MUROS','STANDARD',True),('tabique','ARQ-TABIQUES','PARTITIONING',False),
-    ('medianera','ARQ-MEDIANERAS','STANDARD',True),('sotano','ARQ-SOTANO','STANDARD',True)])
+    ('fachada','ARQ-MUROS','USERDEFINED/EXTERNALWALL',True),('tabique','ARQ-TABIQUES','PARTITIONING',False),
+    ('medianera','ARQ-MEDIANERAS','USERDEFINED/PARTYWALL',True),('sotano','ARQ-SOTANO','USERDEFINED/BASEMENTWALL',True)])
 def test_categories_layers_export_and_identity(plugin, category, layer, predefined, external):
     s=Session(plugin);wall=make_wall(s,wall_category='fachada');old=s.meta(wall)
     command=module(s,'architectural_v10').edit_wall(wall,wall_category=category)
     module(s,'transactions').apply_architectural_change(s.tool('MURO').ctx,command)
     assert wall.dxf.layer==layer and s.meta(wall)['id']==old['id']
     el=s.export(None)['elements'][0]
-    assert el['enums']['PredefinedType']==predefined
+    pre, _, obj = predefined.partition('/')
+    assert el['enums']['PredefinedType']==pre
+    assert (el.get('attributes') or {}).get('ObjectType') == (obj or None)
     assert el['psets']['Pset_WallCommon']['IsExternal'] is external
     assert el['psets']['ARQ_IngeCAD']['Medianera'] is (category=='medianera')
     assert el['psets']['ARQ_IngeCAD']['ContactoTerreno'] is (category=='sotano')

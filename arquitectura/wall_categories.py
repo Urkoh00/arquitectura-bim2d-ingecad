@@ -3,9 +3,9 @@
 exportación.
 
 Cada categoría tiene su capa. La categoría decide además cómo se exporta el
-muro (exchange.build): fachada, medianera y sótano son exteriores; el tabique
-es PARTITIONING; la defensa (v1.29) es una barandilla o un antepecho, con
-sus datos propios en defensas.py.
+muro (exchange.build): fachada, medianera y sótano son exteriores
+(IsExternal); su tipo IFC lo da ``ifc_type``; la defensa (v1.29) es una
+barandilla o un antepecho, con sus datos propios en defensas.py.
 """
 CATEGORIES = (('Fachada (exterior)', 'fachada'), ('Tabique', 'tabique'),
               ('Medianera', 'medianera'), ('Muro de sótano', 'sotano'),
@@ -15,6 +15,16 @@ LAYERS = {'fachada':'ARQ-MUROS', 'tabique':'ARQ-TABIQUES',
           'defensa':'ARQ-DEFENSAS'}
 ROLES = {'muros':'fachada', 'tabiques':'tabique', 'medianeras':'medianera'}
 
+# Tipo IFC de cada categoría: (PredefinedType, ObjectType o None).
+# Son los valores que escribe un modelador IFC de referencia (v1.33, prueba
+# del propietario) y los que piden los generadores de modelo analítico para
+# el cálculo energético: la medianera y el muro de sótano no tienen valor
+# propio en IfcWallTypeEnum y van como USERDEFINED con su ObjectType.
+IFC_TYPES = {'fachada':('USERDEFINED', 'EXTERNALWALL'),
+             'tabique':('PARTITIONING', None),
+             'medianera':('USERDEFINED', 'PARTYWALL'),
+             'sotano':('USERDEFINED', 'BASEMENTWALL')}
+
 
 def category(record, external=None):
     value = record.get('wall_category')
@@ -23,6 +33,11 @@ def category(record, external=None):
         return value
     if record.get('wall_role') in ROLES: return ROLES[record['wall_role']]
     return 'tabique' if external is False else 'fachada'
+
+
+def ifc_type(cat):
+    """(PredefinedType, ObjectType o None) del muro de categoría ``cat``."""
+    return IFC_TYPES.get(cat, ('STANDARD', None))
 
 
 def migrate_steps(document):
