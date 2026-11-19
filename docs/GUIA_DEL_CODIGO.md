@@ -2,7 +2,7 @@
 
 Esta guía es para quien vaya a **leer, estudiar o mantener** el código. No sustituye al manual de uso (`docs/MANUAL.md`). Explica cómo está organizado el plugin, qué recorrido hace un elemento desde el clic hasta el IFC y dónde buscar cada cosa.
 
-Versión de referencia: **1.40.0-dev**, con 65 módulos y unas 20 000 líneas en `arquitectura/`, más la extensión de IngeTrazo en `ingetrazo_ext/`.
+Versión de referencia: **1.41.0-dev**, con 65 módulos y unas 20 000 líneas en `arquitectura/`, más la extensión de IngeTrazo en `ingetrazo_ext/`.
 
 ---
 
@@ -292,7 +292,9 @@ misma que utiliza el validador de la extensión, sin importar IngeCAD.
 
 `tests/test_r26_huecos.py` cubre rectángulos girados, círculo facetado, L,
 fronteras de redondeo, puertas, ventanas, huecos libres y nichos.
-`scripts/generar_modelo_r26.py` añade los casos de ensayo de P4 y un forjado
-con los cuatro contornos; `scripts/verificar_cadena_r26.py` compara las
+`scripts/generar_modelo_r26.py` añade los casos de ensayo de P4, un forjado
+con los cuatro contornos y el caso `aceptacion` (hueco sin carpintería y
+cubierta de 30 cm sobre muros y recintos de 2,70 m), que es el modelo de la
+prueba en la plataforma de cálculo; `scripts/verificar_cadena_r26.py` compara las
 relaciones, las posiciones y el volumen leído con y sin sustracciones de
 huecos por IfcOpenShell. Cada script se ejecuta en el entorno de su anfitrión.

@@ -2,6 +2,18 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.41.0-dev — 2026-11-19
+
+- **Huecos con medidas reales en el IFC (R26-P4, Codex; revisado e integrado por Claude).** La extensión
+  envía con cada hueco su tipo (`OPENING`, o `RECESS` para un nicho que no atraviesa el muro) y sus
+  cantidades: ancho y alto del registro y espesor del muro como fondo. En forjados, el fondo es el canto;
+  un contorno rectangular da sus lados reales y cualquier otro, su área exacta. El contrato `.arqbim` no
+  cambia. Con la mejora P4 de IngeTrazo, cada hueco sale como `IfcOpeningElement` vinculado a su muro y
+  a su puerta o ventana.
+- `scripts/generar_modelo_r26.py aceptacion`: modelo de la tercera prueba en la plataforma de cálculo
+  (hueco sin carpintería y cubierta).
+- 25 pruebas nuevas.
+
 ## 1.40.0-dev — 2026-11-19
 
 - **Nueva orden BIBLIOTECAHE: biblioteca térmica del usuario.** Importa el catálogo de la Herramienta

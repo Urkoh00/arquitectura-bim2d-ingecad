@@ -28,6 +28,11 @@ def generar(destino, angulo=0., lejano=False, caso="normal"):
         return (origen[0] + x * coseno - y * seno,
                 origen[1] + x * seno + y * coseno)
 
+    # «aceptacion»: muros hasta la cara inferior de la cubierta (2,70 m),
+    # cubierta plana de 30 cm encima (2,70–3,00) y recintos de 2,70 m, para
+    # que el modelo analítico cierre los espacios por arriba
+    aceptacion = caso == "aceptacion"
+    altura = 2.7 if aceptacion else 3.
     destino.mkdir(parents=True, exist_ok=True)
     documento = Document.new()
     historial = History(documento)
@@ -56,7 +61,7 @@ def generar(destino, angulo=0., lejano=False, caso="normal"):
             datos["layers"] = capas
         if caso == "curvo" and numero == 1:
             datos["bulge"] = .15
-        orden = architectural_v10.create_wall(transformar(inicio), transformar(fin), espesor, 3., reference="eje", **datos)
+        orden = architectural_v10.create_wall(transformar(inicio), transformar(fin), espesor, altura, reference="eje", **datos)
         transactions.apply_architectural_change(contexto, orden)
         muros.append(orden.entity)
     puerta = architectural_v10.create_opening(
@@ -68,6 +73,10 @@ def generar(destino, angulo=0., lejano=False, caso="normal"):
         muros[1], 2., 1.2, 1.2, 1.2, kind="window", type_name="Ventana 1200",
         material="Aluminio", operation="SLIDING", **datos_ventana)
     transactions.apply_architectural_change(contexto, ventana, kind="opening")
+    if aceptacion:
+        hueco = architectural_v10.create_opening(
+            muros[2], 1.5, .8, 1., 1., kind="gap", name="Hueco sin carpintería")
+        transactions.apply_architectural_change(contexto, hueco, kind="opening")
     if caso == "nicho":
         hueco = architectural_v10.create_opening(
             muros[2], 1.5, .8, 1., 1., kind="gap", name="Hueco sin carpintería")
@@ -88,6 +97,13 @@ def generar(destino, angulo=0., lejano=False, caso="normal"):
                          thickness=.2, top=0., slab_kind="solera",
                          material="Hormigón", name="Solera sintética")
     transactions.apply_architectural_change(contexto, solera, kind="slab")
+    if aceptacion:
+        cubierta = slabs.create([transformar(punto) for punto in
+                                [(-.15, -.13), (limite_derecho, -.13),
+                                 (limite_derecho, 6.15), (-.15, 6.15)]],
+                               thickness=.3, top=3., slab_kind="cubierta",
+                               material="Hormigón", name="Cubierta sintética")
+        transactions.apply_architectural_change(contexto, cubierta, kind="slab")
     for numero, semilla in enumerate([(2, 3), (6, 3)], 1):
         semilla = transformar(semilla)
         registros, pilares, _huecos, _avisos = exchange.read_model(documento.doc)
@@ -95,7 +111,7 @@ def generar(destino, angulo=0., lejano=False, caso="normal"):
         recinto, motivo = spaces.space_at(red, semilla)
         assert recinto is not None, motivo
         orden, _registro = wall_tools.create_space(
-            semilla, recinto, name=f"Recinto sintético {numero}", number=numero, height=3.)
+            semilla, recinto, name=f"Recinto sintético {numero}", number=numero, height=altura)
         transactions.apply_architectural_change(contexto, orden, kind="space")
         # El tipo se fija en el registro mediante la orden de edición existente,
         # no se escribe XDATA ni se cambia a mano el contrato exportado.
@@ -112,6 +128,8 @@ def generar(destino, angulo=0., lejano=False, caso="normal"):
     esperadas = {"IfcWall": 5, "IfcDoor": 1, "IfcWindow": 1, "IfcSpace": 2, "IfcSlab": 1}
     if caso == "nicho":
         esperadas["IfcDoor"] = 2
+    if aceptacion:
+        esperadas["IfcSlab"] = 2
     assert clases == esperadas
     resumen = {"clases": clases, "incidencias": contrato["issues"],
                "tipos_de_origen": [elemento.get("type_name", "") for elemento in contrato["elements"]]}
@@ -150,4 +168,5 @@ if __name__ == "__main__":
     else:
         generar(Path(sys.argv[1]).resolve(), float(sys.argv[2]),
                 "lejano" in sys.argv[3:],
-                "nicho" if "nicho" in sys.argv[3:] else "curvo" if "curvo" in sys.argv[3:] else "normal")
+                next((caso for caso in ("nicho", "curvo", "aceptacion") if caso in sys.argv[3:]),
+                     "normal"))
