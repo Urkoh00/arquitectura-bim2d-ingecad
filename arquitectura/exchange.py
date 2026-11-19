@@ -221,6 +221,15 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD", problem
                             "Width": spec.thickness, "GrossFootprintArea": geo["area"],
                             "GrossVolume": math.fsum(g["area"] * (hi - lo) for lo, hi, g in geo["bands"]),
                             "NetVolume": volume}
+        # superficie de paramento (Qto_WallBaseQuantities): volumen / espesor,
+        # exacta para muros rectos y curvos de espesor constante; la neta
+        # descuenta los huecos pasantes (y la parte proporcional de un nicho).
+        # IngeTrazo no puede medirla bien en un muro curvo ni con una puerta
+        # que llega al suelo (la toma de la cara mayor de la malla).
+        if spec.thickness > 0:
+            q = el["quantities"]
+            q["GrossSideArea"] = q["GrossVolume"] / spec.thickness
+            q["NetSideArea"] = min(volume / spec.thickness, q["GrossSideArea"])
         el["openings"] = []
         fillings = []
         for o in ops:

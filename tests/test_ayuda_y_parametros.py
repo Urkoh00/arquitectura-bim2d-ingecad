@@ -102,3 +102,23 @@ def test_las_preguntas_de_las_herramientas_antiguas_son_avisos(plugin):
     herramienta.on_option("")
     assert avisos[-1] == "Indicar incremento de altura [1.00]:"
     assert "Base = 0.00 (por defecto)" in mensajes
+
+
+def test_los_muros_envian_su_superficie_de_paramento(plugin, tmp_path):
+    """GrossSideArea y NetSideArea van en el contrato: IngeTrazo las tomaba de
+    la cara mayor de la malla, que en un muro curvo es la huella y en un muro
+    con puerta no descuenta el hueco."""
+    import importlib.util
+    import json
+    spec = importlib.util.spec_from_file_location(
+        "generar_r26_superficies", RAIZ / "scripts" / "generar_modelo_r26.py")
+    generador = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(generador)
+    generador.generar(tmp_path, 0.0, False, "aceptacion")
+    datos = json.loads((tmp_path / "modelo_sintetico.arqbim").read_text(encoding="utf-8"))
+    muros = {e["name"]: e["quantities"] for e in datos["elements"] if e["ifc_class"] == "IfcWall"}
+    puerta = muros["Muro sintético 1"]
+    assert puerta["GrossSideArea"] == pytest.approx(8.0 * 2.7)
+    assert puerta["NetSideArea"] == pytest.approx(8.0 * 2.7 - 0.9 * 2.1)
+    assert muros["Muro sintético 3"]["NetSideArea"] == pytest.approx(8.0 * 2.7 - 0.8 * 1.0)
+    assert muros["Muro sintético 4"]["NetSideArea"] == pytest.approx(6.0 * 2.7)

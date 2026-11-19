@@ -2,6 +2,14 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.44.0-dev — 2026-11-19
+
+- **Los muros envían su superficie de paramento al IFC** (`GrossSideArea` y `NetSideArea` en
+  `Qto_WallBaseQuantities`): volumen entre espesor, exacta en muros rectos y curvos; la neta descuenta los
+  huecos pasantes. IngeTrazo la tomaba de la cara mayor de la malla: en un muro curvo salía la huella
+  (1,83 m² en lugar de 18,3 m²) y en un muro con una puerta hasta el suelo no se descontaba el hueco.
+  Comprobado en el modelo de la tercera prueba: 21,60 → 19,71 m² con la puerta de 0,90 × 2,10.
+
 ## 1.43.0-dev — 2026-11-19
 
 - **Herramientas antiguas (CURVAS3D, VERTPOLY, ESCALERA...): sus preguntas salen como avisos de la orden.**
