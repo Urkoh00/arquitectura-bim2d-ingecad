@@ -1,12 +1,12 @@
-# Manual de Arquitectura para IngeCAD — versión 1.38.0-dev
+# Manual de Arquitectura para IngeCAD — versión 1.39.0-dev
 
-Versión 1.38.0-dev · 2026-11-19
+Versión 1.39.0-dev · 2026-11-19
 
 > Copia del manual publicado como documento en claude.ai; se regenera con cada versión.
 
 ## Qué es
 
-Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.38.0-dev** y se actualiza con cada versión.
+Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.39.0-dev** y se actualiza con cada versión.
 
 Cada elemento guarda su identidad persistente, su clase IFC, su geometría editable en planta, sus parámetros 3D (altura, espesor, cota), sus propiedades constructivas (tipo, material, capas) y su nivel. Las carpinterías conocen su muro y los recintos siguen a los muros que los cierran.
 
@@ -27,7 +27,7 @@ El plugin se instala copiando una carpeta en IngeCAD, y la extensión copiando t
 
 **En IngeCAD**
 
-1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.38.0-dev.zip`.
+1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.39.0-dev.zip`.
 2. Copie la carpeta `arquitectura` en la carpeta de plugins de IngeCAD.
 3. Reinicie IngeCAD. Aparece el menú *Arquitectura* y su barra de herramientas.
 4. Escriba `ARQDIAG` en la línea de órdenes para comprobar que la versión cargada es la que acaba de copiar.
@@ -509,7 +509,7 @@ Con niveles o forjados, el intercambio usa `.arqbim` v3 y necesita la extensión
 
 ## Limitaciones conocidas
 
-Estas son las limitaciones conocidas de la versión 1.38.0-dev; cada versión actualiza esta lista.
+Estas son las limitaciones conocidas de la versión 1.39.0-dev; cada versión actualiza esta lista.
 
 - **Plataforma:** las pruebas automáticas se ejecutan en Linux con la última versión oficial de IngeCAD y de IngeTrazo, pero sin pantalla. Solo se prueba con la última versión de cada programa, porque ambos publican casi cada semana.
 - **Muros curvos:** cada muro llega como mucho a media circunferencia (un muro redondo son dos). MUROPARALELO y DIVIDEMURO solo toman líneas rectas como referencia. El gesto de esquina en L al terminar un MURO solo recorta muros rectos.
@@ -523,6 +523,7 @@ Estas son las limitaciones conocidas de la versión 1.38.0-dev; cada versión ac
 
 | Fecha | Versión | Novedades |
 | --- | --- | --- |
+| 19-11-2026 | 1.39.0-dev | Cada forjado lleva tipo IFC (por defecto, su clase y su canto: «Solera 20 cm»), que exige el modelo analítico de BIMserver.center |
 | 19-11-2026 | 1.38.0-dev | Altura por defecto de muros y pilares: 3,00 m. Normativa por defecto, Extremadura: los armarios computan como superficie útil. Cota de nivel = cara superior del forjado estructural, como en CYPE (documentado) |
 | 19-11-2026 | 1.37.0-dev | Armarios: el espacio IFC llega siempre hasta los muros, como en CYPE; la superficie útil descuenta o computa los armarios según el criterio elegido en PARAMETROSARQ; aviso al empotrar un armario en una fachada, medianera o muro de sótano |
 | 19-11-2026 | 1.36.0-dev | Eje de los muros hacia el IFC: con las ampliaciones propuestas a IngeTrazo, cada muro recto tiene su propia orientación y las capas quedan bien situadas también en los muros girados. Corrección: los edificios girados en coordenadas UTM (lejos del origen) ya no dan sólidos abiertos al pasar a IngeTrazo |

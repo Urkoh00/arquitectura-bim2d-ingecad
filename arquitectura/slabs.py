@@ -18,6 +18,8 @@ KINDS={'forjado':('Forjado entre plantas','FLOOR',False,False),
        'solera':('Solera (apoyada en el terreno)','BASESLAB',True,True),
        'cubierta':('Cubierta plana','ROOF',True,False)}
 DEFAULT_KIND='forjado'
+#: nombre corto de cada clase, para el tipo IFC por defecto
+SHORT={'forjado':'Forjado','solera':'Solera','cubierta':'Cubierta plana'}
 
 
 def _crosses(a,b,c,d,tol=1e-9):
@@ -154,7 +156,12 @@ def elements(drawing,skip=()):
             openings.append({'id':ident,'guid':ifc_guid(ident),'name':'Hueco de '+m['name'],'kind':'void',
                 'params':{'base':m['base'],'height':m['thickness']},'faces':_faces_json(faces_h)})
         label,predefined,external,ground=KINDS[m.get('slab_kind',DEFAULT_KIND)]
+        # tipo IFC del forjado: el generador del modelo analítico agrupa por
+        # tipo y lo exige en todos los elementos; si el registro no trae uno,
+        # se nombra por su clase y su canto («Solera 20 cm»)
+        type_name=m.get('type_name') or f"{SHORT[m.get('slab_kind',DEFAULT_KIND)]} {m['thickness']*100:.0f} cm"
         out.append({'id':m['id'],'guid':ifc_guid(m['id']),'ifc_class':'IfcSlab','name':m['name'],'material':m.get('material',''),
+          'type_name':type_name,
           'level':m.get('level','Planta baja'),'level_id':m.get('level_id'),'params':{'base':m['base'],'height':m['thickness'],'thickness':m['thickness']},
           'enums':{'PredefinedType':predefined},'faces':_faces_json(faces),'volume':volume,'plan_area':geo['area'],
           'psets':{'Pset_SlabCommon':{'Reference':m['name'],'IsExternal':external},

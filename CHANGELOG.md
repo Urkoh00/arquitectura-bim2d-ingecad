@@ -2,6 +2,15 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.39.0-dev — 2026-11-19
+
+- **Cada forjado lleva tipo IFC.** El generador del modelo analítico de BIMserver.center (Open BIM Analytical
+  Model) agrupa por tipo y lo exige en todos los elementos. Un forjado sin tipo propio lo recibe por su clase
+  y su canto («Solera 20 cm», «Forjado 25 cm», «Cubierta plana 30 cm»).
+- Comprobado con un IFC de aceptación del edificio sintético (cadena con las ampliaciones P0 a P3b propuestas
+  a IngeTrazo): 0 errores EXPRESS, 8 tipos y norte a 30°. Faltan los huecos (P4, encargado).
+- 3 pruebas nuevas; 886 en total.
+
 ## 1.38.0-dev — 2026-11-19
 
 Valores por defecto según las indicaciones del propietario.

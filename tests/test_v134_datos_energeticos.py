@@ -111,3 +111,15 @@ def test_editar_la_clase_conserva_la_identidad_y_se_deshace(plugin):
     assert s.meta(e)['slab_kind'] == 'solera' and s.meta(e)['id'] == before
     s.history.undo()
     assert S.read(e)['slab_kind'] == 'forjado'
+
+
+@pytest.mark.parametrize('clase, tipo', [('forjado', 'Forjado 20 cm'), ('solera', 'Solera 20 cm'),
+                                         ('cubierta', 'Cubierta plana 20 cm')])
+def test_el_forjado_lleva_tipo_para_el_modelo_analitico(plugin, clase, tipo):
+    """El generador del modelo analítico agrupa por tipo y lo exige en todos los
+    elementos: un forjado sin tipo propio lo recibe por su clase y su canto."""
+    s = Session(plugin)
+    S = module(s, 'slabs')
+    S.apply_new(s.tool('MURO').ctx, OUTER, slab_kind=clase)
+    [slab] = _el(s.export(None), 'IfcSlab')
+    assert slab['type_name'] == tipo
