@@ -19,6 +19,7 @@ def test_zip_lleva_la_guia_con_su_version_y_el_codigo_compartido(tmp_path):
                         (ROOT / "arquitectura" / "__init__.py").read_text(encoding="utf-8")).group(1)
     with zipfile.ZipFile(out) as z:
         names = set(z.namelist())
+        assert f"MANUAL_v{version}.md" in names       # el manual, con la versión en el nombre
         for name in (f"GUIA_DEL_CODIGO_v{version}.md", "docs/GUIA_DEL_CODIGO.md"):
             assert f"Versión de referencia: **{version}**" in z.read(name).decode("utf-8")
         manifest = json.loads(z.read("ingetrazo_ext/arq_shared/MANIFEST.json"))

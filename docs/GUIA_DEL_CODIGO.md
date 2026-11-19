@@ -135,7 +135,7 @@ Las órdenes solo interactúan: piden puntos, leen opciones y crean las órdenes
 | `__init__.py` | Registro del plugin, menú y barra. Además, las **herramientas heredadas** de la v1.5 (PUERTA, VENTANA, ARMARIO, ESCALERA, CAPASARQ, URL, VERTICES…), en el menú «Herramientas antiguas». |
 
 ### 3.6 Utilidades
-`compat.py` (diferencias entre IngeCAD 0.7 y 0.8), `cte_usos.py` (clasificación normativa de recintos), `vendor/` (copias de bibliotecas que IngeCAD no instala).
+`compat.py` (adaptación a la API de IngeCAD), `cte_usos.py` (clasificación normativa de recintos), `vendor/` (copias de bibliotecas que IngeCAD no instala).
 
 ---
 
@@ -185,7 +185,7 @@ Todo lo demás (encuentros, recintos, niveles, Deshacer, edición) se hereda.
 INGECAD_SRC=/ruta/a/ingecad QT_QPA_PLATFORM=offscreen python3 -m pytest -q
 ```
 
-- Las pruebas usan **IngeCAD real** (0.8 y 0.7) y cargan el plugin como lo hace IngeCAD. La sesión de prueba (`tests/test_wall_tools.Session`) simula clics y opciones: `draw(s.tool('MURO'), (0, 0), (5, 0))`.
+- Las pruebas usan **IngeCAD real** (solo la última versión publicada) y cargan el plugin como lo hace IngeCAD. La sesión de prueba (`tests/test_wall_tools.Session`) simula clics y opciones: `draw(s.tool('MURO'), (0, 0), (5, 0))`.
 - Cada versión pasa todas las pruebas en ambas versiones de IngeCAD antes de publicarse.
 - `tests/test_revision_persistencia_y_escala.py` vigila dos cosas: que guardar y reabrir no cambie el modelo, y que el coste por cambio no vuelva a crecer con el número de recintos.
 - La cadena completa con IngeTrazo real (`.arqbim → IGZ → IFC`) se ensaya fuera del repositorio, con las fuentes oficiales de IngeTrazo (pendiente P5: incorporarla como prueba opcional).

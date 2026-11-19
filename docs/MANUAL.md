@@ -1,4 +1,4 @@
-# Manual de Arquitectura para IngeCAD
+# Manual de Arquitectura para IngeCAD — versión 1.34.0-dev
 
 Versión 1.34.0-dev · 19-11-2026
 
@@ -23,6 +23,8 @@ El plugin calcula una sola vez la huella final de cada elemento, con los encuent
 
 El plugin se instala copiando una carpeta en IngeCAD, y la extensión copiando todo el contenido de su carpeta en IngeTrazo. No hace falta instalar Python aparte.
 
+**Requisitos.** La última versión publicada de IngeCAD y de IngeTrazo; hoy, IngeCAD 0.8.0 e IngeTrazo 0.6.2.1. Los dos programas publican versiones nuevas casi cada semana, con muchos cambios en cada una, así que el plugin solo se desarrolla y se prueba con la última de cada uno: no use versiones anteriores.
+
 **En IngeCAD**
 
 1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.34.0-dev.zip`.
@@ -36,7 +38,7 @@ El plugin se instala copiando una carpeta en IngeCAD, y la extensión copiando t
 2. Copie en ella **todo el contenido** de la carpeta `ingetrazo_ext` del ZIP: `arquitectura_bim.py`, `_arqbim_sync.py`, `_arq_edit.py` y la subcarpeta `arq_shared` (desde la 1.30). Si falta algo, la importación se detiene y avisa. Reinicie IngeTrazo después de actualizar.
 3. Reinicie IngeTrazo. Aparece la orden *Importar arquitectura IngeCAD (.arqbim)…*.
 
-**Para actualizar**, sustituya la carpeta `arquitectura` y el fichero de la extensión por los de la versión nueva. Los dibujos hechos con versiones anteriores se siguen leyendo. Si alguno se ve desactualizado, ejecute `UNIONESARQ`.
+**Para actualizar**, sustituya la carpeta `arquitectura` y el contenido de la extensión por los de la versión nueva. Mientras el plugin esté en desarrollo no se garantiza que los dibujos hechos con versiones anteriores del plugin se lean igual: guarde antes una copia y, si alguno se ve desactualizado, ejecute `UNIONESARQ`.
 
 El plugin es experimental: no lo use todavía en proyectos reales sin guardar antes una copia.
 
@@ -71,16 +73,16 @@ Cada elemento es un objeto BIM con identidad propia; las líneas que se ven en p
 
 Nada se rechaza. Si algo no se puede representar exactamente, se avisa: por ejemplo, un perfil metálico escalado pasa a sección rectangular genérica. Una copia recibe un identificador nuevo y el original conserva el suyo.
 
-**Con IngeCAD 0.8 o posterior (publicada el 10-11-2026)** el ajuste es inmediato. Tras la orden de IngeCAD, el plugin regenera el plano en el mismo paso de deshacer, sin necesidad de `UNIONESARQ`, y un solo `Deshacer` lo devuelve todo a como estaba. Con versiones anteriores, el ajuste se hace en la siguiente orden del plugin o con `UNIONESARQ`.
+**El ajuste es inmediato.** Tras la orden de IngeCAD, el plugin regenera el plano en el mismo paso de deshacer, sin necesidad de `UNIONESARQ`, y un solo `Deshacer` lo devuelve todo a como estaba.
 
-**Doble clic (IngeCAD 0.8 o posterior; con la 0.7, use EDITARARQ).** Al hacer doble clic sobre un elemento:
+**Doble clic.** Al hacer doble clic sobre un elemento:
 
 - **un muro** (cualquiera de sus líneas): arranca `MURO` con su espesor, altura, cota, cara, tipo y capas;
 - **una puerta o ventana**: arranca `CARPINTERIA` con su modelo;
 - **un pilar**: arranca `PILAR` con su sección;
 - **un recinto**: abre su ficha.
 
-Es la forma más rápida de seguir dibujando «como ese». En versiones anteriores de IngeCAD, la opción `G` de `MURO` y `PROPIEDADESARQ` hacen lo mismo.
+Es la forma más rápida de seguir dibujando «como ese». También lo hacen la opción `G` de `MURO` y `PROPIEDADESARQ`.
 
 **Selección.** Cada muro forma un grupo con su eje y sus líneas de contorno: al designar cualquiera de sus líneas se designa el muro entero. No borre ni mueva solo las líneas del contorno; `ARQVALIDAR` avisa si quedan líneas sin muro.
 
@@ -298,8 +300,6 @@ Cada pilar es un solo paso de `Deshacer`, con los muros y recintos ya actualizad
 
 **MOVERCARP** mueve una carpintería ya colocada con las mismas cotas: designe la carpintería y escriba la distancia de la cota activa, o haga clic en el muro para llevar allí su centro. Conserva su identidad BIM y se deshace con un solo `Deshacer`. `Intro` suelta la carpintería para designar otra.
 
-En IngeCAD 0.7 las cotas se ven sin texto (solo sus líneas); la distancia escrita funciona igual.
-
 **Opciones.**
 
 | Opción | Efecto |
@@ -326,9 +326,9 @@ En planta, el símbolo (hoja y giro, cerco, vidrio, alféizar) se dibuja en la c
 
 ## Niveles, categorías de muro y armarios
 
-**Nivel activo.** Con IngeCAD 0.8, la barra de herramientas Arquitectura muestra la capa activa, la lista de **niveles** y tres botones para el nivel elegido: **Encendido/Apagado**, **Utilizable/Inutilizado** y **Bloqueado/Desbloqueado**. Si la barra está oculta, actívela en el gestor de plugins. Los botones cambian las capas de ese nivel con las órdenes de capas de IngeCAD, y se deshacen con `Deshacer`. Si se cambia una de esas capas desde IngeCAD, el selector lo refleja; si las capas de un nivel no coinciden, indica «mixto» y no se pueden crear elementos en él hasta igualarlas. Con el nivel bloqueado, las órdenes del plugin no editan sus elementos, tampoco un muro que pase por él. Apagar o inutilizar solo afecta a la vista: la exportación conserva el modelo completo.
+**Nivel activo.** La barra de herramientas Arquitectura muestra la capa activa, la lista de **niveles** y tres botones para el nivel elegido: **Encendido/Apagado**, **Utilizable/Inutilizado** y **Bloqueado/Desbloqueado**. Si la barra está oculta, actívela en el gestor de plugins. Los botones cambian las capas de ese nivel con las órdenes de capas de IngeCAD, y se deshacen con `Deshacer`. Si se cambia una de esas capas desde IngeCAD, el selector lo refleja; si las capas de un nivel no coinciden, indica «mixto» y no se pueden crear elementos en él hasta igualarlas. Con el nivel bloqueado, las órdenes del plugin no editan sus elementos, tampoco un muro que pase por él. Apagar o inutilizar solo afecta a la vista: la exportación conserva el modelo completo.
 
-Las capas de cada nivel llevan `@` y una clave fija del nivel; su descripción tiene el nombre, que se puede cambiar sin afectarlas. Esta organización se activa desde `NIVELES`; abrir un dibujo no cambia sus capas. En IngeCAD 0.7, o con la barra oculta, se usa la orden `NIVELES ESTADO <id> on|frozen|locked 0|1`.
+Las capas de cada nivel llevan `@` y una clave fija del nivel; su descripción tiene el nombre, que se puede cambiar sin afectarlas. Esta organización se activa desde `NIVELES`; abrir un dibujo no cambia sus capas. Con la barra oculta se usa la orden `NIVELES ESTADO <id> on|frozen|locked 0|1`.
 
 **Categoría del muro.** `MURO`, su ficha y `TIPOSMURO` ofrecen **Fachada**, **Tabique**, **Medianera** y **Muro de sótano**, que van a las capas `ARQ-MUROS`, `ARQ-TABIQUES`, `ARQ-MEDIANERAS` y `ARQ-SOTANO`. Cambiar la categoría cambia la capa y conserva la identidad BIM. Al exportar, el tabique es `IfcWall` PARTITIONING; la fachada, USERDEFINED con ObjectType EXTERNALWALL; la medianera, USERDEFINED con PARTYWALL; y el muro de sótano, USERDEFINED con BASEMENTWALL, como los escribe un modelador IFC de referencia y como los piden los programas de cálculo energético. Fachada, medianera y sótano son exteriores (`IsExternal`), y medianera y sótano llevan su marca (medianera, contacto con el terreno). `LINEASAMURO` usa las mismas categorías. `ARQMIGRAR` asigna categoría a los muros antiguos y avisa para revisar medianeras y sótanos.
 
@@ -338,11 +338,11 @@ Las capas de cada nivel llevan `@` y una clave fija del nivel; su descripción t
 
 Si cambia la elevación de un nivel, se recalculan los muros, forjados y recintos afectados con un solo `Deshacer`. No se acepta una altura nula o negativa, un nivel eliminado ni un cambio que deje sin cabida a una carpintería. Un muro que atraviesa varias plantas se dibuja en cada una, y cada recinto toma solo su tramo. Las carpinterías de ese muro se sitúan respecto a su arranque: en una planta alta, indique el antepecho medido desde la base del muro.
 
-**Armarios.** `ARMARIOBIM` crea por defecto un armario **adosado**: designe la cara del muro y la posición, y fije ancho, fondo, altura, material y hojas (abatibles o correderas). Ocupa planta delante del muro, **no lo corta** y se descuenta de la superficie útil y del volumen del recinto. El modo **Empotrado / nicho** es el anterior, y los armarios ya dibujados siguen como nichos. Ambos modos requieren un muro recto. Se exporta como `IfcBuildingElementProxy` (tipo ARMARIO\_FIJO), porque IngeTrazo 0.6 no ofrece `IfcFurniture`, y sus frentes como `IfcDoor`. Actualice también el fichero de IngeTrazo junto con el plugin.
+**Armarios.** `ARMARIOBIM` crea por defecto un armario **adosado**: designe la cara del muro y la posición, y fije ancho, fondo, altura, material y hojas (abatibles o correderas). Ocupa planta delante del muro, **no lo corta** y se descuenta de la superficie útil y del volumen del recinto. El modo **Empotrado / nicho** es el anterior, y los armarios ya dibujados siguen como nichos. Ambos modos requieren un muro recto. Se exporta como `IfcBuildingElementProxy` (tipo ARMARIO\_FIJO), porque IngeTrazo todavía no ofrece `IfcFurniture`, y sus frentes como `IfcDoor`. Actualice también el fichero de IngeTrazo junto con el plugin.
 
 **Iconos y ficha de carpintería.** Todas las órdenes del menú tienen icono, y `LINEASAMURO` está justo antes de «Intercambio BIM». En la ficha de carpintería, la planta y el alzado se dibujan a la misma escala, sin solaparse, con las medidas al pie.
 
-**Límite del IFC de IngeTrazo.** Los exportadores IFC oficiales de IngeTrazo 0.6.1 y 0.6.2 crean una sola planta, relacionan mal los recintos y no transmiten el tipo de muro, sus propiedades ni sus cantidades. La geometría es correcta y el fichero de IngeTrazo conserva todos los datos, pero el IFC todavía no tiene la semántica completa.
+**Límite del IFC de IngeTrazo.** El exportador IFC oficial de IngeTrazo crea todavía una sola planta, relaciona mal los recintos y no transmite el tipo de muro, sus propiedades ni sus cantidades. La geometría es correcta y el fichero de IngeTrazo conserva todos los datos, pero el IFC aún no tiene la semántica completa. Se han propuesto a IngeTrazo las correcciones (norte, propiedades, tipos y plantas); este apartado cambiará cuando se publiquen.
 
 ## Recintos y superficies útiles
 
@@ -454,7 +454,7 @@ Para poder editarlos, los modelos exportados con versiones anteriores deben expo
 
 `FORJADO` crea un forjado **horizontal**: indique nombre, material, espesor y desfase de la **cara superior** respecto al nivel activo (el espesor crece hacia abajo). Dibuje el contorno en planta y pulse Intro; con la opción `Hueco` dibuje cada hueco y ciérrelo con Intro; otro Intro confirma todo. Esc cancela; `Retroceder` o `U` quita el último punto. Se admiten contornos cóncavos con huecos interiores que no se corten. `HUECOFORJADO` añade un hueco a un forjado existente. Desde la 1.34 cada forjado tiene clase: forjado entre plantas (se exporta como IfcSlab FLOOR), solera apoyada en el terreno (BASESLAB, exterior y en contacto con el terreno) o cubierta plana (ROOF, exterior); se elige en la ficha o, antes del primer punto, con las opciones Forjado, Solera o Cubierta. Las propiedades (nombre, material, clase, espesor, desfase, quitar huecos) se cambian con `PROPIEDADESARQ`. El sombreado del forjado guarda su contorno real: no lo borre como si fuera auxiliar. Los forjados inclinados, la cubierta y el falso techo llegarán más adelante.
 
-Con niveles o forjados, el intercambio usa `.arqbim` v3 y necesita la extensión de IngeTrazo actualizada. IngeTrazo conserva los niveles y los identificadores en el IGZ, pero su IFC (0.6.1 y 0.6.2) todavía escribe una sola planta «Storey» y no relaciona los huecos de forjado.
+Con niveles o forjados, el intercambio usa `.arqbim` v3 y necesita la extensión de IngeTrazo actualizada. IngeTrazo conserva los niveles y los identificadores en el IGZ, pero su IFC todavía escribe una sola planta «Storey» y no relaciona los huecos de forjado.
 
 ## Ejes estructurales (rejillas) y carpintería curva
 
@@ -462,7 +462,7 @@ Con niveles o forjados, el intercambio usa `.arqbim` v3 y necesita la extensión
 
 **Ficha de la rejilla (desde la 1.22.2).** Indique primero cuántos ejes hay en X y en Y; aparece una tabla con la distancia de cada vano, que puede ser distinta en cada uno, con el total de cada dirección y el botón «Todas iguales». Al aceptar, la malla completa sigue al cursor: pulse el punto de inserción (con referencias a objetos o escribiendo coordenadas) y, si lo desea, dé el giro. En `EDITAREJE`, la opción «Separaciones» cambia la distancia de un vano y desplaza los ejes siguientes junto con sus pilares, en un solo `Deshacer`.
 
-**EDITAREJE** mueve un eje, cambia sus extremos y su burbuja o renumera desde él. **PILARESENEJES** coloca pilares de la sección elegida en todas las intersecciones o en las de una zona, en un solo `Deshacer`. Un pilar colocado en una intersección guarda su **marca** (por ejemplo `B-3`), que se ve en su ficha y se exporta; al mover el eje, sus pilares lo siguen. En IngeCAD 0.7, después de mover ejes con órdenes genéricas, ejecute `ACTUALIZAEJES`. IngeTrazo no admite todavía rejillas en el IFC: viajan como datos en el `.arqbim` y la marca del pilar aparece en su nombre (`[B-3]`).
+**EDITAREJE** mueve un eje, cambia sus extremos y su burbuja o renumera desde él. **PILARESENEJES** coloca pilares de la sección elegida en todas las intersecciones o en las de una zona, en un solo `Deshacer`. Un pilar colocado en una intersección guarda su **marca** (por ejemplo `B-3`), que se ve en su ficha y se exporta; al mover el eje, sus pilares lo siguen. Si mueve ejes con órdenes genéricas de IngeCAD y algún pilar no los sigue, `ACTUALIZAEJES` los pone al día. IngeTrazo no admite todavía rejillas en el IFC: viajan como datos en el `.arqbim` y la marca del pilar aparece en su nombre (`[B-3]`).
 
 **Carpintería en muros curvos.** La ficha de carpintería permite elegir **plana** (en la cuerda entre las jambas) o **curva**: la ventana fija, la ventana corredera y la puerta corredera siguen el arco del muro, con el mismo facetado en planta y en 3D. Las puertas y ventanas abatibles curvas no se admiten (aviso). El ancho y la posición se miden sobre el arco, por el eje o por una cara. La posición en el espesor admite también **«a distancia»**: un retranqueo desde la cara de apertura o la opuesta, que debe caber en el espesor. `CURVAMURO` conserva las carpinterías y su posición. El IFC de IngeTrazo todavía no conserva las dimensiones ni las relaciones de los huecos curvos.
 
@@ -507,7 +507,7 @@ Con niveles o forjados, el intercambio usa `.arqbim` v3 y necesita la extensión
 
 Estas son las limitaciones conocidas de la versión 1.34.0-dev; cada versión actualiza esta lista.
 
-- **Plataforma:** las pruebas automáticas se ejecutan en Linux y en Windows con IngeCAD oficial (las versiones 0.7.0 y 0.8.0), pero sin pantalla. El usuario probó la v1.17 en Windows 10 con IngeCAD 0.8 e IngeTrazo 0.6.1: la cadena hasta el IFC funcionó; las correcciones de la v1.18 salen de esa prueba.
+- **Plataforma:** las pruebas automáticas se ejecutan en Linux con la última versión oficial de IngeCAD y de IngeTrazo, pero sin pantalla. Solo se prueba con la última versión de cada programa, porque ambos publican casi cada semana.
 - **Muros curvos:** cada muro llega como mucho a media circunferencia (un muro redondo son dos). MUROPARALELO y DIVIDEMURO solo toman líneas rectas como referencia. El gesto de esquina en L al terminar un MURO solo recorta muros rectos.
 - **Carpinterías:** en muros curvos son planas; no hay carpintería curva. Faltan armarios, memoria de carpintería, catálogo de modelos, lucernarios y borrar la carpintería dejando el vano.
 - **LINEASAMURO:** no reconoce puertas ni ventanas en muros curvos. Las medianeras toman el espesor hasta la línea paralela más próxima de otra capa: revise su espesor.

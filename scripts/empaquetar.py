@@ -49,4 +49,5 @@ with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z, tempfile.TemporaryDir
         if (ROOT / f).is_file():
             z.write(ROOT / f, f)
     z.write(ROOT / "docs" / "MANUAL.md", "MANUAL.md")        # the user manual of this version
+    z.write(ROOT / "docs" / "MANUAL.md", f"MANUAL_v{version}.md")   # y con la versión en el nombre
 print(out)
