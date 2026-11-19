@@ -21,6 +21,7 @@ from __future__ import annotations
 import math
 
 from . import polygon as P
+from .soldadura import Soldador
 
 R = 9
 
@@ -95,8 +96,8 @@ def _minus(intervals, z0, z1):
 
 def _prism_faces(reg, z0, z1):
     """(plane_key, orientation, 2D convex polygon in plane coords)."""
-    out = [(("z", round(z0, R)), -1, list(reg)),
-           (("z", round(z1, R)), +1, list(reg))]
+    out = [(("z", z0), -1, list(reg)),
+           (("z", z1), +1, list(reg))]
     n = len(reg)
     for i in range(n):
         p, q = reg[i], reg[(i + 1) % n]
@@ -128,19 +129,52 @@ def _to3d(plane, pt):
 
 def boundary(cells):
     """Watertight faces of the union of cells: [(outer, [holes])], each loop
-    a list of (x, y, z), counter-clockwise seen from outside."""
+    a list of (x, y, z), counter-clockwise seen from outside.
+
+    Se calcula en coordenadas locales: se resta un origen de metros enteros
+    junto a las celdas y se suma al final. Lejos del origen (coordenadas UTM
+    de cientos de kilómetros) un double solo conserva ~1e-10 m, y los
+    recortes 2D y los planos acumulaban ahí diferencias que dejaban caras
+    internas o vértices duplicados; en local el mismo punto sale siempre
+    igual y el resultado vuelve a coordenadas absolutas de forma
+    determinista."""
+    cells = list(cells)
+    if not cells:
+        return []
+    ox = math.floor(min(q[0] for reg, _z in cells for q in reg))
+    oy = math.floor(min(q[1] for reg, _z in cells for q in reg))
+    if not ox and not oy:
+        return _boundary_local(cells)
+    local = [([(q[0] - ox, q[1] - oy) for q in reg], z) for reg, z in cells]
+    back = {}
+
+    def absolute(v):
+        key = id(v)
+        if key not in back:
+            back[key] = (v[0] + ox, v[1] + oy, v[2])
+        return back[key]
+    return [([absolute(v) for v in outer], [[absolute(v) for v in h] for h in holes])
+            for outer, holes in _boundary_local(local)]
+
+
+def _boundary_local(cells):
     planes = {}
     exact = {}
+    # caras del mismo plano: se agrupan con tolerancia, no por redondeo (un
+    # plano a ambos lados de una frontera de round() dejaba una cara interna)
+    horizontal, vertical = Soldador(), Soldador()
     for reg, (z0, z1) in cells:
         for plane, sign, poly in _prism_faces(reg, z0, z1):
-            k = plane[:4]
-            exact.setdefault(k, plane)            # first exact normal wins
+            if plane[0] == "z":
+                k = ("z", horizontal.indice((plane[1], 0.0, 0.0)))
+            else:
+                k = ("v", vertical.indice(plane[4:7]))
+            exact.setdefault(k, plane)            # first exact plane wins
             planes.setdefault(k, ([], []))[0 if sign > 0 else 1].append(P.ccw(poly))
     faces = []
-    registry = {}
-
-    def canon(v):
-        return registry.setdefault(tuple(round(c, 7) for c in v), v)
+    # vértices iguales calculados por dos caminos: se unen con tolerancia, no
+    # por redondeo (geom/soldadura.py explica por qué round() no basta)
+    canon = Soldador().punto
     for k, (plus, minus) in planes.items():
         plane = exact[k]
         net_p = plus
@@ -156,9 +190,36 @@ def boundary(cells):
                 loops = [outer] + holes
                 if sign < 0:
                     loops = [list(reversed(l)) for l in loops]
-                loops3 = [[canon(_to3d(plane, q)) for q in l] for l in loops]
-                faces.append((loops3[0], loops3[1:]))
+                loops3 = [_clean_loop([canon(_to3d(plane, q)) for q in l]) for l in loops]
+                if len(loops3[0]) < 3:
+                    continue
+                faces.append((loops3[0], [h for h in loops3[1:] if len(h) >= 3]))
     return _fix_tjunctions(faces)
+
+
+def _clean_loop(loop):
+    """El lazo sin vértices repetidos seguidos ni «púas» A→B→A.
+
+    Tras soldar, dos líneas que solo diferían en el ruido de los recortes
+    (~1e-10 m, de los cálculos en coordenadas absolutas) son la misma: un
+    contorno que subía por una y bajaba por la otra queda como una púa sin
+    anchura, que no es frontera de nada y hacía ver vértices repetidos."""
+    out = list(loop)
+    changed = True
+    while changed and len(out) >= 3:
+        changed = False
+        n = len(out)
+        for i in range(n):
+            if out[i] is out[(i + 1) % n]:               # repetido seguido
+                del out[(i + 1) % n]
+                changed = True
+                break
+            if out[(i - 1) % n] is out[(i + 1) % n]:     # púa A→B→A
+                for j in sorted({i, (i + 1) % n}, reverse=True):
+                    del out[j]
+                changed = True
+                break
+    return out if len(out) >= 3 else []
 
 
 def _fix_tjunctions(faces):

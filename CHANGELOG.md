@@ -2,6 +2,31 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.36.0-dev — 2026-11-19
+
+Eje de los muros hacia el IFC (encargo R25, paquete P3b; trabajo de Codex, revisado e integrado), y sólidos
+estancos lejos del origen.
+
+- La extensión de IngeTrazo pasa en la etiqueta de cada muro recto su **línea de referencia** (`axis`): los
+  extremos dibujados (`params.a` y `params.b`) a la cota de la base, con el mismo origen de escena que los
+  vértices. Con la ampliación P3b propuesta a IngeTrazo, cada muro tiene una colocación propia (X a lo largo
+  del muro, Y su normal izquierda) y una representación `Axis`, de modo que **la dirección de las capas es
+  correcta también en los muros girados**. Los muros curvos no llevan eje.
+- **Corrección: sólidos lejos del origen y girados.** Con el edificio girado y en coordenadas UTM
+  (700000, 4600000), la extensión rechazaba algunos muros («sólido abierto o caras mal orientadas»).
+  Había tres causas encadenadas:
+  - el mismo vértice salía con dos valores separados por 1e-10 m, y redondear a 7 decimales los separaba;
+  - un plano de dintel quedaba a ambos lados de otra frontera de redondeo y dejaba una cara interna;
+  - quedaban púas de anchura nula en las jambas.
+
+  Ahora el sólido se calcula en coordenadas locales (origen de metros enteros junto al muro). Los vértices y
+  los planos se agrupan con tolerancia y no por redondeo (`geom/soldadura.py`), y se eliminan las púas. El
+  validador de la extensión suelda igual.
+- Scripts `generar_modelo_r25.py` y `verificar_cadena_r25.py` (edificio a cualquier ángulo, cerca o lejos
+  del origen).
+- 24 pruebas nuevas; 878 en total. La cadena completa da 0 errores EXPRESS a 0°, 27° y 61°, cerca y lejos del
+  origen.
+
 ## 1.35.0-dev — 2026-11-19
 
 Capas de material de los muros hacia el IFC (encargo R24, paquete P3 del plan de aportaciones a IngeTrazo;

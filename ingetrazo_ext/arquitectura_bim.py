@@ -106,6 +106,10 @@ def validate_contract(data):
     def boundary(faces, who):
         if not isinstance(faces, list) or not faces:
             raise ValueError("%s sin caras" % who)
+        # cada vértice se identifica por soldadura con tolerancia, no por
+        # redondeo: dos copias del mismo punto a 1e-10 m pueden caer a ambos
+        # lados de una frontera de round() (pasaba lejos del origen y con giro)
+        soldador = _soldador()
         edges, directions = Counter(), Counter()
         for face in faces:
             if not isinstance(face, dict):
@@ -118,7 +122,7 @@ def validate_contract(data):
                     if (not isinstance(pt, (list, tuple)) or len(pt) != 3
                             or any(type(v) not in (int, float) or not math.isfinite(v) for v in pt)):
                         raise ValueError("%s: vértice no válido" % who)
-                    keys.append(tuple(round(v, 7) for v in pt))
+                    keys.append(soldador.indice(pt))
                     vertices[0] += 1
                     if vertices[0] > 2000000:
                         raise ValueError("Demasiados vértices")
@@ -533,6 +537,14 @@ def to_igz(contract_path, igz_path, offset="auto"):
 
 
 # -- inside IngeTrazo ----------------------------------------------------------------------
+
+def _soldador():
+    """Un Soldador de geom/soldadura.py, de la copia compartida (arq_shared)."""
+    import importlib
+
+    __import_edit().shared()
+    return importlib.import_module("_arquitectura_shared.geom.soldadura").Soldador()
+
 
 def __import_edit():
     import importlib.util

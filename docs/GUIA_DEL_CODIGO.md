@@ -2,7 +2,7 @@
 
 Esta guía es para quien vaya a **leer, estudiar o mantener** el código. No sustituye al manual de uso (`docs/MANUAL.md`). Explica cómo está organizado el plugin, qué recorrido hace un elemento desde el clic hasta el IFC y dónde buscar cada cosa.
 
-Versión de referencia: **1.35.0-dev**, con 64 módulos y unas 20 000 líneas en `arquitectura/`, más la extensión de IngeTrazo en `ingetrazo_ext/`.
+Versión de referencia: **1.36.0-dev**, con 64 módulos y unas 20 000 líneas en `arquitectura/`, más la extensión de IngeTrazo en `ingetrazo_ext/`.
 
 ---
 
@@ -248,3 +248,15 @@ conservan la exportación anterior. Las pruebas están en `tests/test_r25_eje.py
 `scripts/verificar_cadena_r25.py` se ejecuta en el entorno de IngeTrazo y
 comprueba la cadena con IfcOpenShell geom, incluyendo las interfaces de
 las capas, los vértices mundiales y los volúmenes.
+
+### Soldadura de vértices (`geom/soldadura.py`)
+
+`Soldador` une los puntos a menos de una tolerancia (1e-7 m por defecto)
+buscando en la celda del punto y en sus 26 vecinas, así que no tiene las
+fronteras de `round()`: dos copias del mismo vértice a 1e-10 m se unen siempre.
+Lo usan `geom/solids.py::boundary` (vértices y planos) y el validador de
+contratos de la extensión. `boundary` calcula además en coordenadas locales
+(resta un origen de metros enteros y lo suma al final) y limpia los lazos
+(`_clean_loop`: repetidos seguidos y púas A→B→A). Pruebas:
+`tests/test_soldadura_lejos_del_origen.py`.
+
