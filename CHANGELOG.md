@@ -2,6 +2,15 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.43.0-dev — 2026-11-19
+
+- **Herramientas antiguas (CURVAS3D, VERTPOLY, ESCALERA...): sus preguntas salen como avisos de la orden.**
+  Antes las escribían como mensajes y la línea de órdenes de IngeCAD repetía, junto a cada respuesta, el
+  último aviso de otra orden (en CURVAS3D aparecía el menú de PEDIT). Un contexto propio convierte en aviso
+  toda línea que termina en dos puntos; no se toca el código de cada herramienta.
+- CURVAS3D aclara que ARQ-CURVAS3D es la **capa** donde quedan las polilíneas 3D, no una orden.
+- Las herramientas antiguas se conservan, por indicación del propietario.
+
 ## 1.42.0-dev — 2026-11-19
 
 - **Corregido: PARAMETROSARQ no abría su ficha** («NameError: name 'QComboBox' is not defined»). Faltaba

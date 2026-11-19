@@ -86,3 +86,19 @@ def test_sin_nombres_comerciales_en_el_codigo_del_plugin():
             texto = fichero.read_text(encoding="utf-8").casefold()
             for nombre in NOMBRES_COMERCIALES:
                 assert nombre not in texto, (fichero, nombre)
+
+
+def test_las_preguntas_de_las_herramientas_antiguas_son_avisos(plugin):
+    """CURVAS3D escribía sus preguntas como mensajes y la línea de órdenes
+    repetía con cada respuesta el aviso de otra orden (el menú de PEDIT)."""
+    from arquitectura import PLUGIN
+    avisos, mensajes = [], []
+    ctx = SimpleNamespace(prompt=avisos.append, echo=mensajes.append, finish=lambda: None,
+                          execute=lambda cmd: None, services=None)
+    herramienta = PLUGIN.tools["CURVAS3D"](ctx)
+    herramienta.start()
+    assert avisos == ["Indicar altura base [0.00]:"]
+    assert mensajes == ["=== Altura curvas de nivel (CURVAS3D) ==="]
+    herramienta.on_option("")
+    assert avisos[-1] == "Indicar incremento de altura [1.00]:"
+    assert "Base = 0.00 (por defecto)" in mensajes

@@ -36,7 +36,7 @@ import os
 from collections import defaultdict
 from pathlib import Path
 
-_VERSION = "1.42.0-dev"
+_VERSION = "1.43.0-dev"
 
 from core.plugins import SEPARATOR, MenuItem, PluginSpec, Submenu, ToolbarItem
 from tools.base import Tool
@@ -206,6 +206,29 @@ def _add_arc_approx(ctx, center, radius, start_ang, end_ang, layer=None, segment
 # No modifica ni sustituye las herramientas nativas del programa.
 # ---------------------------------------------------------------------------
 
+class _ContextoPregunta:
+    """Contexto de las herramientas antiguas: sus preguntas son avisos.
+
+    Las herramientas v0.7 escriben la pregunta con ``echo`` («Indicar altura
+    base [0.00]:») en lugar de ``prompt``. La línea de órdenes de IngeCAD
+    repite entonces, junto a la respuesta, el último aviso de OTRA orden (se
+    vio el menú de PEDIT dentro de CURVAS3D). Aquí, una línea que termina en
+    dos puntos sale como aviso de la orden; lo demás, como mensaje. Todo lo
+    demás pasa al contexto real."""
+
+    def __init__(self, ctx):
+        self._ctx = ctx
+
+    def __getattr__(self, nombre):
+        return getattr(self._ctx, nombre)
+
+    def echo(self, texto):
+        if str(texto).rstrip().endswith(":") and getattr(self._ctx, "prompt", None):
+            self._ctx.prompt(str(texto))
+        else:
+            self._ctx.echo(texto)
+
+
 class ArchitectureTool(Tool):
     """Adaptador de las herramientas v0.7 al contrato de Tool vigente.
 
@@ -216,6 +239,8 @@ class ArchitectureTool(Tool):
 
     def start(self):
         self.name = type(self).name
+        if not isinstance(self.ctx, _ContextoPregunta):
+            self.ctx = _ContextoPregunta(self.ctx)
         self._arq_mode = "point"
         self._arq_keywords = set()
         self.on_start()
@@ -1199,8 +1224,9 @@ class Curvas3DTool(ArchitectureTool):
                 step = max(1, len(pts) // 10)
                 for p in pts[::step]:
                     _add_circle(self.ctx, p, 0.06, "ARQ-CURVAS3D")
-        self.ctx.echo("Curvas procesadas; compruebe la geometría 3D en ARQ-CURVAS3D.")
-        self.ctx.echo("Active la vista 3D / órbita de IngeCAD para ver el relieve (como en el vídeo).")
+        self.ctx.echo("Curvas procesadas: polilíneas 3D y rótulos Z= en la CAPA ARQ-CURVAS3D "
+                      "(no es una orden).")
+        self.ctx.echo("Para ver el relieve, use la vista 3D u órbita de IngeCAD.")
         self.ctx.finish()
 
 

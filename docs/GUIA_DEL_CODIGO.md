@@ -2,7 +2,7 @@
 
 Esta guía es para quien vaya a **leer, estudiar o mantener** el código. No sustituye al manual de uso (`docs/MANUAL.md`). Explica cómo está organizado el plugin, qué recorrido hace un elemento desde el clic hasta el IFC y dónde buscar cada cosa.
 
-Versión de referencia: **1.42.0-dev**, con 66 módulos y unas 20 000 líneas en `arquitectura/`, más la extensión de IngeTrazo en `ingetrazo_ext/`.
+Versión de referencia: **1.43.0-dev**, con 66 módulos y unas 20 000 líneas en `arquitectura/`, más la extensión de IngeTrazo en `ingetrazo_ext/`.
 
 ---
 
@@ -259,6 +259,13 @@ contratos de la extensión. `boundary` calcula además en coordenadas locales
 (resta un origen de metros enteros y lo suma al final) y limpia los lazos
 (`_clean_loop`: repetidos seguidos y púas A→B→A). Pruebas:
 `tests/test_soldadura_lejos_del_origen.py`.
+
+### Herramientas antiguas (`ArchitectureTool` y `_ContextoPregunta`)
+
+Las herramientas v0.7 se conservan (decisión del propietario). Escriben sus
+preguntas con `echo`; `_ContextoPregunta` envuelve su contexto y manda como
+aviso (`prompt`) toda línea que termina en dos puntos, para que IngeCAD no
+repita con la respuesta el aviso de otra orden.
 
 ### Ayuda (`ayuda.py`, orden AYUDAARQ)
 
