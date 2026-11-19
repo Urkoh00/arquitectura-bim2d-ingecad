@@ -17,6 +17,8 @@ IngeCAD + plugin  ──EXPORTARBIM──▶  .arqbim  ──Importar .arqbim─
 
 El plugin calcula una sola vez la huella final de cada elemento, con los encuentros resueltos y sin solapes; de ella salen el contorno en planta, los recintos, el sólido 3D y las cantidades. Es software libre (GPL-3.0) y experimental.
 
+**Documentación para el cálculo energético.** Otro objetivo del plugin es generar, desde el mismo dibujo, la documentación —fundamentalmente gráfica— que necesitan los programas reconocidos para verificar el DB-HE y certificar la eficiencia energética (HULC, CYPETHERM HE Plus, SG SAVE, CE3X, CERMA y otros): plantas con recintos, orientación y norte; cerramientos clasificados (fachada, medianera, cubierta, solera, contacto con el terreno) con sus superficies por orientación; huecos de cada cerramiento; y longitudes de los puentes térmicos por tipo. Los programas que leen IFC lo reciben a través de IngeTrazo; para los que se introducen a mano, el plugin dará los planos y las tablas listos para transcribir. Está en desarrollo: desde la 1.34 el modelo ya lleva el norte, la clase de cada forjado y el tipo de cada muro y recinto.
+
 ## Instalación
 
 El plugin se instala copiando una carpeta en IngeCAD, y la extensión copiando todo el contenido de su carpeta en IngeTrazo. No hace falta instalar Python aparte.
