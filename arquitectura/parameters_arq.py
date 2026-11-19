@@ -46,7 +46,10 @@ DEFAULTS = {
     #   lineas: LINEASAMURO's reading of old plans: the layers of wall faces,
     #     columns and carpentry ([] = recognised by their names) and how far
     #     the faces of an old wall may stray from parallel (m).
-    'general': {'usar_usos': False, 'cota_minima': 0.0,
+    #   norte: where true north lies in the drawing, degrees clockwise from
+    #     the drawing's +Y axis (0 = north is up). Same convention as
+    #     IngeTrazo's Tools > North, which receives it (v1.34).
+    'general': {'usar_usos': False, 'cota_minima': 0.0, 'norte': 0.0,
                 'lineas': {'muros': [], 'pilares': [], 'carpinteria': [], 'paralelismo': 0.005}},
     # Wall types (IfcWallType). Each one is a list of layers, from the
     # DRAWN face (the reference line) toward the body of the wall; its
@@ -148,6 +151,9 @@ def validate_defaults(values):
     cm = g.get('cota_minima', 0.0)
     if isinstance(cm, bool) or not isinstance(cm, (int, float)) or not math.isfinite(cm) or cm < 0:
         raise ValueError('general.cota_minima: debe ser cero o positiva')
+    nt = g.get('norte', 0.0)
+    if isinstance(nt, bool) or not isinstance(nt, (int, float)) or not math.isfinite(nt):
+        raise ValueError('general.norte: ángulo en grados')
     ln = g.get('lineas', {})
     if not isinstance(ln, dict) or any(not isinstance(ln.get(k, []), list) or
                                        not all(isinstance(x, str) for x in ln.get(k, []))

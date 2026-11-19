@@ -17,12 +17,17 @@ def form(ctx,record=None):
     dlg,layout,buttons=_dialog(ctx,'Arquitectura — Forjado horizontal',
         'El contorno y los huecos se dibujan en planta. La cara superior se mide respecto del nivel; el espesor crece hacia abajo.')
     fields=QFormLayout();name=QLineEdit(rec.get('name','Forjado'));material=QLineEdit(rec.get('material','Sin definir'));fields.addRow('Nombre',name);fields.addRow('Material',material)
+    # clase: forjado, solera o cubierta (tipo IFC y contacto con exterior o terreno)
+    from PySide6.QtWidgets import QComboBox
+    kind=QComboBox()
+    for key,(label,*_rest) in S.KINDS.items():kind.addItem(label,key)
+    kind.setCurrentIndex(max(0,kind.findData(rec.get('slab_kind',S.DEFAULT_KIND))));fields.addRow('Clase',kind)
     thick=QDoubleSpinBox();thick.setDecimals(4);thick.setRange(.001,100);thick.setValue(rec.get('thickness',.2));fields.addRow('Espesor (m)',thick)
     top=QDoubleSpinBox();top.setDecimals(4);top.setRange(-1e6,1e6);top.setValue(rec.get('base',lv['elevation']-.2)+rec.get('thickness',.2)-lv['elevation']);fields.addRow('Cara superior / nivel (m)',top)
     fields.addRow('Nivel',QLabel(lv['name']));layout.insertLayout(1,fields)
     clear=QCheckBox('Quitar todos los huecos (se puede deshacer)');clear.setVisible(bool(record));layout.addWidget(clear);layout.addWidget(buttons)
-    def read():return {'name':name.text().strip()or'Forjado','material':material.text(),'thickness':thick.value(),'top_offset':top.value(),'clear_holes':clear.isChecked()}
-    dlg._arq={'name':name,'material':material,'thickness':thick,'top':top,'clear_holes':clear}
+    def read():return {'name':name.text().strip()or'Forjado','material':material.text(),'slab_kind':kind.currentData(),'thickness':thick.value(),'top_offset':top.value(),'clear_holes':clear.isChecked()}
+    dlg._arq={'name':name,'material':material,'slab_kind':kind,'thickness':thick,'top':top,'clear_holes':clear}
     return dlg,read
 
 
@@ -31,6 +36,7 @@ def edit_change(ctx,entity,values):
     from .compat import require_document
     m=S.read(entity);data=load(require_document(ctx));lv=next(v for v in data['levels']if v['id']==m.get('level_id',data['active']))
     out={**m,'name':values['name'],'material':values['material'],'thickness':values['thickness'],
+         'slab_kind':values.get('slab_kind',m.get('slab_kind',S.DEFAULT_KIND)),
          'base':lv['elevation']+values['top_offset']-values['thickness']}
     if values.get('clear_holes'):out['holes']=[]
     return S.EditSlab(entity,out)
@@ -40,7 +46,7 @@ class SlabTool(Tool):
     name='FORJADO'
     def start(self):
         self.name=type(self).name;self.outer=None;self.holes=[];self.points=[];self.phase='outer';self.finished=False
-        self.values={'thickness':.2,'top_offset':0.,'name':'Forjado','material':'Sin definir'}
+        self.values={'thickness':.2,'top_offset':0.,'name':'Forjado','material':'Sin definir','slab_kind':S.DEFAULT_KIND}
         from .bim_dialogs import available
         if available(self.ctx):
             dlg,read=form(self.ctx)
@@ -48,7 +54,7 @@ class SlabTool(Tool):
             self.values=read();self.values.pop('clear_holes',None)
         self._prompt()
     def _prompt(self):
-        self.prompt('FORJADO: '+('puntos del contorno; Intro para cerrar'if self.phase=='outer'else 'puntos del hueco; Intro para cerrar'if self.phase=='hole'else 'Intro para confirmar, Hueco para otro contorno o Esc para cancelar'))
+        self.prompt('FORJADO: '+('puntos del contorno; Intro para cerrar [Forjado/Solera/Cubierta]'if self.phase=='outer'else 'puntos del hueco; Intro para cerrar'if self.phase=='hole'else 'Intro para confirmar, Hueco para otro contorno o Esc para cancelar'))
     def on_point(self,p):
         if self.finished:return
         if self.phase=='confirm':self.ctx.echo('Use Hueco para añadir un hueco o Intro para confirmar');return
@@ -56,6 +62,10 @@ class SlabTool(Tool):
     def on_option(self,text):
         if str(text).lower()in('u','retroceder')and self.points:
             self.points.pop();self.last_point=self.points[-1]if self.points else None;self._prompt();return True
+        # clase por teclado, antes del primer punto: Forjado, Solera o Cubierta
+        if self.phase=='outer'and not self.points and str(text).lower()in('f','forjado','s','solera','c','cubierta'):
+            key={'f':'forjado','s':'solera','c':'cubierta'}.get(str(text).lower()[0])
+            self.values['slab_kind']=key;self.ctx.echo('FORJADO: clase '+S.KINDS[key][0]);return True
         if self.phase=='confirm'and str(text).lower()in('h','hueco'):
             self.phase='hole';self.points=[];self.last_point=None;self._prompt();return True
         return False

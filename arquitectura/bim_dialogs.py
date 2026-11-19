@@ -743,9 +743,15 @@ def architectural_defaults_dialog(ctx, current):
     minimo=_spin(data.get('general',{}).get('cota_minima',0.0))
     minimo.setRange(0.0,10.0)
     minimo.setToolTip('COTAMUROS no acota distancias menores (0 = todas)')
-    gform.addRow('',usos);gform.addRow('Cota mínima (m)',minimo)
+    # norte del proyecto: lo necesitan los programas de cálculo energético
+    norte=_spin(data.get('general',{}).get('norte',0.0))
+    norte.setRange(-360.0,360.0)
+    norte.setToolTip('Dirección del norte geográfico, en grados en sentido horario desde el eje +Y '
+                     'del dibujo (0 = norte arriba). Se transmite a IngeTrazo y al IFC.')
+    gform.addRow('',usos);gform.addRow('Cota mínima (m)',minimo);gform.addRow('Norte (°, horario desde +Y)',norte)
     tabs.insertTab(0,general,'General');tabs.setCurrentIndex(0)
     editors[('general','usar_usos')]=usos;editors[('general','cota_minima')]=minimo
+    editors[('general','norte')]=norte
     main.addWidget(QLabel('Nota: puertas y ventanas permanecen en fase experimental.'))
     buttons=QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
     buttons.accepted.connect(dlg.accept);buttons.rejected.connect(dlg.reject)
@@ -759,7 +765,7 @@ def read_defaults_dialog(data,editors,numeric=('thickness','height','base','widt
     data.setdefault('general',{})
     for (kind,key),editor in editors.items():
         if key=='usar_usos': data[kind][key]=editor.isChecked()
-        elif key=='cota_minima': data[kind][key]=editor.value()
+        elif key in ('cota_minima','norte'): data[kind][key]=editor.value()
         elif key in numeric: data[kind][key]=editor.value()
         elif key in ('reference','shape'):data[kind][key]=editor.currentData()
         else:data[kind][key]=editor.text().strip()

@@ -11,6 +11,14 @@ from .geom import polygon as P,solids as S
 
 LAYER='ARQ-FORJADOS'
 
+# Clase del forjado (v1.34): decide su tipo IFC y si da al exterior o al
+# terreno, que es lo que leen los programas de cálculo energético.
+#   clave -> (nombre visible, PredefinedType, IsExternal, contacto con el terreno)
+KINDS={'forjado':('Forjado entre plantas','FLOOR',False,False),
+       'solera':('Solera (apoyada en el terreno)','BASESLAB',True,True),
+       'cubierta':('Cubierta plana','ROOF',True,False)}
+DEFAULT_KIND='forjado'
+
 
 def _crosses(a,b,c,d,tol=1e-9):
     def orient(p,q,r):return P.cross(P.sub(q,p),P.sub(r,p))
@@ -51,6 +59,8 @@ def region(outer,holes=()):
 
 def validate(record):
     record=copy.deepcopy(record)
+    record.setdefault('slab_kind',DEFAULT_KIND)
+    if record['slab_kind']not in KINDS:raise ValueError('Clase de forjado no válida: '+str(record['slab_kind']))
     for key in ('base','thickness'):
         record[key]=float(record[key])
         if not math.isfinite(record[key])or(key=='thickness'and record[key]<=0):raise ValueError('Cota finita y espesor positivo requeridos')
@@ -89,9 +99,9 @@ def _geometry(entity,record):
     for h in record.get('holes',[]):entity.paths.add_polyline_path(h,is_closed=True,flags=0)
 
 
-def create(outer,holes=(),*,thickness=.2,top=0.,level_id=None,level=None,name='Forjado',material='Sin definir'):
+def create(outer,holes=(),*,thickness=.2,top=0.,level_id=None,level=None,name='Forjado',material='Sin definir',slab_kind=DEFAULT_KIND):
     geo=region(outer,holes)
-    record=validate({'kind':'slab','schema':1,'id':uuid.uuid4().hex,'ifc_class':'IfcSlab','name':name,
+    record=validate({'kind':'slab','schema':1,'id':uuid.uuid4().hex,'ifc_class':'IfcSlab','name':name,'slab_kind':slab_kind,
         'material':material,'outer':geo['outer'],'holes':geo['holes'],'thickness':thickness,'base':float(top)-float(thickness),
         **({'level_id':level_id}if level_id else{}),**({'level':level}if level else{})})
     def factory(msp):
@@ -143,10 +153,12 @@ def elements(drawing,skip=()):
             faces_h,vol_h=S.prism_solid(h,m['base'],m['thickness'])
             openings.append({'id':ident,'guid':ifc_guid(ident),'name':'Hueco de '+m['name'],'kind':'void',
                 'params':{'base':m['base'],'height':m['thickness']},'faces':_faces_json(faces_h)})
+        label,predefined,external,ground=KINDS[m.get('slab_kind',DEFAULT_KIND)]
         out.append({'id':m['id'],'guid':ifc_guid(m['id']),'ifc_class':'IfcSlab','name':m['name'],'material':m.get('material',''),
           'level':m.get('level','Planta baja'),'level_id':m.get('level_id'),'params':{'base':m['base'],'height':m['thickness'],'thickness':m['thickness']},
-          'enums':{'PredefinedType':'FLOOR'},'faces':_faces_json(faces),'volume':volume,'plan_area':geo['area'],
-          'psets':{'Pset_SlabCommon':{'Reference':m['name']},'ARQ_Forjado':{'SourceId':m['id'],'HoleCount':len(geo['holes'])}},
+          'enums':{'PredefinedType':predefined},'faces':_faces_json(faces),'volume':volume,'plan_area':geo['area'],
+          'psets':{'Pset_SlabCommon':{'Reference':m['name'],'IsExternal':external},
+                   'ARQ_Forjado':{'SourceId':m['id'],'HoleCount':len(geo['holes']),'Tipo':label,'ContactoTerreno':ground}},
           'quantities':{'GrossArea':geo['gross_area'],'NetArea':geo['area'],'Width':m['thickness'],'NetVolume':volume},
           'footprint':[[geo['outer'],geo['holes']]],'openings':openings})
     return out

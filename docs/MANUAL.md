@@ -1,12 +1,12 @@
 # Manual de Arquitectura para IngeCAD
 
-Versión 1.33.0-dev · 19-11-2026
+Versión 1.34.0-dev · 19-11-2026
 
 > Copia del manual publicado como documento en claude.ai; se regenera con cada versión.
 
 ## Qué es
 
-Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.33.0-dev** y se actualiza con cada versión.
+Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.34.0-dev** y se actualiza con cada versión.
 
 Cada elemento guarda su identidad persistente, su clase IFC, su geometría editable en planta, sus parámetros 3D (altura, espesor, cota), sus propiedades constructivas (tipo, material, capas) y su nivel. Las carpinterías conocen su muro y los recintos siguen a los muros que los cierran.
 
@@ -23,7 +23,7 @@ El plugin se instala copiando una carpeta en IngeCAD, y la extensión copiando t
 
 **En IngeCAD**
 
-1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.33.0-dev.zip`.
+1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.34.0-dev.zip`.
 2. Copie la carpeta `arquitectura` en la carpeta de plugins de IngeCAD.
 3. Reinicie IngeCAD. Aparece el menú *Arquitectura* y su barra de herramientas.
 4. Escriba `ARQDIAG` en la línea de órdenes para comprobar que la versión cargada es la que acaba de copiar.
@@ -94,6 +94,7 @@ Los valores por defecto, el catálogo de tipos de muro y los usos se guardan den
 
 - **Trabajar con usos de recinto.** Si se activa, la ficha de recinto pide el uso y es el uso el que decide la clasificación; el nombre es libre y no la cambia. Si no se activa, la decide el nombre y la ficha no pide el uso. La clasificación determina, por ejemplo, la altura habitable de 2,20 m en baños y pasillos.
 - **Cota mínima.** `COTAMUROS` no acota distancias menores que esta y las suma a la siguiente.
+- **Norte (desde la 1.34).** Dirección del norte geográfico, en grados en sentido horario desde el eje +Y del dibujo (0 = norte arriba), la misma convención que Herramientas ▸ Norte de IngeTrazo. Viaja en la exportación: IngeTrazo lo recibe como norte de la escena y lo necesitan los programas de cálculo energético para orientar las fachadas.
 
 Aquí se guardan también las capas y la tolerancia que usa `LINEASAMURO`.
 
@@ -449,7 +450,7 @@ Para poder editarlos, los modelos exportados con versiones anteriores deben expo
 
 `NIVELES` abre el catálogo de plantas (nombre y elevación en metros) y permite elegir el **nivel activo**, que reciben los muros, pilares y forjados nuevos. La primera vez que se confirma, los elementos existentes pasan a «Planta baja» sin cambiar sus cotas ni sus identificadores; abrir o leer un dibujo no lo cambia. `NIVELES MIGRAR` hace esa asignación sin diálogo. Renombrar un nivel conserva su identidad; cambiar su elevación desplaza los elementos asociados. No se puede eliminar una planta que tenga elementos. El nivel activo no oculta las demás plantas. `NIVELASIGNAR` pasa la selección a otro nivel, conservando su cota absoluta o alineándola con el nivel; las puertas siguen a su muro.
 
-`FORJADO` crea un forjado **horizontal**: indique nombre, material, espesor y desfase de la **cara superior** respecto al nivel activo (el espesor crece hacia abajo). Dibuje el contorno en planta y pulse Intro; con la opción `Hueco` dibuje cada hueco y ciérrelo con Intro; otro Intro confirma todo. Esc cancela; `Retroceder` o `U` quita el último punto. Se admiten contornos cóncavos con huecos interiores que no se corten. `HUECOFORJADO` añade un hueco a un forjado existente. Las propiedades (nombre, material, espesor, desfase, quitar huecos) se cambian con `PROPIEDADESARQ`. El sombreado del forjado guarda su contorno real: no lo borre como si fuera auxiliar. Los forjados inclinados, la cubierta y el falso techo llegarán más adelante.
+`FORJADO` crea un forjado **horizontal**: indique nombre, material, espesor y desfase de la **cara superior** respecto al nivel activo (el espesor crece hacia abajo). Dibuje el contorno en planta y pulse Intro; con la opción `Hueco` dibuje cada hueco y ciérrelo con Intro; otro Intro confirma todo. Esc cancela; `Retroceder` o `U` quita el último punto. Se admiten contornos cóncavos con huecos interiores que no se corten. `HUECOFORJADO` añade un hueco a un forjado existente. Desde la 1.34 cada forjado tiene clase: forjado entre plantas (se exporta como IfcSlab FLOOR), solera apoyada en el terreno (BASESLAB, exterior y en contacto con el terreno) o cubierta plana (ROOF, exterior); se elige en la ficha o, antes del primer punto, con las opciones Forjado, Solera o Cubierta. Las propiedades (nombre, material, clase, espesor, desfase, quitar huecos) se cambian con `PROPIEDADESARQ`. El sombreado del forjado guarda su contorno real: no lo borre como si fuera auxiliar. Los forjados inclinados, la cubierta y el falso techo llegarán más adelante.
 
 Con niveles o forjados, el intercambio usa `.arqbim` v3 y necesita la extensión de IngeTrazo actualizada. IngeTrazo conserva los niveles y los identificadores en el IGZ, pero su IFC (0.6.1 y 0.6.2) todavía escribe una sola planta «Storey» y no relaciona los huecos de forjado.
 
@@ -502,7 +503,7 @@ Con niveles o forjados, el intercambio usa `.arqbim` v3 y necesita la extensión
 
 ## Limitaciones conocidas
 
-Estas son las limitaciones conocidas de la versión 1.33.0-dev; cada versión actualiza esta lista.
+Estas son las limitaciones conocidas de la versión 1.34.0-dev; cada versión actualiza esta lista.
 
 - **Plataforma:** las pruebas automáticas se ejecutan en Linux y en Windows con IngeCAD oficial (las versiones 0.7.0 y 0.8.0), pero sin pantalla. El usuario probó la v1.17 en Windows 10 con IngeCAD 0.8 e IngeTrazo 0.6.1: la cadena hasta el IFC funcionó; las correcciones de la v1.18 salen de esa prueba.
 - **Muros curvos:** cada muro llega como mucho a media circunferencia (un muro redondo son dos). MUROPARALELO y DIVIDEMURO solo toman líneas rectas como referencia. El gesto de esquina en L al terminar un MURO solo recorta muros rectos.
@@ -516,6 +517,7 @@ Estas son las limitaciones conocidas de la versión 1.33.0-dev; cada versión ac
 
 | Fecha | Versión | Novedades |
 | --- | --- | --- |
+| 19-11-2026 | 1.34.0-dev | Datos para el cálculo energético: norte del proyecto (PARAMETROSARQ > General), clase del forjado (forjado, solera o cubierta) y tipo IFC de los recintos (INTERNAL o EXTERNAL) |
 | 19-11-2026 | 1.33.0-dev | Tipo IFC de los muros como en un IFC de referencia: fachada EXTERNALWALL, medianera PARTYWALL y muro de sótano BASEMENTWALL (USERDEFINED con ObjectType); el tabique sigue PARTITIONING |
 | 18-11-2026 | 1.32.0-dev | Entrada revisada de LINEASAMURO: un DXF con su fichero de procedencia (plano.dxf.procedencia.json) convierte solo las caras, puertas y ventanas confirmadas; las capas REV-\* nunca se reconocen por su nombre |
 | 18-11-2026 | 1.31.0-dev | Retirado el puente antiguo a IngeTrazo (EXPORTARIGZ, CONFIGIGZ) y las órdenes 3D experimentales MURO3D y HUECO3D; el paso a IngeTrazo es EXPORTARBIM con la extensión |

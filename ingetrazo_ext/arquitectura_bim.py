@@ -28,6 +28,7 @@ run from an IngeTrazo source folder (or with it on PYTHONPATH).
 from __future__ import annotations
 
 import json
+import math
 import tempfile
 from pathlib import Path
 
@@ -313,6 +314,11 @@ def build_scene(data, offset=None):
 
     levels = {lv["name"]: float(lv["elevation"]) for lv in data.get("levels", [])}
     scene = Scene()
+    # norte del proyecto (v1.34): el de Herramientas > Norte de IngeTrazo,
+    # con su misma convención (grados en sentido horario desde +Y)
+    north = (data.get("project") or {}).get("north_deg")
+    if isinstance(north, (int, float)) and not isinstance(north, bool) and math.isfinite(north):
+        scene.north_deg = float(north)
     layer_of = {"IfcWall": "ARQ-MUROS", "IfcColumn": "ARQ-PILARES", "IfcSpace": "ARQ-RECINTOS",
                 "IfcCovering": "ARQ-PILARES", "IfcDoor": "ARQ-CARPINTERIA",
                 "IfcWindow": "ARQ-CARPINTERIA", "IfcSlab":"ARQ-FORJADOS", "IfcBuildingElementProxy":"ARQ-ARMARIOS",

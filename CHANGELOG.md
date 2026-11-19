@@ -2,6 +2,31 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.34.0-dev — 2026-11-19
+
+Datos que piden los programas de cálculo energético, según un IFC de referencia de un modelador comercial
+y los requisitos públicos de los generadores de modelo analítico.
+
+- **Norte del proyecto.** Nueva opción en PARAMETROSARQ › General, en grados en sentido horario desde +Y
+  (0 = norte arriba). Viaja en el contrato (`project.north_deg`, normalizado a (−180, 180]), y la extensión
+  lo pasa a la escena de IngeTrazo (`scene.north_deg`, Herramientas › Norte). Con la corrección
+  propuesta en el PR #1498 de IngeTrazo, llega al IFC como `TrueNorth`.
+- **Clase del forjado** (`slab_kind`):
+  - forjado entre plantas: `FLOOR`;
+  - **solera**: `BASESLAB`, exterior y en contacto con el terreno;
+  - **cubierta plana**: `ROOF`, exterior.
+
+  Se exporta con `Pset_SlabCommon.IsExternal` y con `ARQ_Forjado.Tipo` y `ContactoTerreno`. Se elige en la
+  ficha de FORJADO o, antes del primer punto, con las opciones `Forjado`, `Solera` o `Cubierta`. Los forjados
+  anteriores se leen como forjado entre plantas.
+- **Tipo IFC de los recintos:** `INTERNAL`, o `EXTERNAL` para los exteriores cubiertos.
+- Cadena comprobada con un modelo como el de la referencia (tres fachadas, medianera, tabique, puerta,
+  ventana, solera y dos recintos):
+  - con el IngeTrazo 0.6.2.1 oficial, el IFC sigue sin propiedades ni tipos (T-02 y T-05);
+  - con las correcciones propuestas a IngeTrazo (T-17 y P1, plan de aportaciones), llegan 22 juegos de
+    propiedades, los 10 identificadores, los tipos de todos los elementos y `TrueNorth`.
+- 12 pruebas nuevas; 836 en total.
+
 ## 1.33.0-dev — 2026-11-19
 
 Tipo IFC de los muros alineado con un IFC de referencia de un modelador comercial (prueba del

@@ -359,6 +359,8 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD", problem
         room_u=C.useful_room(room_u or room,obstacles)
         ev = SU.evaluate(m, room, room_u, by_use=by_use)
         exterior = (m.get("enclosure") or "interior") != "interior"
+        # tipo IFC del recinto: INTERNAL, o EXTERNAL para terrazas y porches
+        el["enums"] = {"PredefinedType": "EXTERNAL" if exterior else "INTERNAL"}
         usos = _usos(drawing)
         el["psets"] = {"ARQ_Usos": {k: v for k, v in usos.items() if k != "TipoDeEdificio"},
                        "Pset_SpaceCommon": {k: v for k, v in (("Reference", m.get("number") or None),
@@ -440,7 +442,10 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD", problem
         "roundtrip": __import__(__package__+".roundtrip",fromlist=["export_snapshot"]).export_snapshot(drawing),
         "reference_grids": references,
         "format": FORMAT, "version": 3 if catalog else 2 if extended else VERSION, "units": "m",
-        "generator": generator, "project": {"name": project, **_usos(drawing)},
+        "generator": generator,
+        # north_deg: norte del proyecto (PARAMETROSARQ > General), grados en
+        # sentido horario desde +Y; la extensión lo pasa a la escena de IngeTrazo
+        "project": {"name": project, **_usos(drawing), "north_deg": _north(drawing)},
         "levels": level_rows,
         **({'active_level_id':catalog['active']}if catalog else{}),
         "elements": elements,
@@ -487,6 +492,13 @@ def _faces_json(faces):
 
 
 CEILING_THICKNESS = 0.015     # one plasterboard sheet
+
+
+def _north(drawing):
+    """Norte del proyecto en grados, normalizado a (-180, 180]."""
+    from .parameters_arq import general_options
+    value = float(general_options(drawing).get("norte", 0.0)) % 360.0
+    return value - 360.0 if value > 180.0 else value
 
 
 def _usos(drawing):
