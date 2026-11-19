@@ -295,6 +295,27 @@ def definition(data, source=""):
             "editing": __import_edit().initialise(data)}
 
 
+def _etiqueta_material_muro(etiqueta, elemento):
+    """Transmite capas y sitúa su primera cara respecto a la referencia del muro."""
+    import copy
+
+    if elemento["ifc_class"] != "IfcWall":
+        return
+    parametros = elemento["params"]
+    espesor = float(parametros["thickness"])
+    referencia = parametros["reference"]
+    if referencia not in ("eje", "izquierda", "derecha"):
+        raise ValueError("Referencia del muro no válida para sus capas")
+    if "material_layers" in elemento:
+        etiqueta["material_layers"] = copy.deepcopy(elemento["material_layers"])
+    # El sólido usa la normal izquierda del recorrido a -> b. Sus caras ocupan
+    # [-e/2, e/2], [0, e] o [-e, 0]. Para AXIS2 positivo, la primera cota es
+    # el desplazamiento: se reutiliza la función que construye esa geometría.
+    geometria = __import_edit().shared().J
+    desplazamiento, _cara_final = geometria.offsets(espesor, referencia)
+    etiqueta["layer_offset"] = desplazamiento
+
+
 def build_scene(data, offset=None):
     """A Scene with one tagged Group per element (IngeTrazo classes only).
     ``offset``: subtracted from every coordinate before it becomes single
@@ -379,6 +400,7 @@ def build_scene(data, offset=None):
             tag["material"] = el["material"]
         if el.get("type_name"):
             tag["type"] = el["type_name"]
+        _etiqueta_material_muro(tag, el)
         if el.get("psets"):
             tag["psets"] = el["psets"]
         if el.get("quantities"):

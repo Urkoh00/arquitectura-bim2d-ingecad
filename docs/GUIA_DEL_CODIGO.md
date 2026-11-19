@@ -215,3 +215,22 @@ INGECAD_SRC=/ruta/a/ingecad QT_QPA_PLATFORM=offscreen python3 -m pytest -q
 | 2 | Cambiar de nombre `architectural_v10.py` → `elementos.py` y `tools_v10.py` → `muro_base.py`. Llevar las herramientas heredadas de `__init__.py` a `heredadas.py`. Dividir `wall_tools.py` (1700 líneas) en un módulo por familia de órdenes | Tras integrar R21-a, para no chocar con el trabajo de Codex |
 | 3 | Documentar en español todas las funciones públicas (hoy, el 28 % de 1222 funciones y clases), empezando por el núcleo: `geom/junctions`, `geom/spaces`, `geom/solids`, `exchange` y `wall_network` | Después de la etapa 2 |
 | 4 | Retirar el puente antiguo (EXPORTARIGZ, CONFIGIGZ, MURO3D, HUECO3D: `igz_bridge.py` y `tools3d.py`) | **Hecho en la v1.31**, por decisión del propietario |
+
+
+### R24-P3: capas de material hacia IFC
+
+La extensión `ingetrazo_ext/arquitectura_bim.py` añade `material_layers` y
+`layer_offset` a las etiquetas de los muros, conservando los datos del contrato.
+El desplazamiento reutiliza `geom/junctions.offsets`, a través de la copia
+generada: eje `-e/2`, izquierda `0`, derecha `-e`. No se modifica la geometría
+ni se versiona `arq_shared/`. Los demás elementos conservan sus etiquetas
+`type` y `material` y no reciben capas. Las pruebas están en
+`tests/test_r24_materiales.py`; se compara el desplazamiento con los vértices
+reales de muros con varias orientaciones. El escritor de IngeTrazo se amplía
+en una propuesta independiente sobre P1, sin un escritor alternativo.
+
+El ejemplo público se genera con `scripts/generar_modelo_r24.py` desde órdenes
+de IngeCAD y se comprueba con `scripts/verificar_cadena_r24.py` en IngeTrazo.
+Este último valida la relectura IGZ, las capas y los tipos; exige los tres
+errores de recintos pendientes de P2 y no los presenta como una validación
+IFC completa. Ambos scripts reciben la carpeta de resultados como argumento.
