@@ -234,3 +234,17 @@ de IngeCAD y se comprueba con `scripts/verificar_cadena_r24.py` en IngeTrazo.
 Este último valida la relectura IGZ, las capas y los tipos; exige los tres
 errores de recintos pendientes de P2 y no los presenta como una validación
 IFC completa. Ambos scripts reciben la carpeta de resultados como argumento.
+
+### R25-P3b: línea de referencia del muro
+
+La extensión añade `axis` únicamente a los muros rectos. Sus extremos son
+`params.a` y `params.b`, a la cota absoluta `params.base`, restando el mismo
+origen de escena que los vértices. No se deduce el eje del contorno ni se
+mueve la línea cuando cambia la referencia de espesor. Los muros curvos
+conservan la exportación anterior. Las pruebas están en `tests/test_r25_eje.py`.
+
+`scripts/generar_modelo_r25.py` recibe carpeta, ángulo y, opcionalmente,
+`lejano`; crea el edificio mediante órdenes de IngeCAD. El verificador
+`scripts/verificar_cadena_r25.py` se ejecuta en el entorno de IngeTrazo y
+comprueba la cadena con IfcOpenShell geom, incluyendo las interfaces de
+las capas, los vértices mundiales y los volúmenes.

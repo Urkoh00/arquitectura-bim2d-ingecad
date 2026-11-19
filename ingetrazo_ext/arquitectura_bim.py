@@ -316,6 +316,21 @@ def _etiqueta_material_muro(etiqueta, elemento):
     etiqueta["layer_offset"] = desplazamiento
 
 
+def _etiqueta_eje_muro(etiqueta, elemento, desplazamiento):
+    """Sitúa la línea dibujada en las mismas coordenadas que los vértices."""
+    if elemento["ifc_class"] != "IfcWall":
+        return
+    parametros = elemento["params"]
+    if parametros.get("bulge"):
+        return
+    cota_base = float(parametros["base"])
+    etiqueta["axis"] = {}
+    for extremo, nombre in (("a", "start"), ("b", "end")):
+        punto = (*parametros[extremo][:2], cota_base)
+        etiqueta["axis"][nombre] = [float(valor) - origen
+                                    for valor, origen in zip(punto, desplazamiento)]
+
+
 def build_scene(data, offset=None):
     """A Scene with one tagged Group per element (IngeTrazo classes only).
     ``offset``: subtracted from every coordinate before it becomes single
@@ -401,6 +416,7 @@ def build_scene(data, offset=None):
         if el.get("type_name"):
             tag["type"] = el["type_name"]
         _etiqueta_material_muro(tag, el)
+        _etiqueta_eje_muro(tag, el, (ox, oy, oz))
         if el.get("psets"):
             tag["psets"] = el["psets"]
         if el.get("quantities"):
