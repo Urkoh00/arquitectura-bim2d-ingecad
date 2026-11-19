@@ -2,6 +2,29 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.37.0-dev — 2026-11-19
+
+Armarios: el espacio IFC sigue el criterio de CYPE (decisión del propietario, 19-11-2026).
+
+- **El `IfcSpace` llega siempre a las caras de los muros.** El armario adosado ya no recorta su sólido ni
+  descuenta `NetFloorArea` ni `NetVolume` en `Qto_SpaceBaseQuantities`. En CYPE el armario es mobiliario
+  y no limita espacios, y su generador del modelo analítico exige que las caras del espacio coincidan con
+  muros y forjados; un espacio recortado contra el armario no se interpretaría.
+- **La superficie útil sigue su propio criterio**, elegible en PARAMETROSARQ > General, «Armarios en la
+  superficie útil»:
+  - «Descuentan» (por defecto): el armario es una división interior fija (vivienda protegida de Madrid,
+    tasación);
+  - «Computan»: el armario cuenta como superficie útil (habitabilidad de Baleares).
+
+  Afecta a la superficie útil del recinto, al cuadro SUPERFICIES y a `ARQ_Recinto.SuperficieUtil`.
+  `ARQ_Recinto` añade `SuperficieArmarios` (la planta de los armarios del recinto) y
+  `ArmariosEnSuperficieUtil` (el criterio aplicado).
+- **Aviso al empotrar un armario (nicho) en una fachada, medianera o muro de sótano:** el nicho quita espesor
+  y debilita el aislamiento térmico y acústico, como los radiadores empotrados. Se avisa al crearlo con
+  ARMARIOBIM y en la exportación. El armario adosado sigue siendo el modo por defecto.
+- Estudio en el proyecto: `ESTUDIO_armarios_superficies_y_espacios_CYPE_2026-11-19.md`.
+- 6 pruebas nuevas.
+
 ## 1.36.0-dev — 2026-11-19
 
 Eje de los muros hacia el IFC (encargo R25, paquete P3b; trabajo de Codex, revisado e integrado), y sólidos

@@ -56,6 +56,27 @@ def create(wall,offset,width,depth,height,leaves=2,operation='SLIDING',side=1,ba
     return command
 
 
+#: categorías de muro en las que un armario empotrado (nicho) quita espesor a
+#: la envolvente: debilita su aislamiento térmico y acústico (propietario,
+#: 19-11-2026; por la misma razón ya no se empotran radiadores)
+_ENVOLVENTE = ('fachada', 'medianera', 'sotano')
+
+
+def niche_warning(wall_record, mode):
+    """Aviso para un armario empotrado en un muro de la envolvente, o None."""
+    if mode != 'nicho':
+        return None
+    from .wall_categories import category
+    try:
+        cat = category(wall_record)
+    except ValueError:
+        return None
+    if cat not in _ENVOLVENTE:
+        return None
+    return (f'armario empotrado en un muro de {cat}: el nicho reduce el espesor y debilita '
+            'su aislamiento térmico y acústico; considere un armario adosado')
+
+
 def form(ctx,record=None):
     from PySide6.QtWidgets import QFormLayout,QDoubleSpinBox,QSpinBox,QComboBox,QMessageBox,QLineEdit
     from .bim_dialogs import _dialog
@@ -178,6 +199,19 @@ def useful_room(room, obstacles):
     from .geom.spaces import _perimeter
     perimeter=sum(_perimeter(loop)for outer,holes in P.merge(pieces)for loop in [outer,*holes])
     return {**room,'pieces':pieces,'area':sum(P.area(p)for p in pieces),'perimeter':perimeter}
+
+
+def useful_by_criterion(room, obstacles, criterio):
+    """La superficie útil del recinto según el criterio del proyecto
+    (PARAMETROSARQ > General): sin la planta de los armarios si
+    «descuentan», entera si «computan»."""
+    return room if criterio == 'computan' else useful_room(room, obstacles)
+
+
+def occupied_area(room, obstacles):
+    """Planta de los armarios dentro del recinto (m²), sin contar dos veces
+    los que se tocan o se solapan."""
+    return room['area'] - useful_room(room, obstacles)['area'] if obstacles else 0.0
 
 
 def clip_air(envelope, obstacles):

@@ -79,9 +79,12 @@ class RegenerateContoursCommand(Command):
             room_u=SE.outline(m,self.useful,e)[0] if getattr(self,'useful',None) is not None else None
             envelope=SE.resolve(m,room,limits)
             from . import cabinets as C
+            # el espacio llega a los muros (criterio de CYPE); los armarios
+            # solo cuentan en la superficie útil, según el proyecto
             obstacles=C.obstacles(document.doc,SE.effective(m,envelope),room,cabinet_items)
-            envelope=C.clip_air(envelope,obstacles)
-            room_u=C.useful_room(room_u or room,obstacles)
+            from .parameters_arq import general_options
+            room_u=C.useful_by_criterion(room_u or room,obstacles,
+                                         general_options(document.doc).get('armarios_superficie_util','descuentan'))
             ev=SU.evaluate(SE.effective(m,envelope),room,room_u,by_use=getattr(self,'by_use',None))
             new=copy.deepcopy(m)
             if m.get('boundary_mode')=='polyline':

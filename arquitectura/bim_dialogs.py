@@ -748,10 +748,18 @@ def architectural_defaults_dialog(ctx, current):
     norte.setRange(-360.0,360.0)
     norte.setToolTip('Dirección del norte geográfico, en grados en sentido horario desde el eje +Y '
                      'del dibujo (0 = norte arriba). Se transmite a IngeTrazo y al IFC.')
+    armarios=QComboBox()
+    armarios.addItem('Descuentan (división interior fija)','descuentan')
+    armarios.addItem('Computan (p. ej., habitabilidad de Baleares)','computan')
+    armarios.setCurrentIndex(max(0,armarios.findData(data.get('general',{}).get('armarios_superficie_util','descuentan'))))
+    armarios.setToolTip('Si la planta de los armarios adosados cuenta como superficie útil del recinto. '
+                        'El espacio IFC llega siempre hasta los muros, como en CYPE.')
     gform.addRow('',usos);gform.addRow('Cota mínima (m)',minimo);gform.addRow('Norte (°, horario desde +Y)',norte)
+    gform.addRow('Armarios en la superficie útil',armarios)
     tabs.insertTab(0,general,'General');tabs.setCurrentIndex(0)
     editors[('general','usar_usos')]=usos;editors[('general','cota_minima')]=minimo
     editors[('general','norte')]=norte
+    editors[('general','armarios_superficie_util')]=armarios
     main.addWidget(QLabel('Nota: puertas y ventanas permanecen en fase experimental.'))
     buttons=QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
     buttons.accepted.connect(dlg.accept);buttons.rejected.connect(dlg.reject)
@@ -767,7 +775,7 @@ def read_defaults_dialog(data,editors,numeric=('thickness','height','base','widt
         if key=='usar_usos': data[kind][key]=editor.isChecked()
         elif key in ('cota_minima','norte'): data[kind][key]=editor.value()
         elif key in numeric: data[kind][key]=editor.value()
-        elif key in ('reference','shape'):data[kind][key]=editor.currentData()
+        elif key in ('reference','shape','armarios_superficie_util'):data[kind][key]=editor.currentData()
         else:data[kind][key]=editor.text().strip()
     from .parameters_arq import validate_defaults
     return validate_defaults(data)

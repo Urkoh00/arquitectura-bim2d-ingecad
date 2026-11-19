@@ -29,6 +29,10 @@ class CabinetTool(CarpinteriaTool):
             change=create(wall,offset,v['width'],v['niche_depth'],v['height'],v['leaves'],v['operation'],
                           1 if across>=(spec.lo+spec.hi)/2 else -1,v['sill'],mode=v['cabinet_mode'],body_material=v['body_material'])
             apply_architectural_change(self.ctx,change,kind='opening');self._cache=None
+            from .architectural import metadata
+            from .cabinets import niche_warning
+            aviso=niche_warning(metadata(wall) or {},v['cabinet_mode'])
+            if aviso:self.ctx.echo('ARMARIOBIM: aviso: '+aviso)
         except ValueError as exc:self.ctx.echo('ARMARIOBIM: '+str(exc))
         self._prompt()
     def on_enter(self):self.active=False;self.ctx.finish()

@@ -1,12 +1,12 @@
-# Manual de Arquitectura para IngeCAD — versión 1.36.0-dev
+# Manual de Arquitectura para IngeCAD — versión 1.37.0-dev
 
-Versión 1.36.0-dev · 2026-11-19
+Versión 1.37.0-dev · 2026-11-19
 
 > Copia del manual publicado como documento en claude.ai; se regenera con cada versión.
 
 ## Qué es
 
-Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.36.0-dev** y se actualiza con cada versión.
+Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.37.0-dev** y se actualiza con cada versión.
 
 Cada elemento guarda su identidad persistente, su clase IFC, su geometría editable en planta, sus parámetros 3D (altura, espesor, cota), sus propiedades constructivas (tipo, material, capas) y su nivel. Las carpinterías conocen su muro y los recintos siguen a los muros que los cierran.
 
@@ -27,7 +27,7 @@ El plugin se instala copiando una carpeta en IngeCAD, y la extensión copiando t
 
 **En IngeCAD**
 
-1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.36.0-dev.zip`.
+1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.37.0-dev.zip`.
 2. Copie la carpeta `arquitectura` en la carpeta de plugins de IngeCAD.
 3. Reinicie IngeCAD. Aparece el menú *Arquitectura* y su barra de herramientas.
 4. Escriba `ARQDIAG` en la línea de órdenes para comprobar que la versión cargada es la que acaba de copiar.
@@ -338,7 +338,7 @@ Las capas de cada nivel llevan `@` y una clave fija del nivel; su descripción t
 
 Si cambia la elevación de un nivel, se recalculan los muros, forjados y recintos afectados con un solo `Deshacer`. No se acepta una altura nula o negativa, un nivel eliminado ni un cambio que deje sin cabida a una carpintería. Un muro que atraviesa varias plantas se dibuja en cada una, y cada recinto toma solo su tramo. Las carpinterías de ese muro se sitúan respecto a su arranque: en una planta alta, indique el antepecho medido desde la base del muro.
 
-**Armarios.** `ARMARIOBIM` crea por defecto un armario **adosado**: designe la cara del muro y la posición, y fije ancho, fondo, altura, material y hojas (abatibles o correderas). Ocupa planta delante del muro, **no lo corta** y se descuenta de la superficie útil y del volumen del recinto. El modo **Empotrado / nicho** es el anterior, y los armarios ya dibujados siguen como nichos. Ambos modos requieren un muro recto. Se exporta como `IfcBuildingElementProxy` (tipo ARMARIO\_FIJO), porque IngeTrazo todavía no ofrece `IfcFurniture`, y sus frentes como `IfcDoor`. Actualice también el fichero de IngeTrazo junto con el plugin.
+**Armarios.** `ARMARIOBIM` crea por defecto un armario **adosado**: designe la cara del muro y la posición, y fije ancho, fondo, altura, material y hojas (abatibles o correderas). Ocupa planta delante del muro, **no lo corta**. Según el criterio de PARAMETROSARQ > General, «Armarios en la superficie útil», se descuenta de la superficie útil («Descuentan», por defecto) o cuenta en ella («Computan», como en la habitabilidad de Baleares). El espacio IFC del recinto llega siempre hasta los muros, con el armario dentro, como en CYPE: su generador del modelo analítico lo exige. El modo **Empotrado / nicho** es el anterior, y los armarios ya dibujados siguen como nichos. Un nicho en una fachada, medianera o muro de sótano quita espesor al muro y debilita su aislamiento térmico y acústico, así que ARMARIOBIM y la exportación avisan. Ambos modos requieren un muro recto. Se exporta como `IfcBuildingElementProxy` (tipo ARMARIO\_FIJO), porque IngeTrazo todavía no ofrece `IfcFurniture`, y sus frentes como `IfcDoor`. Actualice también el fichero de IngeTrazo junto con el plugin.
 
 **Iconos y ficha de carpintería.** Todas las órdenes del menú tienen icono, y `LINEASAMURO` está justo antes de «Intercambio BIM». En la ficha de carpintería, la planta y el alzado se dibujan a la misma escala, sin solaparse, con las medidas al pie.
 
@@ -505,7 +505,7 @@ Con niveles o forjados, el intercambio usa `.arqbim` v3 y necesita la extensión
 
 ## Limitaciones conocidas
 
-Estas son las limitaciones conocidas de la versión 1.36.0-dev; cada versión actualiza esta lista.
+Estas son las limitaciones conocidas de la versión 1.37.0-dev; cada versión actualiza esta lista.
 
 - **Plataforma:** las pruebas automáticas se ejecutan en Linux con la última versión oficial de IngeCAD y de IngeTrazo, pero sin pantalla. Solo se prueba con la última versión de cada programa, porque ambos publican casi cada semana.
 - **Muros curvos:** cada muro llega como mucho a media circunferencia (un muro redondo son dos). MUROPARALELO y DIVIDEMURO solo toman líneas rectas como referencia. El gesto de esquina en L al terminar un MURO solo recorta muros rectos.
@@ -519,6 +519,7 @@ Estas son las limitaciones conocidas de la versión 1.36.0-dev; cada versión ac
 
 | Fecha | Versión | Novedades |
 | --- | --- | --- |
+| 19-11-2026 | 1.37.0-dev | Armarios: el espacio IFC llega siempre hasta los muros, como en CYPE; la superficie útil descuenta o computa los armarios según el criterio elegido en PARAMETROSARQ; aviso al empotrar un armario en una fachada, medianera o muro de sótano |
 | 19-11-2026 | 1.36.0-dev | Eje de los muros hacia el IFC: con las ampliaciones propuestas a IngeTrazo, cada muro recto tiene su propia orientación y las capas quedan bien situadas también en los muros girados. Corrección: los edificios girados en coordenadas UTM (lejos del origen) ya no dan sólidos abiertos al pasar a IngeTrazo |
 | 19-11-2026 | 1.35.0-dev | Capas de material de los muros hacia el IFC: cada muro transmite su composición por capas y la posición de la primera capa respecto a su línea de referencia (eje, izquierda o derecha). Con las ampliaciones propuestas a IngeTrazo, el IFC lleva tipos compartidos y conjuntos de capas. Límite: en los muros girados, la dirección de las capas aún no es fiable |
 | 19-11-2026 | 1.34.0-dev | Datos para el cálculo energético: norte del proyecto (PARAMETROSARQ > General), clase del forjado (forjado, solera o cubierta) y tipo IFC de los recintos (INTERNAL o EXTERNAL) |

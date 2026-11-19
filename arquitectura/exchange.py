@@ -227,6 +227,10 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD", problem
             o = OP.normalise(o)
             from .level_layers import opening_level
             opening_storey=opening_level(drawing,o,m)['name']
+            if o.get('cabinet'):
+                from .cabinets import niche_warning
+                aviso=niche_warning(m,o.get('cabinet_mode','nicho'))
+                if aviso:issues.append(f"Muro {m.get('name') or ident}: {aviso}")
             if o.get('cabinet_mode')=='adosado':
                 from . import cabinets as C
                 front=_filling(o,spec,m,opening_storey,None,ident)
@@ -348,15 +352,21 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD", problem
         envelope = SE.resolve(m, room, limits)
         from . import cabinets as C
         gross_volume=envelope["volume"]
+        # Criterio de CYPE para el IfcSpace (19-11-2026): el armario es
+        # mobiliario y no limita el espacio. El sólido y las cantidades IFC
+        # llegan a las caras de los muros; el generador del modelo analítico
+        # exige caras coplanarias con muros y forjados, y un recorte contra el
+        # armario las haría ininterpretables. La planta de los armarios solo
+        # afecta a la superficie útil, según el criterio del proyecto.
         obstacles=C.obstacles(drawing,SE.effective(m,envelope),room,cabinet_items)
-        envelope=C.clip_air(envelope,obstacles)
-        net_room=C.useful_room(room,obstacles)
+        net_room=room
         m = SE.effective(m, envelope)
         base, height = m["base"], m["height"]
         faces, volume = envelope["faces"], envelope["volume"]
         el = _element(ident, "IfcSpace", m, faces, volume, room["area"], level)
         room_u = SE.outline(m, res_u, ent)[0] if res_u is not None else None
-        room_u=C.useful_room(room_u or room,obstacles)
+        criterio_armarios=general_options(drawing).get("armarios_superficie_util","descuentan")
+        room_u=C.useful_by_criterion(room_u or room,obstacles,criterio_armarios)
         ev = SU.evaluate(m, room, room_u, by_use=by_use)
         exterior = (m.get("enclosure") or "interior") != "interior"
         # tipo IFC del recinto: INTERNAL, o EXTERNAL para terrazas y porches
@@ -375,6 +385,8 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD", problem
                                                          ("CriterioSuperficie", ev["criterion"]),
                                                          ("SuperficieUtil", round(ev["useful"], 4)),
                                                          ("CoeficienteComputo", ev["factor"]),
+                                                         ("SuperficieArmarios", round(C.occupied_area(room,obstacles),4)),
+                                                         ("ArmariosEnSuperficieUtil", criterio_armarios),
                                                          ("SuperficieComputable", round(ev["computable"], 4)),
                                                          ("Habitable", ev["habitable"]),
                                                          ("Clase", m.get("enclosure") or "interior"),

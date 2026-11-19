@@ -212,9 +212,14 @@ def test_adosado_preserves_wall_and_reduces_space(plugin,leaves,operation):
     assert front['ifc_class']=='IfcDoor' and 'fills'not in front
     assert body['host']==ident and front['host']==ident
     room=next(e for e in data['elements']if e['ifc_class']=='IfcSpace')
-    assert room['quantities']['NetFloorArea']==pytest.approx(17.86-.72)
-    assert room['psets']['ARQ_Recinto']['SuperficieUtil']==pytest.approx(17.14)
-    assert room['volume']==pytest.approx(17.86*2.7-.72*2.1)
+    # criterio de CYPE (19-11-2026): el IfcSpace llega a los muros y sus
+    # cantidades no descuentan el armario; la superficie útil, sí
+    assert room['quantities']['NetFloorArea']==pytest.approx(17.86)
+    assert room['volume']==pytest.approx(17.86*2.7)
+    recinto=room['psets']['ARQ_Recinto']
+    assert recinto['SuperficieUtil']==pytest.approx(17.14)
+    assert recinto['SuperficieArmarios']==pytest.approx(.72)
+    assert recinto['ArmariosEnSuperficieUtil']=='descuentan'
     assert body['params']['space_ids']==[room['id']]
     S=module(s,'geom.solids')
     for el in (body,room):
@@ -224,7 +229,7 @@ def test_adosado_preserves_wall_and_reduces_space(plugin,leaves,operation):
     X.validate_contract(data)
     s.history.undo()
     room=next(e for e in s.export(None)['elements']if e['ifc_class']=='IfcSpace')
-    assert room['quantities']['NetFloorArea']==pytest.approx(17.86)
+    assert room['psets']['ARQ_Recinto']['SuperficieUtil']==pytest.approx(17.86)
     s.history.redo();assert any(e['ifc_class']=='IfcBuildingElementProxy'for e in s.export(None)['elements'])
 
 
@@ -321,7 +326,8 @@ def test_cabinet_edit_depth_updates_usable_area_and_undo(plugin):
     edit=module(s,'arq_properties').opening_change(cmd.entity,{'width':1.2,'height':2.1,'sill':0,'niche_depth':.8,'cabinet_mode':'adosado'})
     T.apply_architectural_change(s.tool('MURO').ctx,edit,kind='opening')
     room=next(e for e in s.export(None)['elements']if e['ifc_class']=='IfcSpace')
-    assert room['quantities']['NetFloorArea']==pytest.approx(17.86-.96)
+    assert room['quantities']['NetFloorArea']==pytest.approx(17.86)
+    assert room['psets']['ARQ_Recinto']['SuperficieUtil']==pytest.approx(17.86-.96)
     s.history.undo();assert s.meta(cmd.entity)==before
 
 
@@ -388,4 +394,37 @@ def test_upper_floor_cabinet_has_own_native_layer_and_export_level(plugin):
         if e['ifc_class']in('IfcDoor','IfcBuildingElementProxy'):assert e['level_id']==data['levels'][1]['id']
     rooms={e['params']['base']:e for e in elements if e['ifc_class']=='IfcSpace'}
     assert rooms[0]['quantities']['NetFloorArea']==pytest.approx(21.09)
-    assert rooms[3.2]['quantities']['NetFloorArea']==pytest.approx(20.37)
+    assert rooms[3.2]['quantities']['NetFloorArea']==pytest.approx(21.09)
+    assert rooms[3.2]['psets']['ARQ_Recinto']['SuperficieArmarios']==pytest.approx(.72)
+
+
+def test_criterio_armarios_computan_no_descuenta_superficie_util(plugin):
+    """Con «computan» (p. ej., habitabilidad de Baleares) la planta del armario
+    adosado es superficie útil; el IfcSpace es el mismo en los dos criterios."""
+    s=Session(plugin);_vivienda(s);s.tool('RECINTO').on_point((2,2))
+    wall=next(w for w in s.walls().values()if s.meta(w)['a']==[0.,0.])
+    C=module(s,'cabinets');T=module(s,'transactions');P=module(s,'parameters_arq')
+    T.apply_architectural_change(s.tool('MURO').ctx,C.create(wall,1,1.2,.6,2.1,mode='adosado'),kind='opening')
+    antes=next(e for e in s.export(None)['elements']if e['ifc_class']=='IfcSpace')
+    values=P.load_defaults(s.document);values['general']['armarios_superficie_util']='computan'
+    s.history.execute(P.SetArchitecturalDefaults(values))
+    room=next(e for e in s.export(None)['elements']if e['ifc_class']=='IfcSpace')
+    assert room['psets']['ARQ_Recinto']['SuperficieUtil']==pytest.approx(17.86)
+    assert room['psets']['ARQ_Recinto']['ArmariosEnSuperficieUtil']=='computan'
+    assert room['quantities']==antes['quantities'] and room['volume']==pytest.approx(antes['volume'])
+    with pytest.raises(ValueError,match='armarios_superficie_util'):
+        P.validate_defaults({**values,'general':{**values['general'],'armarios_superficie_util':'a veces'}})
+
+
+@pytest.mark.parametrize('categoria,avisa',[('fachada',True),('medianera',True),('sotano',True),('tabique',False)])
+def test_armario_empotrado_en_la_envolvente_avisa(plugin,categoria,avisa):
+    """Un nicho en fachada, medianera o muro de sótano debilita el aislamiento
+    térmico y acústico (como los radiadores empotrados): se avisa al crearlo y
+    al exportar. El armario adosado no avisa."""
+    s=Session(plugin);wall=make_wall(s)
+    A=module(s,'architectural');rec=s.meta(wall);rec['wall_category']=categoria;A._xdata(s.document.doc.modelspace(),wall,rec)
+    C=module(s,'cabinets');T=module(s,'transactions')
+    T.apply_architectural_change(s.tool('MURO').ctx,C.create(wall,1,1.2,.2,2.1,mode='nicho'),kind='opening')
+    issues=[i for i in s.export(None)['issues'] if 'armario empotrado' in i]
+    assert bool(issues) is avisa
+    assert C.niche_warning({'wall_category':categoria},'adosado') is None
