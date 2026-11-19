@@ -79,7 +79,7 @@ class RegenerateContoursCommand(Command):
             room_u=SE.outline(m,self.useful,e)[0] if getattr(self,'useful',None) is not None else None
             envelope=SE.resolve(m,room,limits)
             from . import cabinets as C
-            # el espacio llega a los muros (criterio de CYPE); los armarios
+            # el espacio llega a los muros (criterio de los programas de cálculo); los armarios
             # solo cuentan en la superficie útil, según el proyecto
             obstacles=C.obstacles(document.doc,SE.effective(m,envelope),room,cabinet_items)
             from .parameters_arq import general_options

@@ -2,6 +2,21 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.42.0-dev — 2026-11-19
+
+- **Corregido: PARAMETROSARQ no abría su ficha** («NameError: name 'QComboBox' is not defined»). Faltaba
+  una importación desde la v1.37, al añadir «Armarios en la superficie útil». Prueba nueva que abre la ficha.
+- **AYUDAARQ es ahora un cuadro de diálogo**: órdenes agrupadas por tema (muros; pilares y rejillas;
+  puertas, ventanas y armarios; forjados y niveles; recintos y superficies; cotas y capas; datos BIM y
+  comprobación; intercambio BIM y energía; configuración; herramientas antiguas), con buscador y el
+  detalle de opciones de la orden elegida. Sin ventana se escribe el mismo texto, ordenado, en la línea
+  de órdenes.
+  - Añade las 23 órdenes que faltaban (FORJADO, NIVELES, TIPOSMURO, DEFENSA, EJES, UNIONESARQ…) y quita
+    la entrada repetida de PILAR.
+  - Una prueba exige que la ayuda tenga exactamente las órdenes registradas.
+- Se quitan de comentarios y textos del plugin los nombres comerciales que se habían colado en la v1.37
+  (regla del proyecto).
+
 ## 1.41.0-dev — 2026-11-19
 
 - **Huecos con medidas reales en el IFC (R26-P4, Codex; revisado e integrado por Claude).** La extensión

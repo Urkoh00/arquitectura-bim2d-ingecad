@@ -700,7 +700,7 @@ def column_properties(ctx, record=None, anchor=None):
 def architectural_defaults_dialog(ctx, current):
     """One native Qt sheet for drawing-scoped defaults. No custom stylesheet."""
     from PySide6.QtWidgets import (QDialog, QDialogButtonBox, QTabWidget, QWidget,
-                                   QFormLayout, QVBoxLayout, QLineEdit, QLabel)
+                                   QFormLayout, QVBoxLayout, QLineEdit, QLabel, QComboBox)
     from copy import deepcopy
     data=deepcopy(current)
     dlg=QDialog(getattr(ctx,'host',None))
@@ -753,7 +753,7 @@ def architectural_defaults_dialog(ctx, current):
     armarios.addItem('Descuentan (división interior fija)','descuentan')
     armarios.setCurrentIndex(max(0,armarios.findData(data.get('general',{}).get('armarios_superficie_util','computan'))))
     armarios.setToolTip('Si la planta de los armarios adosados cuenta como superficie útil del recinto. '
-                        'El espacio IFC llega siempre hasta los muros, como en CYPE.')
+                        'El espacio IFC llega siempre hasta los muros, como piden los programas de cálculo.')
     gform.addRow('',usos);gform.addRow('Cota mínima (m)',minimo);gform.addRow('Norte (°, horario desde +Y)',norte)
     gform.addRow('Armarios en la superficie útil',armarios)
     tabs.insertTab(0,general,'General');tabs.setCurrentIndex(0)

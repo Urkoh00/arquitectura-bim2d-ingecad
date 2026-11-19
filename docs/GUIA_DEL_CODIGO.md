@@ -2,7 +2,7 @@
 
 Esta guía es para quien vaya a **leer, estudiar o mantener** el código. No sustituye al manual de uso (`docs/MANUAL.md`). Explica cómo está organizado el plugin, qué recorrido hace un elemento desde el clic hasta el IFC y dónde buscar cada cosa.
 
-Versión de referencia: **1.41.0-dev**, con 65 módulos y unas 20 000 líneas en `arquitectura/`, más la extensión de IngeTrazo en `ingetrazo_ext/`.
+Versión de referencia: **1.42.0-dev**, con 66 módulos y unas 20 000 líneas en `arquitectura/`, más la extensión de IngeTrazo en `ingetrazo_ext/`.
 
 ---
 
@@ -259,6 +259,17 @@ contratos de la extensión. `boundary` calcula además en coordenadas locales
 (resta un origen de metros enteros y lo suma al final) y limpia los lazos
 (`_clean_loop`: repetidos seguidos y púas A→B→A). Pruebas:
 `tests/test_soldadura_lejos_del_origen.py`.
+
+### Ayuda (`ayuda.py`, orden AYUDAARQ)
+
+`SECCIONES` es la única fuente de la ayuda: órdenes agrupadas por tema, con un
+resumen de una línea y sus opciones. `dialogo` la muestra en un cuadro con
+buscador, árbol por secciones y detalle; `texto` la escribe ordenada en la
+línea de órdenes cuando no hay ventana. `tests/test_ayuda_y_parametros.py`
+exige que la ayuda contenga exactamente las órdenes registradas en
+`PluginSpec` (herramientas y órdenes), de modo que una orden nueva sin ayuda,
+o una ayuda de una orden retirada, hace fallar la batería. La misma prueba
+comprueba que el código no lleva nombres comerciales.
 
 ### Biblioteca térmica (`biblioteca_termica.py`, orden BIBLIOTECAHE)
 

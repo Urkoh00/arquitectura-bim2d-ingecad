@@ -212,7 +212,7 @@ def test_adosado_preserves_wall_and_reduces_space(plugin,leaves,operation):
     assert front['ifc_class']=='IfcDoor' and 'fills'not in front
     assert body['host']==ident and front['host']==ident
     room=next(e for e in data['elements']if e['ifc_class']=='IfcSpace')
-    # criterio de CYPE (19-11-2026): el IfcSpace llega a los muros y sus
+    # criterio de los programas de cálculo (19-11-2026): el IfcSpace llega a los muros y sus
     # cantidades no descuentan el armario; la superficie útil, sí
     assert room['quantities']['NetFloorArea']==pytest.approx(17.86)
     assert room['volume']==pytest.approx(17.86*3.0)

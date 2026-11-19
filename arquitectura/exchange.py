@@ -352,7 +352,7 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD", problem
         envelope = SE.resolve(m, room, limits)
         from . import cabinets as C
         gross_volume=envelope["volume"]
-        # Criterio de CYPE para el IfcSpace (19-11-2026): el armario es
+        # Criterio de los programas de cálculo para el IfcSpace (19-11-2026): el armario es
         # mobiliario y no limita el espacio. El sólido y las cantidades IFC
         # llegan a las caras de los muros; el generador del modelo analítico
         # exige caras coplanarias con muros y forjados, y un recorte contra el

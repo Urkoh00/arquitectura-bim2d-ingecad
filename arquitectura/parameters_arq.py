@@ -18,8 +18,8 @@ TIPOS_EDIFICIO_CEE = ('ViviendaUnifamiliar', 'BloqueDeViviendaCompleto', 'Vivien
                       'EdificioUsoTerciario', 'LocalUsoTerciario')
 # Altura por defecto de muros y pilares: 3,00 m (propietario, 19-11-2026), la
 # altura de planta habitual entre caras superiores de forjado; es la misma
-# convención de cota que CYPE (la cota de una planta es la cara superior de
-# su forjado estructural).
+# convención de cota de los programas de cálculo (la cota de una planta es la
+# cara superior de su forjado estructural).
 DEFAULTS = {
     'schema': 1,
     'wall': {'thickness': 0.30, 'height': 3.00, 'base': 0.0,
@@ -62,7 +62,7 @@ DEFAULTS = {
     #     habitabilidad de Baleares los incluye. 'descuentan' = el armario es
     #     una división interior fija (vivienda protegida de Madrid, tasación).
     #     Solo cambia la superficie útil del recinto: el IfcSpace llega siempre
-    #     a las caras de los muros, como en CYPE (v1.37).
+    #     a las caras de los muros, como piden los programas de cálculo (v1.37).
     'general': {'usar_usos': False, 'cota_minima': 0.0, 'norte': 0.0,
                 'armarios_superficie_util': 'computan',
                 'lineas': {'muros': [], 'pilares': [], 'carpinteria': [], 'paralelismo': 0.005}},
