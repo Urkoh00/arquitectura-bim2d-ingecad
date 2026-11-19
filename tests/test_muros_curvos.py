@@ -109,7 +109,7 @@ def test_muro_curvo_dibujado_validado_y_exportado(plugin, tmp_path):
     w = next(e for e in data["elements"] if e["params"].get("bulge"))
     assert w["quantities"]["Length"] == pytest.approx(math.pi * 1.5)
     assert w["params"]["radius"] == pytest.approx(1.5)
-    assert w["quantities"]["NetVolume"] == pytest.approx(w["quantities"]["GrossFootprintArea"] * 2.7)
+    assert w["quantities"]["NetVolume"] == pytest.approx(w["quantities"]["GrossFootprintArea"] * 3.0)
     r = s.tool("RECINTO")
     r.on_point((2, 1.5))
     data = s.export(tmp_path)

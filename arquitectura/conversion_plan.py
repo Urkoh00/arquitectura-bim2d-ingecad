@@ -282,7 +282,7 @@ def scale_check(leaves):
         f'LINEASAMURO')
 
 
-def analyse(drawing, lo, hi, classification, tmin=.07, tmax=.5, height=2.7,
+def analyse(drawing, lo, hi, classification, tmin=.07, tmax=.5, height=3.,
             parallel=.005, origin='ocultar', selected_handles=None):
     if classification.reviewed_source is not None:
         classification.reviewed_source.comprobar(drawing)

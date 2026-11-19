@@ -13,7 +13,7 @@ import math
 TITLES={'wall':'Muro','column':'Pilar','beam':'Viga','handrail':'Tipo de pasamanos',
         'railing':'Barandilla','grille':'Reja'}
 FIELDS={
- 'beam': [('width','Anchura',.25),('depth','Canto',.4),('length','Longitud',3.),('base','Cota base',2.7)],
+ 'beam': [('width','Anchura',.25),('depth','Canto',.4),('length','Longitud',3.),('base','Cota base',3.)],
  'handrail':[('width','Anchura / diámetro',.045),('depth','Canto',.045),('height','Altura de colocación',1.)],
  'railing':[('length','Longitud',3.),('height','Altura',1.1),('spacing','Separación entre ejes de barrotes',.12),('bar_width','Anchura de barrote',.02)],
  'grille':[('width','Anchura',1.2),('height','Altura',1.4),('spacing','Separación entre ejes de barrotes',.12),('bar_width','Anchura de barrote',.02)]}
@@ -21,8 +21,8 @@ FIELDS={
 
 def validate(kind, record):
     if kind not in TITLES:raise ValueError('Elemento no reconocido')
-    fields=FIELDS.get(kind, [('thickness','Espesor',.15),('height','Altura',2.7)] if kind=='wall'
-                      else [('width','Anchura',.3),('depth','Fondo',.3),('height','Altura',2.7)])
+    fields=FIELDS.get(kind, [('thickness','Espesor',.15),('height','Altura',3.)] if kind=='wall'
+                      else [('width','Anchura',.3),('depth','Fondo',.3),('height','Altura',3.)])
     for key,label,default in fields:
         v=float(record.get(key,default))
         if not math.isfinite(v) or (key!='base' and v<=0):raise ValueError(label+': medida inválida')

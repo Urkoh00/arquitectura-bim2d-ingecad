@@ -365,7 +365,7 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD", problem
         faces, volume = envelope["faces"], envelope["volume"]
         el = _element(ident, "IfcSpace", m, faces, volume, room["area"], level)
         room_u = SE.outline(m, res_u, ent)[0] if res_u is not None else None
-        criterio_armarios=general_options(drawing).get("armarios_superficie_util","descuentan")
+        criterio_armarios=general_options(drawing).get("armarios_superficie_util","computan")
         room_u=C.useful_by_criterion(room_u or room,obstacles,criterio_armarios)
         ev = SU.evaluate(m, room, room_u, by_use=by_use)
         exterior = (m.get("enclosure") or "interior") != "interior"

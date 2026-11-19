@@ -143,7 +143,7 @@ def wall_form(ctx, record=None, types=None):
     group=QGroupBox('Geometría y colocación',dlg)
     form=QFormLayout(group)
     thickness=_spin(d.get('thickness',0.15),positive=True)
-    height=_spin(d.get('height',2.70),positive=True)
+    height=_spin(d.get('height',3.00),positive=True)
     base=_spin(d.get('base',0.0))
     reference=_choice([('Eje','eje'),('Cara izquierda','izquierda'),('Cara derecha','derecha')],d.get('reference','eje'))
     from .wall_categories import CATEGORIES,category
@@ -624,7 +624,7 @@ def column_form(ctx, record=None, anchor=None):
     cover.setSingleStep(.01)
     cover.setToolTip('Recubrimiento o forro alrededor de la sección (0 = sin recubrimiento). '
                      'Donde el pilar está dentro de un muro, el muro ocupa ese espacio.')
-    height=_spin(d.get('height',2.70),positive=True)
+    height=_spin(d.get('height',3.00),positive=True)
     z=_spin(d.get('base',0))
     for name,widget in [('Sección:',shape),('Anchura (X):',w),('Fondo (Y):',h),
                         ('Radio circunscrito:',radius),('Perfil:',profile),('Giro de sección:',rotation),
@@ -749,9 +749,9 @@ def architectural_defaults_dialog(ctx, current):
     norte.setToolTip('Dirección del norte geográfico, en grados en sentido horario desde el eje +Y '
                      'del dibujo (0 = norte arriba). Se transmite a IngeTrazo y al IFC.')
     armarios=QComboBox()
+    armarios.addItem('Computan (Decreto 10/2019 de Extremadura; Baleares)','computan')
     armarios.addItem('Descuentan (división interior fija)','descuentan')
-    armarios.addItem('Computan (p. ej., habitabilidad de Baleares)','computan')
-    armarios.setCurrentIndex(max(0,armarios.findData(data.get('general',{}).get('armarios_superficie_util','descuentan'))))
+    armarios.setCurrentIndex(max(0,armarios.findData(data.get('general',{}).get('armarios_superficie_util','computan'))))
     armarios.setToolTip('Si la planta de los armarios adosados cuenta como superficie útil del recinto. '
                         'El espacio IFC llega siempre hasta los muros, como en CYPE.')
     gform.addRow('',usos);gform.addRow('Cota mínima (m)',minimo);gform.addRow('Norte (°, horario desde +Y)',norte)
@@ -1313,7 +1313,7 @@ def space_form(ctx, record, by_use=None):
     enclosure = _choice([("Interior", "interior"),
                          ("Exterior cubierto (terraza, balcón, porche): computa el 50 %", "exterior_cubierto")],
                         d.get("enclosure") or "interior")
-    height = _spin(d.get("height", 2.70), positive=True)
+    height = _spin(d.get("height", 3.00), positive=True)
     height_mode = _choice([('Automática por envolvente', 'auto'), ('Manual', 'manual')],
                           d.get('height_mode', 'manual'))
     ceiling = QCheckBox("Hay falso techo (la altura es la libre bajo él)")

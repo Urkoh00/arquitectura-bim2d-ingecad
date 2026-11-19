@@ -215,11 +215,12 @@ def test_adosado_preserves_wall_and_reduces_space(plugin,leaves,operation):
     # criterio de CYPE (19-11-2026): el IfcSpace llega a los muros y sus
     # cantidades no descuentan el armario; la superficie útil, sí
     assert room['quantities']['NetFloorArea']==pytest.approx(17.86)
-    assert room['volume']==pytest.approx(17.86*2.7)
+    assert room['volume']==pytest.approx(17.86*3.0)
+    # por defecto, Decreto 10/2019 de Extremadura: el armario computa
     recinto=room['psets']['ARQ_Recinto']
-    assert recinto['SuperficieUtil']==pytest.approx(17.14)
+    assert recinto['SuperficieUtil']==pytest.approx(17.86)
     assert recinto['SuperficieArmarios']==pytest.approx(.72)
-    assert recinto['ArmariosEnSuperficieUtil']=='descuentan'
+    assert recinto['ArmariosEnSuperficieUtil']=='computan'
     assert body['params']['space_ids']==[room['id']]
     S=module(s,'geom.solids')
     for el in (body,room):
@@ -229,7 +230,7 @@ def test_adosado_preserves_wall_and_reduces_space(plugin,leaves,operation):
     X.validate_contract(data)
     s.history.undo()
     room=next(e for e in s.export(None)['elements']if e['ifc_class']=='IfcSpace')
-    assert room['psets']['ARQ_Recinto']['SuperficieUtil']==pytest.approx(17.86)
+    assert room['psets']['ARQ_Recinto']['SuperficieArmarios']==pytest.approx(0)
     s.history.redo();assert any(e['ifc_class']=='IfcBuildingElementProxy'for e in s.export(None)['elements'])
 
 
@@ -327,7 +328,7 @@ def test_cabinet_edit_depth_updates_usable_area_and_undo(plugin):
     T.apply_architectural_change(s.tool('MURO').ctx,edit,kind='opening')
     room=next(e for e in s.export(None)['elements']if e['ifc_class']=='IfcSpace')
     assert room['quantities']['NetFloorArea']==pytest.approx(17.86)
-    assert room['psets']['ARQ_Recinto']['SuperficieUtil']==pytest.approx(17.86-.96)
+    assert room['psets']['ARQ_Recinto']['SuperficieArmarios']==pytest.approx(.96)
     s.history.undo();assert s.meta(cmd.entity)==before
 
 
@@ -398,19 +399,20 @@ def test_upper_floor_cabinet_has_own_native_layer_and_export_level(plugin):
     assert rooms[3.2]['psets']['ARQ_Recinto']['SuperficieArmarios']==pytest.approx(.72)
 
 
-def test_criterio_armarios_computan_no_descuenta_superficie_util(plugin):
-    """Con «computan» (p. ej., habitabilidad de Baleares) la planta del armario
-    adosado es superficie útil; el IfcSpace es el mismo en los dos criterios."""
+def test_criterio_armarios_descuentan_la_superficie_util(plugin):
+    """Con «descuentan» (división interior fija) la planta del armario adosado
+    no es superficie útil; el IfcSpace es el mismo en los dos criterios."""
     s=Session(plugin);_vivienda(s);s.tool('RECINTO').on_point((2,2))
     wall=next(w for w in s.walls().values()if s.meta(w)['a']==[0.,0.])
     C=module(s,'cabinets');T=module(s,'transactions');P=module(s,'parameters_arq')
     T.apply_architectural_change(s.tool('MURO').ctx,C.create(wall,1,1.2,.6,2.1,mode='adosado'),kind='opening')
     antes=next(e for e in s.export(None)['elements']if e['ifc_class']=='IfcSpace')
-    values=P.load_defaults(s.document);values['general']['armarios_superficie_util']='computan'
+    assert antes['psets']['ARQ_Recinto']['ArmariosEnSuperficieUtil']=='computan'   # por defecto
+    values=P.load_defaults(s.document);values['general']['armarios_superficie_util']='descuentan'
     s.history.execute(P.SetArchitecturalDefaults(values))
     room=next(e for e in s.export(None)['elements']if e['ifc_class']=='IfcSpace')
-    assert room['psets']['ARQ_Recinto']['SuperficieUtil']==pytest.approx(17.86)
-    assert room['psets']['ARQ_Recinto']['ArmariosEnSuperficieUtil']=='computan'
+    assert room['psets']['ARQ_Recinto']['SuperficieUtil']==pytest.approx(17.14)
+    assert room['psets']['ARQ_Recinto']['ArmariosEnSuperficieUtil']=='descuentan'
     assert room['quantities']==antes['quantities'] and room['volume']==pytest.approx(antes['volume'])
     with pytest.raises(ValueError,match='armarios_superficie_util'):
         P.validate_defaults({**values,'general':{**values['general'],'armarios_superficie_util':'a veces'}})

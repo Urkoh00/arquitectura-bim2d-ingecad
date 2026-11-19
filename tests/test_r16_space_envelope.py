@@ -111,8 +111,8 @@ def test_polyline_analytic_export_and_one_undo(plugin, tmp_path):
     s = Session(plugin); E = module(s, 'conversion_plan'); before = E.fingerprint(s.document.doc)
     ent = poly(s); ident = s.meta(ent)['id']
     el = spaces(s, tmp_path)[0]
-    assert el['quantities']['NetVolume'] == pytest.approx(64.8)
-    assert S.face_volume([(f['outer'], f['holes']) for f in el['faces']]) == pytest.approx(64.8)
+    assert el['quantities']['NetVolume'] == pytest.approx(72.0)        # 24 m² × 3,00 m
+    assert S.face_volume([(f['outer'], f['holes']) for f in el['faces']]) == pytest.approx(72.0)
     assert el['psets']['ARQ_Recinto']['Techo'] == 'manual'
     s.history.undo()
     assert E.fingerprint(s.document.doc) == before
@@ -132,7 +132,7 @@ def test_polyline_concave_native_move_save_and_reload(plugin, tmp_path):
     assert min(p[0] for p in el['footprint'][0][0]) == pytest.approx(10)
     path = tmp_path/'room.dxf'; s.document.doc.saveas(path)
     out = module(s, 'exchange').build(ezdxf.readfile(path))
-    assert next(e for e in out['elements'] if e['ifc_class']=='IfcSpace')['volume'] == pytest.approx(48.6)
+    assert next(e for e in out['elements'] if e['ifc_class']=='IfcSpace')['volume'] == pytest.approx(54.0)
     assert not [i for i in s.issues() if 'Recinto' in i or 'Contorno' in i]
 
 

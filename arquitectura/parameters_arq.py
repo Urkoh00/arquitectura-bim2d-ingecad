@@ -16,13 +16,17 @@ from core.commands import Command
 KEY = 'ARQUITECTURA_PARAMETROS'
 TIPOS_EDIFICIO_CEE = ('ViviendaUnifamiliar', 'BloqueDeViviendaCompleto', 'ViviendaIndividualEnBloque',
                       'EdificioUsoTerciario', 'LocalUsoTerciario')
+# Altura por defecto de muros y pilares: 3,00 m (propietario, 19-11-2026), la
+# altura de planta habitual entre caras superiores de forjado; es la misma
+# convención de cota que CYPE (la cota de una planta es la cara superior de
+# su forjado estructural).
 DEFAULTS = {
     'schema': 1,
-    'wall': {'thickness': 0.30, 'height': 2.70, 'base': 0.0,
+    'wall': {'thickness': 0.30, 'height': 3.00, 'base': 0.0,
              'reference': 'eje', 'name': 'Muro', 'type_name': 'Muro genérico',
              'material': 'Sin definir', 'level': 'Planta baja', 'wall_category':'fachada'},
     'column': {'shape': 'rect', 'width': 0.30, 'depth': 0.30, 'radius': 0.15, 'rotation': 0.0,
-               'height': 2.70, 'base': 0.0, 'name': 'Pilar',
+               'height': 3.00, 'base': 0.0, 'name': 'Pilar',
                'type_name': 'Pilar genérico', 'material': 'Hormigón armado',
                'level': 'Planta baja'},
     'door': {'width': 0.90, 'height': 2.10, 'sill': 0.0},
@@ -49,14 +53,18 @@ DEFAULTS = {
     #   norte: where true north lies in the drawing, degrees clockwise from
     #     the drawing's +Y axis (0 = north is up). Same convention as
     #     IngeTrazo's Tools > North, which receives it (v1.34).
-    #   armarios_superficie_util: 'descuentan' = la planta de los armarios
-    #     adosados no es superficie útil (división interior fija: vivienda
-    #     protegida de Madrid, tasación); 'computan' = sí lo es (habitabilidad
-    #     de Baleares, entre otras). Solo cambia la superficie útil del
-    #     recinto: el IfcSpace llega siempre a las caras de los muros, como en
-    #     CYPE, porque su generador analítico lo exige (v1.37).
+    #   armarios_superficie_util: 'computan' (por defecto) = la planta de los
+    #     armarios adosados es superficie útil: el Decreto 10/2019 de
+    #     Extremadura (art. 2.3), la normativa por defecto del plugin, solo
+    #     descuenta tabiquería y divisiones, pilares y conductos de más de
+    #     100 cm², suelo de menos de 1,50 m de altura libre y la escalera, y
+    #     trata los armarios como mobiliario (anexo I, 2.1.A); también la
+    #     habitabilidad de Baleares los incluye. 'descuentan' = el armario es
+    #     una división interior fija (vivienda protegida de Madrid, tasación).
+    #     Solo cambia la superficie útil del recinto: el IfcSpace llega siempre
+    #     a las caras de los muros, como en CYPE (v1.37).
     'general': {'usar_usos': False, 'cota_minima': 0.0, 'norte': 0.0,
-                'armarios_superficie_util': 'descuentan',
+                'armarios_superficie_util': 'computan',
                 'lineas': {'muros': [], 'pilares': [], 'carpinteria': [], 'paralelismo': 0.005}},
     # Wall types (IfcWallType). Each one is a list of layers, from the
     # DRAWN face (the reference line) toward the body of the wall; its
@@ -161,7 +169,7 @@ def validate_defaults(values):
     nt = g.get('norte', 0.0)
     if isinstance(nt, bool) or not isinstance(nt, (int, float)) or not math.isfinite(nt):
         raise ValueError('general.norte: ángulo en grados')
-    if g.get('armarios_superficie_util', 'descuentan') not in ('descuentan', 'computan'):
+    if g.get('armarios_superficie_util', 'computan') not in ('descuentan', 'computan'):
         raise ValueError('general.armarios_superficie_util: «descuentan» o «computan»')
     ln = g.get('lineas', {})
     if not isinstance(ln, dict) or any(not isinstance(ln.get(k, []), list) or

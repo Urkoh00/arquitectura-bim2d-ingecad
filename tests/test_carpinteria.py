@@ -317,7 +317,7 @@ def test_recinto_hasta_el_falso_techo(plugin):
     assert sp[0]['quantities']['FinishCeilingHeight'] == pytest.approx(2.50)
     assert sp[0]['quantities']['NetVolume'] == pytest.approx(17.86 * 2.50)
     assert sp[0]['psets']['ARQ_Recinto']['Techo'] == 'falso techo'
-    assert sp[1]['quantities']['Height'] == pytest.approx(2.70)
+    assert sp[1]['quantities']['Height'] == pytest.approx(3.00)   # altura por defecto
     assert 'FinishCeilingHeight' not in sp[1]['quantities']
 
 

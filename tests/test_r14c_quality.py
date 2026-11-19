@@ -65,7 +65,7 @@ def test_jambs_width_centre_and_area_not_overlap_gap(plugin,angle,tmp_path):
     after=solid.difference(cut);assert solid.area-after.area==pytest.approx(1.2*.2,abs=1e-8)
     assert after.intersection(cut).area<1e-12
     exported=next(e for e in s.export(tmp_path)['elements'] if e['ifc_class']=='IfcWall')
-    assert exported['volume']==pytest.approx(solid.area*2.7-1.2*.2*2.1,abs=1e-7)
+    assert exported['volume']==pytest.approx(solid.area*3.0-1.2*.2*2.1,abs=1e-7)
     for lo,hi in ((0,1.15),(2.35,4)):
         retained=Polygon([spec.point(lo,spec.lo),spec.point(hi,spec.lo),spec.point(hi,spec.hi),spec.point(lo,spec.hi)])
         assert retained.difference(after).area<1e-8

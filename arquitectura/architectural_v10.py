@@ -49,7 +49,7 @@ def check_curve(rec):
         J.walls_from_records([(rec.get('id') or 'muro',rec)])
 
 
-def create_wall(a, b, thickness=0.15, height=2.7, base=0.0, reference='eje', bulge=0.0, **bim):
+def create_wall(a, b, thickness=0.15, height=3.0, base=0.0, reference='eje', bulge=0.0, **bim):
     from core.actions import AddEntityCommand
     import uuid
     corners=wall_corners(a,b,thickness,reference)

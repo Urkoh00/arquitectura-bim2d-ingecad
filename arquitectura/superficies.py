@@ -195,7 +195,7 @@ def table(drawing, crit=None):
         obstacles=C.obstacles(drawing,m,room,cabinet_items)
         from .parameters_arq import general_options
         room_u=C.useful_by_criterion(room_u or room,obstacles,
-                                     general_options(drawing).get('armarios_superficie_util','descuentan'))
+                                     general_options(drawing).get('armarios_superficie_util','computan'))
         ev = evaluate(m, room, room_u, crit, by_use=by_use)
         rows.append({"name": m.get("name") or "Recinto", "use": m.get("use") or "",
                      "enclosure": m.get("enclosure") or "interior", "height": float(m.get("height") or 0),

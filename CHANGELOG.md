@@ -2,6 +2,23 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.38.0-dev — 2026-11-19
+
+Valores por defecto según las indicaciones del propietario.
+
+- **Altura por defecto de 3,00 m** (antes 2,70 m) en muros y pilares: PARAMETROSARQ, fichas, MURO, PILAR,
+  LINEASAMURO y su plan de conversión.
+- **Normativa por defecto, Extremadura (Decreto 10/2019, art. 2.3):** los armarios adosados **computan**
+  como superficie útil (`armarios_superficie_util = 'computan'`). El decreto solo descuenta tabiquería y
+  divisiones, pilares y conductos de más de 100 cm², suelo de menos de 1,50 m de altura libre y la escalera,
+  y trata los armarios como mobiliario (anexo I, 2.1.A). «Descuentan» sigue disponible.
+- **Cota de nivel = cara superior del forjado estructural**, el criterio de CYPE: la altura de planta es
+  la distancia entre caras superiores de forjados, y la solera del IFC de referencia va de −0,40 a 0,00
+  con «Planta baja» a 0,00. El plugin ya lo aplicaba; ahora está documentado en el manual.
+- Pendientes anotados en el manual:
+  - la escalera interior, que el decreto descuenta, aún no se modela;
+  - la accesibilidad (Decreto 135/2018 de Extremadura y CTE DB-SUA) aún no se comprueba.
+
 ## 1.37.0-dev — 2026-11-19
 
 Armarios: el espacio IFC sigue el criterio de CYPE (decisión del propietario, 19-11-2026).

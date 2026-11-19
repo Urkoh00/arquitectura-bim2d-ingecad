@@ -455,7 +455,7 @@ class LineasAMuroTool(Tool):
         self._zone_index=None
         self.first = None
         self.tmin, self.tmax = 0.07, 0.50
-        self.height = 2.70
+        self.height = 3.00
         self.origin = "ocultar"          # ocultar | borrar | conservar
         self.pending = None
         from .compat import require_document

@@ -84,7 +84,7 @@ class RegenerateContoursCommand(Command):
             obstacles=C.obstacles(document.doc,SE.effective(m,envelope),room,cabinet_items)
             from .parameters_arq import general_options
             room_u=C.useful_by_criterion(room_u or room,obstacles,
-                                         general_options(document.doc).get('armarios_superficie_util','descuentan'))
+                                         general_options(document.doc).get('armarios_superficie_util','computan'))
             ev=SU.evaluate(SE.effective(m,envelope),room,room_u,by_use=getattr(self,'by_use',None))
             new=copy.deepcopy(m)
             if m.get('boundary_mode')=='polyline':

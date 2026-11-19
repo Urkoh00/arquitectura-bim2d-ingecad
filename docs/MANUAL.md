@@ -1,12 +1,12 @@
-# Manual de Arquitectura para IngeCAD — versión 1.37.0-dev
+# Manual de Arquitectura para IngeCAD — versión 1.38.0-dev
 
-Versión 1.37.0-dev · 2026-11-19
+Versión 1.38.0-dev · 2026-11-19
 
 > Copia del manual publicado como documento en claude.ai; se regenera con cada versión.
 
 ## Qué es
 
-Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.37.0-dev** y se actualiza con cada versión.
+Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.38.0-dev** y se actualiza con cada versión.
 
 Cada elemento guarda su identidad persistente, su clase IFC, su geometría editable en planta, sus parámetros 3D (altura, espesor, cota), sus propiedades constructivas (tipo, material, capas) y su nivel. Las carpinterías conocen su muro y los recintos siguen a los muros que los cierran.
 
@@ -27,7 +27,7 @@ El plugin se instala copiando una carpeta en IngeCAD, y la extensión copiando t
 
 **En IngeCAD**
 
-1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.37.0-dev.zip`.
+1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.38.0-dev.zip`.
 2. Copie la carpeta `arquitectura` en la carpeta de plugins de IngeCAD.
 3. Reinicie IngeCAD. Aparece el menú *Arquitectura* y su barra de herramientas.
 4. Escriba `ARQDIAG` en la línea de órdenes para comprobar que la versión cargada es la que acaba de copiar.
@@ -92,7 +92,7 @@ Es la forma más rápida de seguir dibujando «como ese». También lo hacen la 
 
 Los valores por defecto, el catálogo de tipos de muro y los usos se guardan dentro del propio DXF; cambiarlos no modifica los elementos ya dibujados.
 
-**PARAMETROSARQ** abre una ficha con los valores de partida: espesor 0,30 m, altura 2,70 m, cota 0 y referencia por el eje para los muros; pilar de 0,30 × 0,30 m; puerta de 2,10 m de altura; ventana de 1,20 × 1,20 m con antepecho de 1,00 m. Se deshace con `Deshacer`.
+**PARAMETROSARQ** abre una ficha con los valores de partida: espesor 0,30 m, altura 3,00 m, cota 0 y referencia por el eje para los muros; pilar de 0,30 × 0,30 m; puerta de 2,10 m de altura; ventana de 1,20 × 1,20 m con antepecho de 1,00 m. Se deshace con `Deshacer`.
 
 **Opciones generales.** La pestaña *General* de la misma ficha elige la forma de trabajar con el dibujo:
 
@@ -233,7 +233,7 @@ Un muro curvo es el mismo muro BIM que uno recto: sus caras son arcos concéntri
 | Opción | Efecto | Por defecto |
 | --- | --- | --- |
 | `E` | Espesor mínimo y máximo de muro | 0,07 y 0,50 m |
-| `A` | Altura de los muros | 2,70 m |
+| `A` | Altura de los muros | 3,00 m |
 | `O` | Qué hacer con las líneas de origen: ocultar (en la capa apagada ARQ-PLANO-ORIGEN), borrar o conservar | ocultar |
 | `K / L / R` | Capas de las caras de muro, de los pilares y de la carpintería; se guardan en el dibujo | reconocidas por su nombre |
 | `P` | Desviación admitida entre las dos caras de un muro antiguo | 0,005 m (0,03 en levantamientos) |
@@ -338,7 +338,7 @@ Las capas de cada nivel llevan `@` y una clave fija del nivel; su descripción t
 
 Si cambia la elevación de un nivel, se recalculan los muros, forjados y recintos afectados con un solo `Deshacer`. No se acepta una altura nula o negativa, un nivel eliminado ni un cambio que deje sin cabida a una carpintería. Un muro que atraviesa varias plantas se dibuja en cada una, y cada recinto toma solo su tramo. Las carpinterías de ese muro se sitúan respecto a su arranque: en una planta alta, indique el antepecho medido desde la base del muro.
 
-**Armarios.** `ARMARIOBIM` crea por defecto un armario **adosado**: designe la cara del muro y la posición, y fije ancho, fondo, altura, material y hojas (abatibles o correderas). Ocupa planta delante del muro, **no lo corta**. Según el criterio de PARAMETROSARQ > General, «Armarios en la superficie útil», se descuenta de la superficie útil («Descuentan», por defecto) o cuenta en ella («Computan», como en la habitabilidad de Baleares). El espacio IFC del recinto llega siempre hasta los muros, con el armario dentro, como en CYPE: su generador del modelo analítico lo exige. El modo **Empotrado / nicho** es el anterior, y los armarios ya dibujados siguen como nichos. Un nicho en una fachada, medianera o muro de sótano quita espesor al muro y debilita su aislamiento térmico y acústico, así que ARMARIOBIM y la exportación avisan. Ambos modos requieren un muro recto. Se exporta como `IfcBuildingElementProxy` (tipo ARMARIO\_FIJO), porque IngeTrazo todavía no ofrece `IfcFurniture`, y sus frentes como `IfcDoor`. Actualice también el fichero de IngeTrazo junto con el plugin.
+**Armarios.** `ARMARIOBIM` crea por defecto un armario **adosado**: designe la cara del muro y la posición, y fije ancho, fondo, altura, material y hojas (abatibles o correderas). Ocupa planta delante del muro, **no lo corta**. Según el criterio de PARAMETROSARQ > General, «Armarios en la superficie útil», cuenta como superficie útil («Computan», por defecto: el Decreto 10/2019 de Extremadura solo descuenta tabiques y divisiones, pilares y conductos de más de 100 cm², el suelo de menos de 1,50 m de altura libre y la escalera; los armarios los trata como mobiliario) o se descuenta («Descuentan», como división interior fija). El espacio IFC del recinto llega siempre hasta los muros, con el armario dentro, como en CYPE: su generador del modelo analítico lo exige. El modo **Empotrado / nicho** es el anterior, y los armarios ya dibujados siguen como nichos. Un nicho en una fachada, medianera o muro de sótano quita espesor al muro y debilita su aislamiento térmico y acústico, así que ARMARIOBIM y la exportación avisan. Ambos modos requieren un muro recto. Se exporta como `IfcBuildingElementProxy` (tipo ARMARIO\_FIJO), porque IngeTrazo todavía no ofrece `IfcFurniture`, y sus frentes como `IfcDoor`. Actualice también el fichero de IngeTrazo junto con el plugin.
 
 **Iconos y ficha de carpintería.** Todas las órdenes del menú tienen icono, y `LINEASAMURO` está justo antes de «Intercambio BIM». En la ficha de carpintería, la planta y el alzado se dibujan a la misma escala, sin solaparse, con las medidas al pie.
 
@@ -376,6 +376,8 @@ El rótulo muestra el nombre y la superficie útil, y «(computa X)» cuando la 
 - **Superficie útil habitable:** la de altura libre de al menos 2,50 m; en baños, aseos, vestíbulos, pasillos y distribuidores basta con 2,20 m (el tipo de estancia se reconoce por su uso o por su nombre, según las opciones generales).
 
 El cuadro da la superficie útil interior, la de espacios exteriores al 50 %, la computable total y la habitable. Cada recinto exporta estos valores en el grupo de propiedades `ARQ_Recinto` del IFC.
+
+**Normativa por defecto: Extremadura.** El cómputo de superficies aplica el Decreto 10/2019 de la Junta de Extremadura y, con él, que los armarios computan como superficie útil. La escalera interior, que el decreto descuenta, aún no se modela. La accesibilidad (Decreto 135/2018 de Extremadura, que remite al CTE DB-SUA para el interior de las viviendas) todavía no se comprueba.
 
 ## Cotas automáticas: COTAMUROS
 
@@ -452,6 +454,8 @@ Para poder editarlos, los modelos exportados con versiones anteriores deben expo
 
 `NIVELES` abre el catálogo de plantas (nombre y elevación en metros) y permite elegir el **nivel activo**, que reciben los muros, pilares y forjados nuevos. La primera vez que se confirma, los elementos existentes pasan a «Planta baja» sin cambiar sus cotas ni sus identificadores; abrir o leer un dibujo no lo cambia. `NIVELES MIGRAR` hace esa asignación sin diálogo. Renombrar un nivel conserva su identidad; cambiar su elevación desplaza los elementos asociados. No se puede eliminar una planta que tenga elementos. El nivel activo no oculta las demás plantas. `NIVELASIGNAR` pasa la selección a otro nivel, conservando su cota absoluta o alineándola con el nivel; las puertas siguen a su muro.
 
+**Cota de un nivel.** La elevación de cada nivel es la **cara superior de su forjado estructural**, con el mismo criterio que CYPE: la altura de planta es la distancia entre las caras superiores de los forjados de dos plantas seguidas. El forjado o la solera de un nivel queda por debajo de su cota (por ejemplo, una solera de 0,40 m en «Planta baja» va de −0,40 a 0,00), y los muros, pilares y recintos arrancan en ella. Los solados no se modelan: la cota no es la del suelo terminado.
+
 `FORJADO` crea un forjado **horizontal**: indique nombre, material, espesor y desfase de la **cara superior** respecto al nivel activo (el espesor crece hacia abajo). Dibuje el contorno en planta y pulse Intro; con la opción `Hueco` dibuje cada hueco y ciérrelo con Intro; otro Intro confirma todo. Esc cancela; `Retroceder` o `U` quita el último punto. Se admiten contornos cóncavos con huecos interiores que no se corten. `HUECOFORJADO` añade un hueco a un forjado existente. Desde la 1.34 cada forjado tiene clase: forjado entre plantas (se exporta como IfcSlab FLOOR), solera apoyada en el terreno (BASESLAB, exterior y en contacto con el terreno) o cubierta plana (ROOF, exterior); se elige en la ficha o, antes del primer punto, con las opciones Forjado, Solera o Cubierta. Las propiedades (nombre, material, clase, espesor, desfase, quitar huecos) se cambian con `PROPIEDADESARQ`. El sombreado del forjado guarda su contorno real: no lo borre como si fuera auxiliar. Los forjados inclinados, la cubierta y el falso techo llegarán más adelante.
 
 Con niveles o forjados, el intercambio usa `.arqbim` v3 y necesita la extensión de IngeTrazo actualizada. IngeTrazo conserva los niveles y los identificadores en el IGZ, pero su IFC todavía escribe una sola planta «Storey» y no relaciona los huecos de forjado.
@@ -505,7 +509,7 @@ Con niveles o forjados, el intercambio usa `.arqbim` v3 y necesita la extensión
 
 ## Limitaciones conocidas
 
-Estas son las limitaciones conocidas de la versión 1.37.0-dev; cada versión actualiza esta lista.
+Estas son las limitaciones conocidas de la versión 1.38.0-dev; cada versión actualiza esta lista.
 
 - **Plataforma:** las pruebas automáticas se ejecutan en Linux con la última versión oficial de IngeCAD y de IngeTrazo, pero sin pantalla. Solo se prueba con la última versión de cada programa, porque ambos publican casi cada semana.
 - **Muros curvos:** cada muro llega como mucho a media circunferencia (un muro redondo son dos). MUROPARALELO y DIVIDEMURO solo toman líneas rectas como referencia. El gesto de esquina en L al terminar un MURO solo recorta muros rectos.
@@ -519,6 +523,7 @@ Estas son las limitaciones conocidas de la versión 1.37.0-dev; cada versión ac
 
 | Fecha | Versión | Novedades |
 | --- | --- | --- |
+| 19-11-2026 | 1.38.0-dev | Altura por defecto de muros y pilares: 3,00 m. Normativa por defecto, Extremadura: los armarios computan como superficie útil. Cota de nivel = cara superior del forjado estructural, como en CYPE (documentado) |
 | 19-11-2026 | 1.37.0-dev | Armarios: el espacio IFC llega siempre hasta los muros, como en CYPE; la superficie útil descuenta o computa los armarios según el criterio elegido en PARAMETROSARQ; aviso al empotrar un armario en una fachada, medianera o muro de sótano |
 | 19-11-2026 | 1.36.0-dev | Eje de los muros hacia el IFC: con las ampliaciones propuestas a IngeTrazo, cada muro recto tiene su propia orientación y las capas quedan bien situadas también en los muros girados. Corrección: los edificios girados en coordenadas UTM (lejos del origen) ya no dan sólidos abiertos al pasar a IngeTrazo |
 | 19-11-2026 | 1.35.0-dev | Capas de material de los muros hacia el IFC: cada muro transmite su composición por capas y la posición de la primera capa respecto a su línea de referencia (eje, izquierda o derecha). Con las ampliaciones propuestas a IngeTrazo, el IFC lleva tipos compartidos y conjuntos de capas. Límite: en los muros girados, la dirección de las capas aún no es fiable |
