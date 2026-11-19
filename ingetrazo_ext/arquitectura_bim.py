@@ -335,6 +335,122 @@ def _etiqueta_eje_muro(etiqueta, elemento, desplazamiento):
                                     for valor, origen in zip(punto, desplazamiento)]
 
 
+def _contorno_hueco_forjado(elemento, hueco):
+    """Lee el contorno propio; si falta footprint, reconstruye la tapa del prisma."""
+    indice = next((i for i, registro in enumerate(elemento.get("openings", []))
+                   if registro.get("guid") == hueco.get("guid")), None)
+    contornos = [contorno for componente in (elemento.get("footprint") or [])
+                 for contorno in componente[1]]
+    if indice is not None and indice < len(contornos):
+        return contornos[indice]
+    caras = hueco.get("faces", [])
+    puntos = [punto for cara in caras for punto in cara.get("outer", [])]
+    if not puntos:
+        return []
+    cota_superior = max(punto[2] for punto in puntos)
+    soldador = _soldador()
+    aristas = {}
+    for cara in caras:
+        contorno = cara.get("outer", [])
+        if not contorno or any(abs(punto[2] - cota_superior) > soldador.tolerancia
+                               for punto in contorno):
+            continue
+        indices = [soldador.indice((punto[0], punto[1], 0.)) for punto in contorno]
+        for inicio, final in zip(indices, indices[1:] + indices[:1]):
+            if inicio != final:
+                clave = tuple(sorted((inicio, final)))
+                aristas[clave] = aristas.get(clave, 0) + 1
+    vecinos = {}
+    for (inicio, final), cantidad in aristas.items():
+        if cantidad == 1:
+            vecinos.setdefault(inicio, []).append(final)
+            vecinos.setdefault(final, []).append(inicio)
+    if not vecinos or any(len(opciones) != 2 for opciones in vecinos.values()):
+        return []
+    inicio = next(iter(vecinos))
+    recorrido = [inicio]
+    anterior = None
+    actual = inicio
+    while True:
+        siguiente = next(punto for punto in vecinos[actual] if punto != anterior)
+        if siguiente == inicio:
+            break
+        if siguiente in recorrido:
+            return []
+        recorrido.append(siguiente)
+        anterior, actual = actual, siguiente
+    if len(recorrido) != len(vecinos):
+        return []
+    return [soldador.representantes[indice][:2] for indice in recorrido]
+
+
+def _medidas_contorno_hueco(contorno):
+    """Mide lados reales de rectángulos; en otros polígonos devuelve su área."""
+    soldador = _soldador()
+    indices = []
+    for punto in contorno:
+        indice = soldador.indice((float(punto[0]), float(punto[1]), 0.))
+        if not indices or indice != indices[-1]:
+            indices.append(indice)
+    if len(indices) > 1 and indices[0] == indices[-1]:
+        indices.pop()
+    puntos = [soldador.representantes[indice][:2] for indice in indices]
+    if len(puntos) < 3:
+        return {}
+    origen_x, origen_y = puntos[0]
+    # La traslación evita cancelar productos enormes en coordenadas topográficas.
+    locales = [(x - origen_x, y - origen_y) for x, y in puntos]
+    aristas = [(final[0] - inicio[0], final[1] - inicio[1])
+               for inicio, final in zip(locales, locales[1:] + locales[:1])]
+    longitudes = [math.hypot(x, y) for x, y in aristas]
+    tolerancia = soldador.tolerancia
+    rectangulo = len(puntos) == 4 and len(set(indices)) == 4
+    rectangulo = rectangulo and all(lado > tolerancia for lado in longitudes)
+    if rectangulo:
+        for i in range(4):
+            lado = aristas[i]
+            siguiente = aristas[(i + 1) % 4]
+            producto = lado[0] * siguiente[0] + lado[1] * siguiente[1]
+            if abs(producto) > tolerancia * max(longitudes[i], longitudes[(i + 1) % 4]):
+                rectangulo = False
+        if (abs(longitudes[0] - longitudes[2]) > tolerancia
+                or abs(longitudes[1] - longitudes[3]) > tolerancia):
+            rectangulo = False
+    if rectangulo:
+        return {"Width": max(longitudes), "Height": min(longitudes)}
+    area = abs(math.fsum(inicio[0] * final[1] - inicio[1] * final[0]
+                         for inicio, final in zip(locales, locales[1:] + locales[:1]))) / 2
+    return {"Area": area} if area > 0 else {}
+
+
+def _etiqueta_hueco(elemento, hueco, local):
+    """Conserva la caja y añade medidas de origen, sin inventar envolventes."""
+    parametros = hueco.get("params", {})
+    espesor = float(elemento["params"]["thickness"])
+    etiqueta = {"guid": hueco["guid"], "name": hueco.get("name", "Hueco"),
+                "faces": [{"outer": [list(local(punto)) for punto in cara["outer"]],
+                           "holes": [[list(local(punto)) for punto in agujero]
+                                     for agujero in cara.get("holes", [])]}
+                          for cara in hueco["faces"]]}
+    profundidad = parametros.get("niche_depth")
+    nicho = (elemento["ifc_class"] == "IfcWall"
+             and isinstance(profundidad, (int, float)) and not isinstance(profundidad, bool)
+             and math.isfinite(profundidad) and 0 < profundidad < espesor)
+    etiqueta["predefined"] = "RECESS" if nicho else "OPENING"
+    cantidades = {"Depth": float(profundidad) if nicho else espesor}
+    if elemento["ifc_class"] == "IfcSlab":
+        contorno = _contorno_hueco_forjado(elemento, hueco)
+        cantidades.update(_medidas_contorno_hueco(contorno))
+    else:
+        for origen, destino in (("width", "Width"), ("height", "Height")):
+            valor = parametros.get(origen)
+            if (isinstance(valor, (int, float)) and not isinstance(valor, bool)
+                    and math.isfinite(valor) and valor > 0):
+                cantidades[destino] = float(valor)
+    etiqueta["quantities"] = cantidades
+    return etiqueta
+
+
 def build_scene(data, offset=None):
     """A Scene with one tagged Group per element (IngeTrazo classes only).
     ``offset``: subtracted from every coordinate before it becomes single
@@ -434,10 +550,8 @@ def build_scene(data, offset=None):
             # IfcRelFillsElement: the hole (IfcOpeningElement) it fills
             tag["fills"] = el["fills"]
         if el.get("openings"):
-            tag["openings"] = [{"guid": o["guid"], "name": o.get("name", "Hueco"),
-                                "faces": [{"outer": [list(local(p)) for p in f["outer"]],
-                                           "holes": [[list(local(p)) for p in h] for h in f.get("holes", [])]}
-                                          for f in o["faces"]]} for o in el["openings"]]
+            tag["openings"] = [_etiqueta_hueco(el, hueco, local)
+                               for hueco in el["openings"]]
         g.ifc = tag
         record = {k: v for k, v in el.items() if k not in ("faces",)}
         if parts:

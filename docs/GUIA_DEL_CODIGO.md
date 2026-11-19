@@ -274,3 +274,25 @@ DA DB-HE/1. Es la base de E1–E3 (exportador a EnvolventeCTE). Pruebas:
 `tests/test_biblioteca_termica.py` (BDL sintético; con `ARQ_BDC_PRUEBA`
 también el catálogo instalado).
 
+### R26-P4: huecos y medidas reales en el IFC
+
+La extensión transmite `predefined` y `quantities` junto a la geometría ya
+recentrada del hueco. En muros, usa las medidas del registro y el espesor;
+los nichos llevan `RECESS` y su fondo. El contrato `.arqbim` no cambia.
+
+En forjados, `Depth` es siempre el espesor. El contorno procede del
+`footprint` o de las caras superiores. Se identifica un rectángulo por sus
+cuatro vértices, ángulos rectos y lados opuestos iguales usando la tolerancia
+de `geom/soldadura.py`: `Width` es el lado mayor real y `Height` el menor.
+Para un contorno no rectangular se envía únicamente su `Area` exacta en
+planta y `Depth`. No se usan cajas envolventes para inventar medidas.
+El área se calcula trasladando primero el origen para evitar cancelaciones
+en coordenadas topográficas. La copia compartida de la soldadura es la
+misma que utiliza el validador de la extensión, sin importar IngeCAD.
+
+`tests/test_r26_huecos.py` cubre rectángulos girados, círculo facetado, L,
+fronteras de redondeo, puertas, ventanas, huecos libres y nichos.
+`scripts/generar_modelo_r26.py` añade los casos de ensayo de P4 y un forjado
+con los cuatro contornos; `scripts/verificar_cadena_r26.py` compara las
+relaciones, las posiciones y el volumen leído con y sin sustracciones de
+huecos por IfcOpenShell. Cada script se ejecuta en el entorno de su anfitrión.
