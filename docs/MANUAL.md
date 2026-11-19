@@ -1,12 +1,12 @@
-# Manual de Arquitectura para IngeCAD — versión 1.34.0-dev
+# Manual de Arquitectura para IngeCAD — versión 1.35.0-dev
 
-Versión 1.34.0-dev · 19-11-2026
+Versión 1.35.0-dev · 2026-11-19
 
 > Copia del manual publicado como documento en claude.ai; se regenera con cada versión.
 
 ## Qué es
 
-Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.34.0-dev** y se actualiza con cada versión.
+Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.35.0-dev** y se actualiza con cada versión.
 
 Cada elemento guarda su identidad persistente, su clase IFC, su geometría editable en planta, sus parámetros 3D (altura, espesor, cota), sus propiedades constructivas (tipo, material, capas) y su nivel. Las carpinterías conocen su muro y los recintos siguen a los muros que los cierran.
 
@@ -27,7 +27,7 @@ El plugin se instala copiando una carpeta en IngeCAD, y la extensión copiando t
 
 **En IngeCAD**
 
-1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.34.0-dev.zip`.
+1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.35.0-dev.zip`.
 2. Copie la carpeta `arquitectura` en la carpeta de plugins de IngeCAD.
 3. Reinicie IngeCAD. Aparece el menú *Arquitectura* y su barra de herramientas.
 4. Escriba `ARQDIAG` en la línea de órdenes para comprobar que la versión cargada es la que acaba de copiar.
@@ -505,7 +505,7 @@ Con niveles o forjados, el intercambio usa `.arqbim` v3 y necesita la extensión
 
 ## Limitaciones conocidas
 
-Estas son las limitaciones conocidas de la versión 1.34.0-dev; cada versión actualiza esta lista.
+Estas son las limitaciones conocidas de la versión 1.35.0-dev; cada versión actualiza esta lista.
 
 - **Plataforma:** las pruebas automáticas se ejecutan en Linux con la última versión oficial de IngeCAD y de IngeTrazo, pero sin pantalla. Solo se prueba con la última versión de cada programa, porque ambos publican casi cada semana.
 - **Muros curvos:** cada muro llega como mucho a media circunferencia (un muro redondo son dos). MUROPARALELO y DIVIDEMURO solo toman líneas rectas como referencia. El gesto de esquina en L al terminar un MURO solo recorta muros rectos.
@@ -519,6 +519,7 @@ Estas son las limitaciones conocidas de la versión 1.34.0-dev; cada versión ac
 
 | Fecha | Versión | Novedades |
 | --- | --- | --- |
+| 19-11-2026 | 1.35.0-dev | Capas de material de los muros hacia el IFC: cada muro transmite su composición por capas y la posición de la primera capa respecto a su línea de referencia (eje, izquierda o derecha). Con las ampliaciones propuestas a IngeTrazo, el IFC lleva tipos compartidos y conjuntos de capas. Límite: en los muros girados, la dirección de las capas aún no es fiable |
 | 19-11-2026 | 1.34.0-dev | Datos para el cálculo energético: norte del proyecto (PARAMETROSARQ > General), clase del forjado (forjado, solera o cubierta) y tipo IFC de los recintos (INTERNAL o EXTERNAL) |
 | 19-11-2026 | 1.33.0-dev | Tipo IFC de los muros como en un IFC de referencia: fachada EXTERNALWALL, medianera PARTYWALL y muro de sótano BASEMENTWALL (USERDEFINED con ObjectType); el tabique sigue PARTITIONING |
 | 18-11-2026 | 1.32.0-dev | Entrada revisada de LINEASAMURO: un DXF con su fichero de procedencia (plano.dxf.procedencia.json) convierte solo las caras, puertas y ventanas confirmadas; las capas REV-\* nunca se reconocen por su nombre |

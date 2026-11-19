@@ -2,6 +2,24 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.35.0-dev — 2026-11-19
+
+Capas de material de los muros hacia el IFC (encargo R24, paquete P3 del plan de aportaciones a IngeTrazo;
+trabajo de Codex revisado e integrado).
+
+- La extensión de IngeTrazo pasa en la etiqueta de cada muro sus **capas** (`material_layers`, de la cara de
+  referencia hacia dentro) y el **desplazamiento de la primera capa** (`layer_offset`). Este se calcula con la
+  misma función que construye el sólido: −e/2 si la referencia es el eje, 0 si es la izquierda, −e si es la
+  derecha. Las pruebas lo contrastan con las caras reales en cuatro orientaciones.
+- Los demás elementos conservan `type` y `material`; las capas solo van en los muros.
+- Con la ampliación P3 propuesta a IngeTrazo, el IFC lleva tipos compartidos (`IfcWallType`, `IfcDoorType`…),
+  sus conjuntos de capas y su uso en cada muro. Con P2 y P3 juntos, el modelo sintético (tres fachadas,
+  medianera, tabique, puerta, ventana, solera y dos recintos) da **0 errores EXPRESS**.
+- **Límite conocido:** IngeTrazo aún no da a cada muro una colocación propia orientada según su eje, así que
+  en los muros girados la dirección de las capas en el IFC no es fiable. Queda como paquete P3b.
+- Scripts `generar_modelo_r24.py` y `verificar_cadena_r24.py` para reproducir la cadena con un modelo público.
+- 18 pruebas nuevas; 854 en total.
+
 ## 1.34.0-dev — 2026-11-19
 
 Datos que piden los programas de cálculo energético, según un IFC de referencia de un modelador comercial
