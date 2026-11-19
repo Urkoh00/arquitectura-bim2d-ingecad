@@ -2,6 +2,19 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.40.0-dev — 2026-11-19
+
+- **Nueva orden BIBLIOTECAHE: biblioteca térmica del usuario.** Importa el catálogo de la Herramienta
+  Unificada LIDER-CALENER (`BDCatalogo.bdc` de la instalación, el `.bdc.utf8.gz` que publica el IETcc o
+  un ZIP), como hacen otros programas de cálculo. El plugin **no distribuye** el catálogo.
+  - Lee materiales (λ, ρ, cp, μ o resistencia), composiciones, vidrios (U y g⊥), marcos y huecos.
+  - La guarda en la carpeta de configuración del usuario, para todos los proyectos; no va al dibujo.
+  - `BIBLIOTECAHE buscar texto` y `BIBLIOTECAHE u Composición [/ techo|suelo]` (U según el DA DB-HE/1).
+  - Comprobado con el catálogo de 2015 y con el del IETcc: 761 materiales, 428 composiciones,
+    258 vidrios, 17 marcos y 5 huecos; quedan 3 referencias rotas propias del catálogo, que se avisan.
+- Es la base del futuro exportador a EnvolventeCTE (estudio del 19-11).
+- 17 pruebas nuevas (una solo con un catálogo instalado).
+
 ## 1.39.0-dev — 2026-11-19
 
 - **Cada forjado lleva tipo IFC.** El generador del modelo analítico de BIMserver.center (Open BIM Analytical

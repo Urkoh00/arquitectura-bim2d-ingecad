@@ -2,7 +2,7 @@
 
 Esta guía es para quien vaya a **leer, estudiar o mantener** el código. No sustituye al manual de uso (`docs/MANUAL.md`). Explica cómo está organizado el plugin, qué recorrido hace un elemento desde el clic hasta el IFC y dónde buscar cada cosa.
 
-Versión de referencia: **1.39.0-dev**, con 64 módulos y unas 20 000 líneas en `arquitectura/`, más la extensión de IngeTrazo en `ingetrazo_ext/`.
+Versión de referencia: **1.40.0-dev**, con 65 módulos y unas 20 000 líneas en `arquitectura/`, más la extensión de IngeTrazo en `ingetrazo_ext/`.
 
 ---
 
@@ -259,4 +259,18 @@ contratos de la extensión. `boundary` calcula además en coordenadas locales
 (resta un origen de metros enteros y lo suma al final) y limpia los lazos
 (`_clean_loop`: repetidos seguidos y púas A→B→A). Pruebas:
 `tests/test_soldadura_lejos_del_origen.py`.
+
+### Biblioteca térmica (`biblioteca_termica.py`, orden BIBLIOTECAHE)
+
+El plugin no distribuye el catálogo de la Herramienta Unificada: el usuario
+importa su `BDCatalogo.bdc` (de la instalación, el `.bdc.utf8.gz` del IETcc o
+un ZIP). `importar` lee los bloques BDL `MATERIAL`, `LAYERS`, `GLASS-TYPE`,
+`NAME-FRAME` y `GAP` (g⊥ = SHADING-COEF × 0,86, criterio del IETcc), normaliza
+los espacios repetidos de los nombres y avisa de las referencias rotas sin
+descartarlas. `guardar` escribe un JSON atómico en la carpeta de configuración
+del usuario (`ARQ_BIBLIOTECA_TERMICA` la cambia), nunca en el dibujo ni en el
+repositorio. `u_opaco` calcula la U con las resistencias superficiales del
+DA DB-HE/1. Es la base de E1–E3 (exportador a EnvolventeCTE). Pruebas:
+`tests/test_biblioteca_termica.py` (BDL sintético; con `ARQ_BDC_PRUEBA`
+también el catálogo instalado).
 

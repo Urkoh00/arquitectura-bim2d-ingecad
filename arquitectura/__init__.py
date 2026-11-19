@@ -36,7 +36,7 @@ import os
 from collections import defaultdict
 from pathlib import Path
 
-_VERSION = "1.39.0-dev"
+_VERSION = "1.40.0-dev"
 
 from core.plugins import SEPARATOR, MenuItem, PluginSpec, Submenu, ToolbarItem
 from tools.base import Tool
@@ -1413,6 +1413,8 @@ class AyudaArqTool(ArchitectureTool):
         self.ctx.echo("                        pilares y jambas en cadena, con la cota total (O la quita); T altura del texto;")
         self.ctx.echo("                        capa ARQ-COTAS, estilo ARQ (cotas normales de IngeCAD)")
         self.ctx.echo("USOSARQ               — usos del edificio: certificado energético, DB-HE y DB-SI (por separado)")
+        self.ctx.echo("BIBLIOTECAHE          — biblioteca térmica del usuario: importar el BDCatalogo.bdc de la Herramienta")
+        self.ctx.echo("                        Unificada (no se distribuye con el plugin), buscar materiales y U de composiciones")
         self.ctx.echo("LINEASAMURO           — convierte las líneas de un plano antiguo en muros, puertas, ventanas y vanos:")
         self.ctx.echo("                        dos clics enmarcan la zona; E espesores mín./máx., A altura,")
         self.ctx.echo("                        O líneas de origen (ocultar en capa apagada / borrar / conservar);")
@@ -1503,6 +1505,7 @@ from .opening_tools import (CarpinteriaTool as CarpinteriaArqTool, PuertaTool as
 TOOL_CLASSES = tuple(MuroCarasTool if t.name == "MURO" else PilarPerfilesTool if t.name == "PILAR" else t for t in TOOL_CLASSES) + (SuperficiesTool, CotaMurosTool, LineasAMuroTool, MuroCurvoTool, CurvaMuroTool, CarpinteriaArqTool, PuertaArqTool, VentanaArqTool2, HuecoArqTool, EditarArqTool, ArqPropiedadesTool, MuroParaleloTool, EstiraMuroTool, PivotaMuroTool, RecintoTool, DivideMuroTool, BorraTramoTool, ParteMuroTool, UnirMuroTool, MoverCarpinteriaTool, DefensaTool, ParticionVirtualTool)
 
 from .roundtrip import sincronizar_arq
+from .biblioteca_termica import biblioteca_he
 
 def arqdiag(ctx, *args):
     """Diagnóstico sin mutar el dibujo y sin depender de PySide6."""
@@ -1572,11 +1575,12 @@ def plugin_spec() -> PluginSpec:
         version=_VERSION,
         description="Dibujo arquitectónico 2D con objetos BIM (muros, pilares, carpinterías) y exportación a IngeTrazo/IFC",
         tools={tool.name: tool for tool in (*TOOL_CLASSES, SlabTool,SlabHoleTool,CabinetTool,GridTool,RejillaTool,GridEditTool,GridColumnsTool)},
-        commands={"SINCRONIZARARQ":sincronizar_arq,"NIVELES":niveles,"NIVELASIGNAR":asignar_nivel,"ACTUALIZAEJES":update,"EXPORTARBIM": exportar_bim, "DIAGNOSTICOARQ": diagnostico_arq, "ARQDIAG": arqdiag, "UNIONESARQ": unionesarq, "ARQVALIDAR": validar_arq, "ARQMIGRAR": migrar_arq, "PARAMETROSARQ": parametros_arq, "TIPOSMURO": tipos_muro, "USOSARQ": usos_arq},
+        commands={"SINCRONIZARARQ":sincronizar_arq,"NIVELES":niveles,"NIVELASIGNAR":asignar_nivel,"ACTUALIZAEJES":update,"EXPORTARBIM": exportar_bim, "DIAGNOSTICOARQ": diagnostico_arq, "ARQDIAG": arqdiag, "UNIONESARQ": unionesarq, "ARQVALIDAR": validar_arq, "ARQMIGRAR": migrar_arq, "PARAMETROSARQ": parametros_arq, "TIPOSMURO": tipos_muro, "USOSARQ": usos_arq, "BIBLIOTECAHE": biblioteca_he},
         menu=(
             MenuItem("Opciones generales y parámetros iniciales...", "PARAMETROSARQ", icon=glyph / "parametros.svg"),
             MenuItem("Tipos de muro (espesor total y capas)...", "TIPOSMURO", icon=glyph / "tiposmuro.svg"),
             MenuItem("Usos del edificio (certificado energético, DB-HE, DB-SI)...", "USOSARQ", icon=glyph / "usos.svg"),
+            MenuItem("Biblioteca térmica (importar el catálogo de la Herramienta Unificada)...", "BIBLIOTECAHE", icon=glyph / "bibliotecahe.svg"),
             MenuItem("Niveles y planta activa...", "NIVELES", icon=glyph / "niveles.svg"),
             MenuItem("Asignar selección a nivel...", "NIVELASIGNAR", icon=glyph / "nivelasignar.svg"),
             MenuItem("Forjado horizontal con huecos...", "FORJADO", icon=glyph / "forjado.svg"),

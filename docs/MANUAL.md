@@ -1,12 +1,12 @@
-# Manual de Arquitectura para IngeCAD — versión 1.39.0-dev
+# Manual de Arquitectura para IngeCAD — versión 1.40.0-dev
 
-Versión 1.39.0-dev · 2026-11-19
+Versión 1.40.0-dev · 19-11-2026
 
 > Copia del manual publicado como documento en claude.ai; se regenera con cada versión.
 
 ## Qué es
 
-Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.39.0-dev** y se actualiza con cada versión.
+Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.40.0-dev** y se actualiza con cada versión.
 
 Cada elemento guarda su identidad persistente, su clase IFC, su geometría editable en planta, sus parámetros 3D (altura, espesor, cota), sus propiedades constructivas (tipo, material, capas) y su nivel. Las carpinterías conocen su muro y los recintos siguen a los muros que los cierran.
 
@@ -27,7 +27,7 @@ El plugin se instala copiando una carpeta en IngeCAD, y la extensión copiando t
 
 **En IngeCAD**
 
-1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.39.0-dev.zip`.
+1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.40.0-dev.zip`.
 2. Copie la carpeta `arquitectura` en la carpeta de plugins de IngeCAD.
 3. Reinicie IngeCAD. Aparece el menú *Arquitectura* y su barra de herramientas.
 4. Escriba `ARQDIAG` en la línea de órdenes para comprobar que la versión cargada es la que acaba de copiar.
@@ -125,6 +125,18 @@ El catálogo inicial trae tabiques de placa de yeso laminado y fábricas de term
 | Uso DB-SI / DB-SUA | `USOSARQ dbsi <uso>` | texto libre: Residencial Vivienda, Docente, Administrativo… |
 
 `USOSARQ` sin más abre una ficha con las tres clasificaciones (en «otros usos» del DB-HE, con su carga y su horario); con argumentos las cambia desde la línea de órdenes. Las tres clasificaciones se exportan al proyecto IFC y a cada espacio.
+
+**BIBLIOTECAHE** guarda la biblioteca térmica del usuario: materiales (λ, densidad, calor específico, difusión de vapor o resistencia), composiciones por capas, vidrios (U y g⊥), marcos y huecos. El plugin **no distribuye** el catálogo de la Herramienta Unificada LIDER-CALENER: cada usuario lo importa una vez desde su instalación, como hacen otros programas de cálculo.
+
+| Orden | Qué hace |
+| --- | --- |
+| `BIBLIOTECAHE importar` | Importa el `BDCatalogo.bdc` de la instalación (si hay uno en `C:\ProgramasCTEyCEE`) o el que se elija; también acepta el `.bdc.utf8.gz` del IETcc o un ZIP |
+| `BIBLIOTECAHE importar <ruta>` | Importa ese fichero |
+| `BIBLIOTECAHE buscar <texto>` | Materiales que contienen el texto, sin distinguir tildes ni mayúsculas |
+| `BIBLIOTECAHE u <composición>` | U de una composición del catálogo como muro; con `/ techo` o `/ suelo`, como cubierta o como suelo sobre el exterior (resistencias superficiales del DA DB-HE/1) |
+| `BIBLIOTECAHE` | Muestra el fichero, el catálogo de origen y los recuentos |
+
+La biblioteca se guarda en la carpeta de configuración del usuario (en Windows, `%APPDATA%\IngeCAD\arquitectura\biblioteca_termica.json`) y sirve para todos los proyectos; no se copia al dibujo. Las referencias rotas del propio catálogo se avisan al importar. La U que calcula sirve para tantear tipos de muro mientras se dibuja; no sustituye a los programas reconocidos.
 
 ## Muros rectos
 
@@ -498,6 +510,7 @@ Con niveles o forjados, el intercambio usa `.arqbim` v3 y necesita la extensión
 | `PARAMETROSARQ` | Valores de partida | No |
 | `TIPOSMURO` | Catálogo de tipos de muro | No |
 | `USOSARQ` | Usos del edificio | No |
+| `BIBLIOTECAHE` | Biblioteca térmica: importar el catálogo de la Herramienta Unificada, buscar materiales y U de composiciones | No |
 | `UNIONESARQ` | Sincronizar y regenerar | Sí |
 | `ARQVALIDAR` | Validar el dibujo | Sí |
 | `DIAGNOSTICOARQ` | Listar encuentros | No |
@@ -509,7 +522,7 @@ Con niveles o forjados, el intercambio usa `.arqbim` v3 y necesita la extensión
 
 ## Limitaciones conocidas
 
-Estas son las limitaciones conocidas de la versión 1.39.0-dev; cada versión actualiza esta lista.
+Estas son las limitaciones conocidas de la versión 1.40.0-dev; cada versión actualiza esta lista.
 
 - **Plataforma:** las pruebas automáticas se ejecutan en Linux con la última versión oficial de IngeCAD y de IngeTrazo, pero sin pantalla. Solo se prueba con la última versión de cada programa, porque ambos publican casi cada semana.
 - **Muros curvos:** cada muro llega como mucho a media circunferencia (un muro redondo son dos). MUROPARALELO y DIVIDEMURO solo toman líneas rectas como referencia. El gesto de esquina en L al terminar un MURO solo recorta muros rectos.
@@ -523,6 +536,7 @@ Estas son las limitaciones conocidas de la versión 1.39.0-dev; cada versión ac
 
 | Fecha | Versión | Novedades |
 | --- | --- | --- |
+| 19-11-2026 | 1.40.0-dev | Nueva orden BIBLIOTECAHE: biblioteca térmica del usuario importada del catálogo de la Herramienta Unificada (no se distribuye con el plugin), búsqueda de materiales y U de composiciones |
 | 19-11-2026 | 1.39.0-dev | Cada forjado lleva tipo IFC (por defecto, su clase y su canto: «Solera 20 cm»), que exige el modelo analítico de BIMserver.center |
 | 19-11-2026 | 1.38.0-dev | Altura por defecto de muros y pilares: 3,00 m. Normativa por defecto, Extremadura: los armarios computan como superficie útil. Cota de nivel = cara superior del forjado estructural, como en CYPE (documentado) |
 | 19-11-2026 | 1.37.0-dev | Armarios: el espacio IFC llega siempre hasta los muros, como en CYPE; la superficie útil descuenta o computa los armarios según el criterio elegido en PARAMETROSARQ; aviso al empotrar un armario en una fachada, medianera o muro de sótano |
