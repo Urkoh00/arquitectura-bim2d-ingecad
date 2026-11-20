@@ -370,3 +370,9 @@ título de un selector mientras existe su objeto Qt. Para Deshacer/Rehacer, las
 cotas comparan también el contenido de sus bloques gráficos anónimos: cambiar
 el nombre interno del bloque no cambia la cota. Se comparan todos los datos BIM,
 la geometría y la XDATA; la visibilidad DXF omitida equivale a su valor cero.
+
+`linea_campos.entrada_con_prefijo` permite escribir `x 3x5` y `renumerar 4` sin
+que el espacio confirme solo la primera palabra. Consulta la entrada de la
+ventana mediante el contexto; no captura las coordenadas ni cambia IngeCAD.
+La restauración de grupos en `sync.py` reutiliza sus manejadores antes de añadir
+los miembros, para conservar también sus referencias DXF al deshacer.
