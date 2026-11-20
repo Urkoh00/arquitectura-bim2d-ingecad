@@ -146,8 +146,11 @@ def _outline_issues(drawing, sources, outlines):
         from .openings import opening_cuts
         records, columns, ops, _issues = read_model(drawing, strict=False)
         specs = J.walls_from_records(records)
-        from .geom.bands import column_inputs
-        result = J.solve(specs, column_inputs(columns))
+        from .geom.bands import solve_records
+        from . import particiones_virtuales as particiones
+        # La planta se obtiene por bandas de altura. Un cálculo plano atribuiría
+        # a muros inexistentes las aristas visibles sobre los muros más bajos.
+        result = solve_records(records, columns, particiones.read(drawing))
         cuts = opening_cuts({w.id: w for w in specs}, ops)
         expected = {_item_key(it) for it in J.plan_items(result, cuts)}
     except Exception as exc:  # noqa: BLE001
