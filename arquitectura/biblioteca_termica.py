@@ -287,7 +287,9 @@ def u_opaco(bib: dict, capas, posicion: str = "vertical") -> float:
 
 def _elegir_fichero(ctx):
     try:
-        from PySide6.QtWidgets import QFileDialog
+        from PySide6.QtWidgets import QApplication,QFileDialog
+        if QApplication.instance() is None:
+            return None
         from .compat import dialog_parent
         inicio = next((str(p.parent) for p in catalogos_instalados()), "")
         nombre, _f = QFileDialog.getOpenFileName(
