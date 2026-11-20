@@ -372,12 +372,8 @@ def wall_types_form(ctx, types):
             store()
         except ValueError as exc:
             QMessageBox.warning(dlg,'Tipo de muro',str(exc));return
-        base=copy_of or {'name':'Tipo nuevo','layers':[[0.10,'Material']]}
-        nm=base['name'] if copy_of is None else base['name']+' (copia)'
-        stem,k=nm,2
-        while any(t['name'].lower()==nm.lower() for t in data):
-            nm=f"{stem} {k}";k+=1
-        t=normalise_type({'name':nm,'layers':[list(l) for l in base['layers']],'wall_category':base.get('wall_category','fachada')})
+        from .parameters_arq import nuevo_tipo
+        t=nuevo_tipo(data,copy_of)
         data.append(t)
         item=QListWidgetItem(label(t),lst);decorate(item,t)
         select(len(data)-1)

@@ -344,6 +344,19 @@ def guardar_parametros(ctx, valores):
     ctx.echo('PARAMETROSARQ: parámetros guardados en este DXF. Los elementos existentes no se modifican.')
 
 
+def nuevo_tipo(tipos, original=None):
+    """La ficha y la variante textual crean o duplican con el mismo nombre libre."""
+    base = original or {'name': 'Tipo nuevo', 'layers': [[.10, 'Material']]}
+    nombre = base['name'] if original is None else base['name'] + ' (copia)'
+    prefijo = nombre
+    numero = 2
+    while any(tipo['name'].casefold() == nombre.casefold() for tipo in tipos):
+        nombre = f'{prefijo} {numero}'
+        numero += 1
+    return normalise_type({'name': nombre, 'layers': copy.deepcopy(base['layers']),
+                           'wall_category': base.get('wall_category', 'fachada')})
+
+
 def guardar_tipos(ctx, tipos):
     nuevos = load_defaults(ctx.document)
     normalizados = [normalise_type(tipo) for tipo in tipos]

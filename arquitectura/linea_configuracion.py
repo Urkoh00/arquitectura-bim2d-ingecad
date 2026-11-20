@@ -168,21 +168,21 @@ class ConfiguracionTexto(PreguntasTexto, Tool):
         self.ctx.finish()
 
     def _preguntar_tipos(self):
-        from .parameters_arq import layers_text
+        from .parameters_arq import layers_text, nuevo_tipo
         from .wall_categories import CATEGORIES
 
         tipos = self._configuracion["wall_types"]
-        primero = tipos[0] if tipos else None
+        primero = tipos[0] if tipos else nuevo_tipo(tipos)
         valores = {
             "accion": "editar" if tipos else "crear",
-            "anterior": primero["name"] if primero else None,
-            "nombre": primero["name"] if primero else "Muro nuevo",
-            "capas": layers_text(primero) if primero else "0,15 Sin definir",
-            "categoria": primero["wall_category"] if primero else "fachada",
+            "anterior": tipos[0]["name"] if tipos else None,
+            "nombre": primero["name"],
+            "capas": layers_text(primero),
+            "categoria": primero["wall_category"],
             "ruta": str(Path.cwd() / "tipos_muro.csv"),
         }
-        editar = lambda v: v["accion"] in ("crear", "editar")
-        elegir = lambda v: v["accion"] in ("editar", "eliminar")
+        editar = lambda v: v["accion"] in ("crear", "editar", "duplicar")
+        elegir = lambda v: v["accion"] in ("editar", "eliminar", "duplicar")
         archivo = lambda v: v["accion"] in ("importar", "exportar")
         campos = [
             opcion(
@@ -190,7 +190,7 @@ class ConfiguracionTexto(PreguntasTexto, Tool):
                 "Catálogo de muros",
                 [
                     (t.capitalize(), t)
-                    for t in ("listar", "crear", "editar", "eliminar", "importar", "exportar")
+                    for t in ("listar", "crear", "editar", "duplicar", "eliminar", "importar", "exportar")
                 ],
             ),
             opcion("anterior", "Tipo existente", [(t["name"], t["name"]) for t in tipos], elegir),
@@ -202,11 +202,14 @@ class ConfiguracionTexto(PreguntasTexto, Tool):
 
         def cambiar(clave, valor, datos):
             if clave == "accion" and valor == "crear":
-                datos.update(nombre="Muro nuevo", capas="0,15 Sin definir", categoria="fachada")
+                tipo = nuevo_tipo(tipos)
+                datos.update(nombre=tipo["name"], capas=layers_text(tipo), categoria=tipo["wall_category"])
             if clave == "anterior":
                 tipo = next((t for t in tipos if t["name"] == valor), None)
                 if tipo is None:
                     raise ValueError("Seleccione un tipo existente")
+                if datos["accion"] == "duplicar":
+                    tipo = nuevo_tipo(tipos, tipo)
                 datos.update(
                     nombre=tipo["name"], capas=layers_text(tipo), categoria=tipo["wall_category"]
                 )
@@ -226,7 +229,7 @@ class ConfiguracionTexto(PreguntasTexto, Tool):
             return
         tipos = deepcopy(self._configuracion["wall_types"])
         anterior = next((t for t in tipos if t["name"] == valores["anterior"]), None)
-        if accion in ("editar", "eliminar") and anterior is None:
+        if accion in ("editar", "eliminar", "duplicar") and anterior is None:
             raise ValueError("Seleccione un tipo existente")
         if accion == "eliminar":
             tipos.remove(anterior)
