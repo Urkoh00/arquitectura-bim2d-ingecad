@@ -423,3 +423,8 @@ Los avisos y la ayuda de ELEMENTOS, SELATRIB, HIPERVINCULO, URL y LISTATEXTOS
 explican su alcance informativo. Este cambio no altera sus menús ni ejecuta
 selecciones, enlaces o copias nuevas. MEMORIACARP se rehace por separado a partir
 de las fuentes BIM; no se confunde la aclaración de avisos con esa implementación.
+
+El recorrido de ventana de R27 admite `R27_VALORES_CUADRO` para teclear campos
+QLineEdit de una ficha real antes de aceptarla. R28 lo usa para comparar la edición
+de `mark` en PROPIEDADESARQ y su variante; el ensayo conserva las identidades y
+comprueba que la variante no abre cuadros.

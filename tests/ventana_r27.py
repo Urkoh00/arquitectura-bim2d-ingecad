@@ -111,6 +111,15 @@ def contestar_cuadro():
         if botones:
             QTest.mouseClick(botones[-1], Qt.LeftButton)
         return
+    if id(cuadro) not in cuadros_preparados:
+        cuadros_preparados.add(id(cuadro))
+        for clave, valor in json.loads(os.environ.get("R27_VALORES_CUADRO", "{}")).items():
+            campo = getattr(cuadro, "_arq", {}).get(clave)
+            if not isinstance(campo, QLineEdit):
+                raise AssertionError("No hay un campo de texto en la ficha: " + clave)
+            campo.setFocus()
+            campo.selectAll()
+            QTest.keyClicks(campo, str(valor))
     botones = cuadro.findChildren(QDialogButtonBox)
     for caja in botones:
         aceptar = [
