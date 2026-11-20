@@ -117,3 +117,19 @@ def test_campo_numerico_invalido_permanece_y_permite_reintentar(plugin, entrada)
     responder(herramienta, {"depth": "25cm"})
     assert herramienta.values["width"] == 0.25
     assert herramienta.values["depth"] == 0.25
+
+
+def test_carpinteria_texto_usa_la_misma_flecha_de_facetado_que_la_ficha(plugin):
+    import importlib
+    from PySide6.QtWidgets import QApplication
+    aplicacion = QApplication.instance() or QApplication([])
+    sesion = Session(plugin)
+    herramienta = sesion.tool('-CARPINTERIA')
+    responder(herramienta)
+    paquete = plugin.tools['MURO'].__module__.rsplit('.', 1)[0]
+    fichas = importlib.import_module(paquete + '.bim_dialogs')
+    contexto = type('ContextoFicha', (), {'host': None, 'services': None})()
+    dialogo, leer = fichas.carpentry_form(contexto, {'type': 'door', 'width': .885, 'height': 2.1, 'sill': 0.})
+    assert herramienta.v['facet_sagitta'] == leer()['facet_sagitta']
+    dialogo.close()
+    assert aplicacion is not None

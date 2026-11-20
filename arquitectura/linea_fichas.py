@@ -232,10 +232,11 @@ def campos_carpinteria(ctx, datos, editar=False):
     catalogo = [
         t for t in load_defaults(require_document(ctx))["opening_types"] if not t.get("cabinet")
     ]
+    datos.update(OP.normalise(datos))
     datos.setdefault("_tipo_catalogo", None)
     datos.setdefault("leaf", 0.825)
     datos.setdefault("leaf2", 0.0)
-    datos.setdefault("facet_sagitta", 0.002)
+    datos.setdefault("facet_sagitta", 0.005)
     datos.setdefault("setback", 0.0)
     datos.setdefault("setback_from", "exterior")
     datos.setdefault("curve_mode", "plana")
