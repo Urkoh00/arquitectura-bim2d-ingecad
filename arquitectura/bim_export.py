@@ -72,7 +72,7 @@ def exportar_bim(ctx, *args):
             ctx.echo('No hay muros ni pilares BIM que exportar.')
             return None
         tmp.replace(dest)                       # never leave a half-written file
-    except ValueError as exc:
+    except (ValueError, OSError) as exc:
         ctx.echo(f'EXPORTARBIM: {exc}')
         return None
     walls = sum(1 for e in data['elements'] if e['ifc_class'] == 'IfcWall')
