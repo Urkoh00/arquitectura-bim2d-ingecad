@@ -1,0 +1,283 @@
+{
+  "case_id": "05_vuelo",
+  "model": {
+    "schema": "arq.cubierta/v1",
+    "kind": "roof",
+    "id": "cubierta-05_vuelo",
+    "name": "Referencia 05_vuelo",
+    "level_id": "nivel-referencia",
+    "base_offset": 0.0,
+    "origin_xy": [
+      0.0,
+      0.0
+    ],
+    "mode": "manual",
+    "outer": {
+      "id": "05_vuelo-anillo-0",
+      "vertices": [
+        {
+          "id": "05_vuelo-anillo-0-v0",
+          "xy": [
+            0,
+            0
+          ]
+        },
+        {
+          "id": "05_vuelo-anillo-0-v1",
+          "xy": [
+            8,
+            0
+          ]
+        },
+        {
+          "id": "05_vuelo-anillo-0-v2",
+          "xy": [
+            8,
+            6
+          ]
+        },
+        {
+          "id": "05_vuelo-anillo-0-v3",
+          "xy": [
+            0,
+            6
+          ]
+        }
+      ]
+    },
+    "holes": [],
+    "edges": [
+      {
+        "id": "05_vuelo-anillo-0-e0",
+        "ring_id": "05_vuelo-anillo-0",
+        "start_vertex_id": "05_vuelo-anillo-0-v0",
+        "end_vertex_id": "05_vuelo-anillo-0-v1",
+        "role": "eave",
+        "slope": 0.5,
+        "start_offset": 0.0,
+        "overhang": 0.5
+      },
+      {
+        "id": "05_vuelo-anillo-0-e1",
+        "ring_id": "05_vuelo-anillo-0",
+        "start_vertex_id": "05_vuelo-anillo-0-v1",
+        "end_vertex_id": "05_vuelo-anillo-0-v2",
+        "role": "eave",
+        "slope": 0.5,
+        "start_offset": 0.0,
+        "overhang": 0.5
+      },
+      {
+        "id": "05_vuelo-anillo-0-e2",
+        "ring_id": "05_vuelo-anillo-0",
+        "start_vertex_id": "05_vuelo-anillo-0-v2",
+        "end_vertex_id": "05_vuelo-anillo-0-v3",
+        "role": "eave",
+        "slope": 0.5,
+        "start_offset": 0.0,
+        "overhang": 0.5
+      },
+      {
+        "id": "05_vuelo-anillo-0-e3",
+        "ring_id": "05_vuelo-anillo-0",
+        "start_vertex_id": "05_vuelo-anillo-0-v3",
+        "end_vertex_id": "05_vuelo-anillo-0-v0",
+        "role": "eave",
+        "slope": 0.5,
+        "start_offset": 0.0,
+        "overhang": 0.5
+      }
+    ],
+    "thickness": {
+      "value": 0.2,
+      "direction": "vertical"
+    },
+    "material": "Material sintético sin propiedades térmicas",
+    "layers": [],
+    "support_slab_id": "forjado-referencia",
+    "solution": {
+      "algorithm": {
+        "name": "referencia-manual",
+        "version": "1"
+      },
+      "input_fingerprint": "fe24bc19b89020c8b44625a1cc833a3d38384c4663cdee103057000b3e04d339",
+      "outer": [
+        [
+          -0.5,
+          -0.5
+        ],
+        [
+          8.5,
+          -0.5
+        ],
+        [
+          8.5,
+          6.5
+        ],
+        [
+          -0.5,
+          6.5
+        ]
+      ],
+      "holes": [],
+      "facets": [
+        {
+          "id": "05_vuelo-faldon-0",
+          "source_edge_ids": [
+            "05_vuelo-anillo-0-e0"
+          ],
+          "outer": [
+            [
+              -0.5,
+              -0.5
+            ],
+            [
+              8.5,
+              -0.5
+            ],
+            [
+              5.0,
+              3.0
+            ],
+            [
+              3.0,
+              3.0
+            ]
+          ],
+          "holes": [],
+          "plane": {
+            "point": [
+              0.0,
+              0.0,
+              0.25
+            ],
+            "gradient": [
+              0,
+              0.5
+            ]
+          }
+        },
+        {
+          "id": "05_vuelo-faldon-1",
+          "source_edge_ids": [
+            "05_vuelo-anillo-0-e1"
+          ],
+          "outer": [
+            [
+              8.5,
+              -0.5
+            ],
+            [
+              8.5,
+              6.5
+            ],
+            [
+              5.0,
+              3.0
+            ]
+          ],
+          "holes": [],
+          "plane": {
+            "point": [
+              0.0,
+              0.0,
+              4.25
+            ],
+            "gradient": [
+              -0.5,
+              0
+            ]
+          }
+        },
+        {
+          "id": "05_vuelo-faldon-2",
+          "source_edge_ids": [
+            "05_vuelo-anillo-0-e2"
+          ],
+          "outer": [
+            [
+              8.5,
+              6.5
+            ],
+            [
+              -0.5,
+              6.5
+            ],
+            [
+              3.0,
+              3.0
+            ],
+            [
+              5.0,
+              3.0
+            ]
+          ],
+          "holes": [],
+          "plane": {
+            "point": [
+              0.0,
+              0.0,
+              3.25
+            ],
+            "gradient": [
+              0,
+              -0.5
+            ]
+          }
+        },
+        {
+          "id": "05_vuelo-faldon-3",
+          "source_edge_ids": [
+            "05_vuelo-anillo-0-e3"
+          ],
+          "outer": [
+            [
+              -0.5,
+              6.5
+            ],
+            [
+              -0.5,
+              -0.5
+            ],
+            [
+              3.0,
+              3.0
+            ]
+          ],
+          "holes": [],
+          "plane": {
+            "point": [
+              0.0,
+              0.0,
+              0.25
+            ],
+            "gradient": [
+              0.5,
+              0
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "expected": {
+    "decision": "accept",
+    "volume_below_local_zero": 40.833333333333336,
+    "exact_volume_fraction": [
+      245,
+      6
+    ],
+    "events": [
+      [
+        3,
+        3,
+        1.75
+      ],
+      [
+        5,
+        3,
+        1.75
+      ]
+    ]
+  }
+}

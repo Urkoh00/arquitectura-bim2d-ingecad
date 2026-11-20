@@ -1,0 +1,402 @@
+{
+  "case_id": "03_planta_l",
+  "model": {
+    "schema": "arq.cubierta/v1",
+    "kind": "roof",
+    "id": "cubierta-03_planta_l",
+    "name": "Referencia 03_planta_l",
+    "level_id": "nivel-referencia",
+    "base_offset": 0.0,
+    "origin_xy": [
+      0.0,
+      0.0
+    ],
+    "mode": "manual",
+    "outer": {
+      "id": "03_planta_l-anillo-0",
+      "vertices": [
+        {
+          "id": "03_planta_l-anillo-0-v0",
+          "xy": [
+            0,
+            0
+          ]
+        },
+        {
+          "id": "03_planta_l-anillo-0-v1",
+          "xy": [
+            6,
+            0
+          ]
+        },
+        {
+          "id": "03_planta_l-anillo-0-v2",
+          "xy": [
+            6,
+            2
+          ]
+        },
+        {
+          "id": "03_planta_l-anillo-0-v3",
+          "xy": [
+            2,
+            2
+          ]
+        },
+        {
+          "id": "03_planta_l-anillo-0-v4",
+          "xy": [
+            2,
+            6
+          ]
+        },
+        {
+          "id": "03_planta_l-anillo-0-v5",
+          "xy": [
+            0,
+            6
+          ]
+        }
+      ]
+    },
+    "holes": [],
+    "edges": [
+      {
+        "id": "03_planta_l-anillo-0-e0",
+        "ring_id": "03_planta_l-anillo-0",
+        "start_vertex_id": "03_planta_l-anillo-0-v0",
+        "end_vertex_id": "03_planta_l-anillo-0-v1",
+        "role": "eave",
+        "slope": 0.5,
+        "start_offset": 0.0,
+        "overhang": 0.0
+      },
+      {
+        "id": "03_planta_l-anillo-0-e1",
+        "ring_id": "03_planta_l-anillo-0",
+        "start_vertex_id": "03_planta_l-anillo-0-v1",
+        "end_vertex_id": "03_planta_l-anillo-0-v2",
+        "role": "eave",
+        "slope": 0.5,
+        "start_offset": 0.0,
+        "overhang": 0.0
+      },
+      {
+        "id": "03_planta_l-anillo-0-e2",
+        "ring_id": "03_planta_l-anillo-0",
+        "start_vertex_id": "03_planta_l-anillo-0-v2",
+        "end_vertex_id": "03_planta_l-anillo-0-v3",
+        "role": "eave",
+        "slope": 0.5,
+        "start_offset": 0.0,
+        "overhang": 0.0
+      },
+      {
+        "id": "03_planta_l-anillo-0-e3",
+        "ring_id": "03_planta_l-anillo-0",
+        "start_vertex_id": "03_planta_l-anillo-0-v3",
+        "end_vertex_id": "03_planta_l-anillo-0-v4",
+        "role": "eave",
+        "slope": 0.5,
+        "start_offset": 0.0,
+        "overhang": 0.0
+      },
+      {
+        "id": "03_planta_l-anillo-0-e4",
+        "ring_id": "03_planta_l-anillo-0",
+        "start_vertex_id": "03_planta_l-anillo-0-v4",
+        "end_vertex_id": "03_planta_l-anillo-0-v5",
+        "role": "eave",
+        "slope": 0.5,
+        "start_offset": 0.0,
+        "overhang": 0.0
+      },
+      {
+        "id": "03_planta_l-anillo-0-e5",
+        "ring_id": "03_planta_l-anillo-0",
+        "start_vertex_id": "03_planta_l-anillo-0-v5",
+        "end_vertex_id": "03_planta_l-anillo-0-v0",
+        "role": "eave",
+        "slope": 0.5,
+        "start_offset": 0.0,
+        "overhang": 0.0
+      }
+    ],
+    "thickness": {
+      "value": 0.2,
+      "direction": "vertical"
+    },
+    "material": "Material sintético sin propiedades térmicas",
+    "layers": [],
+    "support_slab_id": null,
+    "solution": {
+      "algorithm": {
+        "name": "referencia-manual",
+        "version": "1"
+      },
+      "input_fingerprint": "696e3e78ff51a66d703bfd485730761fa2d58eb0b56238ab5c9e1da7936d8456",
+      "outer": [
+        [
+          0,
+          0
+        ],
+        [
+          6,
+          0
+        ],
+        [
+          6,
+          2
+        ],
+        [
+          2,
+          2
+        ],
+        [
+          2,
+          6
+        ],
+        [
+          0,
+          6
+        ]
+      ],
+      "holes": [],
+      "facets": [
+        {
+          "id": "03_planta_l-faldon-0",
+          "source_edge_ids": [
+            "03_planta_l-anillo-0-e0"
+          ],
+          "outer": [
+            [
+              0,
+              0
+            ],
+            [
+              6,
+              0
+            ],
+            [
+              5,
+              1
+            ],
+            [
+              1,
+              1
+            ]
+          ],
+          "holes": [],
+          "plane": {
+            "point": [
+              0.0,
+              0.0,
+              0
+            ],
+            "gradient": [
+              0,
+              0.5
+            ]
+          }
+        },
+        {
+          "id": "03_planta_l-faldon-1",
+          "source_edge_ids": [
+            "03_planta_l-anillo-0-e1"
+          ],
+          "outer": [
+            [
+              6,
+              0
+            ],
+            [
+              6,
+              2
+            ],
+            [
+              5,
+              1
+            ]
+          ],
+          "holes": [],
+          "plane": {
+            "point": [
+              0.0,
+              0.0,
+              3
+            ],
+            "gradient": [
+              -0.5,
+              0
+            ]
+          }
+        },
+        {
+          "id": "03_planta_l-faldon-2",
+          "source_edge_ids": [
+            "03_planta_l-anillo-0-e2"
+          ],
+          "outer": [
+            [
+              6,
+              2
+            ],
+            [
+              2,
+              2
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              5,
+              1
+            ]
+          ],
+          "holes": [],
+          "plane": {
+            "point": [
+              0.0,
+              0.0,
+              1
+            ],
+            "gradient": [
+              0,
+              -0.5
+            ]
+          }
+        },
+        {
+          "id": "03_planta_l-faldon-3",
+          "source_edge_ids": [
+            "03_planta_l-anillo-0-e3"
+          ],
+          "outer": [
+            [
+              2,
+              2
+            ],
+            [
+              2,
+              6
+            ],
+            [
+              1,
+              5
+            ],
+            [
+              1,
+              1
+            ]
+          ],
+          "holes": [],
+          "plane": {
+            "point": [
+              0.0,
+              0.0,
+              1
+            ],
+            "gradient": [
+              -0.5,
+              0
+            ]
+          }
+        },
+        {
+          "id": "03_planta_l-faldon-4",
+          "source_edge_ids": [
+            "03_planta_l-anillo-0-e4"
+          ],
+          "outer": [
+            [
+              2,
+              6
+            ],
+            [
+              0,
+              6
+            ],
+            [
+              1,
+              5
+            ]
+          ],
+          "holes": [],
+          "plane": {
+            "point": [
+              0.0,
+              0.0,
+              3
+            ],
+            "gradient": [
+              0,
+              -0.5
+            ]
+          }
+        },
+        {
+          "id": "03_planta_l-faldon-5",
+          "source_edge_ids": [
+            "03_planta_l-anillo-0-e5"
+          ],
+          "outer": [
+            [
+              0,
+              6
+            ],
+            [
+              0,
+              0
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              1,
+              5
+            ]
+          ],
+          "holes": [],
+          "plane": {
+            "point": [
+              0.0,
+              0.0,
+              0
+            ],
+            "gradient": [
+              0.5,
+              0
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "expected": {
+    "decision": "accept",
+    "volume_below_local_zero": 4.666666666666667,
+    "exact_volume_fraction": [
+      14,
+      3
+    ],
+    "events": [
+      [
+        1,
+        1,
+        0.5
+      ],
+      [
+        5,
+        1,
+        0.5
+      ],
+      [
+        1,
+        5,
+        0.5
+      ]
+    ]
+  }
+}

@@ -3,3 +3,5 @@ pytest>=8.0
 ezdxf>=1.3
 shapely>=2.0      # solo como oráculo independiente en las pruebas
 ifcopenshell      # opcional: tests/validate_ifc.py
+
+jsonschema>=4.23,<5  # solo valida el esquema propuesto de cubiertas en B0

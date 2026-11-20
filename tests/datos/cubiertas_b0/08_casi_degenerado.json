@@ -1,0 +1,287 @@
+{
+  "case_id": "08_casi_degenerado",
+  "model": {
+    "schema": "arq.cubierta/v1",
+    "kind": "roof",
+    "id": "cubierta-01_rectangulo_igual",
+    "name": "Referencia 01_rectangulo_igual",
+    "level_id": "nivel-referencia",
+    "base_offset": 0.0,
+    "origin_xy": [
+      0.0,
+      0.0
+    ],
+    "mode": "manual",
+    "outer": {
+      "id": "01_rectangulo_igual-anillo-0",
+      "vertices": [
+        {
+          "id": "01_rectangulo_igual-anillo-0-v0",
+          "xy": [
+            0,
+            0
+          ]
+        },
+        {
+          "id": "01_rectangulo_igual-anillo-0-v1",
+          "xy": [
+            8,
+            0
+          ]
+        },
+        {
+          "id": "01_rectangulo_igual-anillo-0-v2",
+          "xy": [
+            8,
+            6
+          ]
+        },
+        {
+          "id": "01_rectangulo_igual-anillo-0-v3",
+          "xy": [
+            0,
+            6
+          ]
+        },
+        {
+          "id": "01_rectangulo_igual-anillo-0-v4",
+          "xy": [
+            0,
+            5.99999995
+          ]
+        }
+      ]
+    },
+    "holes": [],
+    "edges": [
+      {
+        "id": "01_rectangulo_igual-anillo-0-e0",
+        "ring_id": "01_rectangulo_igual-anillo-0",
+        "start_vertex_id": "01_rectangulo_igual-anillo-0-v0",
+        "end_vertex_id": "01_rectangulo_igual-anillo-0-v1",
+        "role": "eave",
+        "slope": 0.5,
+        "start_offset": 0.0,
+        "overhang": 0.0
+      },
+      {
+        "id": "01_rectangulo_igual-anillo-0-e1",
+        "ring_id": "01_rectangulo_igual-anillo-0",
+        "start_vertex_id": "01_rectangulo_igual-anillo-0-v1",
+        "end_vertex_id": "01_rectangulo_igual-anillo-0-v2",
+        "role": "eave",
+        "slope": 0.5,
+        "start_offset": 0.0,
+        "overhang": 0.0
+      },
+      {
+        "id": "01_rectangulo_igual-anillo-0-e2",
+        "ring_id": "01_rectangulo_igual-anillo-0",
+        "start_vertex_id": "01_rectangulo_igual-anillo-0-v2",
+        "end_vertex_id": "01_rectangulo_igual-anillo-0-v3",
+        "role": "eave",
+        "slope": 0.5,
+        "start_offset": 0.0,
+        "overhang": 0.0
+      },
+      {
+        "id": "01_rectangulo_igual-anillo-0-e3",
+        "ring_id": "01_rectangulo_igual-anillo-0",
+        "start_vertex_id": "01_rectangulo_igual-anillo-0-v3",
+        "end_vertex_id": "01_rectangulo_igual-anillo-0-v4",
+        "role": "eave",
+        "slope": 0.5,
+        "start_offset": 0.0,
+        "overhang": 0.0
+      },
+      {
+        "id": "01_rectangulo_igual-anillo-0-e4",
+        "ring_id": "01_rectangulo_igual-anillo-0",
+        "start_vertex_id": "01_rectangulo_igual-anillo-0-v4",
+        "end_vertex_id": "01_rectangulo_igual-anillo-0-v0",
+        "role": "eave",
+        "slope": 0.5,
+        "start_offset": 0.0,
+        "overhang": 0.0
+      }
+    ],
+    "thickness": {
+      "value": 0.2,
+      "direction": "vertical"
+    },
+    "material": "Material sintético sin propiedades térmicas",
+    "layers": [],
+    "support_slab_id": null,
+    "solution": {
+      "algorithm": {
+        "name": "referencia-manual",
+        "version": "1"
+      },
+      "input_fingerprint": "074a79b5943749fc6948b47dd47a9d3a1736ae3a14ab867b45476e8ef738c0e1",
+      "outer": [
+        [
+          0,
+          0
+        ],
+        [
+          8,
+          0
+        ],
+        [
+          8,
+          6
+        ],
+        [
+          0,
+          6
+        ]
+      ],
+      "holes": [],
+      "facets": [
+        {
+          "id": "01_rectangulo_igual-faldon-0",
+          "source_edge_ids": [
+            "01_rectangulo_igual-anillo-0-e0"
+          ],
+          "outer": [
+            [
+              0,
+              0
+            ],
+            [
+              8,
+              0
+            ],
+            [
+              5.0,
+              3.0
+            ],
+            [
+              3.0,
+              3.0
+            ]
+          ],
+          "holes": [],
+          "plane": {
+            "point": [
+              0.0,
+              0.0,
+              -0.0
+            ],
+            "gradient": [
+              0,
+              0.5
+            ]
+          }
+        },
+        {
+          "id": "01_rectangulo_igual-faldon-1",
+          "source_edge_ids": [
+            "01_rectangulo_igual-anillo-0-e1"
+          ],
+          "outer": [
+            [
+              8,
+              0
+            ],
+            [
+              8,
+              6
+            ],
+            [
+              5.0,
+              3.0
+            ]
+          ],
+          "holes": [],
+          "plane": {
+            "point": [
+              0.0,
+              0.0,
+              4.0
+            ],
+            "gradient": [
+              -0.5,
+              0
+            ]
+          }
+        },
+        {
+          "id": "01_rectangulo_igual-faldon-2",
+          "source_edge_ids": [
+            "01_rectangulo_igual-anillo-0-e2"
+          ],
+          "outer": [
+            [
+              8,
+              6
+            ],
+            [
+              0,
+              6
+            ],
+            [
+              3.0,
+              3.0
+            ],
+            [
+              5.0,
+              3.0
+            ]
+          ],
+          "holes": [],
+          "plane": {
+            "point": [
+              0.0,
+              0.0,
+              3.0
+            ],
+            "gradient": [
+              0,
+              -0.5
+            ]
+          }
+        },
+        {
+          "id": "01_rectangulo_igual-faldon-3",
+          "source_edge_ids": [
+            "01_rectangulo_igual-anillo-0-e3",
+            "01_rectangulo_igual-anillo-0-e4"
+          ],
+          "outer": [
+            [
+              0,
+              6
+            ],
+            [
+              0,
+              0
+            ],
+            [
+              3.0,
+              3.0
+            ]
+          ],
+          "holes": [],
+          "plane": {
+            "point": [
+              0.0,
+              0.0,
+              -0.0
+            ],
+            "gradient": [
+              0.5,
+              0
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "expected": {
+    "decision": "reject",
+    "valid_variant_delta": 2e-07,
+    "rejected_variant_delta": 5e-08,
+    "reason": "tolerancia"
+  }
+}

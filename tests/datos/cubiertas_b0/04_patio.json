@@ -1,0 +1,525 @@
+{
+  "case_id": "04_patio",
+  "model": {
+    "schema": "arq.cubierta/v1",
+    "kind": "roof",
+    "id": "cubierta-04_patio",
+    "name": "Referencia 04_patio",
+    "level_id": "nivel-referencia",
+    "base_offset": 0.0,
+    "origin_xy": [
+      0.0,
+      0.0
+    ],
+    "mode": "manual",
+    "outer": {
+      "id": "04_patio-anillo-0",
+      "vertices": [
+        {
+          "id": "04_patio-anillo-0-v0",
+          "xy": [
+            0,
+            0
+          ]
+        },
+        {
+          "id": "04_patio-anillo-0-v1",
+          "xy": [
+            10,
+            0
+          ]
+        },
+        {
+          "id": "04_patio-anillo-0-v2",
+          "xy": [
+            10,
+            10
+          ]
+        },
+        {
+          "id": "04_patio-anillo-0-v3",
+          "xy": [
+            0,
+            10
+          ]
+        }
+      ]
+    },
+    "holes": [
+      {
+        "id": "04_patio-anillo-1",
+        "vertices": [
+          {
+            "id": "04_patio-anillo-1-v0",
+            "xy": [
+              3,
+              3
+            ]
+          },
+          {
+            "id": "04_patio-anillo-1-v1",
+            "xy": [
+              3,
+              7
+            ]
+          },
+          {
+            "id": "04_patio-anillo-1-v2",
+            "xy": [
+              7,
+              7
+            ]
+          },
+          {
+            "id": "04_patio-anillo-1-v3",
+            "xy": [
+              7,
+              3
+            ]
+          }
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "id": "04_patio-anillo-0-e0",
+        "ring_id": "04_patio-anillo-0",
+        "start_vertex_id": "04_patio-anillo-0-v0",
+        "end_vertex_id": "04_patio-anillo-0-v1",
+        "role": "eave",
+        "slope": 0.5,
+        "start_offset": 0.0,
+        "overhang": 0.0
+      },
+      {
+        "id": "04_patio-anillo-0-e1",
+        "ring_id": "04_patio-anillo-0",
+        "start_vertex_id": "04_patio-anillo-0-v1",
+        "end_vertex_id": "04_patio-anillo-0-v2",
+        "role": "eave",
+        "slope": 0.5,
+        "start_offset": 0.0,
+        "overhang": 0.0
+      },
+      {
+        "id": "04_patio-anillo-0-e2",
+        "ring_id": "04_patio-anillo-0",
+        "start_vertex_id": "04_patio-anillo-0-v2",
+        "end_vertex_id": "04_patio-anillo-0-v3",
+        "role": "eave",
+        "slope": 0.5,
+        "start_offset": 0.0,
+        "overhang": 0.0
+      },
+      {
+        "id": "04_patio-anillo-0-e3",
+        "ring_id": "04_patio-anillo-0",
+        "start_vertex_id": "04_patio-anillo-0-v3",
+        "end_vertex_id": "04_patio-anillo-0-v0",
+        "role": "eave",
+        "slope": 0.5,
+        "start_offset": 0.0,
+        "overhang": 0.0
+      },
+      {
+        "id": "04_patio-anillo-1-e0",
+        "ring_id": "04_patio-anillo-1",
+        "start_vertex_id": "04_patio-anillo-1-v0",
+        "end_vertex_id": "04_patio-anillo-1-v1",
+        "role": "eave",
+        "slope": 0.5,
+        "start_offset": 0.0,
+        "overhang": 0.0
+      },
+      {
+        "id": "04_patio-anillo-1-e1",
+        "ring_id": "04_patio-anillo-1",
+        "start_vertex_id": "04_patio-anillo-1-v1",
+        "end_vertex_id": "04_patio-anillo-1-v2",
+        "role": "eave",
+        "slope": 0.5,
+        "start_offset": 0.0,
+        "overhang": 0.0
+      },
+      {
+        "id": "04_patio-anillo-1-e2",
+        "ring_id": "04_patio-anillo-1",
+        "start_vertex_id": "04_patio-anillo-1-v2",
+        "end_vertex_id": "04_patio-anillo-1-v3",
+        "role": "eave",
+        "slope": 0.5,
+        "start_offset": 0.0,
+        "overhang": 0.0
+      },
+      {
+        "id": "04_patio-anillo-1-e3",
+        "ring_id": "04_patio-anillo-1",
+        "start_vertex_id": "04_patio-anillo-1-v3",
+        "end_vertex_id": "04_patio-anillo-1-v0",
+        "role": "eave",
+        "slope": 0.5,
+        "start_offset": 0.0,
+        "overhang": 0.0
+      }
+    ],
+    "thickness": {
+      "value": 0.2,
+      "direction": "vertical"
+    },
+    "material": "Material sintético sin propiedades térmicas",
+    "layers": [],
+    "support_slab_id": null,
+    "solution": {
+      "algorithm": {
+        "name": "referencia-manual",
+        "version": "1"
+      },
+      "input_fingerprint": "f02b59e3911f744c7e2603adfc0f03487717042d3255ea8b7032bb77f73117b4",
+      "outer": [
+        [
+          0,
+          0
+        ],
+        [
+          10,
+          0
+        ],
+        [
+          10,
+          10
+        ],
+        [
+          0,
+          10
+        ]
+      ],
+      "holes": [
+        [
+          [
+            3,
+            3
+          ],
+          [
+            3,
+            7
+          ],
+          [
+            7,
+            7
+          ],
+          [
+            7,
+            3
+          ]
+        ]
+      ],
+      "facets": [
+        {
+          "id": "04_patio-faldon-0",
+          "source_edge_ids": [
+            "04_patio-anillo-0-e0"
+          ],
+          "outer": [
+            [
+              0,
+              0
+            ],
+            [
+              10,
+              0
+            ],
+            [
+              8.5,
+              1.5
+            ],
+            [
+              1.5,
+              1.5
+            ]
+          ],
+          "holes": [],
+          "plane": {
+            "point": [
+              0.0,
+              0.0,
+              0
+            ],
+            "gradient": [
+              0,
+              0.5
+            ]
+          }
+        },
+        {
+          "id": "04_patio-faldon-1",
+          "source_edge_ids": [
+            "04_patio-anillo-0-e1"
+          ],
+          "outer": [
+            [
+              10,
+              0
+            ],
+            [
+              10,
+              10
+            ],
+            [
+              8.5,
+              8.5
+            ],
+            [
+              8.5,
+              1.5
+            ]
+          ],
+          "holes": [],
+          "plane": {
+            "point": [
+              0.0,
+              0.0,
+              5
+            ],
+            "gradient": [
+              -0.5,
+              0
+            ]
+          }
+        },
+        {
+          "id": "04_patio-faldon-2",
+          "source_edge_ids": [
+            "04_patio-anillo-0-e2"
+          ],
+          "outer": [
+            [
+              10,
+              10
+            ],
+            [
+              0,
+              10
+            ],
+            [
+              1.5,
+              8.5
+            ],
+            [
+              8.5,
+              8.5
+            ]
+          ],
+          "holes": [],
+          "plane": {
+            "point": [
+              0.0,
+              0.0,
+              5
+            ],
+            "gradient": [
+              0,
+              -0.5
+            ]
+          }
+        },
+        {
+          "id": "04_patio-faldon-3",
+          "source_edge_ids": [
+            "04_patio-anillo-0-e3"
+          ],
+          "outer": [
+            [
+              0,
+              10
+            ],
+            [
+              0,
+              0
+            ],
+            [
+              1.5,
+              1.5
+            ],
+            [
+              1.5,
+              8.5
+            ]
+          ],
+          "holes": [],
+          "plane": {
+            "point": [
+              0.0,
+              0.0,
+              0
+            ],
+            "gradient": [
+              0.5,
+              0
+            ]
+          }
+        },
+        {
+          "id": "04_patio-faldon-4",
+          "source_edge_ids": [
+            "04_patio-anillo-1-e0"
+          ],
+          "outer": [
+            [
+              3,
+              7
+            ],
+            [
+              1.5,
+              8.5
+            ],
+            [
+              1.5,
+              1.5
+            ],
+            [
+              3,
+              3
+            ]
+          ],
+          "holes": [],
+          "plane": {
+            "point": [
+              0.0,
+              0.0,
+              1.5
+            ],
+            "gradient": [
+              -0.5,
+              0
+            ]
+          }
+        },
+        {
+          "id": "04_patio-faldon-5",
+          "source_edge_ids": [
+            "04_patio-anillo-1-e1"
+          ],
+          "outer": [
+            [
+              7,
+              7
+            ],
+            [
+              8.5,
+              8.5
+            ],
+            [
+              1.5,
+              8.5
+            ],
+            [
+              3,
+              7
+            ]
+          ],
+          "holes": [],
+          "plane": {
+            "point": [
+              0.0,
+              0.0,
+              -3.5
+            ],
+            "gradient": [
+              0,
+              0.5
+            ]
+          }
+        },
+        {
+          "id": "04_patio-faldon-6",
+          "source_edge_ids": [
+            "04_patio-anillo-1-e2"
+          ],
+          "outer": [
+            [
+              7,
+              3
+            ],
+            [
+              8.5,
+              1.5
+            ],
+            [
+              8.5,
+              8.5
+            ],
+            [
+              7,
+              7
+            ]
+          ],
+          "holes": [],
+          "plane": {
+            "point": [
+              0.0,
+              0.0,
+              -3.5
+            ],
+            "gradient": [
+              0.5,
+              0
+            ]
+          }
+        },
+        {
+          "id": "04_patio-faldon-7",
+          "source_edge_ids": [
+            "04_patio-anillo-1-e3"
+          ],
+          "outer": [
+            [
+              3,
+              3
+            ],
+            [
+              1.5,
+              1.5
+            ],
+            [
+              8.5,
+              1.5
+            ],
+            [
+              7,
+              3
+            ]
+          ],
+          "holes": [],
+          "plane": {
+            "point": [
+              0.0,
+              0.0,
+              1.5
+            ],
+            "gradient": [
+              0,
+              -0.5
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "expected": {
+    "decision": "accept",
+    "volume_below_local_zero": 31.5,
+    "exact_volume_fraction": null,
+    "events": [
+      [
+        1.5,
+        1.5,
+        0.75
+      ],
+      [
+        8.5,
+        8.5,
+        0.75
+      ]
+    ]
+  }
+}

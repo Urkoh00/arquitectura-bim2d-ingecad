@@ -1,0 +1,462 @@
+{
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": "arq.cubierta/v1"
+    },
+    "kind": {
+      "const": "roof"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "level_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "base_offset": {
+      "type": "number"
+    },
+    "origin_xy": {
+      "type": "array",
+      "prefixItems": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "number"
+        }
+      ],
+      "items": false,
+      "minItems": 2
+    },
+    "mode": {
+      "enum": [
+        "manual",
+        "automatic",
+        "flat"
+      ]
+    },
+    "outer": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "vertices": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "xy": {
+                "type": "array",
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "items": false,
+                "minItems": 2
+              }
+            },
+            "required": [
+              "id",
+              "xy"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 3
+        }
+      },
+      "required": [
+        "id",
+        "vertices"
+      ],
+      "additionalProperties": false
+    },
+    "holes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "vertices": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "xy": {
+                  "type": "array",
+                  "prefixItems": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "number"
+                    }
+                  ],
+                  "items": false,
+                  "minItems": 2
+                }
+              },
+              "required": [
+                "id",
+                "xy"
+              ],
+              "additionalProperties": false
+            },
+            "minItems": 3
+          }
+        },
+        "required": [
+          "id",
+          "vertices"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 0
+    },
+    "edges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "ring_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "start_vertex_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "end_vertex_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "role": {
+            "enum": [
+              "eave",
+              "gable",
+              "manual"
+            ]
+          },
+          "slope": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "start_offset": {
+            "type": "number"
+          },
+          "overhang": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "id",
+          "ring_id",
+          "start_vertex_id",
+          "end_vertex_id",
+          "role",
+          "slope",
+          "start_offset",
+          "overhang"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 3
+    },
+    "thickness": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "direction": {
+          "enum": [
+            "vertical",
+            "normal"
+          ]
+        }
+      },
+      "required": [
+        "value",
+        "direction"
+      ],
+      "additionalProperties": false
+    },
+    "material": {
+      "type": "string",
+      "minLength": 1
+    },
+    "layers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "material": {
+            "type": "string",
+            "minLength": 1
+          },
+          "thickness": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          }
+        },
+        "required": [
+          "id",
+          "material",
+          "thickness"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 0
+    },
+    "support_slab_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
+    },
+    "solution": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "algorithm": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "version": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "name",
+                "version"
+              ],
+              "additionalProperties": false
+            },
+            "input_fingerprint": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "outer": {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "items": false,
+                "minItems": 2
+              },
+              "minItems": 3
+            },
+            "holes": {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "array",
+                  "prefixItems": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "number"
+                    }
+                  ],
+                  "items": false,
+                  "minItems": 2
+                },
+                "minItems": 3
+              },
+              "minItems": 0
+            },
+            "facets": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "source_edge_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "uniqueItems": true
+                  },
+                  "outer": {
+                    "type": "array",
+                    "items": {
+                      "type": "array",
+                      "prefixItems": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "number"
+                        }
+                      ],
+                      "items": false,
+                      "minItems": 2
+                    },
+                    "minItems": 3
+                  },
+                  "holes": {
+                    "type": "array",
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "array",
+                        "prefixItems": [
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "number"
+                          }
+                        ],
+                        "items": false,
+                        "minItems": 2
+                      },
+                      "minItems": 3
+                    },
+                    "minItems": 0
+                  },
+                  "plane": {
+                    "type": "object",
+                    "properties": {
+                      "point": {
+                        "type": "array",
+                        "prefixItems": [
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "number"
+                          }
+                        ],
+                        "items": false,
+                        "minItems": 3
+                      },
+                      "gradient": {
+                        "type": "array",
+                        "prefixItems": [
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "number"
+                          }
+                        ],
+                        "items": false,
+                        "minItems": 2
+                      }
+                    },
+                    "required": [
+                      "point",
+                      "gradient"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "id",
+                  "source_edge_ids",
+                  "outer",
+                  "holes",
+                  "plane"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 1
+            }
+          },
+          "required": [
+            "algorithm",
+            "input_fingerprint",
+            "outer",
+            "holes",
+            "facets"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    }
+  },
+  "required": [
+    "schema",
+    "kind",
+    "id",
+    "name",
+    "level_id",
+    "base_offset",
+    "origin_xy",
+    "mode",
+    "outer",
+    "holes",
+    "edges",
+    "thickness",
+    "material",
+    "layers",
+    "support_slab_id",
+    "solution"
+  ],
+  "additionalProperties": false,
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Cubierta propuesta R28-B0 (no activa el contrato .arqbim)"
+}
