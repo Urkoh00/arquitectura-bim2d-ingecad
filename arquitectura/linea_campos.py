@@ -286,3 +286,17 @@ class PreguntasTexto:
             return False
         preparar = getattr(super(), "tab_ready", None)
         return preparar() if callable(preparar) else False
+
+
+def entrada_con_prefijo(contexto, prefijos):
+    """Conserva el espacio de una opción con argumento sin capturar coordenadas.
+
+    IngeCAD consulta wants_raw_text sin pasar el texto. La ventana proporciona
+    la entrada actual; una Session sin ventana no tiene ese control.
+    """
+    ventana = getattr(getattr(contexto, "services", None), "window", None)
+    control = getattr(getattr(ventana, "command_line", None), "input", None)
+    if control is None:
+        return False
+    entrada = control.text().strip().casefold()
+    return any(entrada == prefijo or entrada.startswith(prefijo + " ") for prefijo in prefijos)

@@ -116,6 +116,10 @@ def _entrada_segura(metodo):
 
 class GridTool(Tool):
     name='EJES'
+    def wants_raw_text(self):
+        from .linea_campos import entrada_con_prefijo
+        return entrada_con_prefijo(self.ctx, ('x', 'y', 'angulo', 'ángulo'))
+
     def start(self):
         self.name=type(self).name
         self.values={};self.mode='grid';self.first=None;self.origin=None;self.phase='origin';self.last_point=None
@@ -187,6 +191,10 @@ class RejillaTool(GridTool):name='REJILLA'
 
 class GridEditTool(Tool):
     name='EDITAREJE';entity_picker=True
+    def wants_raw_text(self):
+        from .linea_campos import entrada_con_prefijo
+        return getattr(self, 'entity', None) is not None and entrada_con_prefijo(self.ctx, ('renumerar',))
+
     def start(self):self.entity=None;self.prompt('EDITAREJE: designe un eje; después nuevo punto medio o [Separaciones/Ficha/Renumerar valor]:')
     @_entrada_segura
     def on_point(self,p):
