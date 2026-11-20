@@ -146,6 +146,8 @@ def esperar_regeneracion():
 
 
 def escribir(texto):
+    ventana.activateWindow()
+    app.processEvents()
     linea.setFocus()
     QTest.keyClicks(linea, str(texto))
     QTest.keyClick(linea, Qt.Key_Return)
@@ -185,10 +187,43 @@ guion_respuestas = (
     if "R27_RESPUESTAS" in os.environ
     else RESPUESTAS.get(orden.lstrip("-"), [])
 )
+
+
+def estado_teclas():
+    herramienta = ventana.tools.tool
+    if herramienta is None:
+        return {}
+    atributos = ("reference", "dim_axis", "dim_active", "tab_field", "tab_locks")
+    valores = {
+        clave: getattr(herramienta, clave) for clave in atributos if hasattr(herramienta, clave)
+    }
+    return json.loads(json.dumps(valores))
+
+
 for respuesta in guion_respuestas:
     if ventana.tools.tool is None:
         break
-    escribir(respuesta)
+    if isinstance(respuesta, dict):
+        teclas = {
+            "Tab": Qt.Key_Tab,
+            "F4": Qt.Key_F4,
+            "F5": Qt.Key_F5,
+            "F6": Qt.Key_F6,
+            "Return": Qt.Key_Return,
+            "Escape": Qt.Key_Escape,
+        }
+        antes_tecla = json.loads(json.dumps(estado_teclas()))
+        ventana.activateWindow()
+        app.processEvents()
+        linea.setFocus()
+        QTest.keyClicks(linea, str(respuesta.get("texto", "")))
+        modificadores = Qt.ShiftModifier if respuesta.get("atras") else Qt.NoModifier
+        QTest.keyClick(linea, teclas[respuesta["tecla"]], modificadores)
+        app.processEvents()
+        esperar_regeneracion()
+        respuestas.append({"tecla": respuesta, "antes": antes_tecla, "despues": estado_teclas()})
+    else:
+        escribir(respuesta)
     contestar_ficha()
 # Esc se envía por teclado también en las órdenes de inserción continua.
 linea.setFocus()

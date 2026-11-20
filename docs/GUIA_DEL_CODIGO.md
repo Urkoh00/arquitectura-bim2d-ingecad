@@ -376,3 +376,8 @@ que el espacio confirme solo la primera palabra. Consulta la entrada de la
 ventana mediante el contexto; no captura las coordenadas ni cambia IngeCAD.
 La restauración de grupos en `sync.py` reutiliza sus manejadores antes de añadir
 los miembros, para conservar también sus referencias DXF al deshacer.
+
+El recorrido de ventana acepta también respuestas de prueba con tecla (F4, F5,
+F6, Tab y Mayús+Tab). Activa la ventana después de cerrar una ficha y registra
+el estado antes y después de la tecla, para comprobar la entrega del teclado sin
+confundir la falta de activación de la pantalla virtual con un fallo de la orden.
