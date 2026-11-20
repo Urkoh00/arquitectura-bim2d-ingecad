@@ -109,6 +109,21 @@ def accept(ctx,data,decisions=None):
     return result
 
 
+def leer_cambios(path,drawing):
+    """La ficha y la orden textual leen y comprueban exactamente el mismo archivo."""
+    from pathlib import Path
+    if Path(path).stat().st_size>32*1024*1024:
+        raise ValueError('Archivo de cambios demasiado grande')
+    data=json.loads(Path(path).read_text(encoding='utf-8'))
+    return data,conflicts(drawing,data)
+
+
+def terminar_sincronizacion(ctx,data,decisions):
+    result=accept(ctx,data,decisions)
+    ctx.echo('SINCRONIZARARQ: '+('cambios aplicados; exporte de nuevo a IngeTrazo.'if result else 'sin cambios.'))
+    return result
+
+
 def sincronizar_arq(ctx,*args):
     from pathlib import Path
     from .compat import require_document,dialog_parent
@@ -116,8 +131,7 @@ def sincronizar_arq(ctx,*args):
     path=' '.join(map(str,args)) if args else QFileDialog.getOpenFileName(dialog_parent(ctx),'Sincronizar cambios de Arquitectura','','Cambios (*.arqcambios)')[0]
     if not path:return None
     try:
-        if Path(path).stat().st_size>32*1024*1024:raise ValueError('Archivo de cambios demasiado grande')
-        data=json.loads(Path(path).read_text(encoding='utf-8'));issues=conflicts(require_document(ctx).doc,data);decisions={}
+        data,issues=leer_cambios(path,require_document(ctx).doc);decisions={}
         if issues:
             dlg=QDialog(dialog_parent(ctx));dlg.setWindowTitle('Conflictos de Arquitectura');layout=QVBoxLayout(dlg)
             table=QTableWidget(len(issues),4);table.setHorizontalHeaderLabels(['Elemento','Conflicto','Valores: origen / IngeCAD / propuesta','Decisión']);layout.addWidget(table)
@@ -136,7 +150,7 @@ def sincronizar_arq(ctx,*args):
             buttons=QDialogButtonBox(QDialogButtonBox.Ok|QDialogButtonBox.Cancel);buttons.accepted.connect(dlg.accept);buttons.rejected.connect(dlg.reject);layout.addWidget(buttons)
             if dlg.exec()!=QDialog.Accepted:return None
             decisions={ident:table.cellWidget(row,3).currentData()for row,ident in enumerate(issues)}
-        result=accept(ctx,data,decisions);ctx.echo('SINCRONIZARARQ: '+('cambios aplicados; exporte de nuevo a IngeTrazo.'if result else 'sin cambios.'));return result
+        return terminar_sincronizacion(ctx,data,decisions)
     except (ValueError,KeyError,TypeError,OSError)as exc:
         ctx.echo('SINCRONIZARARQ: '+str(exc));QMessageBox.warning(dialog_parent(ctx),'Sincronizar Arquitectura',str(exc));return None
 
