@@ -120,7 +120,9 @@ def apply(ctx,data):
         after=getattr(command,'new_record',getattr(command,'after',None))
         return isinstance(before,dict)and isinstance(after,dict)and (float(before.get('base',0))!=float(after.get('base',0))or float(before.get('height',0))!=float(after.get('height',0)))
     moved=any(base_changed(c)for c in steps)
-    if moved or levels_changed:apply_architectural_change(ctx,change)
+    # La primera activación cambia los contornos por nivel aunque no cambie
+    # ninguna cota; deben quedar listos en esta misma operación.
+    if moved or levels_changed or not was_managed:apply_architectural_change(ctx,change)
     else:ctx.execute(change)
 
 
