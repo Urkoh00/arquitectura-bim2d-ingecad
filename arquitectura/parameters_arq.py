@@ -455,6 +455,10 @@ def tipos_muro(ctx, *args):
                 return
         else:
             entry = parse_type(text)
+            previous = find_wall_type(types, entry['name'])
+            if previous is not None:
+                # Cambiar las capas no solicita reclasificar el tipo constructivo.
+                entry = normalise_type({**entry, 'wall_category': previous['wall_category']})
             new = [t for t in types if t['name'].lower() != entry['name'].lower()] + [entry]
             ctx.echo(f"TIPOSMURO: {entry['name']}: {layers_text(entry)} = {_num(entry['thickness'])} m")
         current['wall_types'] = new

@@ -17,3 +17,16 @@ def test_aceptar_ficha_de_tipos_conserva_espesor_exacto(plugin, qapp):
     dialogo, leer = modulo(plugin, 'bim_dialogs').wall_types_form(contexto, [tipo])
     assert leer() == [tipo]
     dialogo.close()
+
+
+def test_editar_capas_por_texto_conserva_la_categoria(plugin):
+    sesion = Session(plugin)
+    parametros = modulo(plugin, 'parameters_arq')
+    antes = deepcopy(parametros.load_defaults(sesion.document))
+    tipo = antes['wall_types'][0]
+    contexto = SimpleNamespace(document=sesion.document, execute=sesion.history.execute,
+                              echo=sesion.out.append, host=None, services=None)
+    parametros.tipos_muro(contexto, tipo['name'] + ' = 0,08 Fábrica')
+    despues = parametros.find_wall_type(parametros.load_defaults(sesion.document)['wall_types'], tipo['name'])
+    assert despues['wall_category'] == tipo['wall_category']
+    assert despues['thickness'] == .08
