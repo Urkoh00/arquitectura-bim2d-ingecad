@@ -264,6 +264,10 @@ class ArchitectureTool(Tool):
         self._arq_keywords = set()
         self.on_start()
 
+    def wants_raw_text(self):
+        # Los nombres y las rutas del menú pueden contener espacios.
+        return getattr(self, '_arq_mode', None) == 'keyword'
+
     def add_keyword(self, value):
         self._arq_keywords.add(str(value).casefold())
 

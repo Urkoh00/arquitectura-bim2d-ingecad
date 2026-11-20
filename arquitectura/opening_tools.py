@@ -69,6 +69,9 @@ class CarpinteriaTool(Tool):
     entity_picker = True
     kind = "door"
 
+    def wants_raw_text(self):
+        return getattr(self, 'pending', None) is not None
+
     def start(self):
         self.name = type(self).name
         self.v = self._defaults(self.kind)

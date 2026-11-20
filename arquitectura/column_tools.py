@@ -44,9 +44,14 @@ class PilarTool(Tool):
         snaps. PILAR only picks while it asks for a wall face (P and U);
         the insertion point takes IngeCAD's snaps (end, middle, intersection,
         grid...) like any drawing command (prueba del usuario, 10-11)."""
+        if getattr(self, "pending", None):
+            return True
         mode = getattr(self, "mode", "libre")
         picks = len(getattr(self, "picks", ()) or ())
         return (mode == "paramentos" and picks < 2) or (mode == "paramento" and picks < 1)
+
+    def wants_raw_text(self):
+        return getattr(self, 'pending', None) is not None
 
     def start(self):
         self.name = type(self).name

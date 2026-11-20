@@ -172,6 +172,14 @@ class WallTypeChoice:
     the user picks; none: a generic wall). ``T`` lists every type. The
     chosen type's layers travel with the wall (IfcMaterialLayerSet later)."""
 
+    def wants_raw_text(self):
+        return bool(getattr(self, 'choosing_type', False)
+                    or getattr(self, 'type_candidates', None) is not None)
+
+    @property
+    def entity_picker(self):
+        return self.wants_raw_text()
+
     def _types(self):
         from .parameters_arq import load_defaults
         return load_defaults(_document(self.ctx))["wall_types"]
@@ -1644,6 +1652,13 @@ def create_space(seed, room, *, name, number, height, base=0.0, level="Planta ba
 class RecintoTool(Tool):
     """Space (room) by a click inside it; associative to the walls."""
     name = "RECINTO"
+
+    def wants_raw_text(self):
+        return getattr(self, 'pending', None) in ('name', 'use', 'enclosure')
+
+    @property
+    def entity_picker(self):
+        return self.wants_raw_text()
 
     def start(self):
         self.name = type(self).name
