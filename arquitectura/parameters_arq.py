@@ -11,6 +11,8 @@ from __future__ import annotations
 import copy
 import json
 import math
+import csv
+import shlex
 from core.commands import Command
 
 KEY = 'ARQUITECTURA_PARAMETROS'
@@ -253,7 +255,12 @@ def wall_types_text(types):
 
 
 def layers_text(t):
-    return ' + '.join(f"{_num(th)} {mat}".strip() for th, mat in t['layers'])
+    partes = []
+    for espesor, material in t['layers']:
+        # Este texto también viaja al CSV: no puede perder decimales ni separadores.
+        nombre = json.dumps(material, ensure_ascii=False) if any(c in material for c in '+;"') else material
+        partes.append((str(float(espesor)).replace('.', ',') + ' ' + nombre).strip())
+    return ' + '.join(partes)
 
 
 def parse_type(text):
@@ -262,10 +269,20 @@ def parse_type(text):
     if '=' in text:
         name, rest = text.split('=', 1)
         layers = []
-        for part in rest.split('+'):
-            words = part.strip().split()
+        lector = shlex.shlex(rest, posix=True, punctuation_chars='+')
+        lector.whitespace_split = True
+        lector.commenters = ''
+        palabras = list(lector)
+        partes = [[]]
+        for indice, palabra in enumerate(palabras):
+            # Un signo dentro del material no separa capas; las comillas lo conservan.
+            if palabra == '+' and indice + 1 < len(palabras) and _is_number(palabras[indice + 1]):
+                partes.append([])
+            else:
+                partes[-1].append(palabra)
+        for words in partes:
             if not words or not _is_number(words[0]):
-                raise ValueError(f"Capa no válida: «{part.strip()}» (use «0,05 Material»)")
+                raise ValueError('Capa no válida (use «0,05 Material»)')
             layers.append([float(words[0].replace(',', '.')), ' '.join(words[1:])])
         return normalise_type({'name': name.strip(), 'layers': layers})
     words = text.split()
@@ -374,27 +391,37 @@ def tipos_muro(ctx, *args):
         if low.startswith('exportar '):
             path = text.split(' ', 1)[1].strip().strip('"')
             with open(path, 'w', encoding='utf-8-sig', newline='') as f:
+                escritor = csv.writer(f, delimiter=';', lineterminator='\n')
+                escritor.writerow(['Nombre', 'Capas', 'Categoría'])
                 for t in sort_types(types):
-                    f.write(f"{t['name']};{layers_text(t)}\n")
+                    escritor.writerow([t['name'], layers_text(t), t['wall_category']])
             ctx.echo(f'TIPOSMURO: {len(types)} tipos exportados a {path}')
             return
         if low.startswith('importar '):
             path = text.split(' ', 1)[1].strip().strip('"')
             new = {t['name'].lower(): t for t in types}
             count = 0
+            con_categoria = False
             with open(path, encoding='utf-8-sig') as f:
-                for n, line in enumerate(f, 1):
-                    line = line.strip()
-                    if not line or line.startswith('#'):
+                for n, cols in enumerate(csv.reader(f, delimiter=';'), 1):
+                    cols = [c.strip() for c in cols]
+                    if not cols or not cols[0] or cols[0].startswith('#'):
                         continue
-                    cols = [c.strip() for c in line.split(';')]
-                    if len(cols) >= 3 and _is_number(cols[1]):
+                    if [c.casefold() for c in cols] in (['nombre', 'capas', 'categoría'], ['nombre', 'capas', 'categoria']):
+                        con_categoria = True
+                        continue
+                    if con_categoria:
+                        from .wall_categories import CATEGORIES
+                        if len(cols) != 3 or cols[2] not in {clave for _nombre, clave in CATEGORIES}:
+                            raise ValueError(f'línea {n}: categoría de muro no válida')
+                        t = normalise_type({**parse_type(f'{cols[0]} = {cols[1]}'), 'wall_category': cols[2]})
+                    elif len(cols) >= 3 and _is_number(cols[1]):
                         t = normalise_type({'name': cols[0], 'material': cols[2],
                                             'thickness': float(cols[1].replace(',', '.'))})
                     elif len(cols) >= 2:
                         t = parse_type(f"{cols[0]} = {cols[1]}")
                     else:
-                        raise ValueError(f'línea {n}: «{line}»')
+                        raise ValueError(f'línea {n}: se necesitan nombre y capas')
                     new[t['name'].lower()] = t
                     count += 1
             current['wall_types'] = list(new.values())
