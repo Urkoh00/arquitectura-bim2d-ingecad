@@ -610,11 +610,13 @@ class CarpinteriaTool(Tool):
 
     def on_tab(self, text="", backwards=False):
         """Tab: fix the active dimension to the typed value (if any) and go
-        to the next one: left, right, width (Shift+Tab: back)."""
+        to the next one: left, right, width (Shift+Tab: back). True if used."""
+        if not self.tab_ready():
+            return False
         if str(text).strip():
             done = self.dim_active
             if not self._tab_lock(text):
-                return
+                return True
             self.dim_active = TD.next_field(TD.CARPENTRY_FIELDS, done, backwards)
             self.ctx.echo(f"CARPINTERIA: {TD.FIELD_NAMES[done]} fijada en {TD.fmt(self.tab_locks[done])} m; "
                           f"cota activa: {TD.FIELD_NAMES[self.dim_active]} (Intro coloca).")
@@ -622,6 +624,7 @@ class CarpinteriaTool(Tool):
             self.dim_active = TD.next_field(TD.CARPENTRY_FIELDS, self.dim_active, backwards)
             self.ctx.echo(f"CARPINTERIA: cota activa: {TD.FIELD_NAMES[self.dim_active]}.")
         self._prompt()
+        return True
 
     def _locked(self, hit):
         """(wall, spec, side, s0, hinge, width) of the placement under the
@@ -869,7 +872,9 @@ class MoverCarpinteriaTool(Tool):
 
     def on_tab(self, text="", backwards=False):
         """Tab: a typed distance moves it from the active reference; then
-        the other reference becomes active."""
+        the other reference becomes active. True if used."""
+        if not self.tab_ready():
+            return False
         if str(text).strip():
             try:
                 d = TD.parse_length(text)
@@ -879,9 +884,10 @@ class MoverCarpinteriaTool(Tool):
             except ValueError as exc:
                 self.ctx.echo(f"MOVERCARP: {exc}")
                 self._prompt()
-                return
+                return True
         self.dim_active = TD.next_field(TD.CARPENTRY_FIELDS[:2], self.dim_active, backwards)
         self._prompt()
+        return True
 
     def _prompt(self):
         if self.entity is None:

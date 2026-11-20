@@ -214,7 +214,7 @@ def test_utilidades_tab():
     assert TD.wall_end((0, 0), (5, 5), length=2, angle=90) == pytest.approx((0, 2))
 
 
-def test_el_filtro_de_qt_lleva_tab_a_la_orden(plugin):
+def test_el_filtro_de_qt_lleva_tab_a_la_orden(plugin, monkeypatch):
     """Con una ventana real: Tab sobre la línea de órdenes va a la orden que
     lo admite, con lo escrito; si no lo admite, Qt hace lo de siempre."""
     from PySide6.QtCore import QEvent, Qt
@@ -223,6 +223,7 @@ def test_el_filtro_de_qt_lleva_tab_a_la_orden(plugin):
     from arquitectura import tabulador
 
     app = QApplication.instance() or QApplication([])
+    monkeypatch.setattr(tabulador, "host_offers_tab", lambda: False)   # IngeCAD 0.8
 
     class Line:
         def __init__(self):
@@ -273,3 +274,24 @@ def test_el_filtro_de_qt_lleva_tab_a_la_orden(plugin):
     edit.setText("x")
     app.sendEvent(edit, QKeyEvent(QEvent.KeyPress, Qt.Key_Tab, Qt.NoModifier))
     assert edit.text() == "x" and Changed.n == 1
+
+
+def test_con_tab_en_ingecad_no_se_instala_el_filtro(plugin, monkeypatch):
+    """Si IngeCAD ofrece Tab a la orden (Tool.on_tab, C-16), el plugin no
+    pone su filtro, y sus órdenes contestan como pide ese contrato: True
+    si la usan, False si no les toca (Tab hace lo de siempre)."""
+    from tools.base import Tool
+    from arquitectura import tabulador
+    monkeypatch.setattr(Tool, "on_tab", lambda self, text, backwards=False: False, raising=False)
+    assert tabulador.host_offers_tab()
+
+    class Ctx:
+        services = object()
+    assert tabulador.install(Ctx()) is False
+    s = Session(plugin)
+    t = s.tool('MURO')
+    assert t.on_tab("5") is False                     # antes del primer punto: no es suya
+    t.thickness, t.reference = 0.20, 'eje'
+    t.on_point((0.0, 0.0))
+    assert t.on_tab("5") is True and t.tab_locks == {"length": 5.0}
+    assert t.on_tab("xyz") is True                    # usada, aunque el valor no valga

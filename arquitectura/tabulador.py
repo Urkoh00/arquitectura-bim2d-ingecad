@@ -10,13 +10,24 @@ brackets) and the next one becomes active; the rest keep following the
 cursor. Enter, or a click, places the element with the fixed values.
 
 IngeCAD 0.8 hands only F4–F6 to the running tool (``Tool.on_key``); Tab
-moves the keyboard focus. Until the host offers Tab to the tool, a small
-event filter does it: it acts only when the running tool has ``on_tab`` and
-says it is ready (``tab_ready``); otherwise Tab does what it always did.
+moves the keyboard focus. A host that offers Tab to the tool
+(``Tool.on_tab``, proposed to IngeCAD as C-16) calls the tools' ``on_tab``
+itself, and nothing more is installed. On the others a small event filter
+does it: it acts only when the running tool has ``on_tab`` and says it is
+ready (``tab_ready``); otherwise Tab does what it always did.
 """
 from __future__ import annotations
 
 _FILTER = None
+
+
+def host_offers_tab():
+    """True if IngeCAD itself gives Tab to the running tool (Tool.on_tab)."""
+    try:
+        from tools.base import Tool
+    except Exception:  # noqa: BLE001
+        return False
+    return callable(getattr(Tool, "on_tab", None))
 
 
 def press(tool, text="", backwards=False):
@@ -26,8 +37,7 @@ def press(tool, text="", backwards=False):
     ready = getattr(tool, "tab_ready", None)
     if not callable(fn) or (callable(ready) and not ready()):
         return False
-    fn(str(text or ""), backwards=backwards)
-    return True
+    return bool(fn(str(text or ""), backwards=backwards))
 
 
 def _typed(edit):
@@ -43,6 +53,8 @@ def _typed(edit):
 def install(ctx):
     """Install the filter once (with Qt); it follows the latest window."""
     global _FILTER
+    if host_offers_tab():
+        return False                  # IngeCAD calls Tool.on_tab itself
     services = getattr(ctx, "services", None)
     window = getattr(services, "window", None)
     if services is None or window is None:

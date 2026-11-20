@@ -440,15 +440,18 @@ class MuroCarasTool(WallTypeChoice, _MuroV10):
 
     def on_tab(self, text="", backwards=False):
         """Tab: fix the active dimension to the typed value (if any) and go
-        to the next one (Shift+Tab: the previous one)."""
+        to the next one (Shift+Tab: the previous one). True if used (the
+        contract of IngeCAD's Tool.on_tab)."""
         from . import temp_dims as TD
         if not hasattr(self, "tab_locks"):
             self._tab_reset()
+        if not self.tab_ready():
+            return False                      # Tab does what it always did
         if str(text).strip():
             if self.tab_field is None:
                 self.tab_field = "length"
             if not self._tab_lock(text):
-                return
+                return True
             done = self.tab_field
             self.tab_field = TD.next_field(TD.WALL_FIELDS, self.tab_field, backwards)
             self.ctx.echo(f"MURO: {TD.FIELD_NAMES[done]} fijada en "
@@ -457,6 +460,7 @@ class MuroCarasTool(WallTypeChoice, _MuroV10):
             self.tab_field = TD.next_field(TD.WALL_FIELDS, self.tab_field, backwards)
             self.ctx.echo(f"MURO: cota activa: {TD.FIELD_NAMES[self.tab_field]} "
                           "(escriba su valor y pulse Tab para fijarlo, o Intro para colocar).")
+        return True
 
     def _tab_text(self, field):
         from . import temp_dims as TD

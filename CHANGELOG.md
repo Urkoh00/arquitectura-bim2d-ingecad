@@ -2,6 +2,12 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## En desarrollo (después de la 1.45.0-dev)
+
+- Las órdenes con cotas temporales siguen el contrato `Tool.on_tab` propuesto a IngeCAD (C-16): devuelven
+  True si usan Tab y False si no les toca. Si IngeCAD ofrece Tab a la orden, el plugin no instala su filtro
+  de teclado. Probado con la rama de la propuesta: las 945 pruebas pasan, también la de la ventana real.
+
 ## 1.45.0-dev — 2026-11-20
 
 - **Tab recorre las cotas temporales y fija su valor.** Al dibujar un muro, Tab pasa de la longitud al
