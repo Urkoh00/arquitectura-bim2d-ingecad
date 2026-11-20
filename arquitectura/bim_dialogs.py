@@ -86,7 +86,7 @@ def _layers_table(layers, editable=False):
         for th, mat in rows or []:
             r = table.rowCount()
             table.insertRow(r)
-            table.setItem(r, 0, QTableWidgetItem(f'{float(th):.3f}'.replace('.', ',')))
+            table.setItem(r, 0, QTableWidgetItem(str(float(th)).replace('.', ',')))
             table.setItem(r, 1, QTableWidgetItem(str(mat)))
     table._fill = fill
     fill(layers)
