@@ -51,7 +51,9 @@ class PilarTool(Tool):
         return (mode == "paramentos" and picks < 2) or (mode == "paramento" and picks < 1)
 
     def wants_raw_text(self):
-        return getattr(self, 'pending', None) is not None
+        from .linea_campos import entrada_con_prefijo
+        return (getattr(self, 'pending', None) is not None
+                or entrada_con_prefijo(self.ctx, ('un',)))
 
     def start(self):
         self.name = type(self).name

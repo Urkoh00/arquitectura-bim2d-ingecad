@@ -70,7 +70,9 @@ class CarpinteriaTool(Tool):
     kind = "door"
 
     def wants_raw_text(self):
-        return getattr(self, 'pending', None) is not None
+        from .linea_campos import entrada_con_prefijo
+        return (getattr(self, 'pending', None) is not None
+                or entrada_con_prefijo(self.ctx, ('tipo', 'punto', 'ajuste')))
 
     def start(self):
         self.name = type(self).name
@@ -230,7 +232,10 @@ class CarpinteriaTool(Tool):
                 "remate": None}
         for alias, target in (("ancho", "n"), ("altura", "l"), ("antepecho", "a"), ("modo", "m"),
                               ("cara", "c"), ("ajuste", "c"), ("cerco", "e"), ("remate", "r"),
-                              ("apertura", "t"), ("insercion", "i")):
+                              ("apertura", "t"), ("tipo", "t"), ("tipo de apertura", "t"),
+                              ("insercion", "i"), ("inserción", "i"),
+                              ("punto de insercion", "i"), ("punto de inserción", "i"),
+                              ("ajuste cerco", "c"), ("ajuste del cerco", "c")):
             asks[alias] = asks[target]
         if t in asks:
             self.pending = asks[t][0]

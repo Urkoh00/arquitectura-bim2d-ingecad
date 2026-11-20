@@ -1654,7 +1654,9 @@ class RecintoTool(Tool):
     name = "RECINTO"
 
     def wants_raw_text(self):
-        return getattr(self, 'pending', None) in ('name', 'use', 'enclosure')
+        from .linea_campos import entrada_con_prefijo
+        return (getattr(self, 'pending', None) in ('name', 'use', 'enclosure')
+                or entrada_con_prefijo(self.ctx, ('falso',)))
 
     @property
     def entity_picker(self):
