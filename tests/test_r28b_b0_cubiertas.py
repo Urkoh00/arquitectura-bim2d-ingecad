@@ -225,11 +225,15 @@ def test_espesor_normal_no_se_cuantifica_como_espesor_vertical():
 
 def test_herramienta_de_diseno_no_importa_los_anfitriones(tmp_path):
     destino = tmp_path / "modulos.json"
-    codigo = (
-        "import importlib.util,json,sys; "
-        f"sys.path.insert(0,{str(Path(comprobador.__file__).parent)!r}); "
-        "import validar_cubierta_b0; "
-        f"open({str(destino)!r},'w').write(json.dumps(sorted(sys.modules)))"
+    codigo = "\n".join(
+        [
+            "import json",
+            "import sys",
+            f"sys.path.insert(0, {str(Path(comprobador.__file__).parent)!r})",
+            "import validar_cubierta_b0",
+            f"with open({str(destino)!r}, 'w') as archivo:",
+            "    archivo.write(json.dumps(sorted(sys.modules)))",
+        ]
     )
     proceso = subprocess.run(
         [sys.executable, "-c", codigo], capture_output=True, text=True, timeout=20
