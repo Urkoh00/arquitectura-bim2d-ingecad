@@ -425,7 +425,7 @@ def campos_armario(datos):
 
 def normalizar_forjado(datos):
     salida = deepcopy(datos)
-    salida['name'] = str(salida.get('name') or '').strip() or 'Forjado'
+    salida["name"] = str(salida.get("name") or "").strip() or "Forjado"
     return salida
 
 
@@ -515,7 +515,9 @@ def campos_rejilla(datos):
         texto("prefix", "Prefijo"),
         texto("suffix", "Sufijo"),
         Campo("angle", "Ángulo (grados)", "angulo", minimo=-360.0, maximo=100000.0, decimales=3),
-        medida("extension", "Prolongación (m)"),
+        Campo(
+            "extension", "Prolongación (m)", "numero", minimo=0.001, maximo=100000.0, decimales=3
+        ),
         *[
             Campo(
                 clave,

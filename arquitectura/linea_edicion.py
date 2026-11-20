@@ -148,11 +148,13 @@ class EjeTexto(PreguntasTexto, GridEditTool):
                     clave = f"p{indice}.{eje}"
                     datos[clave] = valor
                     campos.append(
-                        F.medida(
+                        Campo(
                             clave,
                             ("Inicio" if indice == 0 else "Final") + " " + eje.upper(),
-                            -1e9,
-                            1e9,
+                            "numero",
+                            minimo=-1e9,
+                            maximo=1e9,
+                            decimales=6,
                         )
                     )
             for clave, titulo in [
@@ -162,7 +164,14 @@ class EjeTexto(PreguntasTexto, GridEditTool):
             ]:
                 datos[clave] = datos.get(clave, datos["text_height"]) * 1000 / escala
                 campos.append(
-                    Campo(clave, titulo + " (mm papel)", "papel", minimo=0.1, maximo=100.0)
+                    Campo(
+                        clave,
+                        titulo + " (mm papel)",
+                        "papel",
+                        minimo=0.1,
+                        maximo=100.0,
+                        decimales=2,
+                    )
                 )
             campos.append(
                 F.opcion("bubble", "Burbuja", [("Círculo", "circle"), ("Hexágono", "hexagon")])

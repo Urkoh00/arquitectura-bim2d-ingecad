@@ -31,7 +31,7 @@ def numero(texto, unidades=True, angular=False):
 def intervalos(texto):
     from .grids import distances
 
-    partes = re.split(r"[;\s]+", str(texto).strip())
+    partes = re.split(r"[;\s]+", str(texto).strip().replace("×", "x"))
     resultado = []
     for parte in partes:
         factores = parte.lower().split("x")
@@ -39,9 +39,9 @@ def intervalos(texto):
             cantidad = numero(factores[0], unidades=False)
             if not cantidad.is_integer():
                 raise ValueError("El número de intervalos debe ser entero")
-            resultado.append(f"{int(cantidad)}x{numero(factores[1]):g}")
+            resultado.append(f"{int(cantidad)}x{numero(factores[1]):.6f}")
         elif len(factores) == 1:
-            resultado.append(f"{numero(parte):g}")
+            resultado.append(f"{numero(parte):.6f}")
         else:
             raise ValueError("Use separaciones con ; o n x distancia")
     salida = ";".join(resultado)
@@ -131,7 +131,10 @@ class Campo:
         if self.tipo == "logico":
             return "Sí" if valor else "No"
         if isinstance(valor, float):
-            return f"{valor:.17g}".replace(".", ",")
+            texto = f"{valor:.{self.decimales}f}"
+            if "." in texto:
+                texto = texto.rstrip("0").rstrip(".")
+            return texto.replace(".", ",")
         return "" if valor is None else str(valor)
 
 
