@@ -121,14 +121,16 @@ class PilarTool(Tool):
                         raise ValueError("Enganche entre 1 y 9")
                     self.anchor = k
                 elif key == "rotation":
-                    self.values["rotation"] = float(txt.replace(",", "."))
+                    from .linea_campos import numero
+                    self.values["rotation"] = numero(txt, unidades=False, angular=True)
                 elif key == "cover":
                     v = float(txt.replace(",", "."))
                     if not (math.isfinite(v) and v >= 0):
                         raise ValueError("Recubrimiento no válido")
                     self.values["cover"] = v
                 elif key in ("paramentos", "paramento"):
-                    parts = [float(x.replace(",", ".")) for x in raw.replace(";", " ").split()] or [0.05]
+                    from .linea_campos import numero
+                    parts = [numero(x) for x in raw.replace(";", " ").split()] or [0.05]
                     self.d1 = parts[0]
                     self.d2 = parts[1] if len(parts) > 1 else parts[0]
                     self.mode, self.picks = key, []
