@@ -410,3 +410,11 @@ y excluye la posición y la mano. La asignación devuelve un catálogo nuevo sin
 escribir en el dibujo: sus contadores conservan la retirada de números y sus
 marcas se reutilizan solo para piezas que siguen siendo iguales. Los grupos
 comparan todos sus miembros, para evitar cadenas no transitivas de tolerancia.
+
+`memoria_modelo.py` recorre las fuentes BIM, distingue los frentes de armario y
+prepara una transacción para guardar `mark` en cada registro y el catálogo en un
+POINT invisible con XDATA propia. La lectura nunca modifica el dibujo. La marca
+manual se valida al reagrupar: renombra todas las piezas iguales y rechaza una
+marca que ya describe otra pieza; `mark_manual` distingue la intención del usuario
+de la marca automática que debe cambiar al cambiar las medidas. Las fichas y
+las preguntas de R27 exponen `mark` mediante el mismo normalizador.

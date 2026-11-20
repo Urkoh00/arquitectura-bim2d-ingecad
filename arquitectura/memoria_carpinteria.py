@@ -128,6 +128,8 @@ def unidades(muro, registro):
                 "definicion": {**definir(muro, frente), "prefijo": "A"},
                 "medidas": medir(muro, frente),
                 "registro": frente,
+                "marca_solicitada": registro.get("mark", ""),
+                "solicitud_manual": registro.get("mark_manual", False),
             }
     else:
         yield {
@@ -137,6 +139,8 @@ def unidades(muro, registro):
             "definicion": definir(muro, registro),
             "medidas": medir(muro, registro),
             "registro": openings.normalise(registro),
+            "marca_solicitada": registro.get("mark", ""),
+            "solicitud_manual": registro.get("mark_manual", False),
         }
 
 
@@ -168,6 +172,27 @@ def asignar_marcas(piezas, catalogo=None):
         candidato["piezas"].append(pieza)
     usadas = set()
     for grupo in grupos:
+        solicitudes = {
+            validar_marca(p["marca_solicitada"], p["prefijo"])
+            for p in grupo["piezas"]
+            if p.get("solicitud_manual") and p.get("marca_solicitada")
+        }
+        if len(solicitudes) > 1:
+            raise ValueError("Hay marcas manuales distintas para piezas iguales")
+        if solicitudes:
+            marca = solicitudes.pop()
+            antiguo = next((t for t in anteriores if t["marca"] == marca), None)
+            if marca in usadas or (
+                antiguo is not None and not iguales(antiguo["definicion"], grupo["definicion"])
+            ):
+                raise ValueError("La marca solicitada ya identifica otra pieza")
+            grupo["marca"] = marca
+            usadas.add(marca)
+            letra = marca[0]
+            siguientes[letra] = max(siguientes[letra], int(marca[1:]) + 1)
+    for grupo in grupos:
+        if "marca" in grupo:
+            continue
         anterior = next(
             (
                 tipo

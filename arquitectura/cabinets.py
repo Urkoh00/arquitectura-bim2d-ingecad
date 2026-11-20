@@ -44,11 +44,11 @@ def _niche_parts(spec,rec,base):
     return result
 
 
-def create(wall,offset,width,depth,height,leaves=2,operation='SLIDING',side=1,base=0.,mode='nicho',body_material='Madera'):
+def create(wall,offset,width,depth,height,leaves=2,operation='SLIDING',side=1,base=0.,mode='nicho',body_material='Madera',mark=''):
     from .architectural_v10 import create_opening
     command=create_opening(wall,offset,width,base,height,kind='door',cabinet=True,
         niche_depth=depth,cabinet_mode=mode,body_material=body_material,leaves=leaves,operation=operation,side=side,
-        name='Armario',type_name='ARMARIO',frame_width=.02,frame_depth=min(.05,depth))
+        name='Armario',type_name='ARMARIO',mark=mark,frame_width=.02,frame_depth=min(.05,depth))
     from .architectural import metadata
     from .geom.junctions import walls_from_records
     m=metadata(wall);spec=walls_from_records([(m['id'],m)])[0]
@@ -86,13 +86,14 @@ def form(ctx,record=None):
     mode=QComboBox();mode.addItem('Adosado (por defecto)','adosado');mode.addItem('Empotrado / nicho','nicho')
     mode.setCurrentIndex(max(0,mode.findData(rec.get('cabinet_mode','nicho' if rec.get('cabinet')else 'adosado'))));rows.addRow('Modo',mode)
     material=QLineEdit(rec.get('body_material','Madera'));rows.addRow('Material del cuerpo',material)
+    marca=QLineEdit(rec.get('mark',''));rows.addRow('Marca de los frentes',marca)
     for key,label,value in [('width','Ancho (m)',1.2),('niche_depth','Fondo (m)',.6),('height','Altura (m)',2.1),('sill','Base sobre el muro (m)',0.)]:
         w=QDoubleSpinBox();w.setDecimals(4);w.setRange(0 if key=='sill'else .001,1000);w.setValue(rec.get(key,value));rows.addRow(label,w);edit[key]=w
     leaves=QSpinBox();leaves.setRange(1,128);leaves.setValue(rec.get('leaves',2));rows.addRow('Hojas',leaves)
     operation=QComboBox();operation.addItem('Corredera','SLIDING');operation.addItem('Abatible','SWINGING');operation.setCurrentIndex(max(0,operation.findData(rec.get('operation','SLIDING'))));rows.addRow('Apertura',operation)
     layout.insertLayout(1,rows);layout.addWidget(buttons)
-    def read():return {**{k:w.value()for k,w in edit.items()},'leaves':leaves.value(),'operation':operation.currentData(),'cabinet_mode':mode.currentData(),'body_material':material.text().strip()}
-    dlg._arq={**edit,'leaves':leaves,'operation':operation,'cabinet_mode':mode,'body_material':material}
+    def read():return {**{k:w.value()for k,w in edit.items()},'leaves':leaves.value(),'operation':operation.currentData(),'cabinet_mode':mode.currentData(),'body_material':material.text().strip(),'mark':marca.text().strip().upper()}
+    dlg._arq={**edit,'leaves':leaves,'operation':operation,'cabinet_mode':mode,'body_material':material,'mark':marca}
     return dlg,read
 
 

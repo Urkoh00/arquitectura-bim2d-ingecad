@@ -11,7 +11,7 @@ class CabinetTool(CarpinteriaTool):
     name='ARMARIOBIM'
     def start(self):
         self.name=type(self).name;self._cache=None;self.active=True
-        self.values={'cabinet_mode':'adosado','body_material':'Madera','width':1.2,'niche_depth':.6,'height':2.1,'sill':0.,'leaves':2,'operation':'SLIDING'}
+        self.values={'cabinet_mode':'adosado','body_material':'Madera','width':1.2,'niche_depth':.6,'height':2.1,'sill':0.,'leaves':2,'operation':'SLIDING','mark':''}
         from .bim_dialogs import available
         if available(self.ctx):
             dlg,read=form(self.ctx,self.values)
@@ -27,7 +27,7 @@ class CabinetTool(CarpinteriaTool):
             if wall is None:raise ValueError('Designe una cara de muro BIM')
             offset,across=spec.local(tuple(p[:2]));v=self.values
             change=create(wall,offset,v['width'],v['niche_depth'],v['height'],v['leaves'],v['operation'],
-                          1 if across>=(spec.lo+spec.hi)/2 else -1,v['sill'],mode=v['cabinet_mode'],body_material=v['body_material'])
+                          1 if across>=(spec.lo+spec.hi)/2 else -1,v['sill'],mode=v['cabinet_mode'],body_material=v['body_material'],mark=v.get('mark',''))
             apply_architectural_change(self.ctx,change,kind='opening');self._cache=None
             from .architectural import metadata
             from .cabinets import niche_warning

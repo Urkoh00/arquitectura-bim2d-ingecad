@@ -147,7 +147,7 @@ class CarpinteriaTool(Tool):
     # --- settings ------------------------------------------------------------
     @staticmethod
     def _defaults(kind):
-        v = {"type": kind, **copy.deepcopy(OP.DEFAULTS[kind]), "operation": OP.OPERATIONS[kind][0]}
+        v = {"type": kind, **copy.deepcopy(OP.DEFAULTS[kind]), "operation": OP.OPERATIONS[kind][0], "mark": "", "mark_manual": False}
         if kind == "door":
             v["width"] = OP.door_width(v["leaf"], 1, 0.0, v["frame_width"])
         return v

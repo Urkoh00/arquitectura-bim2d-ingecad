@@ -42,7 +42,7 @@ SYMBOL_LAYER = "ARQ-CARPINTERIA"
 V3_KEYS = ("leaves", "leaf", "leaf2", "frame_width", "frame_depth", "side", "hinge",
            "angle", "face", "setback", "setback_from", "sill_kind", "operation", "leaf_thickness",
            "frame_material", "leaf_material", "glass_material", "sill_material",
-           "curve_mode", "facet_sagitta", "width_reference", "cabinet", "niche_depth", "cabinet_mode", "body_material")
+           "curve_mode", "facet_sagitta", "width_reference", "cabinet", "niche_depth", "cabinet_mode", "body_material", "mark", "mark_manual")
 # opening type (IFC names, as in the properties dialog)
 OPERATIONS = {"door": ("SWINGING", "SLIDING"), "window": ("SIDEHUNG", "SLIDING", "FIXED"), "gap": ("",)}
 OPERATION_NAMES = {"SWINGING": "abatible", "SLIDING": "corredera", "SIDEHUNG": "abatible",
@@ -110,6 +110,8 @@ def normalise(rec):
     """A copy of ``rec`` with every schema-3 field (older records: defaults
     that keep their hole: a schema-2 door keeps its width as the hole)."""
     out = dict(rec)
+    out.setdefault("mark", "")
+    out.setdefault("mark_manual", False)
     out.setdefault('curve_mode','plana')
     out.setdefault('facet_sagitta',.005)
     out.setdefault('width_reference','cuerda' if out['curve_mode']=='plana' else 'eje')

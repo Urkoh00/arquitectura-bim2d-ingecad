@@ -327,6 +327,7 @@ def campos_carpinteria(ctx, datos, editar=False):
         texto("leaf_material", "Material de la hoja", con_marco),
         texto("glass_material", "Material del vidrio", ventana),
         texto("sill_material", "Material del remate", ventana),
+        texto("mark", "Marca de memoria"),
         *identidad(),
     ]
     if editar:
@@ -376,9 +377,11 @@ def campos_carpinteria(ctx, datos, editar=False):
 
 def normalizar_carpinteria(datos, validar=True):
     from . import openings as OP
+    from .memoria_carpinteria import validar_marca, PREFIJOS
 
     salida = {k: deepcopy(v) for k, v in datos.items() if not k.startswith("_")}
     tipo = salida["type"]
+    salida["mark"] = validar_marca(salida.get("mark", ""), PREFIJOS[tipo])
     if tipo == "door":
         if validar and salida["leaves"] not in (1, 2):
             raise ValueError("Una puerta admite una o dos hojas")
@@ -412,6 +415,7 @@ def normalizar_carpinteria(datos, validar=True):
 
 def campos_armario(datos):
     return [
+        texto("mark", "Marca de los frentes"),
         opcion("cabinet_mode", "Modo", [("Adosado", "adosado"), ("Nicho", "nicho")]),
         texto("body_material", "Material del cuerpo"),
         medida("width", "Ancho (m)", maximo=1000.0),

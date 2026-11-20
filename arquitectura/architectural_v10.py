@@ -124,6 +124,8 @@ def opening_record(wall, offset, width, sill, height, kind, existing=None, **bim
         rec.pop('chord',None)
     bad=OP.dimension_problems(rec)
     if bad:raise ValueError('Carpintería con medidas no válidas: '+'; '.join(bad))
+    if existing is None and rec.get('mark'):
+        rec['mark_manual'] = True
     rec=OP.normalise(rec)
     OP.cut_band(spec,rec)
     if typ != "gap" and rec.get("cabinet_mode")!="adosado":
@@ -258,6 +260,8 @@ def edit_opening(entity,*,offset=None,width=None,sill=None,height=None,
                  name=None,type_name=None,material=None,operation=None,**v3):
     from . import openings as OP
     d=metadata(entity)
+    if 'mark' in v3 and v3['mark'] != (d or {}).get('mark', ''):
+        v3['mark_manual'] = bool(v3['mark'])
     if not d or d.get('kind')!='opening':raise ValueError('Entidad no es una carpintería ARQ')
     wall=next((e for e in entity.doc.modelspace() if (metadata(e) or {}).get('id')==d['wall_id']),None)
     if wall is None:raise ValueError('No se encuentra el muro asociado')

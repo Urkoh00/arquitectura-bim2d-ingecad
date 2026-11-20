@@ -1047,6 +1047,8 @@ def carpentry_form(ctx, record, *, editing=False):
     g = QFormLayout(ident)
     name = QLineEdit(str(record.get("name") or ""))
     type_name = QLineEdit(str(record.get("type_name") or ""))
+    mark = QLineEdit(str(record.get("mark") or ""))
+    g.addRow("Marca de memoria:", mark)
     material = QLineEdit(str(record.get("material") or ""))
     material.setPlaceholderText("material principal (opcional)")
     ifc = QLineEdit("")
@@ -1162,7 +1164,7 @@ def carpentry_form(ctx, record, *, editing=False):
                       width_reference=width_reference.currentData(), facet_sagitta=facet.value(),
                       sill=sill.value(), face=face.currentData(), setback=setback.value(),
                       setback_from=setback_from.currentData(), frame_width=frame_w.value(),
-                      frame_depth=frame_d.value(), name=name.text().strip(),
+                      frame_depth=frame_d.value(), name=name.text().strip(), mark=mark.text().strip(),
                       type_name=type_name.text().strip(), material=material.text().strip(),
                       leaves=leaves.value(), leaf=leaf.value(), leaf2=leaf2.value(), width=width.value(),
                       sill_kind=sill_kind.currentData(), frame_material=m_frame.currentText().strip(),
@@ -1227,7 +1229,7 @@ def carpentry_form(ctx, record, *, editing=False):
         type_name.setText(item['name']);material.setText(v.get('material',''));refresh()
     catalog_choice.currentIndexChanged.connect(select_catalog)
     dlg._arq = dict(catalog_choice=catalog_choice,typ=typ, operation=operation, leaves=leaves, preset=preset, leaf=leaf, leaf2=leaf2,
-                    width=width, height=height, sill=sill, face=face, sill_kind=sill_kind, name=name,
+                    width=width, height=height, sill=sill, face=face, sill_kind=sill_kind, name=name, mark=mark,
                     clear=status, status=status, ifc=ifc, preview=preview, frame_width=frame_w,
                     curve_mode=curve_mode,width_reference=width_reference,facet_sagitta=facet,
                     frame_material=m_frame, leaf_material=m_leaf, glass_material=m_glass,
