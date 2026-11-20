@@ -1060,7 +1060,9 @@ class TramaTool(ArchitectureTool):
             return
         try:
             from core import actions
-            self.ctx.execute(actions.add_hatch(self.pts, pattern=self.pattern, scale=self.scale))
+            # La API recibe una colección de contornos, no una lista de vértices sueltos.
+            orden = actions.add_hatch([self.pts], pattern=self.pattern, scale=self.scale)
+            _execute_entity(self.ctx, orden, "ARQ-TRAMAS")
             self.ctx.echo(f"Hatch '{self.pattern}' aplicado.")
         except Exception:
             self.ctx.echo("API hatch no disponible — generando relleno aproximado.")
