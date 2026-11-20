@@ -197,12 +197,13 @@ from .linea_fichas import CREACION
 from .linea_configuracion import NOMBRES_CONFIGURACION
 from .linea_edicion import NOMBRES_EDICION
 from .linea_archivos import NOMBRES_ARCHIVOS
+from .linea_conversion import NOMBRES_CONVERSION
 
 SECCIONES = _SECCIONES_BASE + (("Órdenes sin cuadros de diálogo", tuple(
     (("-" + nombre,), "La misma orden sin cuadros de diálogo",
      ("-" + nombre + ": la misma orden sin cuadros de diálogo",
       "Intro acepta el valor entre <>; Anterior vuelve al campo anterior; Esc cancela."))
-    for nombre in (*CREACION, *NOMBRES_CONFIGURACION, *NOMBRES_EDICION, *NOMBRES_ARCHIVOS)
+    for nombre in (*CREACION, *NOMBRES_CONFIGURACION, *NOMBRES_EDICION, *NOMBRES_ARCHIVOS, *NOMBRES_CONVERSION)
 )),)
 
 

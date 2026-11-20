@@ -134,4 +134,7 @@ def crear_variantes(herramientas, comandos):
     from .linea_archivos import crear_variantes_archivos
 
     variantes.update(crear_variantes_archivos())
+    from .linea_conversion import crear_variantes_conversion
+
+    variantes.update(crear_variantes_conversion())
     return variantes
