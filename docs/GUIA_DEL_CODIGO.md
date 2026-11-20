@@ -399,3 +399,14 @@ su comprobación aislada. `tests/probar_eje_sin_ventana.py` comprueba el mismo
 límite para la edición de ejes. Las órdenes con ficha informan cuando falta Qt;
 las variantes con guion continúan por texto. Una sincronización con conflictos
 sin ventana no aplica cambios y remite a la decisión textual.
+
+### Memoria de carpinterías (R28)
+
+`memoria_carpinteria.py` es la definición pura de las piezas y sus marcas.
+Obtiene medidas, materiales y plantillas del mismo `openings.carpentry_parts`
+que usa el 3D, incluidos los desarrollos curvos y los frentes de `cabinets.fronts`.
+La igualdad compara medidas con `geom.soldadura.TOLERANCIA`; no redondea claves,
+y excluye la posición y la mano. La asignación devuelve un catálogo nuevo sin
+escribir en el dibujo: sus contadores conservan la retirada de números y sus
+marcas se reutilizan solo para piezas que siguen siendo iguales. Los grupos
+comparan todos sus miembros, para evitar cadenas no transitivas de tolerancia.
