@@ -44,7 +44,7 @@ class CreacionTexto(PreguntasTexto):
                 level=self.level,
                 cte=deepcopy(self.cte),
             )
-            campos = F.campos_recinto(self.ctx, datos)
+            campos, cambiar = F.campos_recinto(self.ctx, datos)
         else:
             datos = deepcopy(self.values)
             campos = {

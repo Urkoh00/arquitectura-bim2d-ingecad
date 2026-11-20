@@ -20,7 +20,7 @@ CREACION = {
 }
 
 
-def medida(clave, titulo, minimo=0.001, maximo=1e6, cuando=None):
+def medida(clave, titulo, minimo=0.001, maximo=100000.0, cuando=None):
     return Campo(clave, titulo, "numero", minimo=minimo, maximo=maximo, cuando=cuando)
 
 
@@ -81,11 +81,11 @@ def campos_muro(ctx, datos):
         ),
         opcion("height_constraint", "Altura", [("Fija", "fixed"), ("Entre niveles", "level")]),
         medida("height", "Altura fija (m)", cuando=fija),
-        medida("base", "Cota base (m)", -1e6, cuando=fija),
+        medida("base", "Cota base (m)", -100000.0, cuando=fija),
         opcion("level_id", "Nivel base", niveles, ligada),
-        medida("base_offset", "Desfase de base (m)", -1e6, cuando=ligada),
+        medida("base_offset", "Desfase de base (m)", -100000.0, cuando=ligada),
         opcion("top_level_id", "Nivel superior", niveles, ligada),
-        medida("top_offset", "Desfase superior (m)", -1e6, cuando=ligada),
+        medida("top_offset", "Desfase superior (m)", -100000.0, cuando=ligada),
         opcion(
             "reference",
             "Referencia de dibujo",
@@ -93,7 +93,6 @@ def campos_muro(ctx, datos):
         ),
         texto("name", "Nombre"),
         texto("material", "Material principal"),
-        texto("level", "Nivel descriptivo"),
     ]
 
     def cambiar(clave, valor, valores):
@@ -197,7 +196,7 @@ def campos_pilar(datos, enganche=True):
         medida("cover", "Recubrimiento (m)", 0.0, 1.0),
         Campo("rotation", "Rotación (grados)", "angulo", minimo=-360.0, maximo=360.0),
         medida("height", "Altura (m)"),
-        medida("base", "Cota base (m)", -1e6),
+        medida("base", "Cota base (m)", -100000.0),
         *identidad(),
         texto("level", "Nivel descriptivo"),
     ]
@@ -325,7 +324,6 @@ def campos_carpinteria(ctx, datos, editar=False):
         texto("glass_material", "Material del vidrio", ventana),
         texto("sill_material", "Material del remate", ventana),
         *identidad(),
-        texto("level", "Nivel descriptivo"),
     ]
     if editar:
         campos.extend(
@@ -432,7 +430,7 @@ def campos_forjado(datos):
             "slab_kind", "Clase de forjado", [(valor[0], clave) for clave, valor in KINDS.items()]
         ),
         medida("thickness", "Canto (m)", maximo=100.0),
-        medida("top_offset", "Desfase de la cara superior (m)", -1e6),
+        medida("top_offset", "Desfase de la cara superior (m)", -1e6, 1e6),
         Campo("clear_holes", "Quitar los huecos existentes", "logico"),
     ]
 
@@ -460,12 +458,21 @@ def campos_recinto(ctx, datos):
         texto("level", "Nivel descriptivo"),
     ]
     if por_uso:
+        datos["_proponer_cte"] = False
+        campos.append(
+            Campo("_proponer_cte", "Proponer clasificación según el uso (vivienda)", "logico")
+        )
         for clave, titulo, etiquetas in CU.CONJUNTOS:
             datos["cte." + clave] = datos["cte"].get(clave, "")
             campos.append(
                 opcion("cte." + clave, titulo, [("Sin asignar", "")] + [(e, e) for e in etiquetas])
             )
-    return campos
+
+    def cambiar(clave, valor, valores):
+        if clave == "_proponer_cte" and valor:
+            valores.update({"cte." + k: v for k, v in CU.propose(valores.get("use", "")).items()})
+
+    return campos, cambiar
 
 
 def campos_rejilla(datos):
@@ -497,7 +504,7 @@ def campos_rejilla(datos):
         texto("first_letter", "Primera letra"),
         texto("prefix", "Prefijo"),
         texto("suffix", "Sufijo"),
-        Campo("angle", "Ángulo (grados)", "angulo", minimo=-360.0, maximo=100000.0),
+        Campo("angle", "Ángulo (grados)", "angulo", minimo=-360.0, maximo=100000.0, decimales=3),
         medida("extension", "Prolongación (m)"),
         *[
             Campo(
@@ -506,6 +513,7 @@ def campos_rejilla(datos):
                 "real" if clave == "scale" else "papel",
                 minimo=0.001,
                 maximo=100000.0,
+                decimales=3,
             )
             for clave, titulo in [
                 ("scale", "Escala 1:"),

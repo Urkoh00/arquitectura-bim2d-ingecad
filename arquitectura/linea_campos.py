@@ -58,6 +58,7 @@ class Campo:
     minimo: float | None = None
     maximo: float | None = None
     cuando: object = None
+    decimales: int = 4
 
     def visible(self, valores):
         return self.cuando is None or self.cuando(valores)
@@ -105,6 +106,10 @@ class Campo:
                 raise ValueError(f"El valor mínimo es {self.minimo:g}")
             if self.maximo is not None and valor > self.maximo:
                 raise ValueError(f"El valor máximo es {self.maximo:g}")
+            if self.tipo != "entero":
+                # Misma precisión que el control numérico de la ficha; no decide
+                # identidad geométrica ni soldadura de puntos.
+                valor = float(f"{valor:.{self.decimales}f}")
             return valor
         valor = str(texto).strip()
         return (
@@ -126,7 +131,7 @@ class Campo:
         if self.tipo == "logico":
             return "Sí" if valor else "No"
         if isinstance(valor, float):
-            return f"{valor:g}".replace(".", ",")
+            return f"{valor:.17g}".replace(".", ",")
         return "" if valor is None else str(valor)
 
 

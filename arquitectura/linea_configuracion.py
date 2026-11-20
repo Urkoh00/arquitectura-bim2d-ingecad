@@ -269,7 +269,7 @@ class ConfiguracionTexto(PreguntasTexto, Tool):
             ),
             opcion("nivel", "Nivel existente", [(n["name"], n["id"]) for n in niveles], elegir),
             texto("nombre", "Nombre del nivel", editar),
-            medida("cota", "Cota nominal (m)", -1e6, cuando=editar),
+            medida("cota", "Cota nominal (m)", -1e6, 1e6, cuando=editar),
             Campo("activar", "Dejar este nivel activo", "logico", cuando=editar),
             opcion(
                 "estado",
