@@ -24,7 +24,7 @@ INTRODUCCION = (
     "UNIONESARQ). El manual completo va en el ZIP como MANUAL_v<versión>.md."
 )
 
-SECCIONES = (
+_SECCIONES_BASE = (
     ("Muros", (
         (("MURO",), "Muro BIM encadenado", (
             "I o F5 cambia la cara de referencia; G toma las propiedades de otro muro",
@@ -191,6 +191,16 @@ SECCIONES = (
         (("LISTATEXTOS",), "Listado de textos y áreas para el portapapeles", ()),
     )),
 )
+
+
+from .linea_fichas import CREACION
+
+SECCIONES = _SECCIONES_BASE + (("Órdenes sin cuadros de diálogo", tuple(
+    (("-" + nombre,), "La misma orden sin cuadros de diálogo",
+     ("-" + nombre + ": la misma orden sin cuadros de diálogo",
+      "Intro acepta el valor entre <>; Anterior vuelve al campo anterior; Esc cancela."))
+    for nombre in CREACION
+)),)
 
 
 def ordenes():

@@ -317,3 +317,26 @@ cubierta de 30 cm sobre muros y recintos de 2,70 m), que es el modelo de la
 prueba en la plataforma de cálculo; `scripts/verificar_cadena_r26.py` compara las
 relaciones, las posiciones y el volumen leído con y sin sustracciones de
 huecos por IfcOpenShell. Cada script se ejecuta en el entorno de su anfitrión.
+
+### Variantes por línea de órdenes (R27)
+
+`linea_campos.py` contiene las preguntas, sus valores por defecto y la lectura
+con coma o punto y unidades explícitas. `ContextoLinea` conserva el contexto
+real y señala que esa orden no debe abrir fichas. `PreguntasTexto` es una
+mezcla de la herramienta nativa: no crea otra geometría ni otra historia.
+Mientras se pide un texto, las palabras no se interpretan como referencias
+a objetos. Al terminar las preguntas vuelven los mismos handlers nativos,
+incluidas sus cotas temporales, referencias geométricas y validaciones.
+
+`linea_fichas.py` describe los campos editables y sus condiciones (por ejemplo,
+la altura fija o la derivada de niveles). Las fichas Qt y la entrada textual
+usan los mismos normalizadores de muros, pilares y carpinterías para que no
+se calculen de dos maneras las capas, el perfil o el ancho de una puerta.
+`linea_ordenes.py` registra las variantes de creación con guion. Los campos
+identificadores no se exponen para editarlos y una pregunta cancelada no
+modifica el dibujo.
+
+Las herramientas antiguas agrupan sus órdenes ya ejecutadas mediante
+`History.fold`: crear varias líneas y capas sigue siendo un único Deshacer.
+Las entradas inválidas de ejes conservan la fase, muestran el motivo y
+permiten reintentar; un clic prematuro en BLOQUE conserva la elección de tipo.

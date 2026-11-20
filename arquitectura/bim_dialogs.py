@@ -236,31 +236,17 @@ def wall_form(ctx, record=None, types=None):
         manual.setChecked(True);thickness.setValue(float(d['thickness']));discrepancy()
 
     def read():
-        t=chosen()
-        out={'thickness':thickness.value(),'height':height.value(),'base':base.value(),
-             'reference':reference.currentData(),'name':name.text().strip() or 'Muro',
-             'material':material.text().strip(),'level':level.text().strip(),
-             'ifc_class':'IfcWall','wall_category':wall_category.currentData()}
-        out['height_constraint']=height_constraint.currentData()
-        if height_constraint.currentData()=='level':
-            constrained=constrained_values()
-            out.update({k:constrained[k] for k in ('height','base','level','level_id','base_offset','top_level_id','top_offset')})
-        if t is not None:
-            different=abs(thickness.value()-t['thickness'])>5e-7
-            if different and resolution.currentData()=='detach':
-                out.update(type_name=f"Muro {_num(thickness.value())}",layers=[])
-            elif different and resolution.currentData()=='variant':
-                factor=thickness.value()/t['thickness']
-                layers=[[float(v)*factor,mat] for v,mat in t['layers']]
-                variant=normalise_type({'name':t['name']+' ('+_num(thickness.value())+' m, variante local)','layers':layers})
-                out.update(thickness=variant['thickness'],type_name=variant['name'],layers=variant['layers'])
-            else:
-                out.update(thickness=t['thickness'],type_name=t['name'],layers=[list(l) for l in t['layers']])
-        else:
-            keep=current and current not in by_name
-            out.update(type_name=str(current) if keep else f"Muro {_num(thickness.value())}",
-                       layers=[list(l) for l in (d.get('layers') or [])] if keep else [])
-        return out
+        from .linea_fichas import normalizar_muro
+        out = {'thickness': thickness.value(), 'height': height.value(), 'base': base.value(),
+               'reference': reference.currentData(), 'name': name.text().strip() or 'Muro',
+               'material': material.text().strip(), 'level': level.text().strip(),
+               'ifc_class': 'IfcWall', 'wall_category': wall_category.currentData(),
+               'height_constraint': height_constraint.currentData(),
+               'level_id': base_level.currentData(), 'top_level_id': top_level.currentData(),
+               'base_offset': base_offset.value(), 'top_offset': top_offset.value(),
+               'type_name': current, 'layers': d.get('layers') or [],
+               '_tipo_elegido': kind.currentData(), '_resolucion': resolution.currentData()}
+        return normalizar_muro(ctx, out, types, catalog)
     dlg._arq={'height_constraint':height_constraint,'base_level':base_level,'top_level':top_level,'base_offset':base_offset,'top_offset':top_offset,'resulting_height':resulting_height,'height':height,'wall_category':wall_category,'type':kind,'thickness':thickness,'layers':table,'name':name,'material':material,'total':total,'manual_thickness':manual,'mismatch':mismatch,'resolution':resolution}
     return dlg,read
 
@@ -561,6 +547,8 @@ def opening_properties(ctx,kind, record=None, wall_length=None, wall_height=None
 
 def available(ctx):
     """True only for a real Qt application, never for a headless test harness."""
+    if getattr(ctx, 'sin_dialogos', False):
+        return False
     try:
         from PySide6.QtWidgets import QApplication
         return QApplication.instance() is not None and _parent(ctx) is not None
@@ -663,22 +651,17 @@ def column_form(ctx, record=None, anchor=None):
     layout.addWidget(identity);layout.addWidget(buttons)
 
     def read():
-        out=dict(shape=shape.currentData(),width=w.value(),depth=h.value(),radius=radius.value(),
-                 rotation=rotation.value(),cover=cover.value(),
-                 height=height.value(),base=z.value(),name=name.text().strip() or 'Pilar',
-                 type_name=typ.text().strip() or 'Pilar genérico',material=material.text().strip(),
-                 level=level.text().strip(),ifc_class='IfcColumn')
+        from .linea_fichas import normalizar_pilar
+        out = dict(shape=shape.currentData(), width=w.value(), depth=h.value(), radius=radius.value(),
+                   rotation=rotation.value(), cover=cover.value(), height=height.value(),
+                   base=z.value(), name=name.text().strip() or 'Pilar',
+                   type_name=typ.text().strip() or 'Pilar genérico', material=material.text().strip(),
+                   level=level.text().strip(), ifc_class='IfcColumn')
         if anchor is not None:
-            out['anchor']=picker._group.checkedId() if picker._group.checkedId() > 0 else 5
-        if out['shape']=='steel':
-            from .sections import parse_section
-            parsed=parse_section(profile.text())
-            if parsed.get('shape')!='steel':
-                raise ValueError(f'Perfil no reconocido: {profile.text()}')
-            out['profile']=parsed['profile']
-            if material.text().strip() in ('','Hormigón armado'):
-                out['material']=parsed.get('material','Acero')
-        return out
+            out['anchor'] = picker._group.checkedId() if picker._group.checkedId() > 0 else 5
+        if out['shape'] == 'steel':
+            out['profile'] = profile.text()
+        return normalizar_pilar(out)
     dlg._arq={'shape':shape,'width':w,'depth':h,'profile':profile,'cover':cover,'anchor':picker}
     return dlg,read
 
@@ -1177,33 +1160,21 @@ def carpentry_form(ctx, record, *, editing=False):
             leaf.setValue(val)
 
     def read():
-        kind = typ.currentData()
-        v = {"type": kind, "operation": operation.currentData() or "", "height": height.value(),
-             "curve_mode":curve_mode.currentData(),"width_reference":width_reference.currentData(),"facet_sagitta":facet.value(),
-             "sill": sill.value(), "face": face.currentData(), "setback": setback.value(),
-             "setback_from": setback_from.currentData(), "frame_width": frame_w.value(),
-             "frame_depth": frame_d.value(), "name": name.text().strip(),
-             "type_name": type_name.text().strip(), "material": material.text().strip()}
-        if kind == "door":
-            v.update(leaves=leaves.value(), leaf=leaf.value(),
-                     leaf2=leaf2.value() if leaves.value() == 2 else 0.0)
-            v["width"] = OP.door_width(v["leaf"], v["leaves"], v["leaf2"], v["frame_width"])
-            if curve_mode.currentData()=='curva':v['width']=width.value()
-            v["leaf2"] = v["leaf2"] or (v["leaf"] if v["leaves"] == 2 else 0.0)
-            v.update(frame_material=m_frame.currentText().strip(), leaf_material=m_leaf.currentText().strip())
-        else:
-            v.update(leaves=leaves.value() if kind == "window" else 0, width=width.value())
-            if kind == "window":
-                v["sill_kind"] = sill_kind.currentData()
-                v.update(frame_material=m_frame.currentText().strip(),
-                         leaf_material=m_leaf.currentText().strip(),
-                         glass_material=m_glass.currentText().strip(),
-                         sill_material=m_sill.currentText().strip())
-            if kind == "gap":
-                v.update(face="centrada", frame_width=0.0, frame_depth=0.0, operation="")
+        from .linea_fichas import normalizar_carpinteria
+        values = dict(type=typ.currentData(), operation=operation.currentData() or '',
+                      height=height.value(), curve_mode=curve_mode.currentData(),
+                      width_reference=width_reference.currentData(), facet_sagitta=facet.value(),
+                      sill=sill.value(), face=face.currentData(), setback=setback.value(),
+                      setback_from=setback_from.currentData(), frame_width=frame_w.value(),
+                      frame_depth=frame_d.value(), name=name.text().strip(),
+                      type_name=type_name.text().strip(), material=material.text().strip(),
+                      leaves=leaves.value(), leaf=leaf.value(), leaf2=leaf2.value(), width=width.value(),
+                      sill_kind=sill_kind.currentData(), frame_material=m_frame.currentText().strip(),
+                      leaf_material=m_leaf.currentText().strip(), glass_material=m_glass.currentText().strip(),
+                      sill_material=m_sill.currentText().strip())
         if place is not None:
-            v.update(offset=offset.value(), side=side.currentData(), hinge=hinge.currentData())
-        return v
+            values.update(offset=offset.value(), side=side.currentData(), hinge=hinge.currentData())
+        return normalizar_carpinteria(values, validar=False)
 
     preview = carpentry_preview(read, float(record.get("_wall_thickness") or 0.25))
     right.addWidget(preview, 1)

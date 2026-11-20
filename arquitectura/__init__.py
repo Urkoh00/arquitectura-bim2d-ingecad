@@ -1539,6 +1539,10 @@ def plugin_spec() -> PluginSpec:
     if "grip_handlers" in fields:extra["grip_handlers"]={"LWPOLYLINE":GridGrips()}
     if "on_regen_done" in fields:extra["on_regen_done"]=install_level_toolbar
     if "on_before" in fields:extra["on_before"]=level_before_command
+    herramientas = {tool.name: tool for tool in (*TOOL_CLASSES, SlabTool,SlabHoleTool,CabinetTool,GridTool,RejillaTool,GridEditTool,GridColumnsTool)}
+    comandos = {"SINCRONIZARARQ":sincronizar_arq,"NIVELES":niveles,"NIVELASIGNAR":asignar_nivel,"ACTUALIZAEJES":update,"EXPORTARBIM": exportar_bim, "DIAGNOSTICOARQ": diagnostico_arq, "ARQDIAG": arqdiag, "UNIONESARQ": unionesarq, "ARQVALIDAR": validar_arq, "ARQMIGRAR": migrar_arq, "PARAMETROSARQ": parametros_arq, "TIPOSMURO": tipos_muro, "USOSARQ": usos_arq, "BIBLIOTECAHE": biblioteca_he}
+    from .linea_ordenes import crear_variantes
+    herramientas.update(crear_variantes(herramientas, comandos))
     return PluginSpec(
         **extra,
         on_document_open=install_level_toolbar,
@@ -1546,8 +1550,8 @@ def plugin_spec() -> PluginSpec:
         name="Arquitectura",
         version=_VERSION,
         description="Dibujo arquitectónico 2D con objetos BIM (muros, pilares, carpinterías) y exportación a IngeTrazo/IFC",
-        tools={tool.name: tool for tool in (*TOOL_CLASSES, SlabTool,SlabHoleTool,CabinetTool,GridTool,RejillaTool,GridEditTool,GridColumnsTool)},
-        commands={"SINCRONIZARARQ":sincronizar_arq,"NIVELES":niveles,"NIVELASIGNAR":asignar_nivel,"ACTUALIZAEJES":update,"EXPORTARBIM": exportar_bim, "DIAGNOSTICOARQ": diagnostico_arq, "ARQDIAG": arqdiag, "UNIONESARQ": unionesarq, "ARQVALIDAR": validar_arq, "ARQMIGRAR": migrar_arq, "PARAMETROSARQ": parametros_arq, "TIPOSMURO": tipos_muro, "USOSARQ": usos_arq, "BIBLIOTECAHE": biblioteca_he},
+        tools=herramientas,
+        commands=comandos,
         menu=(
             MenuItem("Opciones generales y parámetros iniciales...", "PARAMETROSARQ", icon=glyph / "parametros.svg"),
             MenuItem("Tipos de muro (espesor total y capas)...", "TIPOSMURO", icon=glyph / "tiposmuro.svg"),
