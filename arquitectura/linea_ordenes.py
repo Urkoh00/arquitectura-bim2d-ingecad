@@ -104,12 +104,17 @@ class CreacionTexto(PreguntasTexto):
                 self._prompt()
 
     def on_option(self, texto):
-        if self._campos_texto is None and str(texto).casefold() in (
-            "d",
-            "ficha",
-            "dialogo",
-            "diálogo",
-        ):
+        familia = F.CREACION[self.orden_original]
+        palabras = ('ficha', 'dialogo', 'diálogo')
+        if familia in ('carpinteria', 'recinto'):
+            palabras += ('d',)
+        hay_respuesta_pendiente = (
+            getattr(self, 'pending', None)
+            or getattr(self, 'choosing_type', False)
+            or getattr(self, 'type_candidates', None) is not None
+        )
+        if (self._campos_texto is None and not hay_respuesta_pendiente
+                and str(texto).casefold() in palabras):
             self._configurar_texto()
             return True
         return super().on_option(texto)
