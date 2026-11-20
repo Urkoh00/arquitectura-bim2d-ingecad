@@ -120,6 +120,8 @@ def contestar_cuadro():
             campo.setFocus()
             campo.selectAll()
             QTest.keyClicks(campo, str(valor))
+    if os.environ.get("R27_VALORES_CUADRO"):
+        cuadro.grab().save(str(destino / "ficha_editada.png"))
     botones = cuadro.findChildren(QDialogButtonBox)
     for caja in botones:
         aceptar = [

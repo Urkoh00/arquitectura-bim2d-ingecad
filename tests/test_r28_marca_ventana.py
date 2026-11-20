@@ -55,3 +55,6 @@ def test_edicion_real_de_marca_conserva_la_identidad(plugin, tmp_path, orden):
     assert {r["id"] for r in datos["registros"] if r.get("kind") == "opening"} == identidades
     assert not datos["excepciones"]
     assert len(datos["cuadros"]) == (0 if orden.startswith("-") else 1)
+
+    if not orden.startswith("-"):
+        assert (destino / "ficha_editada.png").exists()
