@@ -391,3 +391,11 @@ Para reproducir opciones de archivo o campos condicionales, el recorrido admite
 `R27_ORDEN_INICIAL` (orden con argumentos), `R27_ARCHIVO` (ruta que se teclea en
 el selector real) y `R27_VALORES` (objeto JSON con respuestas por clave de campo).
 Son datos del ensayo: la aplicación sigue recibiendo las respuestas por teclado.
+
+`tests/ejecucion_sin_qt_r27.py` ejecuta órdenes en un proceso sin QApplication:
+permite detectar un aborto de un selector o ficha sin cerrar pytest. Se usa para
+parámetros, biblioteca, exportación y sincronización; el caso de niveles conserva
+su comprobación aislada. `tests/probar_eje_sin_ventana.py` comprueba el mismo
+límite para la edición de ejes. Las órdenes con ficha informan cuando falta Qt;
+las variantes con guion continúan por texto. Una sincronización con conflictos
+sin ventana no aplica cambios y remite a la decisión textual.
