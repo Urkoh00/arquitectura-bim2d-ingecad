@@ -85,6 +85,11 @@ class CarpinteriaTool(Tool):
         self.dim_active = "left"       # temporary dimension a typed number goes to
         self.dim_axis = False          # measure to the jamb (False) or to the centre
         self._hover = None             # last placement under the cursor (temp. dims)
+        self.tab_locks = {}            # dimensions fixed with Tab: {"left"|"right"|"width": m}
+        self.tab_order = []            # the order they were fixed in
+        self._last_cursor = None
+        from . import tabulador
+        tabulador.install(self.ctx)
         from .double_click import preset
         taken = preset(self.name)
         if taken:
@@ -177,9 +182,10 @@ class CarpinteriaTool(Tool):
                         "(Intro: hacia el lado más largo):")
             return
         ref = "centro" if self.dim_axis else "jamba"
-        act = "izquierda" if self.dim_active == "left" else "derecha"
-        self.prompt(f"CARPINTERIA ({self._summary()}): clic en la cara del muro hacia la que abre, "
-                    f"o escriba la distancia de la cota activa ({act}, a la {ref}) "
+        act = TD.FIELD_NAMES.get(self.dim_active, "izquierda")
+        fixed = "".join(f"; {TD.FIELD_NAMES[k]} fijada {TD.fmt(v)}" for k, v in self.tab_locks.items())
+        self.prompt(f"CARPINTERIA ({self._summary()}{fixed}): clic en la cara del muro hacia la que abre, "
+                    f"o escriba la distancia de la cota activa ({act}, a la {ref}; Tab: siguiente) "
                     "[Puerta/Ventana/Hueco/aNcho/Hojas/Tipo de apertura/aLtura/Antepecho/Modo/"
                     "punto de Inserción/ajuste Cerco/cErco/Remate/Bisagra/Sentido/COta (F6)/EJe (F4)/"
                     "D ficha/Fin]:")
@@ -249,7 +255,11 @@ class CarpinteriaTool(Tool):
             except ValueError:
                 d = None
             if d is not None and d <= 30.0:     # larger: a width in cm (82 = hoja de 825)
-                self._place_at_distance(d)
+                if self.tab_locks or self.dim_active == "width":
+                    if self._tab_lock(raw):     # the active dimension, then place
+                        self._tab_place()
+                else:
+                    self._place_at_distance(d)
                 self._prompt()
                 return True
         if self.first is None:
@@ -527,11 +537,137 @@ class CarpinteriaTool(Tool):
         if hit is None:
             return []
         _w, spec, side, s0, _h, width, left, right = hit
+        if self.tab_locks:
+            try:
+                _w, spec, side, s0, _h, width = self._locked(hit)
+            except ValueError:
+                pass                       # shown where the cursor is; Enter reports why
         return TD.carpentry_dims(spec, side, s0, width, left, right, TD.world_per_px(self.ctx),
-                                 self.dim_active, self.dim_axis)
+                                 self.dim_active, self.dim_axis, tuple(self.tab_locks))
+
+    # --- Tab: fix the dimensions one by one ---------------------------------------------
+    def tab_ready(self):
+        return self.pending is None and self.first is None
+
+    def _hole_width(self, width, spec, side):
+        """Make the current model ``width`` wide along the wall (what the
+        width dimension shows), as typing its aNcho would."""
+        v = self.v
+        target = float(width)
+        if spec is not None and getattr(spec, "curved", False):
+            lo, hi = 1e-6, 2 * target + 1.0
+            for _ in range(60):                 # span_of grows with the chord
+                mid = (lo + hi) / 2
+                try:
+                    over = OP.span_of(spec, mid, v, side) > target
+                except ValueError:
+                    over = True
+                lo, hi = (lo, mid) if over else (mid, hi)
+            chord = (lo + hi) / 2
+        else:
+            chord = target
+        if v["type"] == "door" and v.get("curve_mode") != "curva":
+            clear = chord - 2 * float(v["frame_width"])
+            if int(v["leaves"]) >= 2:
+                second = float(v.get("leaf2") or 0.0)
+                leaf = clear - second if second else clear / 2
+            else:
+                leaf = clear
+            if leaf <= 0.05:
+                raise ValueError(f"un hueco de {TD.fmt(width)} m no deja sitio para la hoja")
+            v["leaf"] = leaf
+        else:
+            v["width"] = chord
+        self.width_given = True
+
+    def _tab_lock(self, text):
+        """Fix the active dimension to ``text``. False if not valid."""
+        field = self.dim_active
+        try:
+            value = TD.parse_length(text)
+            if field == "width":
+                if value <= 1e-6:
+                    raise ValueError("el ancho debe ser positivo")
+                spec = side = None
+                if self._hover is not None:
+                    spec, side = self._hover[1], self._hover[2]
+                self._hole_width(value, spec, side or 1)
+        except ValueError as exc:
+            self.ctx.echo(f"CARPINTERIA: {TD.FIELD_NAMES[field]}: {exc}")
+            return False
+        locks, order = self.tab_locks, self.tab_order
+        if field in order:
+            order.remove(field)
+        order.append(field)
+        locks[field] = value
+        sides = [k for k in order if k in ("left", "right")]
+        if self.dim_axis and len(sides) == 2:          # to the centre, one side is enough
+            locks.pop(sides[0]); order.remove(sides[0])
+        elif len(sides) == 2 and "width" in locks:      # left and right give the width
+            older = next(k for k in order if k in locks)
+            locks.pop(older); order.remove(older)
+        return True
+
+    def on_tab(self, text="", backwards=False):
+        """Tab: fix the active dimension to the typed value (if any) and go
+        to the next one: left, right, width (Shift+Tab: back)."""
+        if str(text).strip():
+            done = self.dim_active
+            if not self._tab_lock(text):
+                return
+            self.dim_active = TD.next_field(TD.CARPENTRY_FIELDS, done, backwards)
+            self.ctx.echo(f"CARPINTERIA: {TD.FIELD_NAMES[done]} fijada en {TD.fmt(self.tab_locks[done])} m; "
+                          f"cota activa: {TD.FIELD_NAMES[self.dim_active]} (Intro coloca).")
+        else:
+            self.dim_active = TD.next_field(TD.CARPENTRY_FIELDS, self.dim_active, backwards)
+            self.ctx.echo(f"CARPINTERIA: cota activa: {TD.FIELD_NAMES[self.dim_active]}.")
+        self._prompt()
+
+    def _locked(self, hit):
+        """(wall, spec, side, s0, hinge, width) of the placement under the
+        cursor with the fixed dimensions applied; ValueError if they do not fit."""
+        wall, spec, side, s0, hinge, width, left, right = hit
+        lk = self.tab_locks
+        L, R = lk.get("left"), lk.get("right")
+        if L is not None and R is not None and not self.dim_axis:
+            s0, width, hinge = left + L, (right - R) - (left + L), 0
+            if width <= 1e-6:
+                raise ValueError(f"con {TD.fmt(L)} y {TD.fmt(R)} m a las referencias no queda hueco "
+                                 f"(entre ellas hay {TD.fmt(right - left)} m)")
+        elif L is not None:
+            s0, hinge = TD.placement_from_distance("left", L, left, right, width, self.dim_axis), 0
+        elif R is not None:
+            s0, hinge = TD.placement_from_distance("right", R, left, right, width, self.dim_axis), 1
+        elif s0 < left - 1e-6 or s0 + width > right + 1e-6:
+            raise ValueError(f"no cabe: entre las referencias quedan {TD.fmt(right - left)} m")
+        return wall, spec, side, s0, hinge, width
+
+    def _tab_place(self, cursor=None):
+        """Place the opening with the fixed dimensions on the wall under the
+        cursor. True if something was placed."""
+        cursor = cursor if cursor is not None else self._last_cursor
+        hit = self._placement(cursor) if cursor is not None else self._hover
+        if hit is None:
+            self.ctx.echo("CARPINTERIA: lleve el cursor a la cara del muro donde va la carpintería.")
+            return False
+        try:
+            wall, spec, side, s0, hinge, width = self._locked(hit)
+            lk = self.tab_locks
+            if "left" in lk and "right" in lk and not self.dim_axis:
+                self._hole_width(width, spec, side)      # the width they give stays as the model's
+                width = OP.span_of(spec, self._width(), self.v, side)
+            self._create(wall, spec, s0, hinge, width, side)
+        except ValueError as exc:
+            self.ctx.echo(f"CARPINTERIA: {exc}")
+            return False
+        self.tab_locks, self.tab_order = {}, []
+        self._hover = None
+        self._ops_cache = None
+        return True
 
     def preview_entities(self, cursor):
         """IngeCAD 0.8: the temporary dimensions, rendered with real text."""
+        self._last_cursor = cursor
         try:
             dims = self._hover_dims(cursor)
             return TD.entities(_document(self.ctx).doc, dims, TD.world_per_px(self.ctx)) if dims else []
@@ -560,6 +696,8 @@ class CarpinteriaTool(Tool):
     def _place_at_distance(self, distance):
         """Typed number with the cursor on a wall: the opening at that
         distance from the active reference (as the temporary dimension shows)."""
+        if self._hover is None:
+            return
         wall, spec, side, s0, _h, width, left, right = self._hover
         try:
             s0 = TD.placement_from_distance(self.dim_active, distance, left, right, width, self.dim_axis)
@@ -580,6 +718,12 @@ class CarpinteriaTool(Tool):
     def on_point(self, p):
         p = (float(p[0]), float(p[1]))
         self._ops_cache = None
+        if self.tab_locks and self.first is None and self.pending is None:
+            try:
+                self._tab_place(p)               # a click with fixed dimensions
+            finally:
+                self._prompt()
+            return
         try:
             if self.first is not None:
                 wall, spec, s, side = self.first
@@ -619,6 +763,10 @@ class CarpinteriaTool(Tool):
             self.pending = None
             self._prompt()
             return
+        if self.tab_locks and self.first is None:
+            self._tab_place()
+            self._prompt()
+            return
         if self.first is not None:
             wall, spec, s, side = self.first
             self.first = None
@@ -634,10 +782,14 @@ class CarpinteriaTool(Tool):
     def on_cancel(self):
         self.first = None
         self.pending = None
+        self.tab_locks, self.tab_order = {}, []
 
     def preview_segments(self, cursor):
         try:
-            if self.first is not None:
+            hit = self._placement(cursor) if (self.tab_locks and self.first is None) else None
+            if hit is not None:
+                wall, spec, side, s0, hinge, width = self._locked(hit)
+            elif self.first is not None:
                 wall, spec, s, side = self.first
                 sq, oq = spec.local(cursor)
                 side = 1 if oq >= (spec.lo + spec.hi) / 2 else -1
@@ -708,6 +860,27 @@ class MoverCarpinteriaTool(Tool):
         self.entity = None
         self.dim_active = "left"
         self.dim_axis = False
+        from . import tabulador
+        tabulador.install(self.ctx)
+        self._prompt()
+
+    def tab_ready(self):
+        return self.entity is not None
+
+    def on_tab(self, text="", backwards=False):
+        """Tab: a typed distance moves it from the active reference; then
+        the other reference becomes active."""
+        if str(text).strip():
+            try:
+                d = TD.parse_length(text)
+                _spec, _side, _s0, width, left, right = self._state()
+                self._move_to(TD.placement_from_distance(self.dim_active, d, left, right, width,
+                                                         self.dim_axis))
+            except ValueError as exc:
+                self.ctx.echo(f"MOVERCARP: {exc}")
+                self._prompt()
+                return
+        self.dim_active = TD.next_field(TD.CARPENTRY_FIELDS[:2], self.dim_active, backwards)
         self._prompt()
 
     def _prompt(self):
@@ -716,8 +889,8 @@ class MoverCarpinteriaTool(Tool):
             return
         ref = "centro" if self.dim_axis else "jamba"
         act = "izquierda" if self.dim_active == "left" else "derecha"
-        self.prompt(f"MOVERCARP: distancia de la cota activa ({act}, a la {ref}) o clic en el muro "
-                    "[COta (F6)/EJe (F4)/Otra/Fin]:")
+        self.prompt(f"MOVERCARP: distancia de la cota activa ({act}, a la {ref}; Tab: la otra) "
+                    "o clic en el muro [COta (F6)/EJe (F4)/Otra/Fin]:")
 
     def _state(self):
         """(spec, side, s0, width, left, right) of the designated opening."""

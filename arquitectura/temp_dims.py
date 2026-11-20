@@ -33,6 +33,8 @@ EXT_PX = 4            # extension line beyond the dimension line
 
 ACTIVE_COLOR = 30     # orange: the dimension a typed number goes to
 OTHER_COLOR = 140     # blue: informative
+LOCKED_COLOR = 3      # green: a value fixed with Tab
+ARC_PX = 40           # radius of the angle's arc
 MIN_SHOWN = 1e-4
 
 
@@ -71,13 +73,14 @@ class Dim:
     """A dimension from ``a`` to ``b`` (points on the measured line), drawn
     ``offset`` drawing units away along the unit vector ``out``."""
 
-    def __init__(self, a, b, out, offset, text, active=False, role=""):
+    def __init__(self, a, b, out, offset, text, active=False, role="", locked=False):
         self.a, self.b = (float(a[0]), float(a[1])), (float(b[0]), float(b[1]))
         self.out = out
         self.offset = float(offset)
-        self.text = text
+        self.text = f"[{text}]" if locked else text
         self.active = bool(active)
         self.role = role
+        self.locked = bool(locked)
 
     @property
     def length(self):
@@ -118,6 +121,37 @@ class Dim:
         return (mid[0] + up[0] * g, mid[1] + up[1] * g), ang, TEXT_PX * px
 
 
+class AngleDim:
+    """The angle of a wall being drawn: a short horizontal reference from
+    ``centre``, an arc counter-clockwise from it to ``angle`` (degrees) and
+    the value beside the arc, always horizontal."""
+
+    def __init__(self, centre, angle, text, active=False, role="angle", locked=False):
+        self.centre = (float(centre[0]), float(centre[1]))
+        self.angle = float(angle) % 360.0
+        self.text = f"[{text}]" if locked else text
+        self.active = bool(active)
+        self.role = role
+        self.locked = bool(locked)
+        self.length = 1.0          # always shown
+
+    def segments(self, px):
+        cx, cy = self.centre
+        r = ARC_PX * px
+        segs = [((cx, cy), (cx + r + EXT_PX * px, cy))]
+        n = max(2, int(math.ceil(self.angle / 7.5)))
+        pts = [(cx + r * math.cos(math.radians(self.angle * i / n)),
+                cy + r * math.sin(math.radians(self.angle * i / n))) for i in range(n + 1)]
+        segs += list(zip(pts, pts[1:]))
+        return segs
+
+    def text_place(self, px):
+        mid = math.radians(self.angle / 2.0)
+        r = ARC_PX * px + (GAP_PX + TEXT_PX) * px
+        cx, cy = self.centre
+        return (cx + r * math.cos(mid), cy + r * math.sin(mid) - TEXT_PX * px / 2), 0.0, TEXT_PX * px
+
+
 def segments(dims, px):
     out = []
     for d in dims:
@@ -134,7 +168,8 @@ def entities(doc, dims, px):
     for d in dims:
         if d.length < MIN_SHOWN:
             continue
-        color = ACTIVE_COLOR if d.active else OTHER_COLOR
+        color = ACTIVE_COLOR if d.active else (LOCKED_COLOR if getattr(d, "locked", False)
+                                               else OTHER_COLOR)
         for a, b in d.segments(px):
             out.append(Line.new(dxfattribs={"start": (a[0], a[1], 0.0), "end": (b[0], b[1], 0.0),
                                             "color": color, "layer": "0"}, doc=doc))
@@ -173,7 +208,8 @@ def references(usable, jambs, s0, s1):
     return left, right
 
 
-def carpentry_dims(spec, side, s0, width, left, right, px, active="left", to_axis=False):
+def carpentry_dims(spec, side, s0, width, left, right, px, active="left", to_axis=False,
+                   locked=()):
     """The chain left reference | opening | right reference, on the face the
     opening is placed from, outside the wall on that side."""
     off_face = spec.hi if side > 0 else spec.lo
@@ -191,9 +227,12 @@ def carpentry_dims(spec, side, s0, width, left, right, px, active="left", to_axi
     back = (-out[0], -out[1])
     # the width on the other side of the wall: on this side it would cross
     # the leaf's swing
-    dims = [Dim(p(left), p(a0), out, off, fmt(a0 - left), active == "left", "left"),
-            Dim(p(a1), p(right), out, off, fmt(right - a1), active == "right", "right"),
-            Dim(q(s0), q(s0 + width), back, off, fmt(width), False, "width")]
+    dims = [Dim(p(left), p(a0), out, off, fmt(a0 - left), active == "left", "left",
+                "left" in locked),
+            Dim(p(a1), p(right), out, off, fmt(right - a1), active == "right", "right",
+                "right" in locked),
+            Dim(q(s0), q(s0 + width), back, off, fmt(width), active == "width", "width",
+                "width" in locked)]
     return dims
 
 
@@ -211,10 +250,12 @@ def placement_from_distance(which, distance, left, right, width, to_axis=False):
 
 
 # --- walls: length, angle and parallel walls ---------------------------------------------
-def wall_dims(a, b, thickness, lo, hi, specs, px, max_dist=12.0):
-    """Length of the wall being drawn (outside its left face), and the
-    perpendicular distance from its end to the nearest parallel wall face on
-    each side (axis to face), among ``specs`` (existing walls)."""
+def wall_dims(a, b, thickness, lo, hi, specs, px, max_dist=12.0, active="length", locked=()):
+    """Length of the wall being drawn (outside its left face), its angle (an
+    arc at its start), and the perpendicular distance from its end to the
+    nearest parallel wall face on each side (axis to face), among ``specs``
+    (existing walls). ``active``: the field a typed value goes to;
+    ``locked``: the fields fixed with Tab."""
     L = math.dist(a, b)
     if L < 1e-6:
         return []
@@ -223,8 +264,10 @@ def wall_dims(a, b, thickness, lo, hi, specs, px, max_dist=12.0):
     dims = []
     ang = math.degrees(math.atan2(u[1], u[0])) % 360.0
     face = lambda p, off: (p[0] + n[0] * off, p[1] + n[1] * off)  # noqa: E731
-    dims.append(Dim(face(a, hi), face(b, hi), n, OFFSET_PX * px,
-                    f"{fmt(L)}  <{ang:.1f}°".replace(".", ","), True, "length"))
+    dims.append(Dim(face(a, hi), face(b, hi), n, OFFSET_PX * px, fmt(L),
+                    active == "length", "length", "length" in locked))
+    dims.append(AngleDim(a, ang, f"{ang:.1f}°".replace(".", ","), active == "angle",
+                         "angle", "angle" in locked))
     best = {1: None, -1: None}
     for w in specs or ():
         if getattr(w, "curved", False):
@@ -249,3 +292,49 @@ def wall_dims(a, b, thickness, lo, hi, specs, px, max_dist=12.0):
         d, q = hit
         dims.append(Dim(b, q, u, OFFSET_PX * px * 0.6, fmt(abs(d)), False, "parallel"))
     return dims
+
+
+# --- Tab: move through the dimensions and fix their values --------------------------
+WALL_FIELDS = ("length", "angle")
+CARPENTRY_FIELDS = ("left", "right", "width")
+FIELD_NAMES = {"length": "longitud", "angle": "ángulo", "left": "izquierda",
+               "right": "derecha", "width": "ancho"}
+
+
+def next_field(fields, current, backwards=False):
+    """The field after ``current`` (before it with Shift+Tab); the first
+    one when none is active yet."""
+    if current not in fields:
+        return fields[-1] if backwards else fields[0]
+    i = fields.index(current) + (-1 if backwards else 1)
+    return fields[i % len(fields)]
+
+
+def parse_angle(text):
+    """A typed angle in degrees («30», «30,5», «<30», «30°»), 0…360."""
+    t = str(text).strip().lstrip("<").rstrip("°º").strip().replace(",", ".")
+    v = float(t)
+    if not math.isfinite(v):
+        raise ValueError("ángulo no válido")
+    return v % 360.0
+
+
+def wall_end(start, cursor, length=None, angle=None):
+    """The end of a wall from ``start`` with the fixed ``length`` and/or
+    ``angle`` (degrees); what is not fixed follows the cursor: the
+    direction toward it, or its projection on the fixed direction. None
+    when the cursor gives nothing usable (on the start, or behind it)."""
+    sx, sy = float(start[0]), float(start[1])
+    dx, dy = float(cursor[0]) - sx, float(cursor[1]) - sy
+    if angle is not None:
+        u = (math.cos(math.radians(angle)), math.sin(math.radians(angle)))
+        if length is None:
+            length = dx * u[0] + dy * u[1]
+            if length <= 1e-6:
+                return None
+    else:
+        d = math.hypot(dx, dy)
+        if d < 1e-9:
+            return None
+        u = (dx / d, dy / d)
+    return (sx + u[0] * length, sy + u[1] * length)

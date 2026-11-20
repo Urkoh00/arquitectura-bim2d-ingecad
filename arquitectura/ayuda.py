@@ -30,6 +30,8 @@ SECCIONES = (
             "I o F5 cambia la cara de referencia; G toma las propiedades de otro muro",
             "Antes del primer punto, un número es el ESPESOR TOTAL (ofrece los tipos que lo tienen)",
             "T elige un tipo del catálogo (Termoarcilla, PYL, multicapa...; ver TIPOSMURO)",
+            "Tab recorre las cotas temporales (longitud, ángulo); un valor escrito y Tab la "
+            "fija (verde, entre corchetes); Intro o clic coloca el tramo; Mayús+Tab vuelve",
             "Terminar en la cara próxima de otro muro = encuentro en T; en la alejada = en L "
             "(lo recorta)")),
         (("MUROCURVO",), "Muro curvo por inicio, fin y punto de paso", (
@@ -99,11 +101,17 @@ SECCIONES = (
             "C ajuste interior/medio/exterior, E cerco (ancho y profundidad), "
             "R alféizar/vierteaguas/ventanal",
             "B bisagra y S sentido de la última",
+            "Cotas temporales: un número coloca a esa distancia de la cota activa; F6 la "
+            "cambia, F4 mide a la jamba o al centro",
+            "Tab recorre izquierda, derecha y ancho; un valor y Tab la fija; Intro o clic "
+            "coloca (izquierda y derecha fijadas dan el ancho)",
             "Pinchar una carpintería sustituye su modelo (misma identidad)",
             "Al empezar se abre su ficha (modelo, hojas, cerco, remate, identificación); "
             "D la vuelve a abrir")),
         (("PUERTAARQ", "VENTANAARQ", "HUECOARQ"), "CARPINTERIA con ese tipo de partida", ()),
-        (("MOVERCARP",), "Mueve una puerta, ventana o hueco con cotas temporales", ()),
+        (("MOVERCARP",), "Mueve una puerta, ventana o hueco con cotas temporales", (
+            "Un número la coloca a esa distancia de la cota activa; F6 o Tab pasan a la otra",
+            "Un valor y Tab la mueve y activa la otra cota")),
         (("ARMARIOBIM",), "Armario adosado o empotrado", (
             "Cara de acceso y jamba del armario; Intro para terminar",
             "Computa en la superficie útil según PARAMETROSARQ")),

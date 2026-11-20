@@ -1,12 +1,12 @@
-# Manual de Arquitectura para IngeCAD — versión 1.44.0-dev
+# Manual de Arquitectura para IngeCAD — versión 1.45.0-dev
 
-Versión 1.44.0-dev · 19-11-2026
+Versión 1.45.0-dev · 20-11-2026
 
 > Copia del manual publicado como documento en claude.ai; se regenera con cada versión.
 
 ## Qué es
 
-Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.44.0-dev** y se actualiza con cada versión.
+Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.45.0-dev** y se actualiza con cada versión.
 
 Cada elemento guarda su identidad persistente, su clase IFC, su geometría editable en planta, sus parámetros 3D (altura, espesor, cota), sus propiedades constructivas (tipo, material, capas) y su nivel. Las carpinterías conocen su muro y los recintos siguen a los muros que los cierran.
 
@@ -27,7 +27,7 @@ El plugin se instala copiando una carpeta en IngeCAD, y la extensión copiando t
 
 **En IngeCAD**
 
-1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.44.0-dev.zip`.
+1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.45.0-dev.zip`.
 2. Copie la carpeta `arquitectura` en la carpeta de plugins de IngeCAD.
 3. Reinicie IngeCAD. Aparece el menú *Arquitectura* y su barra de herramientas.
 4. Escriba `ARQDIAG` en la línea de órdenes para comprobar que la versión cargada es la que acaba de copiar.
@@ -162,7 +162,9 @@ Una defensa va en la capa `ARQ-DEFENSAS` y no admite carpinterías. Es un muro c
 | `I` o `F5` | Invierte la cara por la que se dibuja |
 | `G` | Toma espesor, altura, tipo y material de otro muro que se designa |
 
-**Cotas temporales al dibujar.** Tras el primer punto, `MURO` muestra junto al tramo su longitud y su ángulo (`2,24 <0,0°`), en naranja, y en azul la distancia desde el extremo del tramo hasta la cara paralela más cercana de otro muro a cada lado. Escribir un número da la longitud del tramo en la dirección del cursor (la distancia directa de IngeCAD). Las cotas tienen el mismo tamaño en pantalla con cualquier zoom y no se dibujan.
+**Cotas temporales al dibujar.** Tras el primer punto, `MURO` muestra junto al tramo su longitud y su ángulo (`2,24 y un arco con 0,0°`), en naranja, y en azul la distancia desde el extremo del tramo hasta la cara paralela más cercana de otro muro a cada lado. Escribir un número da la longitud del tramo en la dirección del cursor (la distancia directa de IngeCAD). Las cotas tienen el mismo tamaño en pantalla con cualquier zoom y no se dibujan.
+
+**Fijar cotas con Tab.** Tras el primer punto, `Tab` activa la longitud del tramo y, pulsado otra vez, el ángulo (`Mayús+Tab` vuelve a la anterior). La cota activa va en naranja. Si escribe un valor antes de pulsar `Tab` (`5`, `3,60`, `360cm`; el ángulo en grados, `90` o `<90`), esa cota queda **fijada**: se muestra en verde y entre corchetes y se activa la siguiente. Lo que no está fijado sigue al cursor: con la longitud fijada, el tramo apunta hacia el cursor; con el ángulo fijado, su longitud es la proyección del cursor sobre esa dirección. `Intro`, un valor e `Intro`, o un clic colocan el tramo con lo fijado, y el tramo siguiente empieza sin nada fijado. Ejemplo: `5` `Tab` `90` `Intro` dibuja un tramo de 5 m hacia arriba. Sin pulsar `Tab`, un número sigue siendo la distancia directa de IngeCAD.
 
 **Encuentros al dibujar.** Si un muro termina en la cara **cercana** de otro, se forma una **T**. Si termina en la cara **alejada**, se forma una **L**: el otro muro se recorta y conserva su parte más larga. Al empezar un muro en una cara o en una esquina interior, el programa elige la cara que no invade el muro existente; `F5` lo corrige.
 
@@ -309,6 +311,8 @@ Cada pilar es un solo paso de `Deshacer`, con los muros y recintos ya actualizad
 **Uso básico.** Haga clic en la cara del muro hacia la que abre la carpintería. En modo *Libre*, un segundo clic indica hacia dónde se extiende desde ese punto; `Intro` la extiende hacia el lado más largo. Si hace clic sobre una carpintería existente, se sustituye su modelo y se conserva su identidad.
 
 **Cotas temporales.** Al pasar el cursor por un muro, `CARPINTERIA` muestra, sin dibujarlas, la distancia desde cada lado del hueco hasta la referencia más cercana de ese muro (el final del paramento libre o la jamba de otra carpintería) y, en la otra cara, el ancho del hueco. La cota **activa** va en naranja y las demás en azul. Escriba un número (`1,20`, `1.20` o `120cm`) y el hueco se coloca a esa distancia de la referencia activa, sin hacer clic. `F6` o la opción `Cota` pasa a la otra cota; `F4` o la opción `Eje` alterna entre medir hasta la jamba o hasta el centro del hueco. Si el hueco no cabe a esa distancia, no se crea nada y se avisa. Un número mayor de 30 sigue siendo el ancho de la hoja (`72` = hoja de 725 mm).
+
+**Fijar cotas con Tab.** `Tab` recorre la distancia a la referencia izquierda, a la derecha y el ancho del hueco (`Mayús+Tab` en sentido contrario). Un valor escrito antes de `Tab` fija esa cota (verde, entre corchetes) y activa la siguiente; `Intro`, o un clic en la cara del muro, colocan la carpintería con lo fijado. Con la izquierda y la derecha fijadas, el ancho del hueco es lo que queda entre ellas. Fijar el ancho cambia el del modelo para las siguientes (en una puerta, el de la hoja, descontado el cerco). Si no cabe, no se crea nada, se avisa y lo fijado se conserva para corregirlo. En `MOVERCARP`, un valor y `Tab` mueven la carpintería a esa distancia de la cota activa y pasan a la otra.
 
 **MOVERCARP** mueve una carpintería ya colocada con las mismas cotas: designe la carpintería y escriba la distancia de la cota activa, o haga clic en el muro para llevar allí su centro. Conserva su identidad BIM y se deshace con un solo `Deshacer`. `Intro` suelta la carpintería para designar otra.
 
@@ -522,7 +526,7 @@ Con niveles o forjados, el intercambio usa `.arqbim` v3 y necesita la extensión
 
 ## Limitaciones conocidas
 
-Estas son las limitaciones conocidas de la versión 1.44.0-dev; cada versión actualiza esta lista.
+Estas son las limitaciones conocidas de la versión 1.45.0-dev; cada versión actualiza esta lista.
 
 - **Plataforma:** las pruebas automáticas se ejecutan en Linux con la última versión oficial de IngeCAD y de IngeTrazo, pero sin pantalla. Solo se prueba con la última versión de cada programa, porque ambos publican casi cada semana.
 - **Muros curvos:** cada muro llega como mucho a media circunferencia (un muro redondo son dos). MUROPARALELO y DIVIDEMURO solo toman líneas rectas como referencia. El gesto de esquina en L al terminar un MURO solo recorta muros rectos.
@@ -536,6 +540,7 @@ Estas son las limitaciones conocidas de la versión 1.44.0-dev; cada versión ac
 
 | Fecha | Versión | Novedades |
 | --- | --- | --- |
+| 20-11-2026 | 1.45.0-dev | Tab recorre las cotas temporales y fija su valor: longitud y ángulo en MURO; izquierda, derecha y ancho en CARPINTERIA; MOVERCARP mueve con Tab. El ángulo del muro se muestra como cota propia |
 | 19-11-2026 | 1.44.0-dev | Los muros envían al IFC su superficie de paramento bruta y neta (descontados los huecos), también en muros curvos y con puertas hasta el suelo |
 | 19-11-2026 | 1.43.0-dev | Las herramientas antiguas (CURVAS3D, VERTPOLY...) preguntan como avisos de la orden, sin que reaparezcan avisos de otras órdenes; CURVAS3D aclara que ARQ-CURVAS3D es la capa del resultado |
 | 19-11-2026 | 1.42.0-dev | PARAMETROSARQ vuelve a abrir su ficha (fallo de la 1.37); AYUDAARQ es un cuadro con las órdenes por temas, buscador y detalle, y ya incluye todas las órdenes del plugin |

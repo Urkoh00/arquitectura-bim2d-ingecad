@@ -2,6 +2,24 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.45.0-dev — 2026-11-20
+
+- **Tab recorre las cotas temporales y fija su valor.** Al dibujar un muro, Tab pasa de la longitud al
+  ángulo y vuelve; si antes de pulsarlo se escribe un valor, esa cota queda fijada (en verde y entre
+  corchetes) y se activa la siguiente. Lo que no está fijado sigue al cursor: con el ángulo fijado, la
+  longitud es la proyección del cursor; con la longitud fijada, la dirección es la del cursor. Intro, o un
+  valor e Intro, o un clic, colocan el tramo. Mayús+Tab vuelve a la cota anterior.
+- En **CARPINTERIA, PUERTAARQ, VENTANAARQ y HUECOARQ**, Tab recorre la distancia a la izquierda, a la
+  derecha y el ancho del hueco. Fijar izquierda y derecha da el ancho; fijar el ancho cambia el del modelo
+  (en una puerta, el de la hoja). Intro o un clic en la cara del muro colocan la carpintería; si no cabe,
+  se avisa y lo fijado se conserva. En **MOVERCARP**, un valor y Tab mueven la carpintería y activan la otra
+  cota.
+- El ángulo del muro se muestra como cota propia (arco desde la horizontal), separado de la longitud.
+- Sin Tab todo funciona como antes: un número tras el primer punto es la distancia directa de IngeCAD.
+- IngeCAD 0.8 solo entrega a la orden las teclas F4 a F6; Tab se recoge con un filtro de teclado que
+  actúa solo mientras una de estas órdenes lo admite. Se propondrá a IngeCAD que ofrezca Tab a la orden
+  (C-16).
+
 ## 1.44.0-dev — 2026-11-19
 
 - **Los muros envían su superficie de paramento al IFC** (`GrossSideArea` y `NetSideArea` en

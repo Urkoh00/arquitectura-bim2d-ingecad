@@ -129,7 +129,7 @@ def test_muro_muestra_longitud_angulo_y_distancia_a_paralelos(plugin):
     t.on_point((1.0, 1.0))
     ents = t.preview_entities((3.5, 1.0))
     texts = _texts(ents)
-    assert any(x.startswith("2,50") and "0,0°" in x for x in texts)
+    assert "2,50" in texts and "0,0°" in texts         # longitud y ángulo, por separado (v1.45)
     # caras interiores de los muros sur (y = 0,15) y norte (y = 4,85)
     assert "0,85" in texts and "3,85" in texts
 

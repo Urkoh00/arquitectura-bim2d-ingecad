@@ -304,6 +304,18 @@ def _typed_thickness(tool, text):
     return value
 
 
+def _is_tab_value(txt):
+    t = str(txt).strip().lower().lstrip("<").rstrip("°º").replace(" ", "")
+    for unit in ("cm", "m"):
+        if t.endswith(unit):
+            t = t[:-len(unit)]
+            break
+    try:
+        return math.isfinite(float(t.replace(",", ".")))
+    except ValueError:
+        return False
+
+
 def _is_thickness(txt):
     t = str(txt).strip().replace(",", ".")
     if not t or ("." not in t and not t.startswith("0")):
@@ -380,6 +392,7 @@ class MuroCarasTool(WallTypeChoice, _MuroV10):
 
     def on_cancel(self):
         MuroCarasTool._drop_f5()
+        self._tab_reset()
         super().on_cancel()
 
     def on_enter(self):
@@ -388,7 +401,95 @@ class MuroCarasTool(WallTypeChoice, _MuroV10):
             self._status()
             self._reprompt()
             return
+        if self._tab_place():
+            return
         super().on_enter()
+
+    # --- Tab: length and angle of the segment, fixed one by one ----------------------
+    def _tab_reset(self):
+        self.tab_field = None
+        self.tab_locks = {}
+
+    def tab_ready(self):
+        return (getattr(self, "startpoint", None) is not None and self.pending is None
+                and not getattr(self, "capturing", False)
+                and getattr(self, "type_candidates", None) is None
+                and not getattr(self, "choosing_type", False))
+
+    def _tab_value(self, field, text):
+        from . import temp_dims as TD
+        if field == "angle":
+            return TD.parse_angle(text)
+        v = TD.parse_length(text)
+        if v <= 1e-6:
+            raise ValueError("la longitud debe ser positiva")
+        return v
+
+    def _tab_lock(self, text):
+        """Fix the active field to the typed value. False if it is not valid."""
+        from . import temp_dims as TD
+        field = self.tab_field or "length"
+        try:
+            value = self._tab_value(field, text)
+        except ValueError:
+            self.ctx.echo(f"MURO: «{text}» no es un valor de {TD.FIELD_NAMES[field]} válido.")
+            return False
+        self.tab_field = field
+        self.tab_locks[field] = value
+        return True
+
+    def on_tab(self, text="", backwards=False):
+        """Tab: fix the active dimension to the typed value (if any) and go
+        to the next one (Shift+Tab: the previous one)."""
+        from . import temp_dims as TD
+        if not hasattr(self, "tab_locks"):
+            self._tab_reset()
+        if str(text).strip():
+            if self.tab_field is None:
+                self.tab_field = "length"
+            if not self._tab_lock(text):
+                return
+            done = self.tab_field
+            self.tab_field = TD.next_field(TD.WALL_FIELDS, self.tab_field, backwards)
+            self.ctx.echo(f"MURO: {TD.FIELD_NAMES[done]} fijada en "
+                          f"{self._tab_text(done)}; cota activa: {TD.FIELD_NAMES[self.tab_field]}.")
+        else:
+            self.tab_field = TD.next_field(TD.WALL_FIELDS, self.tab_field, backwards)
+            self.ctx.echo(f"MURO: cota activa: {TD.FIELD_NAMES[self.tab_field]} "
+                          "(escriba su valor y pulse Tab para fijarlo, o Intro para colocar).")
+
+    def _tab_text(self, field):
+        from . import temp_dims as TD
+        v = self.tab_locks[field]
+        return f"{v:.1f}°".replace(".", ",") if field == "angle" else f"{TD.fmt(v)} m"
+
+    def _tab_point(self, cursor):
+        """The end the fixed values give with this cursor (the cursor
+        itself when nothing is fixed); None when it gives no end."""
+        locks = getattr(self, "tab_locks", None)
+        if not locks or self.startpoint is None or cursor is None:
+            return cursor
+        from . import temp_dims as TD
+        return TD.wall_end(self.startpoint, cursor, locks.get("length"), locks.get("angle"))
+
+    def _tab_place(self, cursor=None):
+        """Enter with fixed values: the segment ends where they say."""
+        if not getattr(self, "tab_locks", None) or not self.tab_ready():
+            return False
+        cursor = cursor if cursor is not None else getattr(self, "_last_cursor", None)
+        if cursor is None:
+            if "length" in self.tab_locks:      # no pointer yet: along the angle or +X
+                import math as _m
+                a = _m.radians(self.tab_locks.get("angle", 0.0))
+                cursor = (self.startpoint[0] + _m.cos(a), self.startpoint[1] + _m.sin(a))
+            else:
+                return False
+        end = self._tab_point(cursor)
+        if end is None:
+            self.ctx.echo("MURO: mueva el cursor hacia donde debe ir el muro.")
+            return True
+        self.on_point(end)
+        return True
 
     def _reprompt(self):
         lab = self._type_label()
@@ -411,11 +512,20 @@ class MuroCarasTool(WallTypeChoice, _MuroV10):
             if len(hits) == 1 and self.bim.get("type_name") in ("", "Muro genérico", None):
                 self._apply_type(hits[0])
         self._install_f5()
+        self._tab_reset()
+        from . import tabulador
+        tabulador.install(self.ctx)
         if getattr(self, "startpoint", None) is None:
             self._reprompt()
 
     def on_option(self, text):
         txt = str(text).strip().lower()
+        if (getattr(self, "tab_field", None) is not None and self.tab_ready()
+                and _is_tab_value(txt)):
+            # a value with a dimension chosen by Tab: fix it and place
+            if self._tab_lock(txt):
+                self._tab_place()
+            return True
         from .wall_categories import CATEGORIES
         choices={k:k for _,k in CATEGORIES}
         choices.update({'fachada':'fachada','sótano':'sotano'})
@@ -487,6 +597,10 @@ class MuroCarasTool(WallTypeChoice, _MuroV10):
     def preview_segments(self, cursor):
         if self.startpoint is None or self.pending is not None:
             return []
+        self._last_cursor = cursor
+        cursor = self._tab_point(cursor)
+        if cursor is None:
+            return []
         try:
             from .architectural_v10 import wall_corners
             c = wall_corners(self.startpoint, cursor, self.thickness, self._auto_reference(cursor))
@@ -516,12 +630,18 @@ class MuroCarasTool(WallTypeChoice, _MuroV10):
     def _temp_dims(self, cursor):
         if self.startpoint is None or self.pending is not None or cursor is None:
             return []
+        self._last_cursor = cursor
+        cursor = self._tab_point(cursor)
+        if cursor is None:
+            return []
         from . import temp_dims as TD
         from .geom.junctions import offsets
         try:
             lo, hi = offsets(self.thickness, self._auto_reference(cursor))
             return TD.wall_dims(self.startpoint, (float(cursor[0]), float(cursor[1])), self.thickness,
-                                lo, hi, self._existing_walls(), TD.world_per_px(self.ctx))
+                                lo, hi, self._existing_walls(), TD.world_per_px(self.ctx),
+                                active=getattr(self, "tab_field", None) or "length",
+                                locked=tuple(getattr(self, "tab_locks", {})))
         except Exception:  # noqa: BLE001
             return []
 
@@ -540,6 +660,12 @@ class MuroCarasTool(WallTypeChoice, _MuroV10):
 
     def on_point(self, p):
         self._walls_cache = None
+        if getattr(self, "tab_locks", None) and self.tab_ready():
+            end = self._tab_point(p)          # a click with fixed values: they rule
+            if end is not None:
+                p = end
+        if hasattr(self, "tab_locks"):
+            self._tab_reset()                 # each segment starts afresh
         if self.startpoint is None and not self.capturing and not self.pending:
             self.chain_first = True
         elif (self.startpoint is not None and not self.capturing and not self.pending
