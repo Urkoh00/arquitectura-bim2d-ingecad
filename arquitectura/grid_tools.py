@@ -217,6 +217,13 @@ class GridEditTool(Tool):
 
     @_entrada_segura
     def on_option(self,text):
+        if self.entity is not None and str(text).strip().lower() in ('ficha','separaciones','tabla'):
+            from PySide6.QtWidgets import QApplication
+            if QApplication.instance() is None:
+                # Crear un QWidget sin QApplication abortaría el proceso completo.
+                self.ctx.echo('EDITAREJE: ficha no disponible; use -EDITAREJE para editar por texto.')
+                self.prompt('Nuevo punto medio del eje o [Ficha/Separaciones/Renumerar valor]:')
+                return True
         if self.entity is not None and str(text).strip().lower() in ('separaciones','tabla'):
             values,*_=G.spacing_values(require_document(self.ctx).doc,G.metadata(self.entity)['grid_id'])
             dlg,read=spacing_form(self.ctx,values)
