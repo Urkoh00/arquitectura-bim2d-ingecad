@@ -376,6 +376,10 @@ def guardar_usos(ctx, usos):
 def parametros_arq(ctx,*args):
     try:
         current=load_defaults(ctx.document)
+        from PySide6.QtWidgets import QApplication
+        if QApplication.instance() is None:
+            ctx.echo('PARAMETROSARQ: la ficha requiere una ventana; use -PARAMETROSARQ por texto.')
+            return current
         from .bim_dialogs import architectural_defaults_dialog
         new=architectural_defaults_dialog(ctx,current)
         if new is None:
