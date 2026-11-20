@@ -784,7 +784,7 @@ class ElementosTool(ArchitectureTool):
     }
 
     def on_start(self):
-        self.ctx.echo("ELEMENTOS — active/desactive grupos (número):")
+        self.ctx.echo("ELEMENTOS — consulta grupos y capas; todavía no activa ni desactiva sus estados (número):")
         for k, (label, layer) in self.GROUPS.items():
             self.ctx.echo(f"  {k} = {label} ({layer})")
         self.request_keyword()
@@ -916,7 +916,7 @@ class SelAtribTool(ArchitectureTool):
     }
 
     def on_start(self):
-        self.ctx.echo("=== Selección por Atributos/Elementos ===")
+        self.ctx.echo("SELATRIB — consulta criterios; todavía no selecciona entidades en el dibujo.")
         self.ctx.echo("  E = Elementos     C = Capas")
         self.ctx.echo("  O = Colores       T = Tipos de línea")
         self.ctx.echo("  G = Grueso de línea")
@@ -1093,7 +1093,7 @@ class HiperVinculoTool(ArchitectureTool):
         self.add_keyword("ejemplo")
         self.add_keyword("archivo")
         self.add_keyword("descartar")
-        self.ctx.echo("=== Inserción Hiperenlace ===")
+        self.ctx.echo("HIPERVINCULO / URL — dibuja un marcador con la ruta; todavía no abre el fichero enlazado.")
         self.ctx.echo("Introduzca la ruta completa del fichero, o:")
         self.ctx.echo("  ejemplo  → ficha de producto de ejemplo")
         self.ctx.echo("  archivo  → (simula diálogo Abrir archivo)")
@@ -1134,7 +1134,7 @@ class HiperVinculoTool(ArchitectureTool):
             short = "…" + short[-52:]
         _add_text(self.ctx, (pt[0] + 0.25, pt[1] - 0.18), short, 0.11, "ARQ-HIPERVINCULOS")
         self.ctx.echo(f"Hipervínculo creado → {self.path}")
-        self.ctx.echo("Al hacer clic sobre el marcador (si IngeCAD lo soporta) se abrirá el documento.")
+        self.ctx.echo("El marcador es solo documentación gráfica; no crea un enlace activable.")
         self.ctx.echo("El marcador muestra la ruta de la ficha de producto.")
         self.ctx.finish()
 
@@ -1374,6 +1374,7 @@ class ListaTextosTool(ArchitectureTool):
     name = "LISTATEXTOS"
 
     def on_start(self):
+        self.ctx.echo("LISTATEXTOS — genera ejemplos o una plantilla; todavía no copia textos reales al portapapeles.")
         self.ctx.echo("LISTATEXTOS — listado de textos / superficies")
         self.ctx.echo("Opciones:")
         self.ctx.echo("  E = Ejemplo de recintos (COCINA, SALON…)")

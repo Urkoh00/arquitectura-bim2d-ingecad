@@ -418,3 +418,8 @@ manual se valida al reagrupar: renombra todas las piezas iguales y rechaza una
 marca que ya describe otra pieza; `mark_manual` distingue la intención del usuario
 de la marca automática que debe cambiar al cambiar las medidas. Las fichas y
 las preguntas de R27 exponen `mark` mediante el mismo normalizador.
+
+Los avisos y la ayuda de ELEMENTOS, SELATRIB, HIPERVINCULO, URL y LISTATEXTOS
+explican su alcance informativo. Este cambio no altera sus menús ni ejecuta
+selecciones, enlaces o copias nuevas. MEMORIACARP se rehace por separado a partir
+de las fuentes BIM; no se confunde la aclaración de avisos con esa implementación.
