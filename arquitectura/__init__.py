@@ -1093,16 +1093,16 @@ class HiperVinculoTool(ArchitectureTool):
         self.add_keyword("descartar")
         self.ctx.echo("=== Inserción Hiperenlace ===")
         self.ctx.echo("Introduzca la ruta completa del fichero, o:")
-        self.ctx.echo("  ejemplo  → ficha de producto de ejemplo (Sikasil WT-40)")
+        self.ctx.echo("  ejemplo  → ficha de producto de ejemplo")
         self.ctx.echo("  archivo  → (simula diálogo Abrir archivo)")
         self.request_keyword()
 
     def on_keyword(self, key: str):
         k = key.lower().strip()
         if k == "ejemplo":
-            self.path = r"C:\Product_Data_Sheets\window_data_sheet.pdf"
+            self.path = r"C:\Documentacion\producto_ejemplo.pdf"
         elif k == "archivo":
-            self.path = r"C:\Product_Data_Sheets\Sikasil_WT-40.pdf"
+            self.path = r"C:\Documentacion\producto_ejemplo.pdf"
             self.ctx.echo("(Simulación de diálogo Archivo…)")
         elif k == "descartar":
             self.path = ""
@@ -1133,7 +1133,7 @@ class HiperVinculoTool(ArchitectureTool):
         _add_text(self.ctx, (pt[0] + 0.25, pt[1] - 0.18), short, 0.11, "ARQ-HIPERVINCULOS")
         self.ctx.echo(f"Hipervínculo creado → {self.path}")
         self.ctx.echo("Al hacer clic sobre el marcador (si IngeCAD lo soporta) se abrirá el documento.")
-        self.ctx.echo("En el vídeo se abre Acrobat Reader con la ficha de producto.")
+        self.ctx.echo("El marcador muestra la ruta de la ficha de producto.")
         self.ctx.finish()
 
 
@@ -1401,7 +1401,7 @@ class ListaTextosTool(ArchitectureTool):
             self.ctx.echo("2. Edición → Copiar texto al portapapeles (si está disponible).")
             self.ctx.echo("3. Pegue (Ctrl+V) en un procesador de textos o en Texto multilínea.")
             self.ctx.echo("4. En Writer: Tabla → Convertir → Texto a tabla (separador espacio o ;).")
-            self.ctx.echo("5. Puede llevar la tabla a Calc / Excel.")
+            self.ctx.echo("5. Puede llevar la tabla a una hoja de cálculo.")
             self.ctx.echo("Use LISTATEXTOS E para generar un ejemplo listo.")
             self.ctx.finish()
 
