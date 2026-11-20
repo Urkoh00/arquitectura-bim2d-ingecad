@@ -170,6 +170,10 @@ def niveles(ctx,*args):
         if len(args)!=4:raise ValueError('NIVELES ESTADO id on|frozen|locked 0|1')
         set_state(ctx,str(args[1]),str(args[2]).lower(),str(args[3])=='1');return
     if args and str(args[0]).upper()=='MIGRAR':apply(ctx,load(document));return
+    from PySide6.QtWidgets import QApplication
+    if QApplication.instance() is None:
+        ctx.echo('NIVELES: la ficha requiere una ventana; use -NIVELES para responder por texto.')
+        return
     dlg,read=form(ctx,load(document))
     if dlg.exec()==1:apply(ctx,read())
 
@@ -204,7 +208,10 @@ def assign(ctx,entities,level_id,keep_absolute=True):
 def asignar(ctx,*args):
     from .compat import require_document
     from .bim_dialogs import _dialog
-    from PySide6.QtWidgets import QComboBox,QCheckBox
+    from PySide6.QtWidgets import QApplication,QComboBox,QCheckBox
+    if QApplication.instance() is None:
+        ctx.echo('NIVELASIGNAR: la ficha requiere una ventana; use -NIVELASIGNAR para responder por texto.')
+        return
     data=load(require_document(ctx));selection=getattr(ctx,'selection',None)
     if callable(selection):selection=selection()
     if selection is None:
