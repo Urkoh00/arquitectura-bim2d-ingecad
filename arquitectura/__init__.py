@@ -799,6 +799,10 @@ class BloqueTool(ArchitectureTool):
 
     def on_point(self, pt):
         # Símbolo genérico de bloque
+        if not getattr(self, "item", None):
+            # Un clic también llega durante el menú; todavía no hay un tipo elegido.
+            self.prompt("BLOQUE: elija primero un tipo (1–6):")
+            return
         _add_rect(self.ctx, (pt[0] - 0.4, pt[1] - 0.3), (pt[0] + 0.4, pt[1] + 0.3), "ARQ-MOBILIARIO")
         _add_text(self.ctx, pt, self.item[:4], 0.15, "ARQ-MOBILIARIO")
         self.ctx.echo(f"Bloque «{self.item}» insertado.")
