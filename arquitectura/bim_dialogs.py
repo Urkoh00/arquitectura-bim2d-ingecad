@@ -900,22 +900,10 @@ def carpentry_preview(get_record, wall_thickness=0.25):
                 else:
                     a, b, _p, _q, lo, hi = part["box"]
                     qp.drawPolygon(QPolygonF([E(a, lo), E(b, lo), E(b, hi), E(a, hi)]))
-            # swing marks of hinged leaves (a door's or a window's)
-            if rec["type"] != "gap" and rec["operation"] in ("SWINGING", "SIDEHUNG"):
-                qp.setPen(QPen(QColor(90, 90, 90), 0.8, Qt.DashLine))
-                fw = float(rec.get("frame_width") or 0.0)
-                c0, c1 = s0 + fw, s1 - fw
-                n = 1 if rec["type"] == "door" and rec["leaves"] == 1 else max(1, int(rec["leaves"]))
-                if rec["type"] == "door":
-                    bounds = ([(c0, c1, rec["hinge"])] if n == 1 else
-                              [(c0, c0 + float(rec["leaf"]), 0), (c0 + float(rec["leaf"]), c1, 1)])
-                else:
-                    step = (c1 - c0) / n
-                    bounds = [(c0 + i * step, c0 + (i + 1) * step, i % 2) for i in range(n)]
-                lb, lt = (z0 + 0.005, z1 - fw) if rec["type"] == "door" else (z0 + fw, z1 - fw)
-                for a, b, hinge in bounds:
-                    h_s, f_s = (a, b) if hinge == 0 else (b, a)
-                    qp.drawPolyline(QPolygonF([E(f_s, lt), E(h_s, (lb + lt) / 2), E(f_s, lb)]))
+            # La ficha reutiliza el símbolo puro que podrán usar los alzados de memoria.
+            qp.setPen(QPen(QColor(90, 90, 90), 0.8, Qt.DashLine))
+            for trazo in OP.simbolos_apertura_alzado(rec):
+                qp.drawPolyline(QPolygonF([E(*punto) for punto in trazo]))
             # sizes
             qp.setPen(QPen(QColor(40, 40, 40)))
             qp.setFont(QFont(qp.font().family(), 8))
@@ -983,6 +971,7 @@ def carpentry_form(ctx, record, *, editing=False):
     f = QFormLayout(model)
     typ = _choice([("Puerta", "door"), ("Ventana", "window"), ("Hueco (sin carpintería)", "gap")], d["type"])
     operation = _choice([], None)
+    hinge = _choice([("En la jamba del inicio", 0), ("En la jamba del final", 1)], d.get("hinge", 0))
     leaves = _int_spin(d.get("leaves") or 1, 1, 6)
     preset = _choice([("625 mm (UNE 56803)", 0.625), ("725 mm (UNE 56803)", 0.725),
                       ("825 mm (UNE 56803)", 0.825), ("925 mm (comercial)", 0.925),
@@ -1010,6 +999,8 @@ def carpentry_form(ctx, record, *, editing=False):
             ("Hueco resultante:", hole), ("Altura:", height), ("Antepecho:", sill)]
     for label, w in rows:
         f.addRow(label, w)
+    if not editing:
+        f.addRow("Bisagra oscilobatiente:", hinge)
     left.addWidget(model)
     frame_box = QGroupBox("Cerco y remate", dlg)
     ff = QFormLayout(frame_box)
@@ -1038,7 +1029,6 @@ def carpentry_form(ctx, record, *, editing=False):
         offset = _spin(d.get("offset", 0.0))
         side = _choice([("Hacia la cara izquierda del muro", 1), ("Hacia la cara derecha del muro", -1)],
                        d.get("side", 1))
-        hinge = _choice([("En la jamba del inicio", 0), ("En la jamba del final", 1)], d.get("hinge", 0))
         pf.addRow("Distancia desde el inicio:", offset)
         pf.addRow("Abre:", side)
         pf.addRow("Bisagra:", hinge)
@@ -1106,6 +1096,8 @@ def carpentry_form(ctx, record, *, editing=False):
         kind = typ.currentData()
         door, window = kind == "door", kind == "window"
         show(operation, kind != "gap")
+        if not editing:
+            show(hinge, window and operation.currentData() == "TILTANDTURN")
         show(leaves, kind != "gap")
         leaves.setMaximum(2 if door else 6)
         for w in (preset, leaf, leaf2):
@@ -1170,6 +1162,8 @@ def carpentry_form(ctx, record, *, editing=False):
                       sill_kind=sill_kind.currentData(), frame_material=m_frame.currentText().strip(),
                       leaf_material=m_leaf.currentText().strip(), glass_material=m_glass.currentText().strip(),
                       sill_material=m_sill.currentText().strip())
+        if values["type"] == "window" and values["operation"] == "TILTANDTURN":
+            values["hinge"] = hinge.currentData()
         if place is not None:
             values.update(offset=offset.value(), side=side.currentData(), hinge=hinge.currentData())
         return normalizar_carpinteria(values, validar=False)
@@ -1203,7 +1197,7 @@ def carpentry_form(ctx, record, *, editing=False):
         ref_state.update(now)
     curve_mode.currentIndexChanged.connect(reference_changed)
     width_reference.currentIndexChanged.connect(reference_changed)
-    for w in (operation, face, sill_kind, setback_from,curve_mode,width_reference):
+    for w in (operation, hinge, face, sill_kind, setback_from,curve_mode,width_reference):
         w.currentIndexChanged.connect(refresh)
     facet.valueChanged.connect(refresh)
     preset.currentIndexChanged.connect(on_preset)
@@ -1228,7 +1222,7 @@ def carpentry_form(ctx, record, *, editing=False):
             if key in v:control.setCurrentText(v[key])
         type_name.setText(item['name']);material.setText(v.get('material',''));refresh()
     catalog_choice.currentIndexChanged.connect(select_catalog)
-    dlg._arq = dict(catalog_choice=catalog_choice,typ=typ, operation=operation, leaves=leaves, preset=preset, leaf=leaf, leaf2=leaf2,
+    dlg._arq = dict(catalog_choice=catalog_choice,typ=typ, operation=operation, hinge=hinge, leaves=leaves, preset=preset, leaf=leaf, leaf2=leaf2,
                     width=width, height=height, sill=sill, face=face, sill_kind=sill_kind, name=name, mark=mark,
                     clear=status, status=status, ifc=ifc, preview=preview, frame_width=frame_w,
                     curve_mode=curve_mode,width_reference=width_reference,facet_sagitta=facet,

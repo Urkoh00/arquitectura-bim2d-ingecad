@@ -44,9 +44,19 @@ V3_KEYS = ("leaves", "leaf", "leaf2", "frame_width", "frame_depth", "side", "hin
            "frame_material", "leaf_material", "glass_material", "sill_material",
            "curve_mode", "facet_sagitta", "width_reference", "cabinet", "niche_depth", "cabinet_mode", "body_material", "mark", "mark_manual")
 # opening type (IFC names, as in the properties dialog)
-OPERATIONS = {"door": ("SWINGING", "SLIDING"), "window": ("SIDEHUNG", "SLIDING", "FIXED"), "gap": ("",)}
-OPERATION_NAMES = {"SWINGING": "abatible", "SLIDING": "corredera", "SIDEHUNG": "abatible",
-                   "FIXED": "fija", "": ""}
+OPERATIONS = {
+    "door": ("SWINGING", "SLIDING"),
+    "window": ("SIDEHUNG", "SLIDING", "FIXED", "TILTANDTURN"),
+    "gap": ("",),
+}
+OPERATION_NAMES = {
+    "TILTANDTURN": "oscilobatiente",
+    "SWINGING": "abatible",
+    "SLIDING": "corredera",
+    "SIDEHUNG": "abatible",
+    "FIXED": "fija",
+    "": "",
+}
 # usual single-leaf doors (leaf width, m): UNE 56803 interior leaves 625, 725
 # and 825 mm (entrance 825); 925 mm is a usual COMMERCIAL size, not in the
 # standard's table (user's notes, 07/11/2026)
@@ -127,6 +137,8 @@ def normalise(rec):
     out["hinge"] = 1 if int(out.get("hinge") or 0) else 0
     if out["face"] not in FACES:
         out["face"] = "centrada"
+    if out.get("operation") == "TILTANDTURN" and typ != "window":
+        raise ValueError("La apertura oscilobatiente solo corresponde a ventanas")
     ops = OPERATIONS[typ]
     if out.get("operation") not in ops:
         out["operation"] = ops[0]
@@ -454,6 +466,23 @@ def plan_symbol(spec, rec):
         for k in range(1, n):
             sk = c0 + k * step
             out.append(("line", pt(sk, f0 - 0.03), pt(sk, f1 + 0.03)))   # where two leaves meet
+    if rec["operation"] == "TILTANDTURN":
+        # El giro lateral y la V distinguen la doble apertura; el sólido permanece cerrado.
+        cara = f1 if sg > 0 else f0
+        angulo = math.radians(float(rec.get("angle") or 90.0))
+        paso = (c1 - c0) / n
+        for indice in range(n):
+            inicio = c0 + indice * paso
+            final = inicio + paso
+            bisagra = (rec["hinge"] + indice) % 2
+            apoyo = inicio if bisagra == 0 else final
+            sentido = 1 if bisagra == 0 else -1
+            direccion = (sentido * math.cos(angulo), sg * math.sin(angulo))
+            extremo = pt(apoyo + direccion[0] * paso, cara + direccion[1] * paso)
+            out.append(("line", pt(apoyo, cara), extremo))
+            out.append(_arc(spec, pt(apoyo, cara), paso, (sentido, 0.0), direccion))
+            out.append(("poly", [pt(inicio, cara), pt((inicio + final) / 2, cara + sg * paso * 0.18),
+                                  pt(final, cara)], False))
     proj = SILL_PROJECTION.get(rec.get("sill_kind"), 0.0)
     if proj > 0:
         ext, e = (spec.lo, -1) if sg > 0 else (spec.hi, 1)
@@ -461,6 +490,35 @@ def plan_symbol(spec, rec):
         out.append(("poly", [pt(a, ext), pt(a, ext + e * proj), pt(b, ext + e * proj),
                              pt(b, ext)], True))
     return out
+
+
+def simbolos_apertura_alzado(rec):
+    """Polilíneas (s, z) compartidas por la ficha y las vistas de memoria."""
+    rec = normalise(rec)
+    if rec["type"] == "gap" or rec["operation"] not in ("SWINGING", "SIDEHUNG", "TILTANDTURN"):
+        return []
+    ancho_marco = float(rec["frame_width"])
+    inicio = float(rec["offset"]) + ancho_marco
+    final = float(rec["offset"]) + float(rec["width"]) - ancho_marco
+    inferior = float(rec["sill"]) + (0.005 if rec["type"] == "door" else ancho_marco)
+    superior = float(rec["sill"]) + float(rec["height"]) - ancho_marco
+    numero = max(1, int(rec["leaves"]))
+    if rec["type"] == "door" and numero == 2:
+        division = inicio + float(rec["leaf"])
+        hojas = [(inicio, division, 0), (division, final, 1)]
+    else:
+        paso = (final - inicio) / numero
+        hojas = [(inicio + indice * paso, inicio + (indice + 1) * paso,
+                  (rec["hinge"] + indice) % 2) for indice in range(numero)]
+    trazos = []
+    for izquierda, derecha, bisagra in hojas:
+        apoyo, libre = (izquierda, derecha) if bisagra == 0 else (derecha, izquierda)
+        trazos.append([(libre, superior), (apoyo, (inferior + superior) / 2), (libre, inferior)])
+        if rec["operation"] == "TILTANDTURN":
+            # El vértice inferior representa el eje horizontal de basculación.
+            trazos.append([(izquierda, superior), ((izquierda + derecha) / 2, inferior),
+                           (derecha, superior)])
+    return trazos
 
 
 def _jambs(pt, s0, s1, fw, f0, f1, h, lt, stop=0.01):

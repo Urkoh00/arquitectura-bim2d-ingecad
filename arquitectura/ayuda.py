@@ -94,7 +94,7 @@ _SECCIONES_BASE = (
             "Clic en la cara hacia la que abre",
             "P/V/H tipo; un número o N = ancho de hoja (puerta; 62/72/82/92 = hojas "
             "normalizadas) o de hueco",
-            "Hojas 1/2 (2 0,625), T apertura abatible/corredera/fija, I punto de inserción "
+            "Hojas 1/2 (2 0,625), T apertura abatible/corredera/fija/oscilobatiente, I punto de inserción "
             "lateral/medio",
             "M colocación: Libre (2.º clic: sentido) / Distancia d a la esquina / Centrada / "
             "Exterior (centrada en la otra cara) / Máxima",

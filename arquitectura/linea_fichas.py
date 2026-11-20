@@ -282,6 +282,12 @@ def campos_carpinteria(ctx, datos, editar=False):
             lambda v: [(OP.OPERATION_NAMES[k], k) for k in OP.OPERATIONS[v["type"]]],
             con_marco,
         ),
+        opcion(
+            "hinge",
+            "Bisagra",
+            [("Inicial", 0), ("Final", 1)],
+            lambda v: not editar and ventana(v) and v["operation"] == "TILTANDTURN",
+        ),
         Campo("leaves", "Número de hojas", "entero", minimo=1, maximo=6, cuando=con_marco),
         medida("leaf", "Hoja principal (m)", cuando=puerta),
         medida(

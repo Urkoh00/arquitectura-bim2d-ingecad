@@ -216,7 +216,7 @@ class CarpinteriaTool(Tool):
             return True
         asks = {"n": ("ancho", "Ancho de hoja (puerta: 62/72/82/92 = hojas de 625/725/825/925 mm) "
                               "o del hueco (ventana, hueco); m o cm:"),
-                "t": ("apertura", "Tipo de apertura [Abatible/Corredera/Fija (ventanas)]:"),
+                "t": ("apertura", "Tipo de apertura [Abatible/Corredera/Fija/Oscilobatiente (ventanas)]:"),
                 "i": ("insercion", "Punto de inserción [Lateral (jamba)/Medio (centro)]:"),
                 "ancho": None,
                 "hojas": ("hojas", "Número de hojas (puerta: 1 o 2; 2 0,625 = hoja principal de 0,625):"),
@@ -352,7 +352,7 @@ class CarpinteriaTool(Tool):
                          "e": "exterior"}.get(t[:1], v["face"])
         elif key == "apertura":
             op = {"a": "SWINGING" if v["type"] == "door" else "SIDEHUNG", "c": "SLIDING",
-                  "f": "FIXED"}.get(t[:1])
+                  "f": "FIXED", "o": "TILTANDTURN", "t": "TILTANDTURN"}.get(t[:1])
             if op not in OP.OPERATIONS[v["type"]]:
                 raise ValueError("tipo de apertura no disponible para " + OP.NAMES[v["type"]].lower())
             v["operation"] = op
@@ -439,6 +439,9 @@ class CarpinteriaTool(Tool):
 
     def _record(self, spec, s0, hinge, width, side):
         v = dict(self.v)
+        if v["type"] == "window" and v["operation"] == "TILTANDTURN":
+            # La jamba elegida en la ficha no depende del sentido del segundo clic.
+            hinge = int(v["hinge"])
         v.update(offset=s0, width=width, hinge=hinge, side=side)
         if v["type"] == "door" and self.mode == "maxima":
             v["leaf"] = OP.chord_of(spec, width) - 2 * v["frame_width"]
