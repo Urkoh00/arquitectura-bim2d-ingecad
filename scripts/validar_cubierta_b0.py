@@ -93,6 +93,12 @@ def _anillo_desplazado(puntos, lados):
         else:
             parametro = (diferencia[0] * direccion[1] - diferencia[1] * direccion[0]) / determinante
             resultado.append(tuple(anterior[i] + parametro * rumbo[i] for i in range(2)))
+    for indice, (inicio, final) in enumerate(zip(resultado, resultado[1:] + resultado[:1])):
+        direccion = lineas[indice][1]
+        avance = sum((final[i] - inicio[i]) * direccion[i] for i in range(2))
+        # Tras cerrar un patio, las rectas pueden formar otra figura simple: ya no es su vuelo.
+        if avance <= TOLERANCIA:
+            raise ValueError("El vuelo colapsa o invierte un lado del contorno")
     return resultado
 
 

@@ -291,3 +291,15 @@ def test_una_cubierta_plana_no_lleva_pesos_de_pendiente_cero_al_automatico():
     modelo["mode"] = "automatic"
     with pytest.raises(ValueError, match="positiva"):
         comprobador.validar(modelo)
+
+
+@pytest.mark.parametrize("vuelo", [2.0, 3.0])
+def test_el_patio_no_reaparece_despues_de_colapsar_por_el_vuelo(vuelo):
+    modelo = cargar(4)["model"]
+    modelo["solution"] = None
+    for lado in modelo["edges"]:
+        lado["overhang"] = vuelo
+    antes = deepcopy(modelo)
+    with pytest.raises(ValueError, match="colapsa o invierte"):
+        comprobador.validar(modelo)
+    assert modelo == antes
