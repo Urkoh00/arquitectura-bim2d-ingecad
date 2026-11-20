@@ -37,6 +37,8 @@ class RegenerateContoursCommand(Command):
         self.removed=None       # old plan lines (unlinked, kept alive)
         self.added=[]           # new plan lines
         self.old_groups=None    # [(name, [handles], description)]
+        self.old_group_handles = {}
+        self.group_handles = None
         self.old_layer_off=None
         self.sync=None          # [(entity, old_meta, new_meta)], fixed on first do
         self.groups=[]
@@ -297,7 +299,8 @@ class RegenerateContoursCommand(Command):
         for e in self.added:
             for ident in (metadata(e) or {}).get('wall_ids') or []:
                 by_wall.setdefault(ident,[]).append(e)
-        self.groups=SY.build_wall_groups(document.doc,by_wall)
+        preferred = self.group_handles if self.group_handles is not None else self.old_group_handles
+        self.groups=SY.build_wall_groups(document.doc,by_wall,preferred)
         # a steel or covered column: its outline + the drawn profile, one pick
         details={}
         for e in self.added_labels:
@@ -309,15 +312,16 @@ class RegenerateContoursCommand(Command):
             if m.get('id') in details:
                 name=SY.GROUP_PREFIX+str(e.dxf.handle).upper()
                 SY.create_group(document.doc,name,[e,*details[m['id']]],
-                                f"{m.get('name') or 'Carpinteria'} BIM {m['id'][:8]} (Arquitectura)")
+                                f"{m.get('name') or 'Carpinteria'} BIM {m['id'][:8]} (Arquitectura)",handle=preferred.get(name))
                 self.groups.append(name)
         for e in self._current(document.doc.modelspace(),'column'):
             m=metadata(e)
             if m.get('id') in details:
                 name=SY.GROUP_PREFIX+str(e.dxf.handle).upper()
                 SY.create_group(document.doc,name,[e,*details[m['id']]],
-                                f"{m.get('name') or 'Pilar'} BIM {m['id'][:8]} (Arquitectura)")
+                                f"{m.get('name') or 'Pilar'} BIM {m['id'][:8]} (Arquitectura)",handle=preferred.get(name))
                 self.groups.append(name)
+        self.group_handles = {name: group.dxf.handle for name, group in SY.arq_groups(document.doc)}
     def _new_details(self,document):
         """Plan drawing of what is inside a column's outline: the steel
         profile(s), or the concrete section inside its covering."""
@@ -351,6 +355,7 @@ class RegenerateContoursCommand(Command):
             self.removed=self._current(msp)
             self.opening_edits=[];self.orphans=[]
             self.old_groups=SY.snapshot_groups(document.doc)
+            self.old_group_handles = {name: group.dxf.handle for name, group in SY.arq_groups(document.doc)}
             self.old_layer_off=document.doc.layers.get(WALL_LAYER).is_off() if WALL_LAYER in document.doc.layers else False
             self.sync_notes=[]
             from .frame import FRAME_APPID
@@ -480,7 +485,7 @@ class RegenerateContoursCommand(Command):
             layer.off() if self.old_opening_layer_off else layer.on()
         db=document.doc.entitydb
         for name,handles,desc in self.old_groups or []:
-            SY.create_group(document.doc,name,[db.get(h) for h in handles],desc)
+            SY.create_group(document.doc,name,[db.get(h) for h in handles],desc,handle=self.old_group_handles.get(name))
         if WALL_LAYER in document.doc.layers and self.old_layer_off is not None:
             layer=document.doc.layers.get(WALL_LAYER)
             layer.off() if self.old_layer_off else layer.on()

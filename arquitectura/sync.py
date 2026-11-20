@@ -154,7 +154,7 @@ def _in_layout(e):
     return e is not None and e.is_alive and e.dxf.get("owner") is not None
 
 
-def create_group(drawing, name, entities, description=""):
+def create_group(drawing, name, entities, description="", handle=None):
     # only entities that are in the drawing (an erased one is kept alive,
     # unlinked, for undo: ezdxf rejects it as a group member)
     entities = [e for e in entities if _in_layout(e)]
@@ -163,6 +163,9 @@ def create_group(drawing, name, entities, description=""):
     if name in drawing.groups:
         drawing.groups.delete(name)
     g = drawing.groups.new(name)
+    if handle is not None and not drawing.entitydb.reset_handle(g, handle):
+        drawing.groups.delete(name)
+        raise ValueError('No se pudo restaurar la referencia del grupo ' + name)
     g.set_data(entities)
     g.dxf.selectable = 1
     if description:
@@ -180,7 +183,7 @@ def wall_axes(drawing):
     return out
 
 
-def build_wall_groups(drawing, lines_by_wall):
+def build_wall_groups(drawing, lines_by_wall, handles=None):
     """One selectable group per wall: its axis + its derived plan lines."""
     axes = wall_axes(drawing)
     names = []
@@ -189,7 +192,7 @@ def build_wall_groups(drawing, lines_by_wall):
         m = metadata(axis) or {}
         label = m.get("name") or "Muro"
         create_group(drawing, name, [axis, *lines_by_wall.get(ident, [])],
-                     f"{label} BIM {ident[:8]} (Arquitectura)")
+                     f"{label} BIM {ident[:8]} (Arquitectura)", handle=(handles or {}).get(name))
         names.append(name)
     return names
 
