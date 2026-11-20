@@ -17,7 +17,10 @@ def _choose_path(ctx):
     from .compat import dialog_parent
     window = dialog_parent(ctx)
     try:
-        from PySide6.QtWidgets import QFileDialog
+        from PySide6.QtWidgets import QApplication,QFileDialog
+        if QApplication.instance() is None:
+            ctx.echo('EXPORTARBIM: el selector requiere una ventana; indique una ruta o use -EXPORTARBIM.')
+            return None
         suggested = 'arquitectura.arqbim'
         doc_path = getattr(getattr(ctx, 'document', None), 'path', None)
         if doc_path:
