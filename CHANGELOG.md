@@ -2,11 +2,38 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
-## En desarrollo (después de la 1.45.0-dev)
+## 1.46.0-dev — 2026-11-20
 
-- Las órdenes con cotas temporales siguen el contrato `Tool.on_tab` propuesto a IngeCAD (C-16): devuelven
-  True si usan Tab y False si no les toca. Si IngeCAD ofrece Tab a la orden, el plugin no instala su filtro
-  de teclado. Probado con la rama de la propuesta: las 945 pruebas pasan, también la de la ventana real.
+Repaso de todas las órdenes (encargo R27, desarrollado por Codex y revisado por Claude).
+
+- **Variantes `-ORDEN` sin cuadros de diálogo.** 25 órdenes con ficha tienen ya una variante que pregunta
+  todo por la línea de órdenes: `-MURO`, `-PILAR`, `-PILARESENEJES`, `-CARPINTERIA`, `-PUERTAARQ`,
+  `-VENTANAARQ`, `-HUECOARQ`, `-ARMARIOBIM`, `-FORJADO`, `-RECINTO`, `-EJES`, `-REJILLA`, `-PARAMETROSARQ`,
+  `-USOSARQ`, `-TIPOSMURO`, `-NIVELES`, `-NIVELASIGNAR`, `-PROPIEDADESARQ`, `-EDITARARQ`, `-EDITAREJE`,
+  `-LINEASAMURO`, `-EXPORTARBIM`, `-SINCRONIZARARQ`, `-BIBLIOTECAHE` y `-AYUDAARQ`. Intro acepta el valor
+  entre `<>`, `Anterior` vuelve al campo previo y Esc cancela. Dan los mismos datos que la ficha, porque usan
+  las mismas funciones de validación y las mismas operaciones; una prueba de paridad lo vigila.
+- **Defectos corregidos** (cada uno con su prueba):
+  - EJES ya no se interrumpe con entradas no válidas; EDITAREJE, NIVELES, NIVELASIGNAR, PARAMETROSARQ,
+    EXPORTARBIM, BIBLIOTECAHE y SINCRONIZARARQ no se cierran sin ventana: avisan y remiten a su variante;
+  - BLOQUE no falla al pulsar un punto antes de elegir el tipo;
+  - ESCALERA y las demás órdenes antiguas se deshacen en un solo paso, y las coordenadas escritas llegan
+    al punto en vez de tomarse como opción;
+  - TIPOSMURO: el intercambio CSV conserva categoría, espesores de capa y materiales con «+»; aceptar la
+    ficha ya no redondea las capas, y editar un tipo por texto conserva su categoría;
+  - PILAR acepta los nombres completos de sus opciones y valida medidas y giros antes de cambiar nada;
+  - CARPINTERIA y RECINTO aceptan opciones con espacios («Tipo de apertura», «Falso techo») y nombres
+    con espacios;
+  - TRAMA ya no deja una trama vacía fuera del historial;
+  - ARMARIOBIM no confunde sus teclas con las cotas de CARPINTERIA;
+  - la validación de contornos comprueba cada planta y las bandas de altura, y los grupos de muro
+    conservan su identificador al regenerar y al deshacer;
+  - la primera activación de niveles regenera los contornos en la misma operación;
+  - EXPORTARBIM avisa si la ruta no se puede escribir.
+- **Tab y C-16.** Las órdenes con cotas temporales siguen el contrato `Tool.on_tab` propuesto a IngeCAD
+  (#155). Si IngeCAD ofrece Tab a la orden, el plugin no instala su filtro de teclado.
+- Repaso de las 90 órdenes, sin ventana y en la ventana real de IngeCAD: sin excepciones, con Deshacer,
+  Rehacer, validación y guardado en DXF y DWG.
 
 ## 1.45.0-dev — 2026-11-20
 

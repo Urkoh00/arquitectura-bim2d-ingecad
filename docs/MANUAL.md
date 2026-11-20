@@ -1,12 +1,12 @@
-# Manual de Arquitectura para IngeCAD — versión 1.45.0-dev
+# Manual de Arquitectura para IngeCAD — versión 1.46.0-dev
 
-Versión 1.45.0-dev · 20-11-2026
+Versión 1.46.0-dev · 20-11-2026
 
 > Copia del manual publicado como documento en claude.ai; se regenera con cada versión.
 
 ## Qué es
 
-Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.45.0-dev** y se actualiza con cada versión.
+Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.46.0-dev** y se actualiza con cada versión.
 
 Cada elemento guarda su identidad persistente, su clase IFC, su geometría editable en planta, sus parámetros 3D (altura, espesor, cota), sus propiedades constructivas (tipo, material, capas) y su nivel. Las carpinterías conocen su muro y los recintos siguen a los muros que los cierran.
 
@@ -27,7 +27,7 @@ El plugin se instala copiando una carpeta en IngeCAD, y la extensión copiando t
 
 **En IngeCAD**
 
-1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.45.0-dev.zip`.
+1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.46.0-dev.zip`.
 2. Copie la carpeta `arquitectura` en la carpeta de plugins de IngeCAD.
 3. Reinicie IngeCAD. Aparece el menú *Arquitectura* y su barra de herramientas.
 4. Escriba `ARQDIAG` en la línea de órdenes para comprobar que la versión cargada es la que acaba de copiar.
@@ -87,6 +87,18 @@ Es la forma más rápida de seguir dibujando «como ese». También lo hacen la 
 **Selección.** Cada muro forma un grupo con su eje y sus líneas de contorno: al designar cualquiera de sus líneas se designa el muro entero. No borre ni mueva solo las líneas del contorno; `ARQVALIDAR` avisa si quedan líneas sin muro.
 
 **Una sola geometría.** La planta, los recintos, el sólido 3D y el IFC salen de la misma huella calculada. Un encuentro correcto en planta es también correcto en 3D.
+
+## Órdenes sin cuadros de diálogo (-ORDEN)
+
+Las órdenes que abren una ficha tienen también una variante con un guion delante del nombre, que es **la misma orden sin cuadros de diálogo**: pregunta todo por la línea de órdenes. Sirve para trabajar solo con el teclado, para repetir una secuencia y para las órdenes que necesitan argumentos con espacios. Son: `-MURO`, `-PILAR`, `-PILARESENEJES`, `-CARPINTERIA`, `-PUERTAARQ`, `-VENTANAARQ`, `-HUECOARQ`, `-ARMARIOBIM`, `-FORJADO`, `-RECINTO`, `-EJES`, `-REJILLA`, `-PARAMETROSARQ`, `-USOSARQ`, `-TIPOSMURO`, `-NIVELES`, `-NIVELASIGNAR`, `-PROPIEDADESARQ`, `-EDITARARQ`, `-EDITAREJE`, `-LINEASAMURO`, `-EXPORTARBIM`, `-SINCRONIZARARQ`, `-BIBLIOTECAHE` y `-AYUDAARQ`. `MUROCURVO`, `DEFENSA` y `ARQDIAG` no la tienen porque no abren ninguna ficha.
+
+**Cómo se responde.** Cada pregunta muestra el valor actual entre `<>`, e `Intro` lo acepta. `Anterior` vuelve a la pregunta previa y `Esc` cancela la orden. Las longitudes admiten coma o punto y `m`, `cm` o `mm`; los ángulos van en grados. Si dos opciones se llaman igual, escriba `#` y el número que se muestra. Un texto que coincida con la palabra `Anterior` se escribe entre comillas, y `""` lo deja vacío. Las preguntas que dependen de otra solo aparecen cuando hacen falta, y la identidad BIM de un elemento no se puede cambiar.
+
+**Después de las preguntas** la orden sigue como la normal: puntos, opciones, cotas temporales, `Tab`, `F4`, `F5` y `F6`. El resultado es el mismo que con la ficha, porque las dos usan las mismas comprobaciones y las mismas operaciones, y se deshace igual.
+
+**Órdenes con archivos.** `-SINCRONIZARARQ` pide la ruta del fichero `.arqcambios` escrita y no abre ningún selector. De cada conflicto muestra el origen, lo dibujado y la propuesta; por defecto conserva el dibujo y pregunta si se aplica la propuesta. `-EXPORTARBIM` pide la ruta y, si hay incidencias, si se exporta igualmente. `-BIBLIOTECAHE` ofrece Estado, Importar (con la ruta del catálogo escrita), Buscar y U. `-TIPOSMURO` lista, crea, edita, duplica y elimina tipos, e importa o exporta el CSV escribiendo la ruta.
+
+**Argumentos con espacios.** En IngeCAD, como en otros programas CAD, la barra espaciadora equivale a `Intro`: escribir `BIBLIOTECAHE importar` ejecuta `BIBLIOTECAHE` al llegar al espacio. Para dar argumentos, use la variante con guion, que los pregunta uno a uno.
 
 ## Parámetros, tipos de muro y usos del edificio
 
@@ -526,7 +538,7 @@ Con niveles o forjados, el intercambio usa `.arqbim` v3 y necesita la extensión
 
 ## Limitaciones conocidas
 
-Estas son las limitaciones conocidas de la versión 1.45.0-dev; cada versión actualiza esta lista.
+Estas son las limitaciones conocidas de la versión 1.46.0-dev; cada versión actualiza esta lista.
 
 - **Plataforma:** las pruebas automáticas se ejecutan en Linux con la última versión oficial de IngeCAD y de IngeTrazo, pero sin pantalla. Solo se prueba con la última versión de cada programa, porque ambos publican casi cada semana.
 - **Muros curvos:** cada muro llega como mucho a media circunferencia (un muro redondo son dos). MUROPARALELO y DIVIDEMURO solo toman líneas rectas como referencia. El gesto de esquina en L al terminar un MURO solo recorta muros rectos.
@@ -540,6 +552,7 @@ Estas son las limitaciones conocidas de la versión 1.45.0-dev; cada versión ac
 
 | Fecha | Versión | Novedades |
 | --- | --- | --- |
+| 20-11-2026 | 1.46.0-dev | Variantes -ORDEN sin cuadros de diálogo en 25 órdenes. Repaso de todas las órdenes: corregidos fallos en EJES, EDITAREJE, BLOQUE, ESCALERA, TIPOSMURO (CSV y capas), PILAR, TRAMA, ARMARIOBIM, validación de contornos por planta y órdenes sin ventana |
 | 20-11-2026 | 1.45.0-dev | Tab recorre las cotas temporales y fija su valor: longitud y ángulo en MURO; izquierda, derecha y ancho en CARPINTERIA; MOVERCARP mueve con Tab. El ángulo del muro se muestra como cota propia |
 | 19-11-2026 | 1.44.0-dev | Los muros envían al IFC su superficie de paramento bruta y neta (descontados los huecos), también en muros curvos y con puertas hasta el suelo |
 | 19-11-2026 | 1.43.0-dev | Las herramientas antiguas (CURVAS3D, VERTPOLY...) preguntan como avisos de la orden, sin que reaparezcan avisos de otras órdenes; CURVAS3D aclara que ARQ-CURVAS3D es la capa del resultado |
