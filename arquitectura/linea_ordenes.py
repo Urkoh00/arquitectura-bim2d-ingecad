@@ -93,7 +93,7 @@ class CreacionTexto(PreguntasTexto):
 
                 grids.grid_geometry((0.0, 0.0), datos)
                 grids.letter_index(datos["first_letter"])
-            valores = deepcopy(datos)
+            valores = F.normalizar_forjado(datos) if familia == "forjado" else deepcopy(datos)
             valores.pop("clear_holes", None)
             self.values = valores
             if familia == "rejilla":

@@ -87,6 +87,8 @@ class PropiedadesTexto(PreguntasTexto, Tool):
             valores = deepcopy(datos)
             valores["cte"].update({k[4:]: v for k, v in datos.items() if k.startswith("cte.")})
             valores["cte"] = validate(valores["cte"])
+        elif self._kind == "slab":
+            valores = F.normalizar_forjado(datos)
         else:
             valores = datos
         cambio = cambio_propiedades(self.ctx, self.entity, valores)

@@ -163,6 +163,7 @@ def normalizar_muro(ctx, datos, tipos=None, catalogo=None):
             type_name=str(actual) if conservar else f"Muro {_num(salida['thickness'])}",
             layers=deepcopy(salida.get("layers") or []) if conservar else [],
         )
+    salida["name"] = str(salida.get("name") or "").strip() or "Muro"
     if salida["height"] <= 0 or salida["thickness"] <= 0:
         raise ValueError("Altura y espesor deben ser positivos")
     return salida
@@ -207,6 +208,8 @@ def campos_pilar(datos, enganche=True):
 
 def normalizar_pilar(datos):
     salida = deepcopy(datos)
+    salida["name"] = str(salida.get("name") or "").strip() or "Pilar"
+    salida["type_name"] = str(salida.get("type_name") or "").strip() or "Pilar genérico"
     if salida["shape"] == "steel":
         from .sections import parse_section
 
@@ -418,6 +421,12 @@ def campos_armario(datos):
         Campo("leaves", "Hojas", "entero", minimo=1, maximo=128),
         opcion("operation", "Apertura", [("Corredera", "SLIDING"), ("Abatible", "SWINGING")]),
     ]
+
+
+def normalizar_forjado(datos):
+    salida = deepcopy(datos)
+    salida['name'] = str(salida.get('name') or '').strip() or 'Forjado'
+    return salida
 
 
 def campos_forjado(datos):

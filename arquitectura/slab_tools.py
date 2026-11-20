@@ -26,7 +26,9 @@ def form(ctx,record=None):
     top=QDoubleSpinBox();top.setDecimals(4);top.setRange(-1e6,1e6);top.setValue(rec.get('base',lv['elevation']-.2)+rec.get('thickness',.2)-lv['elevation']);fields.addRow('Cara superior / nivel (m)',top)
     fields.addRow('Nivel',QLabel(lv['name']));layout.insertLayout(1,fields)
     clear=QCheckBox('Quitar todos los huecos (se puede deshacer)');clear.setVisible(bool(record));layout.addWidget(clear);layout.addWidget(buttons)
-    def read():return {'name':name.text().strip()or'Forjado','material':material.text(),'slab_kind':kind.currentData(),'thickness':thick.value(),'top_offset':top.value(),'clear_holes':clear.isChecked()}
+    def read():
+        from .linea_fichas import normalizar_forjado
+        return normalizar_forjado({'name':name.text(),'material':material.text(),'slab_kind':kind.currentData(),'thickness':thick.value(),'top_offset':top.value(),'clear_holes':clear.isChecked()})
     dlg._arq={'name':name,'material':material,'slab_kind':kind,'thickness':thick,'top':top,'clear_holes':clear}
     return dlg,read
 
