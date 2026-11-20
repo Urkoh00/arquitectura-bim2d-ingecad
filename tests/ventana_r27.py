@@ -71,6 +71,7 @@ cuadros = []
 titulos_cuadros = []
 cuadros_preparados = set()
 modo = os.environ.get("R27_DIALOGOS", "aceptar")
+valores_ficha = json.loads(os.environ.get("R27_VALORES", "{}"))
 
 
 def contestar_cuadro():
@@ -94,6 +95,7 @@ def contestar_cuadro():
             if orden.lstrip("-") == "SINCRONIZARARQ"
             else destino / "exportado.arqbim"
         )
+        ruta = Path(os.environ.get("R27_ARCHIVO", str(ruta)))
         cuadro.setDirectory(str(ruta.parent))
         entrada = cuadro.findChild(QLineEdit, "fileNameEdit")
         if entrada is not None:
@@ -162,7 +164,9 @@ def contestar_ficha():
         if herramienta is None or getattr(herramienta, "_campos_texto", None) is None:
             return
         campo = herramienta._campos_texto[herramienta._indice_texto]
-        if campo.clave == "ruta":
+        if campo.clave in valores_ficha:
+            escribir(valores_ficha[campo.clave])
+        elif campo.clave == "ruta":
             ruta = (
                 semilla / "propuesta.arqcambios"
                 if orden == "-SINCRONIZARARQ"
@@ -180,7 +184,7 @@ antes_orden = estado(cargado.spec, ventana.document)
 incidencias_antes = modulo(cargado.spec, "quality").audit_architecture(ventana.document)[
     "incidencias"
 ]
-escribir(orden)
+escribir(os.environ.get("R27_ORDEN_INICIAL", orden))
 contestar_ficha()
 guion_respuestas = (
     json.loads(os.environ["R27_RESPUESTAS"])

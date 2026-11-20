@@ -381,3 +381,13 @@ El recorrido de ventana acepta también respuestas de prueba con tecla (F4, F5,
 F6, Tab y Mayús+Tab). Activa la ventana después de cerrar una ficha y registra
 el estado antes y después de la tecla, para comprobar la entrega del teclado sin
 confundir la falta de activación de la pantalla virtual con un fallo de la orden.
+
+Los campos de forjado comparten también `normalizar_forjado` con su ficha.
+`parameters_arq.nuevo_tipo` centraliza Nuevo y Duplicar del catálogo tanto en Qt
+como en texto. La precisión de cada pregunta coincide con la de su control;
+mostrar un valor legible no modifica el valor almacenado al aceptar Intro.
+
+Para reproducir opciones de archivo o campos condicionales, el recorrido admite
+`R27_ORDEN_INICIAL` (orden con argumentos), `R27_ARCHIVO` (ruta que se teclea en
+el selector real) y `R27_VALORES` (objeto JSON con respuestas por clave de campo).
+Son datos del ensayo: la aplicación sigue recibiendo las respuestas por teclado.
