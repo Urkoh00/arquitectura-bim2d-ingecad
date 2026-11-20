@@ -143,7 +143,12 @@ class PilarTool(Tool):
                    "c": ("cover", "Espesor del recubrimiento (m; 0 = sin recubrimiento):"),
                    "p": ("paramentos", f"Distancias a los paramentos (m) <{self.d1:g} {self.d2:g}>:"),
                    "u": ("paramento", f"Distancia al paramento (m) <{self.d1:g}>:")}
-        options["seccion"] = options["s"]
+        # Los nombres completos del aviso deben funcionar igual que sus iniciales.
+        aliases = {'seccion': 's', 'sección': 's', 'enganche': 'e',
+                   'rotacion': 'r', 'rotación': 'r', 'recubrimiento': 'c',
+                   'paramentos': 'p', 'paramento': 'u', 'un': 'u', 'un paramento': 'u'}
+        for alias, original in aliases.items():
+            options[alias] = options[original]
         if txt in options:
             self.pending = options[txt][0]
             self.prompt("PILAR: " + options[txt][1])
