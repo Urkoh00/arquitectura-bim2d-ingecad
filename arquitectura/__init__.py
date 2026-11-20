@@ -216,8 +216,19 @@ class _ContextoPregunta:
     dos puntos sale como aviso de la orden; lo demás, como mensaje. Todo lo
     demás pasa al contexto real."""
 
-    def __init__(self, ctx):
+    def __init__(self, ctx, orden):
         self._ctx = ctx
+        self._orden = orden
+        self._agrupado = False
+        self._historial = getattr(getattr(ctx, "services", None), "window", None)
+        self._historial = getattr(self._historial, "history", None)
+        if self._historial is None:
+            # Session entrega History.execute directamente; la ventana usa su controlador.
+            from core.commands import History
+            propietario = getattr(ctx.execute, "__self__", None)
+            if isinstance(propietario, History):
+                self._historial = propietario
+        self._marca = self._historial.depth if self._historial is not None else None
 
     def __getattr__(self, nombre):
         return getattr(self._ctx, nombre)
@@ -227,6 +238,14 @@ class _ContextoPregunta:
             self._ctx.prompt(str(texto))
         else:
             self._ctx.echo(texto)
+
+    def finish(self):
+        if not self._agrupado and self._historial is not None:
+            # Las herramientas antiguas emiten una orden por entidad y por capa.
+            # El núcleo permite agrupar lo ya ejecutado sin volver a aplicarlo.
+            self._historial.fold(self._marca, "ARQ " + self._orden)
+            self._agrupado = True
+        self._ctx.finish()
 
 
 class ArchitectureTool(Tool):
@@ -239,8 +258,8 @@ class ArchitectureTool(Tool):
 
     def start(self):
         self.name = type(self).name
-        if not isinstance(self.ctx, _ContextoPregunta):
-            self.ctx = _ContextoPregunta(self.ctx)
+        contexto = self.ctx._ctx if isinstance(self.ctx, _ContextoPregunta) else self.ctx
+        self.ctx = _ContextoPregunta(contexto, self.name)
         self._arq_mode = "point"
         self._arq_keywords = set()
         self.on_start()
