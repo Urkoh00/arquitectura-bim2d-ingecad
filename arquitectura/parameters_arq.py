@@ -338,6 +338,28 @@ class SetArchitecturalDefaults(Command):
             rec.reset([(1,self.before[i:i+240]) for i in range(0,len(self.before),240)])
         document.dirty=True
 
+def guardar_parametros(ctx, valores):
+    """La ficha y la línea de órdenes comparten la escritura y su Deshacer."""
+    ctx.execute(SetArchitecturalDefaults(valores))
+    ctx.echo('PARAMETROSARQ: parámetros guardados en este DXF. Los elementos existentes no se modifican.')
+
+
+def guardar_tipos(ctx, tipos):
+    nuevos = load_defaults(ctx.document)
+    normalizados = [normalise_type(tipo) for tipo in tipos]
+    nuevos['wall_types'] = sort_types(normalizados)
+    ctx.execute(SetArchitecturalDefaults(nuevos))
+    ctx.echo(f'TIPOSMURO: {len(tipos)} tipos guardados en este DXF.')
+
+
+def guardar_usos(ctx, usos):
+    nuevos = load_defaults(ctx.document)
+    nuevos['usos'].update(usos)
+    ctx.execute(SetArchitecturalDefaults(nuevos))
+    ctx.echo('USOSARQ: clasificación guardada en este DXF; se exporta con el modelo BIM.')
+    return nuevos['usos']
+
+
 def parametros_arq(ctx,*args):
     try:
         current=load_defaults(ctx.document)
@@ -346,8 +368,7 @@ def parametros_arq(ctx,*args):
         if new is None:
             ctx.echo('PARAMETROSARQ: sin cambios.')
             return
-        ctx.execute(SetArchitecturalDefaults(new))
-        ctx.echo('PARAMETROSARQ: parámetros guardados en este DXF. Los elementos existentes no se modifican.')
+        guardar_parametros(ctx, new)
     except Exception as exc:
         ctx.echo(f'PARAMETROSARQ: {type(exc).__name__}: {exc}')
 
@@ -372,9 +393,7 @@ def tipos_muro(ctx, *args):
             if new is None:
                 ctx.echo('TIPOSMURO: sin cambios.')
                 return
-            current['wall_types'] = new
-            ctx.execute(SetArchitecturalDefaults(current))
-            ctx.echo(f'TIPOSMURO: {len(new)} tipos guardados en este DXF.')
+            guardar_tipos(ctx, new)
             return
         if not text:
             ctx.echo('TIPOSMURO: ' + (wall_types_text(types) or '(ninguno)'))
@@ -478,11 +497,7 @@ def usos_arq(ctx, *args):
             if chosen is None:
                 ctx.echo('USOSARQ: sin cambios.')
                 return u
-            new = copy.deepcopy(current)
-            new['usos'].update(chosen)
-            ctx.execute(SetArchitecturalDefaults(new))
-            ctx.echo('USOSARQ: clasificación guardada en este DXF; se exporta con el modelo BIM.')
-            return new['usos']
+            return guardar_usos(ctx, chosen)
         if not words:
             ctx.echo('USOSARQ — clasificaciones independientes del edificio:')
             ctx.echo(f"  Certificado energético <TipoDeEdificio>: {u['tipo_edificio_cee']}")
@@ -511,8 +526,6 @@ def usos_arq(ctx, *args):
             nu['uso_dbsi'] = ' '.join(rest)
         else:
             raise ValueError('use USOSARQ edificio|dbhe|dbsi ...')
-        ctx.execute(SetArchitecturalDefaults(new))
-        ctx.echo('USOSARQ: clasificación guardada en este DXF; se exporta con el modelo BIM.')
-        return nu
+        return guardar_usos(ctx, nu)
     except Exception as exc:
         ctx.echo(f'USOSARQ: {type(exc).__name__}: {exc}')

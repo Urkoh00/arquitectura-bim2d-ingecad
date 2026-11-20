@@ -68,9 +68,20 @@ class Campo:
     def leer(self, texto, valores=None):
         if self.tipo == "opcion":
             opciones = self.opciones_de(valores or {})
-            for etiqueta, valor in opciones:
-                if str(texto).casefold() in (str(etiqueta).casefold(), str(valor).casefold()):
-                    return valor
+            entrada = str(texto).strip().casefold()
+            if re.fullmatch(r"#\d+", entrada):
+                indice = int(entrada[1:]) - 1
+                if 0 <= indice < len(opciones):
+                    return opciones[indice][1]
+            coincidencias = [
+                valor
+                for etiqueta, valor in opciones
+                if entrada in (str(etiqueta).casefold(), str(valor).casefold())
+            ]
+            if coincidencias:
+                if any(valor != coincidencias[0] for valor in coincidencias):
+                    raise ValueError("Nombre ambiguo: indique # y el número de la opción")
+                return coincidencias[0]
             raise ValueError("Elija " + " / ".join(str(etiqueta) for etiqueta, _ in opciones))
         if self.tipo == "logico":
             if str(texto).casefold() in ("si", "sí", "s", "1", "true"):
@@ -130,6 +141,19 @@ class ContextoLinea:
     def __getattr__(self, nombre):
         return getattr(self._contexto, nombre)
 
+    @property
+    def document(self):
+        from .compat import document_of
+
+        return document_of(self._contexto)
+
+    @property
+    def host(self):
+        anfitrion = getattr(self._contexto, "host", None)
+        if anfitrion is not None:
+            return anfitrion
+        return getattr(getattr(self._contexto, "services", None), "window", None)
+
 
 class PreguntasTexto:
     """Mezcla de Tool: conserva los handlers nativos al terminar la ficha de texto."""
@@ -164,7 +188,10 @@ class PreguntasTexto:
                 if campo.tipo == "opcion":
                     opciones = (
                         " ["
-                        + "/".join(str(e) for e, _ in campo.opciones_de(self._valores_texto))
+                        + "/".join(
+                            f"#{i} {e}"
+                            for i, (e, _) in enumerate(campo.opciones_de(self._valores_texto), 1)
+                        )
                         + "]"
                     )
                 defecto = campo.mostrar(self._valores_texto.get(campo.clave), self._valores_texto)
@@ -199,9 +226,7 @@ class PreguntasTexto:
         campo = self._campos_texto[self._indice_texto]
         try:
             valor = campo.leer(texto, self._valores_texto)
-            if self._cambiar_texto is not None:
-                self._cambiar_texto(campo.clave, valor, self._valores_texto)
-            self._valores_texto[campo.clave] = valor
+            self._guardar_valor(campo, valor)
         except (ValueError, TypeError) as error:
             self.ctx.echo(f"{type(self).name}: {error}")
             self._avanzar_texto()
@@ -211,17 +236,32 @@ class PreguntasTexto:
         self._avanzar_texto()
         return True
 
+    def _guardar_valor(self, campo, valor):
+        if self._cambiar_texto is not None:
+            self._cambiar_texto(campo.clave, valor, self._valores_texto)
+        self._valores_texto[campo.clave] = valor
+
     def on_enter(self):
         if getattr(self, "_campos_texto", None) is not None:
-            # También se valida el valor por defecto: no se acepta un catálogo roto.
             campo = self._campos_texto[self._indice_texto]
             valor = self._valores_texto.get(campo.clave)
-            if valor is not None:
-                return self._aceptar_campo(campo.mostrar(valor, self._valores_texto))
+            try:
+                # No se vuelve a interpretar una etiqueta: puede coincidir con otra
+                # opción, contener comillas literales o perder precisión al mostrarse.
+                if campo.tipo == "opcion":
+                    if not any(valor == dato for _, dato in campo.opciones_de(self._valores_texto)):
+                        raise ValueError("El valor por defecto no pertenece a las opciones")
+                elif campo.tipo != "texto" and valor is not None:
+                    valor = campo.leer(str(valor), self._valores_texto)
+                self._guardar_valor(campo, valor)
+            except (ValueError, TypeError) as error:
+                self.ctx.echo(f"{type(self).name}: {error}")
+                self._avanzar_texto()
+                return True
             self._lista_campos_anterior = self._campos_texto
             self._indice_texto += 1
             self._avanzar_texto()
-            return
+            return True
         return super().on_enter()
 
     def on_point(self, punto):

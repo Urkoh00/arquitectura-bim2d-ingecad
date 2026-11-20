@@ -340,3 +340,8 @@ Las herramientas antiguas agrupan sus órdenes ya ejecutadas mediante
 `History.fold`: crear varias líneas y capas sigue siendo un único Deshacer.
 Las entradas inválidas de ejes conservan la fase, muestran el motivo y
 permiten reintentar; un clic prematuro en BLOQUE conserva la elección de tipo.
+
+`linea_configuracion.py` presenta por texto los parámetros, usos, tipos de muro,
+niveles y asignación de nivel. Comparte las funciones de guardado con las fichas;
+los identificadores de nivel se eligen por nombre y no se editan. En preguntas con
+nombres coincidentes se puede elegir una opción mediante `#` y su número.

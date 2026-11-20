@@ -125,4 +125,7 @@ def crear_variantes(herramientas, comandos):
             {"name": "-" + nombre, "orden_original": nombre, "__module__": __name__},
         )
         variantes[variante.name] = variante
+    from .linea_configuracion import crear_variantes_configuracion
+
+    variantes.update(crear_variantes_configuracion())
     return variantes

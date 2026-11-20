@@ -93,6 +93,7 @@ def campos_muro(ctx, datos):
         ),
         texto("name", "Nombre"),
         texto("material", "Material principal"),
+        texto("level", "Nivel descriptivo"),
     ]
 
     def cambiar(clave, valor, valores):
@@ -198,6 +199,7 @@ def campos_pilar(datos, enganche=True):
         medida("height", "Altura (m)"),
         medida("base", "Cota base (m)", -1e6),
         *identidad(),
+        texto("level", "Nivel descriptivo"),
     ]
     if enganche:
         campos.append(Campo("anchor", "Enganche (1–9)", "entero", minimo=1, maximo=9))
@@ -323,6 +325,7 @@ def campos_carpinteria(ctx, datos, editar=False):
         texto("glass_material", "Material del vidrio", ventana),
         texto("sill_material", "Material del remate", ventana),
         *identidad(),
+        texto("level", "Nivel descriptivo"),
     ]
     if editar:
         campos.extend(
@@ -428,7 +431,7 @@ def campos_forjado(datos):
         opcion(
             "slab_kind", "Clase de forjado", [(valor[0], clave) for clave, valor in KINDS.items()]
         ),
-        medida("thickness", "Canto (m)"),
+        medida("thickness", "Canto (m)", maximo=100.0),
         medida("top_offset", "Desfase de la cara superior (m)", -1e6),
         Campo("clear_holes", "Quitar los huecos existentes", "logico"),
     ]
@@ -454,6 +457,7 @@ def campos_recinto(ctx, datos):
         opcion("height_mode", "Altura", [("Automática", "auto"), ("Manual", "manual")]),
         medida("height", "Altura de reserva (m)"),
         Campo("ceiling", "Falso techo", "logico"),
+        texto("level", "Nivel descriptivo"),
     ]
     if por_uso:
         for clave, titulo, etiquetas in CU.CONJUNTOS:
