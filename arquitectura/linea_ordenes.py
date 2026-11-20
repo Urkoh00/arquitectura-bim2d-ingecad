@@ -128,4 +128,6 @@ def crear_variantes(herramientas, comandos):
     from .linea_configuracion import crear_variantes_configuracion
 
     variantes.update(crear_variantes_configuracion())
+    from .linea_edicion import crear_variantes_edicion
+    variantes.update(crear_variantes_edicion())
     return variantes

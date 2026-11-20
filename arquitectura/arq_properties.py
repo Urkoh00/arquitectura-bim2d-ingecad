@@ -89,6 +89,27 @@ def space_change(entity, values):
     return cmd
 
 
+def cambio_propiedades(ctx, entity, values):
+    """Una única selección de operación para las fichas y sus variantes de texto."""
+    kind = metadata(entity)['kind']
+    if kind == 'wall':
+        from .architectural_v10 import edit_wall
+        keys = ('thickness', 'height', 'base', 'reference', 'name', 'type_name',
+                'material', 'level', 'layers', 'wall_category', 'height_constraint',
+                'top_level_id', 'top_offset', 'base_offset', 'level_id',
+                'defense_type', 'void_ratio')
+        return edit_wall(entity, **{key: values[key] for key in keys if key in values})
+    if kind == 'column':
+        from .columns import EditColumnCommand
+        return EditColumnCommand(entity, values)
+    if kind == 'opening':
+        return opening_change(entity, values)
+    if kind == 'space':
+        return space_change(entity, values)
+    from .slab_tools import edit_change
+    return edit_change(ctx, entity, values)
+
+
 class ArqPropiedadesTool(Tool):
     name='PROPIEDADESARQ'
     entity_picker=True
@@ -112,18 +133,15 @@ class ArqPropiedadesTool(Tool):
                 return
             if data['kind']=='slab':
                 from .slabs import read as slab_read
-                from .slab_tools import form,edit_change
+                from .slab_tools import form
                 data=slab_read(entity);dlg,read=form(self.ctx,data)
-                command=edit_change(self.ctx,entity,read())if dlg.exec()==1 else None
+                values=read() if dlg.exec()==1 else None
             elif data['kind']=='wall':
-                from .architectural_v10 import edit_wall
                 values=bim_dialogs.wall_properties(self.ctx,data)
-                command=(edit_wall(entity, **{k:v for k,v in values.items() if k!='ifc_class'})
-                         if values is not None else None)
+
             elif data['kind']=='column':
-                from .columns import EditColumnCommand
                 values=bim_dialogs.column_properties(self.ctx,data)
-                command=EditColumnCommand(entity,values) if values is not None else None
+
             elif data['kind']=='opening':
                 from . import openings as OP
                 from .geom.junctions import walls_from_records
@@ -137,10 +155,11 @@ class ArqPropiedadesTool(Tool):
                     dlg,read=form(self.ctx,data)
                     values=read()if dlg.exec()==1 else None
                 else:values=bim_dialogs.carpentry_properties(self.ctx,data,editing=True)
-                command=opening_change(entity,values) if values is not None else None
+
             else:
                 values=bim_dialogs.space_properties(self.ctx,data)
-                command=space_change(entity,values) if values is not None else None
+
+            command=cambio_propiedades(self.ctx,entity,values) if values is not None else None
             if command is not None:
                 from .transactions import apply_architectural_change
                 apply_architectural_change(self.ctx, command, kind=data['kind'])

@@ -205,6 +205,16 @@ class GridEditTool(Tool):
         change=G.resize_grid(drawing,G.metadata(self.entity)['grid_id'],values)
         apply_architectural_change(self.ctx,change,kind='column')
 
+    def apply_axis(self,values,points):
+        before=G.snapshot(require_document(self.ctx).doc)
+        grid_id=G.metadata(self.entity)['grid_id']
+        style=[G.SetAxis(e,dim_text_height=values['dim_text_height'])
+               for e,m in G.axes(require_document(self.ctx).doc)
+               if e is not self.entity and m['grid_id']==grid_id]
+        change=SafeArchitecturalCommand('ARQ FICHA EJE',[
+            G.SetAxis(self.entity,points,**values),*style,G.RegenerateGrid(before)])
+        apply_architectural_change(self.ctx,change,kind='column')
+
     @_entrada_segura
     def on_option(self,text):
         if self.entity is not None and str(text).strip().lower() in ('separaciones','tabla'):
@@ -215,12 +225,8 @@ class GridEditTool(Tool):
         if self.entity is not None and str(text).strip().lower()=='ficha':
             dlg,read=axis_form(self.ctx,self.entity)
             if dlg.exec()==1:
-                values,points=read();before=G.snapshot(require_document(self.ctx).doc)
-                grid_id=G.metadata(self.entity)['grid_id']
-                style=[G.SetAxis(e,dim_text_height=values['dim_text_height'])
-                       for e,m in G.axes(require_document(self.ctx).doc)
-                       if e is not self.entity and m['grid_id']==grid_id]
-                apply_architectural_change(self.ctx,SafeArchitecturalCommand('ARQ FICHA EJE',[G.SetAxis(self.entity,points,**values),*style,G.RegenerateGrid(before)]),kind='column')
+                values,points=read()
+                self.apply_axis(values,points)
             self.ctx.finish();return True
         parts=str(text).strip().split(maxsplit=1)
         if self.entity is None or len(parts)!=2 or parts[0].lower()!='renumerar':return False

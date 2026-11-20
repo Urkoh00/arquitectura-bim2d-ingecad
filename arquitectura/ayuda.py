@@ -195,12 +195,13 @@ _SECCIONES_BASE = (
 
 from .linea_fichas import CREACION
 from .linea_configuracion import NOMBRES_CONFIGURACION
+from .linea_edicion import NOMBRES_EDICION
 
 SECCIONES = _SECCIONES_BASE + (("Órdenes sin cuadros de diálogo", tuple(
     (("-" + nombre,), "La misma orden sin cuadros de diálogo",
      ("-" + nombre + ": la misma orden sin cuadros de diálogo",
       "Intro acepta el valor entre <>; Anterior vuelve al campo anterior; Esc cancela."))
-    for nombre in (*CREACION, *NOMBRES_CONFIGURACION)
+    for nombre in (*CREACION, *NOMBRES_CONFIGURACION, *NOMBRES_EDICION)
 )),)
 
 
