@@ -3,6 +3,8 @@
 #   (Guía del código: docs/GUIA_DEL_CODIGO.md)
 """Grid tools using the host's point input, property widgets and history."""
 from tools.base import Tool
+from functools import wraps
+import math
 from . import grids as G
 from .compat import require_document
 from .transactions import apply_architectural_change,SafeArchitecturalCommand
@@ -99,6 +101,19 @@ def spacing_form(ctx,values):
     def read():return {key:fn() for key,fn in readers.items()}
     _validated(dlg,buttons,read);return dlg,read
 
+def _entrada_segura(metodo):
+    """Un dato de usuario inválido conserva la fase y el aviso para reintentarlo."""
+    @wraps(metodo)
+    def ejecutar(self, *argumentos):
+        try:
+            return metodo(self, *argumentos)
+        except (ValueError, OverflowError) as error:
+            self.ctx.echo(f"{type(self).name}: {error}")
+            self.prompt(self._prompt_source)
+            return True
+    return ejecutar
+
+
 class GridTool(Tool):
     name='EJES'
     def start(self):
@@ -110,12 +125,16 @@ class GridTool(Tool):
             if dlg.exec()!=1:self.phase='finished';self.ctx.finish();return
             self.values=read()
         self.prompt('EJES: origen de rejilla o [X intervalos/Y intervalos/Angulo grados/Suelto/Fin]:')
+    @_entrada_segura
     def on_option(self,text):
         parts=str(text).strip().split(maxsplit=1);key=parts[0].lower() if parts else ''
         if key in ('x','y','angulo','ángulo') and len(parts)==2:
             if key in ('x','y'):G.distances(parts[1]);self.values[key]=parts[1]
             else:
-                self.values['angle']=float(parts[1].replace(',','.'))
+                angulo = float(parts[1].replace(',', '.'))
+                if not math.isfinite(angulo):
+                    raise ValueError('Indique un ángulo finito')
+                self.values['angle'] = angulo
                 if self.phase=='angle':self._insert(self.origin);return True
             return True
         if key=='suelto':self.mode='single';self.first=None;self.prompt('Eje suelto: primer extremo:');return True
@@ -123,6 +142,7 @@ class GridTool(Tool):
         return False
     def _insert(self,p):
         apply_architectural_change(self.ctx,G.create_grid(tuple(p[:2]),self.values),kind='column');self.phase='finished';self.ctx.finish()
+    @_entrada_segura
     def on_point(self,p):
         if self.phase=='finished':return
         if self.mode=='single':
@@ -168,6 +188,7 @@ class RejillaTool(GridTool):name='REJILLA'
 class GridEditTool(Tool):
     name='EDITAREJE';entity_picker=True
     def start(self):self.entity=None;self.prompt('EDITAREJE: designe un eje; después nuevo punto medio o [Separaciones/Ficha/Renumerar valor]:')
+    @_entrada_segura
     def on_point(self,p):
         if self.entity is None:
             e=self.ctx.services.pick_entity(p)
@@ -184,6 +205,7 @@ class GridEditTool(Tool):
         change=G.resize_grid(drawing,G.metadata(self.entity)['grid_id'],values)
         apply_architectural_change(self.ctx,change,kind='column')
 
+    @_entrada_segura
     def on_option(self,text):
         if self.entity is not None and str(text).strip().lower() in ('separaciones','tabla'):
             values,*_=G.spacing_values(require_document(self.ctx).doc,G.metadata(self.entity)['grid_id'])
