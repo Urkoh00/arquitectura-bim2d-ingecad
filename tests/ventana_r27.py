@@ -16,7 +16,14 @@ RAIZ = Path(__file__).resolve().parents[1]
 sys.path[:0] = [os.environ["INGECAD_SRC"], str(RAIZ)]
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QApplication, QDialogButtonBox, QFileDialog, QLineEdit, QMessageBox
+from PySide6.QtWidgets import (
+    QApplication,
+    QComboBox,
+    QDialogButtonBox,
+    QFileDialog,
+    QLineEdit,
+    QMessageBox,
+)
 from core.plugins import load_plugin
 from views.main_window import MainWindow
 
@@ -115,11 +122,21 @@ def contestar_cuadro():
         cuadros_preparados.add(id(cuadro))
         for clave, valor in json.loads(os.environ.get("R27_VALORES_CUADRO", "{}")).items():
             campo = getattr(cuadro, "_arq", {}).get(clave)
-            if not isinstance(campo, QLineEdit):
-                raise AssertionError("No hay un campo de texto en la ficha: " + clave)
-            campo.setFocus()
-            campo.selectAll()
-            QTest.keyClicks(campo, str(valor))
+            if isinstance(campo, QLineEdit):
+                campo.setFocus()
+                campo.selectAll()
+                QTest.keyClicks(campo, str(valor))
+            elif isinstance(campo, QComboBox):
+                # La prueba real recorre el selector por teclado, igual que el usuario.
+                indice = campo.findData(valor)
+                assert indice >= 0, (clave, valor)
+                campo.setFocus()
+                QTest.keyClick(campo, Qt.Key_Home)
+                for _ in range(indice):
+                    QTest.keyClick(campo, Qt.Key_Down)
+                assert campo.currentData() == valor
+            else:
+                raise AssertionError("No hay un campo editable en la ficha: " + clave)
     if os.environ.get("R27_VALORES_CUADRO"):
         cuadro.grab().save(str(destino / "ficha_editada.png"))
     botones = cuadro.findChildren(QDialogButtonBox)
