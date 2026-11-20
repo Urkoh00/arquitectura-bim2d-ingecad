@@ -127,12 +127,19 @@ def terminar_sincronizacion(ctx,data,decisions):
 def sincronizar_arq(ctx,*args):
     from pathlib import Path
     from .compat import require_document,dialog_parent
-    from PySide6.QtWidgets import QFileDialog,QMessageBox,QDialog,QVBoxLayout,QTableWidget,QTableWidgetItem,QComboBox,QDialogButtonBox
+    from PySide6.QtWidgets import QApplication,QFileDialog,QMessageBox,QDialog,QVBoxLayout,QTableWidget,QTableWidgetItem,QComboBox,QDialogButtonBox
+    hay_ventana = QApplication.instance() is not None
+    if not args and not hay_ventana:
+        ctx.echo('SINCRONIZARARQ: indique una ruta o use -SINCRONIZARARQ por texto, sin selector.')
+        return None
     path=' '.join(map(str,args)) if args else QFileDialog.getOpenFileName(dialog_parent(ctx),'Sincronizar cambios de Arquitectura','','Cambios (*.arqcambios)')[0]
     if not path:return None
     try:
         data,issues=leer_cambios(path,require_document(ctx).doc);decisions={}
         if issues:
+            if not hay_ventana:
+                ctx.echo('SINCRONIZARARQ: hay conflictos; use -SINCRONIZARARQ para decidir por texto. No se aplica ningún cambio.')
+                return None
             dlg=QDialog(dialog_parent(ctx));dlg.setWindowTitle('Conflictos de Arquitectura');layout=QVBoxLayout(dlg)
             table=QTableWidget(len(issues),4);table.setHorizontalHeaderLabels(['Elemento','Conflicto','Valores: origen / IngeCAD / propuesta','Decisión']);layout.addWidget(table)
             current=snapshot(require_document(ctx).doc);byid={c['id']:c for c in data['changes']};dlg.resize(1100,500)
@@ -152,7 +159,10 @@ def sincronizar_arq(ctx,*args):
             decisions={ident:table.cellWidget(row,3).currentData()for row,ident in enumerate(issues)}
         return terminar_sincronizacion(ctx,data,decisions)
     except (ValueError,KeyError,TypeError,OSError)as exc:
-        ctx.echo('SINCRONIZARARQ: '+str(exc));QMessageBox.warning(dialog_parent(ctx),'Sincronizar Arquitectura',str(exc));return None
+        ctx.echo('SINCRONIZARARQ: '+str(exc))
+        if hay_ventana:
+            QMessageBox.warning(dialog_parent(ctx),'Sincronizar Arquitectura',str(exc))
+        return None
 
 
 def export_snapshot(drawing):
