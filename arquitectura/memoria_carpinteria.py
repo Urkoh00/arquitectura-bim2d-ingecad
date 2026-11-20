@@ -73,7 +73,7 @@ def medir(muro, registro):
         "alto": coronacion - base,
         "hojas": [final - inicio for inicio, final in limites_hojas.values()],
         "antepecho": base,
-        "fondo_cerco": fondo_final - fondo_inicial,
+        "fondo_cerco": 0.0 if registro["type"] == "gap" else fondo_final - fondo_inicial,
         "plantillas": plantillas,
         "registro": registro,
     }
@@ -84,6 +84,8 @@ def definir(muro, registro):
     registro = medidas["registro"]
     campos = (
         "type",
+        "type_name",
+        "material",
         "leaves",
         "leaf",
         "leaf2",

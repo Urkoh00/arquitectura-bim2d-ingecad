@@ -63,7 +63,12 @@ def test_marcas_estables_altas_cambios_y_retiradas(plugin):
 def test_materiales_y_operacion_separan_piezas(plugin):
     memoria, muro = modulos(plugin)
     inicial = memoria.definir(muro, registro())
-    for cambios in ({"operation": "SLIDING"}, {"leaf_material": "Acero"}, {"sill": 0.1}):
+    for cambios in (
+        {"operation": "SLIDING"},
+        {"leaf_material": "Acero"},
+        {"sill": 0.1},
+        {"type_name": "Tipo especial"},
+    ):
         assert not memoria.iguales(inicial, memoria.definir(muro, registro(**cambios)))
 
 
@@ -98,3 +103,9 @@ def test_renombrar_valida_prefijo_y_no_modifica_catalogo(plugin):
     assert nuevo["siguientes"]["P"] == 10
     with pytest.raises(ValueError):
         memoria.renombrar(catalogo, "P1", "V1")
+
+
+def test_hueco_sin_carpinteria_no_inventa_fondo_de_cerco(plugin):
+    memoria, muro = modulos(plugin)
+    definicion = memoria.definir(muro, registro(type="gap"))
+    assert definicion["fondo_cerco"] == 0.0
