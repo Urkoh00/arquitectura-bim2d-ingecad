@@ -284,21 +284,26 @@ class ArchitectureTool(Tool):
         # La fase de captura numérica prevalece sobre las palabras clave;
         # en otras fases se admiten números como opciones de menú.
         if self._arq_mode == "number":
+            if raw.casefold() in self._arq_keywords:
+                self.on_keyword(raw)
+                return True
             try:
-                number = float(raw.replace(",", "."))
-            except ValueError:
-                if hasattr(self, "on_keyword"):
-                    self.on_keyword(raw)
-                    return True
-                return False
-            if not math.isfinite(number):
-                self.ctx.echo("Indique un número finito válido.")
+                from .linea_campos import numero
+                es_longitud = self.name not in ('SELATRIB', 'TRAMA') and getattr(self, '_waiting', None) != 'n'
+                number = numero(raw, unidades=es_longitud)
+            except ValueError as error:
+                self.ctx.echo('Indique un número válido: ' + str(error))
                 return True
             handler = getattr(self, "on_number", None)
             if handler is None:
                 return False
             handler(number)
             return True
+        if self._arq_mode == "point" and raw.casefold() not in self._arq_keywords:
+            # El controlador interpreta las coordenadas, distancias y referencias;
+            # no deben perderse dentro del menú heredado de palabras clave.
+            return False
+
         if hasattr(self, "on_keyword"):
             self.on_keyword(raw)
             return True
