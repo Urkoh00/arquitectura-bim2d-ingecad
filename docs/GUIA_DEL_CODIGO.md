@@ -364,3 +364,9 @@ preparan modelos sintéticos, ejecutan las órdenes por teclado en MainWindow y
 registran historial, datos BIM y guardado real en DXF/DWG. Sus informes distinguen
 la ejecución de la orden de las comprobaciones adicionales; un proceso sin
 excepciones no demuestra por sí solo que el resultado sea correcto.
+
+El recorrido R27 espera al renderizado antes de cerrar la ventana y conserva el
+título de un selector mientras existe su objeto Qt. Para Deshacer/Rehacer, las
+cotas comparan también el contenido de sus bloques gráficos anónimos: cambiar
+el nombre interno del bloque no cambia la cota. Se comparan todos los datos BIM,
+la geometría y la XDATA; la visibilidad DXF omitida equivale a su valor cero.

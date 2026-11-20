@@ -8,6 +8,7 @@ from pathlib import Path
 import shutil
 import sys
 import tempfile
+import time
 import traceback
 
 faulthandler.dump_traceback_later(180, exit=True)
@@ -23,9 +24,17 @@ orden = sys.argv[1]
 destino = Path(sys.argv[2])
 destino.mkdir(parents=True, exist_ok=True)
 fallos = []
-sys.excepthook = lambda tipo, error, traza: fallos.append(
-    "".join(traceback.format_exception(tipo, error, traza))
-)
+
+
+def registrar_excepcion(tipo, error, traza):
+    mensaje = "".join(traceback.format_exception(tipo, error, traza))
+    fallos.append(mensaje)
+    with (destino / "EXCEPCIONES.log").open("a", encoding="utf-8") as registro:
+        registro.write(mensaje)
+    sys.stderr.write(mensaje)
+
+
+sys.excepthook = registrar_excepcion
 QApplication.setAttribute(Qt.AA_DontUseNativeDialogs, True)
 app = QApplication([])
 ventana = MainWindow()
@@ -59,6 +68,7 @@ QTest.qWaitForWindowExposed(ventana, 5000)
 linea = ventana.command_line.input
 respuestas = []
 cuadros = []
+titulos_cuadros = []
 cuadros_preparados = set()
 modo = os.environ.get("R27_DIALOGOS", "aceptar")
 
@@ -72,7 +82,11 @@ def contestar_cuadro():
         return
     if cuadro not in cuadros:
         cuadros.append(cuadro)
+        titulos_cuadros.append(cuadro.windowTitle())
         print("CUADRO", type(cuadro).__name__, cuadro.windowTitle(), flush=True)
+    if isinstance(cuadro, QFileDialog) and modo == "cancelar":
+        QTest.keyClick(cuadro, Qt.Key_Escape)
+        return
     if isinstance(cuadro, QFileDialog) and id(cuadro) not in cuadros_preparados:
         cuadros_preparados.add(id(cuadro))
         ruta = (
@@ -116,11 +130,27 @@ def contestar_cuadro():
 QTimer.singleShot(25, contestar_cuadro)
 
 
+def esperar_regeneracion():
+    limite = time.monotonic() + 15.0
+    while time.monotonic() < limite:
+        app.processEvents()
+        trabajador = getattr(ventana, "_regen_worker", None)
+        temporizador_regeneracion = getattr(ventana.tools, "_regen_timer", None)
+        pendiente = temporizador_regeneracion is not None and temporizador_regeneracion.isActive()
+        if trabajador is None and not pendiente:
+            QTest.qWait(30)
+            if getattr(ventana, "_regen_worker", None) is None:
+                return
+        QTest.qWait(15)
+    raise AssertionError("La regeneración de la ventana no terminó")
+
+
 def escribir(texto):
     linea.setFocus()
     QTest.keyClicks(linea, str(texto))
     QTest.keyClick(linea, Qt.Key_Return)
     app.processEvents()
+    esperar_regeneracion()
     respuestas.append(str(texto))
 
 
@@ -150,7 +180,12 @@ incidencias_antes = modulo(cargado.spec, "quality").audit_architecture(ventana.d
 ]
 escribir(orden)
 contestar_ficha()
-for respuesta in RESPUESTAS.get(orden.lstrip("-"), []):
+guion_respuestas = (
+    json.loads(os.environ["R27_RESPUESTAS"])
+    if "R27_RESPUESTAS" in os.environ
+    else RESPUESTAS.get(orden.lstrip("-"), [])
+)
+for respuesta in guion_respuestas:
     if ventana.tools.tool is None:
         break
     escribir(respuesta)
@@ -181,6 +216,7 @@ if os.environ.get("R27_VERIFICAR") == "1":
         datos_bim(cargado.spec, ventana.document) == antes_regenerar
     )
     verificaciones["persistencia"] = persistencia(cargado.spec, ventana.document, destino)
+esperar_regeneracion()
 app.processEvents()
 modulo_arq = importlib.import_module(
     cargado.spec.tools["MURO"].__module__.rsplit(".", 1)[0] + ".architectural"
@@ -188,11 +224,13 @@ modulo_arq = importlib.import_module(
 registros = [
     modulo_arq.metadata(e) for e in ventana.document.doc.modelspace() if modulo_arq.metadata(e)
 ]
+if orden.startswith("-"):
+    assert not titulos_cuadros, "La variante abrió cuadros: " + str(titulos_cuadros)
 resultado = {
     "orden": orden,
     "plataforma": app.platformName(),
     "respuestas": respuestas,
-    "cuadros": [c.windowTitle() for c in cuadros],
+    "cuadros": titulos_cuadros,
     "excepciones": fallos,
     "registros": registros,
     "verificaciones": verificaciones,
@@ -203,6 +241,7 @@ resultado = {
 ventana.grab().save(str(destino / "ventana.png"))
 (destino / "resultado.json").write_text(json.dumps(resultado, ensure_ascii=False, indent=2) + "\n")
 ventana.tools.cancel()
+esperar_regeneracion()
 ventana.document.dirty = False
 ventana.close()
 shutil.rmtree(carpeta_temporal)

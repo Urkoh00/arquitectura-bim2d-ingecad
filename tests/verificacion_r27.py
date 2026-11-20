@@ -27,11 +27,30 @@ def estado(spec, documento):
     for entidad in documento.doc.modelspace():
         # Los manejadores son enlaces DXF internos; la identidad BIM se comprueba
         # por separado y no se sustituye por el manejador de una copia regenerada.
-        etiquetas = [
-            (tag.code, str(tag.value))
-            for tag in TagCollector.dxftags(entidad)
-            if tag.code not in (5, 330)
-        ]
+        etiquetas = []
+        for tag in TagCollector.dxftags(entidad):
+            if tag.code in (5, 330):
+                continue
+            if tag.code == 60 and tag.value == 0:
+                # DXF permite omitir el valor por defecto de visibilidad.
+                continue
+            valor = str(tag.value)
+            if entidad.dxftype() == "DIMENSION" and tag.code == 2 and valor.startswith("*D"):
+                # Rehacer puede asignar otro nombre al bloque gráfico anónimo.
+                # Se compara su contenido, no se omite la representación de la cota.
+                bloque = documento.doc.blocks[valor]
+                contenido = []
+                for pieza in bloque:
+                    contenido.append(
+                        [
+                            (dato.code, str(dato.value))
+                            for dato in TagCollector.dxftags(pieza)
+                            if dato.code not in (5, 330)
+                            and not (dato.code == 60 and dato.value == 0)
+                        ]
+                    )
+                valor = json.dumps(contenido)
+            etiquetas.append((tag.code, valor))
         entidades.append(json.dumps(etiquetas))
     return {"bim": datos_bim(spec, documento), "entidades": sorted(entidades)}
 
