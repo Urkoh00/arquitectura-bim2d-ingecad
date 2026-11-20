@@ -1,0 +1,63 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Resumen: compara datos BIM, geometría y persistencia real durante el repaso de órdenes.
+import json
+from pathlib import Path
+
+
+def datos_bim(spec, documento):
+    from tests.escenarios_r27 import modulo
+
+    arquitectura = modulo(spec, "architectural")
+    parametros = modulo(spec, "parameters_arq")
+    niveles = modulo(spec, "levels")
+    registros = [
+        arquitectura.metadata(e) for e in documento.doc.modelspace() if arquitectura.metadata(e)
+    ]
+    return {
+        "registros": sorted(registros, key=lambda r: json.dumps(r, sort_keys=True)),
+        "parametros": parametros.load_defaults(documento),
+        "niveles": niveles.load(documento),
+    }
+
+
+def estado(spec, documento):
+    from ezdxf.lldxf.tagwriter import TagCollector
+
+    entidades = []
+    for entidad in documento.doc.modelspace():
+        # Los manejadores son enlaces DXF internos; la identidad BIM se comprueba
+        # por separado y no se sustituye por el manejador de una copia regenerada.
+        etiquetas = [
+            (tag.code, str(tag.value))
+            for tag in TagCollector.dxftags(entidad)
+            if tag.code not in (5, 330)
+        ]
+        entidades.append(json.dumps(etiquetas))
+    return {"bim": datos_bim(spec, documento), "entidades": sorted(entidades)}
+
+
+def persistencia(spec, documento, destino):
+    from core.document import Document
+    from formats.dwg_bridge import load_dwg
+    from ingetrazo_ext.arquitectura_bim import validate_contract
+    from tests.escenarios_r27 import modulo
+
+    esperado = datos_bim(spec, documento)
+    resultados = []
+    for extension in ("dxf", "dwg"):
+        ruta = Path(destino) / ("modelo." + extension)
+        motor, avisos = documento.save_as(ruta)
+        recuperado = load_dwg(ruta) if extension == "dwg" else Document.load(ruta)
+        iguales = datos_bim(spec, recuperado) == esperado
+        contrato = modulo(spec, "exchange").build(recuperado.doc)
+        validate_contract(contrato)
+        resultados.append(
+            {
+                "formato": extension,
+                "motor": motor,
+                "avisos": avisos,
+                "datos_bim_iguales": iguales,
+                "contrato_valido": True,
+            }
+        )
+    return resultados

@@ -345,3 +345,22 @@ permiten reintentar; un clic prematuro en BLOQUE conserva la elección de tipo.
 niveles y asignación de nivel. Comparte las funciones de guardado con las fichas;
 los identificadores de nivel se eligen por nombre y no se editan. En preguntas con
 nombres coincidentes se puede elegir una opción mediante `#` y su número.
+
+`linea_edicion.py` pregunta los valores de las fichas de elementos y ejes. Las
+propiedades se aplican mediante `arq_properties.cambio_propiedades`; la ficha de
+ejes y su variante comparten `GridEditTool.apply_axis`. Las coordenadas se editan
+sin sustituir las identidades BIM ni las referencias a rejillas.
+
+`linea_archivos.py` sustituye selectores de archivo y decisiones de conflictos
+por preguntas. La lectura de cambios y el resultado final se comparten con la
+sincronización con ficha; no cambia el contrato ni se añade una migración.
+
+`linea_conversion.py` pregunta la clasificación, procedencia, rangos y asignación
+gráfica de LINEASAMURO. Reutiliza `Classification`, el plan de solo lectura y la
+confirmación transaccional. Nunca permite convertir REV-* por su nombre de capa.
+
+`tests/escenarios_r27.py`, `tests/ventana_r27.py` y `tests/verificacion_r27.py`
+preparan modelos sintéticos, ejecutan las órdenes por teclado en MainWindow y
+registran historial, datos BIM y guardado real en DXF/DWG. Sus informes distinguen
+la ejecución de la orden de las comprobaciones adicionales; un proceso sin
+excepciones no demuestra por sí solo que el resultado sea correcto.
