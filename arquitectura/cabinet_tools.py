@@ -38,3 +38,14 @@ class CabinetTool(CarpinteriaTool):
     def on_enter(self):self.active=False;self.ctx.finish()
     def on_cancel(self):self.active=False;self.ctx.finish()
     def on_option(self,text):return False
+
+    def on_key(self, key):
+        # El armario reutiliza la búsqueda del muro, pero no las cotas temporales
+        # de CARPINTERIA ni los estados que inicializa esa herramienta.
+        return False
+
+    def tab_ready(self):
+        return False
+
+    def on_tab(self, text="", backwards=False):
+        return False
