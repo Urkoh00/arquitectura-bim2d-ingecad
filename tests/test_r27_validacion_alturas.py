@@ -20,3 +20,22 @@ def test_alturas_distintas_no_producen_falsos_contornos_huerfanos(plugin):
     assert not sesion.issues()
     sesion.history.redo()
     assert not sesion.issues()
+
+
+def test_contornos_de_plantas_distintas_no_se_cuentan_como_duplicados(plugin):
+    import uuid
+    sesion = Session(plugin)
+    herramienta = sesion.tool('MURO')
+    herramienta.height = 7.
+    herramienta.on_point((0., 0.))
+    herramienta.on_point((5., 0.))
+    herramienta.on_enter()
+    niveles = modulo(plugin, 'levels')
+    catalogo = niveles.load(sesion.document)
+    catalogo['levels'].append({'id': uuid.uuid4().hex, 'name': 'Planta alta', 'elevation': 3.})
+    niveles.apply(herramienta.ctx, catalogo)
+    assert not sesion.issues()
+    sesion.history.undo()
+    assert not sesion.issues()
+    sesion.history.redo()
+    assert not sesion.issues()

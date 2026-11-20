@@ -152,12 +152,24 @@ def _outline_issues(drawing, sources, outlines):
         # a muros inexistentes las aristas visibles sobre los muros más bajos.
         result = solve_records(records, columns, particiones.read(drawing))
         cuts = opening_cuts({w.id: w for w in specs}, ops)
-        expected = {_item_key(it) for it in J.plan_items(result, cuts)}
+        from .levels import load as load_levels
+        catalog = load_levels(drawing)
+        managed = bool(catalog.get('layer_managed'))
+        if managed:
+            from .geom.spaces import network_at
+            expected = {
+                (level['id'], _item_key(item))
+                for level in catalog['levels']
+                for item in J.plan_items(network_at(result, level['elevation'] + 1e-7), cuts)
+            }
+        else:
+            expected = {(None, _item_key(item)) for item in J.plan_items(result, cuts)}
     except Exception as exc:  # noqa: BLE001
         return [f'No se pudo comprobar el contorno ({type(exc).__name__}: {exc})']
     present = {}
     for e, _d in outlines:
-        k = _entity_key(e)
+        # Una arista de cada planta no es una copia duplicada en la misma planta.
+        k = (_d.get('display_level_id') if managed else None, _entity_key(e))
         present[k] = present.get(k, 0) + 1
     extra = sum(n for k, n in present.items() if k not in expected) + \
         sum(n - 1 for k, n in present.items() if k in expected and n > 1)
