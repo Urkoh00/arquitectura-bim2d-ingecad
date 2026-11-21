@@ -1,12 +1,12 @@
-# Manual de Arquitectura para IngeCAD — versión 1.46.0-dev
+# Manual de Arquitectura para IngeCAD — versión 1.47.0-dev
 
-Versión 1.46.0-dev · 20-11-2026
+Versión 1.47.0-dev · 21-11-2026
 
 > Copia del manual publicado como documento en claude.ai; se regenera con cada versión.
 
 ## Qué es
 
-Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.46.0-dev** y se actualiza con cada versión.
+Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.47.0-dev** y se actualiza con cada versión.
 
 Cada elemento guarda su identidad persistente, su clase IFC, su geometría editable en planta, sus parámetros 3D (altura, espesor, cota), sus propiedades constructivas (tipo, material, capas) y su nivel. Las carpinterías conocen su muro y los recintos siguen a los muros que los cierran.
 
@@ -27,7 +27,7 @@ El plugin se instala copiando una carpeta en IngeCAD, y la extensión copiando t
 
 **En IngeCAD**
 
-1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.46.0-dev.zip`.
+1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.47.0-dev.zip`.
 2. Copie la carpeta `arquitectura` en la carpeta de plugins de IngeCAD.
 3. Reinicie IngeCAD. Aparece el menú *Arquitectura* y su barra de herramientas.
 4. Escriba `ARQDIAG` en la línea de órdenes para comprobar que la versión cargada es la que acaba de copiar.
@@ -90,7 +90,7 @@ Es la forma más rápida de seguir dibujando «como ese». También lo hacen la 
 
 ## Órdenes sin cuadros de diálogo (-ORDEN)
 
-Las órdenes que abren una ficha tienen también una variante con un guion delante del nombre, que es **la misma orden sin cuadros de diálogo**: pregunta todo por la línea de órdenes. Sirve para trabajar solo con el teclado, para repetir una secuencia y para las órdenes que necesitan argumentos con espacios. Son: `-MURO`, `-PILAR`, `-PILARESENEJES`, `-CARPINTERIA`, `-PUERTAARQ`, `-VENTANAARQ`, `-HUECOARQ`, `-ARMARIOBIM`, `-FORJADO`, `-RECINTO`, `-EJES`, `-REJILLA`, `-PARAMETROSARQ`, `-USOSARQ`, `-TIPOSMURO`, `-NIVELES`, `-NIVELASIGNAR`, `-PROPIEDADESARQ`, `-EDITARARQ`, `-EDITAREJE`, `-LINEASAMURO`, `-EXPORTARBIM`, `-SINCRONIZARARQ`, `-BIBLIOTECAHE` y `-AYUDAARQ`. `MUROCURVO`, `DEFENSA` y `ARQDIAG` no la tienen porque no abren ninguna ficha.
+Las órdenes que abren una ficha tienen también una variante con un guion delante del nombre, que es **la misma orden sin cuadros de diálogo**: pregunta todo por la línea de órdenes. Sirve para trabajar solo con el teclado, para repetir una secuencia y para las órdenes que necesitan argumentos con espacios. Son: `-MURO`, `-PILAR`, `-PILARESENEJES`, `-CARPINTERIA`, `-PUERTAARQ`, `-VENTANAARQ`, `-HUECOARQ`, `-ARMARIOBIM`, `-FORJADO`, `-RECINTO`, `-EJES`, `-REJILLA`, `-PARAMETROSARQ`, `-USOSARQ`, `-TIPOSMURO`, `-NIVELES`, `-NIVELASIGNAR`, `-PROPIEDADESARQ`, `-EDITARARQ`, `-EDITAREJE`, `-LINEASAMURO`, `-EXPORTARBIM`, `-SINCRONIZARARQ`, `-MEMORIACARP`, `-BIBLIOTECAHE` y `-AYUDAARQ`. `MUROCURVO`, `DEFENSA` y `ARQDIAG` no la tienen porque no abren ninguna ficha.
 
 **Cómo se responde.** Cada pregunta muestra el valor actual entre `<>`, e `Intro` lo acepta. `Anterior` vuelve a la pregunta previa y `Esc` cancela la orden. Las longitudes admiten coma o punto y `m`, `cm` o `mm`; los ángulos van en grados. Si dos opciones se llaman igual, escriba `#` y el número que se muestra. Un texto que coincida con la palabra `Anterior` se escribe entre comillas, y `""` lo deja vacío. Las preguntas que dependen de otra solo aparecen cuando hacen falta, y la identidad BIM de un elemento no se puede cambiar.
 
@@ -335,7 +335,7 @@ Cada pilar es un solo paso de `Deshacer`, con los muros y recintos ya actualizad
 | `P` / `V` / `H` | Puerta, ventana o hueco |
 | `N` o un número | Ancho de hoja (puerta) o de hueco. `62`, `72`, `82`, `92` son las hojas de 625, 725, 825 y 925 mm; un valor mayor que 10 se lee en centímetros |
 | `Hojas` | 1 o 2 hojas; `2 0,625` fija la hoja principal |
-| `T` | Apertura: abatible o corredera (puertas); abatible, corredera o fija (ventanas) |
+| `T` | Apertura: abatible o corredera (puertas); abatible, corredera, fija u oscilobatiente (ventanas) |
 | `L` / `A` | Altura y antepecho |
 | `M` | Colocación: Libre, Distancia *d* a la esquina, Centrada en la cara, Exterior (centrada en la otra cara), Máxima |
 | `I` | Punto de inserción para la distancia: jamba (lateral) o centro (medio) |
@@ -351,6 +351,34 @@ Cada pilar es un solo paso de `Deshacer`, con los muros y recintos ya actualizad
 **En muros curvos** la carpintería es plana: va sobre la cuerda entre las dos jambas, que son radiales. El ancho que se indica es el de la carpintería (la cuerda). Si la curva es tan cerrada que el cerco no cabe en el espesor del muro, el programa lo avisa.
 
 En planta, el símbolo (hoja y giro, cerco, vidrio, alféizar) se dibuja en la capa ARQ-CARPINTERIA y se agrupa con la carpintería.
+
+## Plano de carpintería: MEMORIACARP
+
+`MEMORIACARP` (menú Arquitectura > Documentación) dibuja el plano de carpintería a partir de las puertas, ventanas, huecos y frentes de armario BIM del dibujo. No hay que preparar nada: lee las mismas piezas con las que se construye el 3D, de modo que las medidas del plano y las del modelo son siempre las mismas.
+
+**Generar el plano.** Pulse Intro para abrir la ficha y elija:
+
+- **Contenido:** Todo, solo la Tabla o solo las Fichas.
+- **Planta:** una planta o todas.
+- **Agrupar:** por marca o por planta.
+- **Escala:** 1:20, 1:25 o 1:50. La inicial es la de `PARAMETROSARQ` > General > Escala.
+- **Huecos sin carpintería, rótulos de marca en planta y sección horizontal:** sí o no.
+
+Después indique el punto superior izquierdo del plano. Si en lugar de pulsar Intro designa directamente un punto, el plano se genera con las opciones por defecto.
+
+**Marcas.** Las piezas iguales comparten marca: P (puertas), V (ventanas), H (huecos) y A (frentes de armario). Dos piezas son iguales cuando coinciden su tipo, material, apertura, hojas, medidas, cerco, antepecho y forma (plana o curva); la posición y la mano no cuentan. Las marcas se guardan en el dibujo y no cambian al regenerar: si modifica una puerta, recibe la marca de otro tipo igual o una nueva. Para poner una marca a mano, escríbala en la ficha de `PROPIEDADESARQ` (o en `-PROPIEDADESARQ`): se aplica a todas las piezas iguales, y se rechaza si ya la usa otro tipo distinto. Una marca vacía vuelve a la numeración automática.
+
+**Fichas.** Cada marca tiene una ficha con el alzado visto desde el exterior, el símbolo de apertura, cotas reales (con el estilo de cota activo), la sección horizontal con el espesor de muro más frecuente, el número de unidades y sus plantas, las manos, los materiales del cerco, la hoja y el vidrio, la superficie del hueco y los recintos a los que da. Las carpinterías curvas se dibujan desarrolladas y se rotulan «desarrollo». Las ventanas fijas y los huecos figuran «sin mano».
+
+**Tabla.** Resume marca, unidades, tipo, ancho por alto, número y ancho de las hojas, apertura, manos, materiales, superficie por unidad y total, y plantas y recintos. Se dibuja con la tabla de IngeCAD, en líneas y textos, para que se conserve igual en DXF y DWG.
+
+**Transmitancia.** Si el vidrio y el marco de la carpintería figuran con esos nombres en `BIBLIOTECAHE`, la ficha da una U estimada por áreas y la rotula «sin ψ», porque no incluye el puente térmico lineal del fabricante. Si falta algún dato, pone «sin datos». No sustituye al cálculo de la certificación energética.
+
+**Actualizar.** El plano queda en capas bloqueadas para no estropearlo por accidente. Si después cambia alguna carpintería, `ARQVALIDAR` avisa de que el plano está desactualizado. Escriba `MEMORIACARP Actualizar`: todos los planos del dibujo se rehacen en su sitio, con sus opciones, sin preguntar nada y en un solo Deshacer. Los rótulos de marca en planta se mueven con su carpintería.
+
+**Por la línea de órdenes.** `-MEMORIACARP` pregunta las mismas opciones sin cuadros de diálogo, y `-MEMORIACARP Actualizar` no pregunta nada.
+
+**Ventana oscilobatiente.** Desde esta versión, `VENTANAARQ` (y `-VENTANAARQ`) ofrece la apertura Oscilobatiente, con mano izquierda o derecha. La planta y el alzado muestran sus dos aperturas; en 3D la ventana se ve cerrada.
 
 ## Niveles, categorías de muro y armarios
 
@@ -532,17 +560,18 @@ Con niveles o forjados, el intercambio usa `.arqbim` v3 y necesita la extensión
 | `DIAGNOSTICOARQ` | Listar encuentros | No |
 | `ARQMIGRAR` | Convertir dibujos de versiones anteriores | No |
 | `EXPORTARBIM` | Exportar a IngeTrazo (.arqbim) | Sí |
+| `MEMORIACARP` | Plano de carpintería: fichas acotadas, tabla y marcas | No |
 | `ARQDIAG` / `AYUDAARQ` | Diagnóstico y ayuda | No |
 
 **Órdenes heredadas.** El submenú «Herramientas antiguas (sin datos BIM)» reúne utilidades de versiones antiguas que dibujan geometría sin datos BIM y no se exportan al modelo: PUERTA, VENTANA, ARMARIO, CAMARA, ESCALERA, SUPERFICIE, BLOQUE, TRAMA, VERTPOLY, LISTATEXTOS, SELATRIB, ELEMENTOS, HIPERVINCULO, CURVAS3D. Para el modelo BIM use las órdenes de la tabla.
 
 ## Limitaciones conocidas
 
-Estas son las limitaciones conocidas de la versión 1.46.0-dev; cada versión actualiza esta lista.
+Estas son las limitaciones conocidas de la versión 1.47.0-dev; cada versión actualiza esta lista.
 
 - **Plataforma:** las pruebas automáticas se ejecutan en Linux con la última versión oficial de IngeCAD y de IngeTrazo, pero sin pantalla. Solo se prueba con la última versión de cada programa, porque ambos publican casi cada semana.
 - **Muros curvos:** cada muro llega como mucho a media circunferencia (un muro redondo son dos). MUROPARALELO y DIVIDEMURO solo toman líneas rectas como referencia. El gesto de esquina en L al terminar un MURO solo recorta muros rectos.
-- **Carpinterías:** en muros curvos se admiten modelos planos y modelos curvos fijos o correderos; las oscilobatientes son planas. Faltan catálogo de modelos y lucernarios y borrar la carpintería dejando el vano.
+- **Carpinterías:** en muros curvos se admiten modelos planos y, curvos, la ventana fija, la ventana corredera y la puerta corredera; las oscilobatientes son siempre planas. Faltan el catálogo de modelos, los lucernarios y borrar la carpintería dejando el vano. MEMORIACARP no da todavía una U con puente térmico lineal (ψ): es una estimación, no una certificación.
 - **LINEASAMURO:** no reconoce puertas ni ventanas en muros curvos. Las medianeras toman el espesor hasta la línea paralela más próxima de otra capa: revise su espesor.
 - **Recintos:** una sola altura por recinto (no calcula descuelgues parciales); las escaleras no se descuentan todavía.
 - **Edificio:** aún no hay plantas múltiples, forjados, escaleras ni barandillas. Las cotas de COTAMUROS no son asociativas: si se mueve un muro, hay que volver a acotar. Una simetría de un muro respecto de su propio eje no cambia su lado; para eso use la cara (I o F5) o su ficha.
@@ -552,6 +581,7 @@ Estas son las limitaciones conocidas de la versión 1.46.0-dev; cada versión ac
 
 | Fecha | Versión | Novedades |
 | --- | --- | --- |
+| 21-11-2026 | 1.47.0-dev | Nueva MEMORIACARP: plano de carpintería con fichas acotadas, sección, tabla, marcas P/V/H/A persistentes, rótulos en planta y Actualizar en un solo Deshacer; -MEMORIACARP; ventana oscilobatiente de ambas manos; ELEMENTOS, SELATRIB, HIPERVINCULO y LISTATEXTOS explican su alcance |
 | 20-11-2026 | 1.46.0-dev | Variantes -ORDEN sin cuadros de diálogo en 25 órdenes. Repaso de todas las órdenes: corregidos fallos en EJES, EDITAREJE, BLOQUE, ESCALERA, TIPOSMURO (CSV y capas), PILAR, TRAMA, ARMARIOBIM, validación de contornos por planta y órdenes sin ventana |
 | 20-11-2026 | 1.45.0-dev | Tab recorre las cotas temporales y fija su valor: longitud y ángulo en MURO; izquierda, derecha y ancho en CARPINTERIA; MOVERCARP mueve con Tab. El ángulo del muro se muestra como cota propia |
 | 19-11-2026 | 1.44.0-dev | Los muros envían al IFC su superficie de paramento bruta y neta (descontados los huecos), también en muros curvos y con puertas hasta el suelo |
@@ -601,40 +631,3 @@ Estas son las limitaciones conocidas de la versión 1.46.0-dev; cada versión ac
 | 6-11-2026 | 1.6.2-dev | El muro se maneja como un objeto (grupos, sincronización) |
 
 El detalle técnico de cada versión está en `CHANGELOG.md`, dentro del ZIP y del repositorio.
-
-
-## Plano de carpintería — MEMORIACARP
-
-Escriba MEMORIACARP y pulse Intro (o Ficha) para elegir Todo, Tabla o Fichas,
-una planta o Todas, y agrupación por marca o por planta. La escala puede ser
-1:20, 1:25 o 1:50; su valor inicial es General → Escala de documentación.
-También puede incluir huecos, rótulos de marca en planta y sección horizontal.
-Después indique el punto superior izquierdo del plano. Un punto directo en el
-aviso inicial genera el contenido con las opciones predeterminadas.
-
--MEMORIACARP presenta las mismas opciones por texto, sin cuadros ni selectores.
-Escriba MEMORIACARP Actualizar o -MEMORIACARP Actualizar para regenerar todos los
-planos ya creados en su posición original: no se piden opciones ni inserción.
-Cada generación o actualización ocupa un solo Deshacer. Si se eliminan todas
-las carpinterías, Actualizar vacía las fichas y retira sus marcas. Las ventanas
-fijas y los huecos figuran «sin mano»; los armarios cuentan la mano de cada frente.
-
-Las puertas, ventanas, huecos y frentes de armario se agrupan por su definición
-física y reciben marcas P/V/H/A persistentes. La posición y la mano no crean otro
-tipo; la mano se cuenta mirando desde el exterior hacia el interior. Cambiar una
-medida puede asignar otra marca. La ficha de propiedades permite solicitar una
-marca manual; las piezas iguales comparten la marca y se rechazan las colisiones.
-
-Las fichas muestran alzado exterior, apertura, cotas reales, materiales, unidades,
-localización y superficie. Las curvas se rotulan «desarrollo». La sección usa el
-espesor de muro más frecuente del grupo; se mantiene la geometría en metros y
-las anotaciones corresponden a la escala elegida. Las cotas usan el estilo activo.
-La tabla es geometría LINE/TEXT, como la TABLE nativa de esta versión de IngeCAD.
-
-Si vidrio y marco constan con esos nombres en BIBLIOTECAHE, se ofrece una U por
-áreas, identificada «sin ψ» porque no incorpora el puente lineal del fabricante.
-Si falta alguno se muestra «sin datos»; no constituye una certificación térmica.
-
-El plano y sus cotas se generan en capas bloqueadas. Los rótulos de planta siguen
-a su carpintería y pertenecen a su grupo. Tras cambiar las fuentes, ARQVALIDAR
-avisa de que el plano está desactualizado; use Actualizar para rehacerlo.

@@ -2,6 +2,31 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.47.0-dev — 2026-11-21
+
+Plano de carpintería (encargo R28-A, desarrollado por Codex y revisado por Claude).
+
+- **Nueva MEMORIACARP** (sustituye a la orden heredada, que solo dibujaba tres fichas de ejemplo):
+  - fichas por marca con alzado exterior, símbolo de apertura, cotas DIMENSION con el estilo activo,
+    sección horizontal, unidades, plantas, manos, materiales, superficie y recintos;
+  - tabla con `core.tables.insert_table` de IngeCAD; modos Todo/Tabla/Fichas, una planta o todas,
+    agrupación por marca o planta, escala 1:20/25/50 (inicial: `PARAMETROSARQ` > General > Escala);
+  - medidas tomadas de `openings.carpentry_parts` y demás piezas del 3D: no hay un segundo generador;
+  - U estimada por áreas con Ug y Uf de BIBLIOTECAHE, rotulada «sin ψ»; «sin datos» si faltan;
+  - `MEMORIACARP Actualizar` rehace todos los planos en su sitio y en un solo Deshacer; ARQVALIDAR avisa
+    de un plano desactualizado; plano en capas bloqueadas con huellas de las fuentes en XDATA.
+- **Marcas P/V/H/A persistentes** en los registros (`mark`, `mark_manual`) y en un catálogo del dibujo;
+  igualdad física con la tolerancia de `geom.soldadura` (sin redondeos); posición y mano no separan
+  tipos; marca manual en PROPIEDADESARQ aplicada al grupo, con rechazo de colisiones.
+- **`-MEMORIACARP`** con los mismos campos y la misma validación que la ficha (prueba de paridad).
+- **Ventana oscilobatiente** (TILTANDTURN) de ambas manos en ficha, `-VENTANAARQ`, planta, alzado y 3D.
+- ELEMENTOS, SELATRIB, HIPERVINCULO/URL y LISTATEXTOS dicen en su aviso y su ayuda lo que todavía no hacen.
+- Estudios B (alzados, secciones y cubiertas) y C (biblioteca de componentes, CC0) actualizados;
+  adenda 2: la fase B2 de cubiertas partirá de los esqueletos ponderados de «Tejados y tejas» y ArchXQ.
+- Revisión de Claude: 1228 pruebas correctas (una omitida por catálogo externo), 10 recorridos en
+  ventana real con xcb y guardado DWG, y MEMORIACARP comprobada además sobre la vivienda de cinco
+  recintos de la prueba de aceptación 4 (marcas, recintos, Deshacer/Rehacer, aviso y Actualizar).
+
 ## 1.46.0-dev — 2026-11-20
 
 Repaso de todas las órdenes (encargo R27, desarrollado por Codex y revisado por Claude).
