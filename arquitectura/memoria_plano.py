@@ -159,7 +159,7 @@ class PlanoMemoria(Command):
                 grupos, _ = asignar_marcas(memoria_modelo.leer(dibujo), catalogo)
                 termica = biblioteca()
                 filas = memoria_modelo.filas(grupos, self.configuracion, termica)
-                if not filas:
+                if not filas and self.datos_anteriores is None:
                     raise ValueError("No hay carpinterías en el ámbito elegido")
                 dibujar(documento, filas, self.insercion, self.configuracion, self.identificador)
                 self.nuevos = [

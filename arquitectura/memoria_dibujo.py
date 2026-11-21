@@ -330,7 +330,7 @@ class Dibujante:
                     ),
                     numero(fila["medidas"]["ancho"]) + " × " + numero(fila["medidas"]["alto"]),
                     " / ".join(numero(valor) for valor in fila["medidas"]["hojas"]) or "—",
-                    openings.OPERATION_NAMES.get(definicion["operation"], "sin carpintería"),
+                    openings.OPERATION_NAMES.get(definicion["operation"]) or "sin carpintería",
                     ", ".join(
                         f"{cantidad} {mano}" for mano, cantidad in sorted(fila["manos"].items())
                     ),
@@ -375,7 +375,12 @@ def dibujar(documento, filas, insercion, configuracion, identificador):
     dibujante = Dibujante(documento, identificador, configuracion["escala"])
     dibujante.seccion = configuracion["seccion"]
     x, y = insercion
-    if configuracion["modo"] in ("todo", "fichas"):
+    if not filas:
+        dibujante.texto(
+            (x, y), "MEMORIA DE CARPINTERÍA — sin carpinterías en el ámbito guardado", 10.0
+        )
+        y -= 6 * dibujante.altura
+    if filas and configuracion["modo"] in ("todo", "fichas"):
         ancho = max(3.2, max(fila["medidas"]["ancho"] for fila in filas) + 2.0)
         alto = max(fila["medidas"]["alto"] + fila["medidas"]["antepecho"] for fila in filas)
         alto += 2.4 + 22 * dibujante.altura + (1.6 if dibujante.seccion else 0)

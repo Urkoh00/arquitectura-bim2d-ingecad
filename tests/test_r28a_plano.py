@@ -143,3 +143,27 @@ def test_filtrar_la_planta_baja_sin_abrir_niveles_incluye_sus_piezas(plugin):
     nivel = modulo(plugin, "levels").load(sesion.document)["levels"][0]
     plano = generar(sesion, plugin, {"planta": nivel["name"]})
     assert plano.planos(sesion.document.doc)[0][1]["rows"][0]["unidades"] == 2
+
+
+def test_actualizar_despues_de_borrar_todas_las_carpinterias_retira_marcas_y_vacia_plano(plugin):
+    from core.actions import EraseCommand
+
+    sesion, memoria, _ = modelo(plugin)
+    plano = generar(sesion, plugin)
+    originales = plano.planos(sesion.document.doc)[0][1]
+    puertas = [
+        e
+        for e in sesion.document.doc.modelspace()
+        if (sesion.meta(e) or {}).get("kind") == "opening"
+    ]
+    modulo(plugin, "transactions").apply_architectural_change(
+        sesion.tool("MURO").ctx, EraseCommand(puertas), kind="opening"
+    )
+    antes = estado(plugin, sesion.document)
+    plano.actualizar(sesion.tool("MURO").ctx)
+    datos = plano.planos(sesion.document.doc)[0][1]
+    assert datos["id"] == originales["id"] and datos["rows"] == []
+    assert memoria.catalogo(sesion.document.doc)[1]["tipos"] == []
+    assert not plano.avisos(sesion.document.doc)
+    sesion.history.undo()
+    assert estado(plugin, sesion.document) == antes
