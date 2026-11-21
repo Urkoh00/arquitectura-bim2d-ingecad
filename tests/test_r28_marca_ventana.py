@@ -48,10 +48,12 @@ def test_edicion_real_de_marca_conserva_la_identidad(plugin, tmp_path, orden):
     assert proceso.returncode == 0, proceso.stdout + proceso.stderr
     datos = json.loads((destino / "resultado.json").read_text())
     assert any(
-        r.get("mark") == "P8" and r.get("mark_manual")
+        r.get("mark") == "P8" and not r.get("mark_manual")
         for r in datos["registros"]
         if r.get("kind") == "opening"
     )
+    # La regeneración ya consume la solicitud y renombra también las piezas iguales.
+    assert {r["mark"] for r in datos["registros"] if r.get("kind") == "opening"} == {"P8"}
     assert {r["id"] for r in datos["registros"] if r.get("kind") == "opening"} == identidades
     assert not datos["excepciones"]
     assert len(datos["cuadros"]) == (0 if orden.startswith("-") else 1)
