@@ -49,9 +49,10 @@ def world_per_px(ctx, fallback=0.01):
     return v if v > 0 and math.isfinite(v) else fallback
 
 
-def fmt(value):
-    """2 decimals with the Spanish comma: 1,25."""
-    return f"{float(value):.2f}".replace(".", ",")
+def fmt(value, documento=None):
+    from .presentacion import longitud
+
+    return longitud(value, documento)
 
 
 def parse_length(text):
@@ -209,7 +210,7 @@ def references(usable, jambs, s0, s1):
 
 
 def carpentry_dims(spec, side, s0, width, left, right, px, active="left", to_axis=False,
-                   locked=()):
+                   locked=(), documento=None):
     """The chain left reference | opening | right reference, on the face the
     opening is placed from, outside the wall on that side."""
     off_face = spec.hi if side > 0 else spec.lo
@@ -227,11 +228,11 @@ def carpentry_dims(spec, side, s0, width, left, right, px, active="left", to_axi
     back = (-out[0], -out[1])
     # the width on the other side of the wall: on this side it would cross
     # the leaf's swing
-    dims = [Dim(p(left), p(a0), out, off, fmt(a0 - left), active == "left", "left",
+    dims = [Dim(p(left), p(a0), out, off, fmt(a0 - left, documento), active == "left", "left",
                 "left" in locked),
-            Dim(p(a1), p(right), out, off, fmt(right - a1), active == "right", "right",
+            Dim(p(a1), p(right), out, off, fmt(right - a1, documento), active == "right", "right",
                 "right" in locked),
-            Dim(q(s0), q(s0 + width), back, off, fmt(width), active == "width", "width",
+            Dim(q(s0), q(s0 + width), back, off, fmt(width, documento), active == "width", "width",
                 "width" in locked)]
     return dims
 
@@ -250,7 +251,7 @@ def placement_from_distance(which, distance, left, right, width, to_axis=False):
 
 
 # --- walls: length, angle and parallel walls ---------------------------------------------
-def wall_dims(a, b, thickness, lo, hi, specs, px, max_dist=12.0, active="length", locked=()):
+def wall_dims(a, b, thickness, lo, hi, specs, px, max_dist=12.0, active="length", locked=(), documento=None):
     """Length of the wall being drawn (outside its left face), its angle (an
     arc at its start), and the perpendicular distance from its end to the
     nearest parallel wall face on each side (axis to face), among ``specs``
@@ -264,7 +265,7 @@ def wall_dims(a, b, thickness, lo, hi, specs, px, max_dist=12.0, active="length"
     dims = []
     ang = math.degrees(math.atan2(u[1], u[0])) % 360.0
     face = lambda p, off: (p[0] + n[0] * off, p[1] + n[1] * off)  # noqa: E731
-    dims.append(Dim(face(a, hi), face(b, hi), n, OFFSET_PX * px, fmt(L),
+    dims.append(Dim(face(a, hi), face(b, hi), n, OFFSET_PX * px, fmt(L, documento),
                     active == "length", "length", "length" in locked))
     dims.append(AngleDim(a, ang, f"{ang:.1f}°".replace(".", ","), active == "angle",
                          "angle", "angle" in locked))
@@ -290,7 +291,7 @@ def wall_dims(a, b, thickness, lo, hi, specs, px, max_dist=12.0, active="length"
         if hit is None:
             continue
         d, q = hit
-        dims.append(Dim(b, q, u, OFFSET_PX * px * 0.6, fmt(abs(d)), False, "parallel"))
+        dims.append(Dim(b, q, u, OFFSET_PX * px * 0.6, fmt(abs(d), documento), False, "parallel"))
     return dims
 
 

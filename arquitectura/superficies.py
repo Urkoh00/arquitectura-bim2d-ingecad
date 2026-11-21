@@ -120,11 +120,12 @@ def _hull(pts):
     return lower[:-1] + upper[:-1]
 
 
-def evaluate(meta, room, room_useful=None, crit=None, by_use=None):
+def evaluate(meta, room, room_useful=None, crit=None, by_use=None, documento=None):
     """{'useful': m², 'factor': coefficient, 'computable': m², 'habitable': bool,
     'notes': [..]} for a room (``room_useful``: the same room solved without
     the columns that are not deducted)."""
     c = criterion(crit)
+    from .presentacion import longitud
     useful = float((room_useful or room)["area"])
     height = float(meta.get("height") or 0.0)
     notes = []
@@ -132,15 +133,15 @@ def evaluate(meta, room, room_useful=None, crit=None, by_use=None):
     factor = 1.0
     if height < c["min_free_height"]:
         factor = 0.0
-        notes.append(f"altura libre menor de {c['min_free_height']:.2f} m: no computa".replace(".", ","))
+        notes.append("altura libre menor de " + longitud(c['min_free_height'], documento) + " m: no computa")
     elif enclosure == "exterior_cubierto":
         if depth(room) + 1e-9 >= c["exterior_min_depth"]:
             factor = c["exterior_factor"]
             notes.append("espacio exterior cubierto: computa el 50 %")
         else:
             factor = 0.0
-            notes.append(f"espacio exterior de menos de {c['exterior_min_depth']:.2f} m de fondo: "
-                         "no computa".replace(".", ",", 1))
+            notes.append("espacio exterior de menos de " + longitud(c['exterior_min_depth'], documento)
+                         + " m de fondo: no computa")
     if room_useful is not None and abs(useful - float(room["area"])) > 1e-9:
         notes.append("pilares o conductos de hasta 100 cm² no descontados")
     # what kind of room it is (bathroom, corridor... need less height): by its
@@ -158,7 +159,8 @@ def evaluate(meta, room, room_useful=None, crit=None, by_use=None):
     low_room = any(k in words.lower() for k in c.get("low_rooms", ()))
     needed = c["low_rooms_height"] if low_room else c["habitable_height"]
     if enclosure == "interior" and factor > 0 and height + 1e-9 < needed:
-        notes.append(f"altura libre por debajo de {needed:.2f} m: no es superficie útil habitable".replace(".", ","))
+        notes.append("altura libre por debajo de " + longitud(needed, documento)
+                     + " m: no es superficie útil habitable")
     return {"useful": useful, "factor": factor, "computable": useful * factor,
             "habitable": enclosure == "interior" and factor > 0 and height + 1e-9 >= needed,
             "notes": notes, "criterion": c["label"]}
@@ -201,7 +203,7 @@ def table(drawing, crit=None):
         from .parameters_arq import general_options
         room_u=C.useful_by_criterion(room_u or room,obstacles,
                                      general_options(drawing).get('armarios_superficie_util','computan'))
-        ev = evaluate(m, room, room_u, crit, by_use=by_use)
+        ev = evaluate(m, room, room_u, crit, by_use=by_use, documento=drawing)
         rows.append({"name": m.get("name") or "Recinto", "use": m.get("use") or "",
                      "enclosure": m.get("enclosure") or "interior", "height": float(m.get("height") or 0),
                      "net": room["area"], **ev})

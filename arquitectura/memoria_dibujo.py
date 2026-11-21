@@ -9,7 +9,20 @@ DISCONTINUA = "ARQ-MEMORIA-DISCONTINUA"
 
 
 def numero(valor):
-    return f"{valor:.3f}".replace(".", ",")
+    return f"{valor:.2f}".replace(".", ",")
+
+
+def manos(fila):
+    if set(fila["manos"]) == {"sin mano"}:
+        return "—"
+    return ", ".join(f"{cantidad} {mano}" for mano, cantidad in sorted(fila["manos"].items()))
+
+
+def localizacion(fila):
+    return " | ".join(
+        dato["planta"] + " / " + ("; ".join(dato["recintos"]) or "sin recinto")
+        for dato in fila["localizacion"]
+    )
 
 
 class Dibujante:
@@ -20,6 +33,11 @@ class Dibujante:
         self.altura = 0.0025 * escala
         self.escala = escala
         self.marca = ""
+
+    def longitud(self, valor):
+        from .presentacion import longitud
+
+        return longitud(valor, self.documento)
 
     def etiquetar(self, entidad, papel, **datos):
         _xdata(
@@ -70,17 +88,35 @@ class Dibujante:
         estilo = dibujo.header.get("$DIMSTYLE", "Standard")
         if estilo not in dibujo.dimstyles:
             estilo = "Standard"
-        tamano = float(dibujo.dimstyles.get(estilo).dxf.get("dimtxt", 2.5))
-        ajuste = self.altura / (tamano if tamano > 0 else 2.5)
+        datos_estilo = dibujo.dimstyles.get(estilo).dxf
+        tamano = float(datos_estilo.get("dimtxt", 2.5))
+        conversion = 0.0025 / (tamano if tamano > 0 else 2.5)
+        # La escala es el denominador de la ficha; los tamaños gráficos se
+        # expresan en metros de papel y conservan las proporciones del estilo.
+        anulaciones = {"dimscale": self.escala, "dimtxt": 0.0025}
+        from .presentacion import anulaciones_cota
+
+        anulaciones.update(anulaciones_cota(self.documento))
+        for clave, defecto in (
+            ("dimasz", 2.5),
+            ("dimtsz", 0.0),
+            ("dimgap", 0.625),
+            ("dimexo", 0.625),
+            ("dimexe", 1.25),
+            ("dimdle", 0.0),
+        ):
+            anulaciones[clave] = float(datos_estilo.get(clave, defecto)) * conversion
         dimension = self.espacio.add_linear_dim(
             base=base,
             p1=primero,
             p2=segundo,
             angle=angulo,
             dimstyle=estilo,
-            override={"dimscale": ajuste},
+            override=anulaciones,
             dxfattribs={"layer": CAPA_COTAS},
         )
+        if papel in ("ancho", "hoja"):
+            dimension.dimension.dxf.text = ("hueco" if papel == "ancho" else "hoja") + " <>"
         self.etiquetar(dimension.dimension, "dimension", dimension_kind=papel)
         dimension.render()
         bloque = dibujo.blocks.get(dimension.dimension.dxf.geometry)
@@ -88,6 +124,7 @@ class Dibujante:
             pieza.dxf.layer = CAPA_COTAS
 
     def ficha(self, fila, x, techo, ancho_tarjeta, alto_tarjeta):
+        previas = {entidad.dxf.handle for entidad in self.espacio}
         self.marca = fila["marca"]
         medidas = fila["medidas"]
         registro = medidas["registro"]
@@ -214,15 +251,14 @@ class Dibujante:
                 fila, origen_x, siguiente, ancho_tarjeta - margen - self.altura
             )
         materiales = fila["definicion"]["materiales"]
-        manos = ", ".join(f"{cantidad} {mano}" for mano, cantidad in sorted(fila["manos"].items()))
         u = "sin datos" if fila["u"] is None else numero(fila["u"]) + " W/m²K (sin ψ)"
         textos = [
-            "Exterior · " + manos,
-            f"{numero(ancho)} × {numero(alto)} m · antepecho {numero(antepecho)} m",
+            "Exterior · " + manos(fila),
+            f"{self.longitud(ancho)} × {self.longitud(alto)} m · antepecho {self.longitud(antepecho)} m",
             "Cerco: " + materiales["frame"] + " · hoja: " + materiales["leaf"],
             "Vidrio: " + (materiales["glass"] if registro["type"] == "window" else "sin vidrio"),
             f"Hueco: {numero(fila['area_unitaria'])} m² · U: {u}",
-            "Recintos: " + (" / ".join(fila["recintos"]) or "sin recinto asociado"),
+            "Ubicación: " + localizacion(fila),
         ]
         if registro["type"] == "gap":
             textos[2:4] = ["Sin cerco, hojas ni vidrio"]
@@ -231,8 +267,13 @@ class Dibujante:
         )
         from ezdxf import bbox
 
-        limites = bbox.extents([cuerpo])
-        alto_real = max(alto_tarjeta, techo - limites.extmin.y + 2 * self.altura)
+        contenido = [
+            entidad
+            for entidad in self.espacio
+            if entidad.dxf.handle not in previas and entidad is not marco_tarjeta
+        ]
+        limites = bbox.extents(contenido)
+        alto_real = techo - limites.extmin.y + 2 * self.altura
         marco_tarjeta.set_points(
             [
                 (x, techo),
@@ -245,6 +286,9 @@ class Dibujante:
 
     def seccion_horizontal(self, fila, x, y, ancho_texto):
         from .geom.junctions import Wall
+        from ezdxf import bbox
+
+        previas = {entidad.dxf.handle for entidad in self.espacio}
 
         medidas = fila["medidas"]
         ancho = medidas["ancho"]
@@ -306,13 +350,16 @@ class Dibujante:
                     for paso in range(37)
                 ]
                 self.contorno([transformar(punto) for punto in puntos], False, papel="section")
-        self.texto(
-            (x, origen_y - espesor / 2 - self.altura),
-            "Sección · muro " + numero(espesor) + " m (más frecuente)",
+        trazos = [entidad for entidad in self.espacio if entidad.dxf.handle not in previas]
+        # La hoja puede abrir hacia abajo: el espesor no delimita el símbolo.
+        borde_inferior = bbox.extents(trazos).extmin.y
+        leyenda = self.texto(
+            (x, borde_inferior - self.altura),
+            "Sección · muro " + self.longitud(espesor) + " m (más frecuente)",
             ancho_texto,
             papel="section_caption",
         )
-        return origen_y - espesor / 2 - 7 * self.altura
+        return bbox.extents([leyenda]).extmin.y - 2 * self.altura
 
     def tabla(self, filas, insercion):
         from core.tables import insert_table
@@ -335,9 +382,6 @@ class Dibujante:
         for fila in filas:
             definicion = fila["definicion"]
             materiales = definicion["materiales"]
-            localizacion = (
-                "; ".join(fila["plantas"]) + " / " + ("; ".join(fila["recintos"]) or "sin recinto")
-            )
             datos.append(
                 [
                     fila["marca"],
@@ -347,20 +391,20 @@ class Dibujante:
                         if definicion["prefijo"] == "A"
                         else openings.NAMES[definicion["type"]]
                     ),
-                    numero(fila["medidas"]["ancho"]) + " × " + numero(fila["medidas"]["alto"]),
+                    self.longitud(fila["medidas"]["ancho"])
+                    + " × "
+                    + self.longitud(fila["medidas"]["alto"]),
                     (
                         (
                             str(len(fila["medidas"]["hojas"]))
                             + " · "
-                            + " / ".join(numero(valor) for valor in fila["medidas"]["hojas"])
+                            + " / ".join(self.longitud(valor) for valor in fila["medidas"]["hojas"])
                         )
                         if fila["medidas"]["hojas"]
-                        else "0"
+                        else "—"
                     ),
                     openings.OPERATION_NAMES.get(definicion["operation"]) or "sin carpintería",
-                    ", ".join(
-                        f"{cantidad} {mano}" for mano, cantidad in sorted(fila["manos"].items())
-                    ),
+                    manos(fila),
                     (
                         "sin carpintería"
                         if definicion["type"] == "gap"
@@ -372,7 +416,7 @@ class Dibujante:
                     ),
                     numero(fila["area_unitaria"]),
                     numero(fila["area_total"]),
-                    localizacion,
+                    localizacion(fila),
                 ]
             )
         anchuras = [
@@ -413,20 +457,42 @@ def dibujar(documento, filas, insercion, configuracion, identificador):
         y -= 6 * dibujante.altura
     if filas and configuracion["modo"] in ("todo", "fichas"):
         ancho = max(3.2, max(fila["medidas"]["ancho"] for fila in filas) + 2.0)
-        alto = max(fila["medidas"]["alto"] + fila["medidas"]["antepecho"] for fila in filas)
-        alto += 2.4 + 22 * dibujante.altura + (1.6 if dibujante.seccion else 0)
         columnas = min(4, len(filas))
         techo_fila = y
-        alto_fila = alto
+        alto_fila = 0.0
+        marcos_fila = []
         for indice, fila in enumerate(filas):
+            previas = {entidad.dxf.handle for entidad in dibujante.espacio}
             alto_real = dibujante.ficha(
-                fila, x + (indice % columnas) * (ancho + 0.4), techo_fila, ancho, alto
+                fila, x + (indice % columnas) * (ancho + 0.4), techo_fila, ancho, 0.0
+            )
+            from .architectural import metadata
+
+            marcos_fila.extend(
+                entidad
+                for entidad in dibujante.espacio
+                if entidad.dxf.handle not in previas
+                and (metadata(entidad) or {}).get("role") == "frame_card"
             )
             alto_fila = max(alto_fila, alto_real)
             if (indice + 1) % columnas == 0 or indice == len(filas) - 1:
+                # Se ajusta la fila completa para conservar la cuadrícula,
+                # también si una ficha tiene materiales o recintos más largos.
+                for marco in marcos_fila:
+                    puntos = list(marco.get_points("xy"))
+                    marco.set_points(
+                        [
+                            puntos[0],
+                            puntos[1],
+                            (puntos[2][0], techo_fila - alto_fila),
+                            (puntos[3][0], techo_fila - alto_fila),
+                        ]
+                    )
                 techo_fila -= alto_fila + 0.4
-                alto_fila = alto
+                alto_fila = 0.0
+                marcos_fila = []
         y = techo_fila - 0.5
     if configuracion["modo"] in ("todo", "tabla"):
         dibujante.marca = ""
         dibujante.tabla(filas, (x, y))
+

@@ -523,8 +523,10 @@ si faltan datos se muestra «sin datos», sin asignar valores genéricos.
 
 `memoria_dibujo.py` utiliza las plantillas de `carpentry_parts`, sus desarrollos y
 los símbolos comunes de `simbolos_apertura_alzado`. Las cotas son DIMENSION con
-el estilo activo del dibujo; solo se ajusta su escala gráfica para un texto de
-2,5 mm en papel a la escala elegida. La geometría se dibuja en metros a tamaño
+el estilo activo del dibujo, con anulación DIMSCALE igual a 20, 25 o 50. Los
+tamaños gráficos se expresan en metros de papel, conservando las proporciones
+de flechas y separaciones del estilo y un texto de 2,5 mm. No se modifica el
+estilo del usuario. La geometría se dibuja en metros a tamaño
 real. La tabla reutiliza `core.tables.insert_table`: en IngeCAD 0.8.0 ya produce
 LINE/TEXT estables, por lo que no se introduce otro ACAD_TABLE ni un motor de tabla.
 
@@ -552,3 +554,24 @@ en la cabecera de cualquier módulo reutilizado y aquí, sin retirar «o posteri
 ni créditos. Las mejoras se ofrecerán a los autores, sin mantener una copia
 divergente sin avisar. La estimación se rehace sobre esa base. Véase
 `docs/ADENDA_2_R28_BASE_B2.md`. R28-A no incorpora ninguno de esos módulos.
+
+### Presentación de medidas (R29-B)
+
+`presentacion.py` centraliza los dos o tres decimales de longitud y las
+anulaciones DIMDEC, DIMDSEP, DIMZIN y DIMLFAC de las cotas del plugin. Solo
+produce textos y parámetros gráficos: nunca devuelve coordenadas redondeadas.
+La mitad exacta se escribe siempre por exceso (0,885 → «0,89»), con una holgura
+de una millonésima de la última cifra para que el error de coma flotante del
+cálculo no cambie el texto; no se usa `round()`.
+Lee `general.precision_medidas` (cm por defecto, o mm) y las fichas y preguntas
+de PARAMETROSARQ guardan la misma configuración. La cota mínima nueva es 0,05 m;
+los dibujos que guardaban otro valor lo conservan.
+
+Las cotas temporales reciben el documento desde MURO, CARPINTERIA y MOVERCARP;
+las fichas y la tabla de memoria usan el mismo formateador. Las áreas siguen
+con dos decimales. COTAMUROS conserva el creador nativo de DIMENSION y aplica
+las anulaciones antes de su único renderizado; su eliminación de tramos cortos
+mantiene los extremos y la suma real de la cadena. SUPERFICIES usa la precisión
+solo para las longitudes de las notas, no para calcular áreas o decidir usos.
+Cambiar la precisión invalida la presentación guardada de MEMORIACARP; Actualizar
+la rehace en su posición, sin modificar las fuentes BIM.

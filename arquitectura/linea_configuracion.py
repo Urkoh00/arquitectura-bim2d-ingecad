@@ -75,12 +75,13 @@ def campos_parametros(valores):
                 campos.append(texto(ruta, etiqueta))
     general = valores["general"]
     from .vistas_arq import RELLENOS, GAMA, GROSORES
-    for clave in ("escala", "usar_usos", "cota_minima", "norte", "armarios_superficie_util",
+    for clave in ("escala", "precision_medidas", "usar_usos", "cota_minima", "norte", "armarios_superficie_util",
                   "vista_relleno", "vista_color", "grosor_corte", "grosor_tierra", "grosor_visto"):
         planos["general." + clave] = general[clave]
     campos.extend(
         [
             opcion("general.escala", "Escala de documentación", [("1:20", 20), ("1:25", 25), ("1:50", 50)]),
+            opcion("general.precision_medidas", "Precisión de las medidas", [("Centímetros", "cm"), ("Milímetros", "mm")]),
             Campo("general.usar_usos", "Trabajar con usos de recinto", "logico"),
             medida("general.cota_minima", "Cota mínima (m)", 0.0, 10.0),
             Campo(

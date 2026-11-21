@@ -719,7 +719,7 @@ def architectural_defaults_dialog(ctx, current):
     usos.setChecked(bool(data.get('general',{}).get('usar_usos',False)))
     usos.setToolTip('Sí: la ficha de recinto pide el uso y el uso decide la clasificación '
                     '(altura habitable de baños, pasillos...). No: decide el nombre.')
-    minimo=_spin(data.get('general',{}).get('cota_minima',0.0))
+    minimo=_spin(data.get('general',{}).get('cota_minima',0.05))
     minimo.setRange(0.0,10.0)
     minimo.setToolTip('COTAMUROS no acota distancias menores (0 = todas)')
     # norte del proyecto: lo necesitan los programas de cálculo energético
@@ -753,6 +753,9 @@ def architectural_defaults_dialog(ctx, current):
         control = _choice([(f"{x:g}".replace('.', ','), x) for x in GROSORES], gd.get(clave, defecto))
         gform.addRow(titulo, control)
         editors[('general', clave)] = control
+    precision = _choice([('Centímetros', 'cm'), ('Milímetros', 'mm')], data.get('general', {}).get('precision_medidas', 'cm'))
+    gform.addRow('Precisión de las medidas', precision)
+    editors[('general', 'precision_medidas')] = precision
     tabs.insertTab(0,general,'General');tabs.setCurrentIndex(0)
     editors[('general','usar_usos')]=usos;editors[('general','cota_minima')]=minimo
     editors[('general','norte')]=norte
@@ -772,7 +775,7 @@ def read_defaults_dialog(data,editors,numeric=('thickness','height','base','widt
         if key=='usar_usos': data[kind][key]=editor.isChecked()
         elif key in ('cota_minima','norte'): data[kind][key]=editor.value()
         elif key in numeric: data[kind][key]=editor.value()
-        elif key in ('reference','shape','armarios_superficie_util','escala','vista_relleno',
+        elif key in ('reference','shape','armarios_superficie_util','escala','precision_medidas','vista_relleno',
                      'vista_color','grosor_corte','grosor_tierra','grosor_visto'):data[kind][key]=editor.currentData()
         else:data[kind][key]=editor.text().strip()
     from .parameters_arq import validate_defaults

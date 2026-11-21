@@ -236,11 +236,24 @@ def chain(points, p, q, offset=0.0, total_offset=None):
     return out
 
 
-def dimension_commands(spans):
+def dimension_commands(spans, documento=None):
     from core import actions
+    from .presentacion import anulaciones_cota
+
+    anulaciones = anulaciones_cota(documento)
     cmds = []
     for a, b, loc in spans:
         c = actions.dim_aligned(a, b, loc, dimstyle=DIM_STYLE)
+        fabrica_nativa = c._factory
+
+        def crear(espacio, documento, fabrica=fabrica_nativa):
+            # Se anula antes del único renderizado nativo, para no crear
+            # otro bloque gráfico ni cambiar el estilo compartido del dibujo.
+            dimension = fabrica(espacio, documento)
+            dimension.update(anulaciones)
+            return dimension
+
+        c._factory = crear
         c.layer = DIM_LAYER
         cmds.append(c)
     return cmds
@@ -304,7 +317,7 @@ class CotaMurosTool(_tool_base()):
         pts = thin_out(pts, minimum)
         away = 1.0 if offset >= 0 else -1.0
         spans = chain(pts, p, q, offset, offset + away * 3.0 * self.h if self.total else None)
-        cmds = [_StyleCommand(self.h)] + dimension_commands(spans)
+        cmds = [_StyleCommand(self.h)] + dimension_commands(spans, self.doc)
         self.ctx.execute(SafeArchitecturalCommand("ARQ COTAS DE MUROS", cmds))
         self.ctx.echo(f"COTAMUROS: {len(pts) - 1} cotas"
                       + (" y la total" if self.total and len(pts) > 2 else "")

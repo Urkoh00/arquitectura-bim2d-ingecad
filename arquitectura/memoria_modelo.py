@@ -69,8 +69,16 @@ def estado_fuentes(dibujo):
         registro = metadata(entidad) or {}
         if registro.get("kind") in ("wall", "opening", "space"):
             datos.append(registro)
+    from .parameters_arq import general_options
+
+    generales = general_options(dibujo)
     texto = json.dumps(
-        sorted(datos, key=lambda r: (r["kind"], r["id"])), sort_keys=True, ensure_ascii=True
+        {
+            "fuentes": sorted(datos, key=lambda r: (r["kind"], r["id"])),
+            "presentacion": {"precision_medidas": generales.get("precision_medidas", "cm")},
+        },
+        sort_keys=True,
+        ensure_ascii=True,
     )
     return hashlib.sha256(texto.encode()).hexdigest()
 
@@ -274,6 +282,7 @@ def filas(grupos, configuracion, biblioteca=None):
                     "recintos": sorted(
                         {nombre for pieza in piezas for nombre in pieza["recintos"]}
                     ),
+                    "localizacion": localizacion_por_planta(piezas),
                     "espesor_muro": espesor,
                     "area_unitaria": area,
                     "area_total": area * len(piezas),
@@ -283,3 +292,19 @@ def filas(grupos, configuracion, biblioteca=None):
     return sorted(
         resultado, key=lambda fila: (fila["marca"][0], int(fila["marca"][1:]), fila["plantas"])
     )
+
+
+def localizacion_por_planta(piezas):
+    """Agrupa sin cambiar el nombre real del recinto guardado en la fuente."""
+    plantas = {}
+    for pieza in piezas:
+        planta = pieza["nivel"]
+        nombres = plantas.setdefault(planta, set())
+        for nombre in pieza["recintos"]:
+            # Solo quitamos el sufijo de su propio nivel, no cualquier guion
+            # que pueda formar parte del nombre elegido por el usuario.
+            nombres.add(nombre.removesuffix(" — " + planta))
+    return [
+        {"planta": planta, "recintos": sorted(nombres)}
+        for planta, nombres in sorted(plantas.items())
+    ]

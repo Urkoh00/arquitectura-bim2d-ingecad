@@ -557,7 +557,7 @@ class CarpinteriaTool(Tool):
             except ValueError:
                 pass                       # shown where the cursor is; Enter reports why
         return TD.carpentry_dims(spec, side, s0, width, left, right, TD.world_per_px(self.ctx),
-                                 self.dim_active, self.dim_axis, tuple(self.tab_locks))
+                                 self.dim_active, self.dim_axis, tuple(self.tab_locks), documento=_document(self.ctx))
 
     # --- Tab: fix the dimensions one by one ---------------------------------------------
     def tab_ready(self):
@@ -938,7 +938,7 @@ class MoverCarpinteriaTool(Tool):
         except Exception:  # noqa: BLE001
             return []
         return TD.carpentry_dims(spec, side, s0, width, left, right, TD.world_per_px(self.ctx),
-                                 self.dim_active, self.dim_axis)
+                                 self.dim_active, self.dim_axis, documento=_document(self.ctx))
 
     def preview_entities(self, cursor):
         try:

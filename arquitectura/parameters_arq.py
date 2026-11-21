@@ -70,7 +70,7 @@ DEFAULTS = {
     #     (por defecto claro: el negro es duro) o se raya en diagonal o
     #     cruzado; grosores en mm de lo cortado, de la línea de tierra y de lo
     #     visto (los niveles van siempre a 0,13).
-    'general': {'escala': 50, 'usar_usos': False, 'cota_minima': 0.0, 'norte': 0.0,
+    'general': {'escala': 50, 'precision_medidas': 'cm', 'usar_usos': False, 'cota_minima': 0.05, 'norte': 0.0,
                 'armarios_superficie_util': 'computan',
                 'vista_relleno': 'color', 'vista_color': 9,
                 'grosor_corte': 0.50, 'grosor_tierra': 0.70, 'grosor_visto': 0.18,
@@ -172,6 +172,8 @@ def validate_defaults(values):
     g = values.get('general') or {}
     if type(g.get('escala', 50)) is not int or g.get('escala', 50) not in (20, 25, 50):
         raise ValueError('general.escala: 20, 25 o 50')
+    if g.get('precision_medidas', 'cm') not in ('cm', 'mm'):
+        raise ValueError('general.precision_medidas: centímetros o milímetros')
     if not isinstance(g.get('usar_usos', False), bool):
         raise ValueError('general.usar_usos: sí o no')
     cm = g.get('cota_minima', 0.0)

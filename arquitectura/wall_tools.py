@@ -667,7 +667,7 @@ class MuroCarasTool(WallTypeChoice, _MuroV10):
             return TD.wall_dims(self.startpoint, (float(cursor[0]), float(cursor[1])), self.thickness,
                                 lo, hi, self._existing_walls(), TD.world_per_px(self.ctx),
                                 active=getattr(self, "tab_field", None) or "length",
-                                locked=tuple(getattr(self, "tab_locks", {})))
+                                locked=tuple(getattr(self, "tab_locks", {})), documento=_document(self.ctx))
         except Exception:  # noqa: BLE001
             return []
 
