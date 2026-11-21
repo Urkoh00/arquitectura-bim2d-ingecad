@@ -21,3 +21,22 @@ def test_una_ventana_fija_y_un_hueco_no_tienen_mano(plugin):
     piezas = modulo(plugin, "memoria_modelo").leer(sesion.document.doc)
     assert len(piezas) == 2
     assert {pieza["mano"] for pieza in piezas} == {"sin mano"}
+
+
+def test_las_manos_del_armario_se_cuentan_por_cada_frente(plugin):
+    from collections import Counter
+
+    sesion = Session(plugin)
+    herramienta = sesion.tool("MURO")
+    herramienta.on_point((0, 0))
+    herramienta.on_point((8, 0))
+    herramienta.on_enter()
+    muro = next(iter(sesion.walls().values()))
+    sesion.history.execute(
+        modulo(plugin, "cabinets").create(
+            muro, 1, 2.4, 0.6, 2.3, leaves=3, operation="SLIDING", mode="adosado", side=1
+        )
+    )
+    piezas = modulo(plugin, "memoria_modelo").leer(sesion.document.doc)
+    assert len(piezas) == 3
+    assert Counter(pieza["mano"] for pieza in piezas) == {"izquierda": 2, "derecha": 1}

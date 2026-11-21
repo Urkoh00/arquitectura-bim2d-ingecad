@@ -42,7 +42,8 @@ def leer(dibujo):
             pieza["espesor_muro"] = muro.thickness
             pieza["mano"] = (
                 "izquierda"
-                if (hueco.get("hinge", 0) == 0) == (hueco.get("side", 1) > 0)
+                if (pieza["registro"].get("hinge", 0) == 0)
+                == (pieza["registro"].get("side", 1) > 0)
                 else "derecha"
             )
             if hueco["type"] == "gap" or hueco["operation"] == "FIXED":
