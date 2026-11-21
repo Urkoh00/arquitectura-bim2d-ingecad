@@ -34,7 +34,7 @@ def leer(dibujo):
         muro = geometria[hueco["wall_id"]]
         anfitrion = registros[hueco["wall_id"]]
         for pieza in memoria.unidades(muro, hueco):
-            pieza["nivel_id"] = opening_level(dibujo, hueco, anfitrion)["id"]
+            pieza["nivel_id"] = opening_level(dibujo, hueco, anfitrion)["id"] or next(iter(niveles))
             pieza["nivel"] = niveles.get(
                 pieza["nivel_id"], hueco.get("level") or anfitrion.get("level") or "Sin nivel"
             )

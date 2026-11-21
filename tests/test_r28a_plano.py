@@ -136,3 +136,10 @@ def test_paridad_ficha_y_texto_incluye_todas_las_opciones(plugin, qapp):
     )
     assert herramienta.configuracion == leer()
     ficha.close()
+
+
+def test_filtrar_la_planta_baja_sin_abrir_niveles_incluye_sus_piezas(plugin):
+    sesion, _, _ = modelo(plugin)
+    nivel = modulo(plugin, "levels").load(sesion.document)["levels"][0]
+    plano = generar(sesion, plugin, {"planta": nivel["name"]})
+    assert plano.planos(sesion.document.doc)[0][1]["rows"][0]["unidades"] == 2
