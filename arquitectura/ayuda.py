@@ -167,6 +167,13 @@ _SECCIONES_BASE = (
             "buscar texto: materiales que lo contienen",
             "u Composición [/ techo|suelo]: transmitancia U (DA DB-HE/1)")),
     )),
+    ("Memoria de carpintería", (
+        (("MEMORIACARP",), "Plano derivado de puertas, ventanas, huecos y frentes de armario", (
+            "Intro o Ficha: opciones Todo/Tabla/Fichas, Planta, Agrupar, Escala, Huecos, Rótulos y Sección",
+            "Actualizar: regenera todos los planos en su sitio, sin preguntas, en un Deshacer")),
+        (("-MEMORIACARP",), "El mismo plano por texto, sin cuadros ni selectores", (
+            "Acción Actualizar: no pide opciones ni punto; Generar reutiliza la ficha por texto",)),
+    )),
     ("Configuración y ayuda", (
         (("PARAMETROSARQ",), "Opciones generales y valores de partida", (
             "General: usos de recinto, cota mínima de COTAMUROS, norte del proyecto, "
@@ -182,7 +189,6 @@ _SECCIONES_BASE = (
         (("ESCALERA",), "Escalera en alzado", ()),
         (("ELEMENTOS",), "Consulta grupos; todavía no activa ni desactiva capas", ()),
         (("BLOQUE",), "Mobiliario", ()),
-        (("MEMORIACARP",), "Memoria de carpintería", ()),
         (("SELATRIB",), "Consulta criterios; todavía no selecciona entidades", ()),
         (("TRAMA",), "Tramas (hatch)", ()),
         (("HIPERVINCULO", "URL"), "Marcador con ruta; todavía no abre el fichero enlazado", ()),

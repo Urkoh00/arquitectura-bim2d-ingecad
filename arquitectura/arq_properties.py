@@ -20,8 +20,8 @@ def resolve_arch_entity(doc, picked):
     data=metadata(picked) or {}
     if data.get('kind') in ('wall','column','opening','space','slab'):
         return picked, ''
-    if data.get('kind') in ('opening_symbol','column_detail','space_label'):
-        key,want={'opening_symbol':('opening_id','opening'),'column_detail':('column_id','column'),
+    if data.get('kind') in ('opening_symbol','opening_mark','column_detail','space_label'):
+        key,want={'opening_symbol':('opening_id','opening'),'opening_mark':('opening_id','opening'),'column_detail':('column_id','column'),
                   'space_label':('space_id','space')}[data['kind']]
         for entity in doc.doc.modelspace():
             info=metadata(entity) or {}

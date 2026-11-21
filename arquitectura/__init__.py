@@ -837,50 +837,7 @@ class BloqueTool(ArchitectureTool):
         self.ctx.finish()
 
 
-class MemoriaCarpTool(ArchitectureTool):
-    name = "MEMORIACARP"
-
-    def on_start(self):
-        self.add_keyword("tabla")
-        self.add_keyword("fichas")
-        self.ctx.echo("MEMORIACARP — 'tabla' o 'fichas':")
-        self.request_keyword()
-
-    def on_keyword(self, key: str):
-        key = key.lower()
-        if key == "tabla":
-            self._list_console()
-            self.ctx.finish()
-            return
-        if key == "fichas":
-            self.ctx.echo("Indique punto de inserción de las fichas:")
-            self.request_point()
-            return
-        self.ctx.echo("Use 'tabla' o 'fichas'.")
-        self.ctx.finish()
-
-    def _list_console(self):
-        self.ctx.echo("=== Memoria de Carpintería (resumen) ===")
-        self.ctx.echo("Capas ARQ-PUERTAS / ARQ-VENTANAS / ARQ-ARMARIOS")
-        self.ctx.echo("Revise el número de entidades en cada capa.")
-        self.ctx.echo("Modelos sugeridos: P01 (puerta 0.80), V01 (ventana 1.20), A01 (armario).")
-
-    def on_point(self, pt):
-        x, y = pt
-        fichas = [
-            ("P01", "Puerta 1 hoja", "0.80 × 2.10", "Madera"),
-            ("V01", "Ventana corredera", "1.20 × 1.20", "Aluminio"),
-            ("A01", "Armario empotrado", "1.00 × 0.60", "Melamina"),
-        ]
-        for i, (mod, desc, dims, mat) in enumerate(fichas):
-            ox = x + i * 3.5
-            _add_rect(self.ctx, (ox, y), (ox + 3.0, y + 2.0), "ARQ-MEMORIA")
-            _add_text(self.ctx, (ox + 0.15, y + 1.6), f"Modelo: {mod}", 0.22, "ARQ-MEMORIA")
-            _add_text(self.ctx, (ox + 0.15, y + 1.2), desc, 0.18, "ARQ-MEMORIA")
-            _add_text(self.ctx, (ox + 0.15, y + 0.8), f"Dim: {dims}", 0.18, "ARQ-MEMORIA")
-            _add_text(self.ctx, (ox + 0.15, y + 0.4), f"Mat: {mat}", 0.18, "ARQ-MEMORIA")
-        self.ctx.echo("Fichas de memoria generadas en ARQ-MEMORIA.")
-        self.ctx.finish()
+from .memoria_tools import MemoriaCarpTool, MemoriaCarpTexto
 
 
 class SelAtribTool(ArchitectureTool):
@@ -1450,7 +1407,7 @@ class AyudaArqTool(ArchitectureTool):
 TOOL_CLASSES = (
     CapasArqTool, CapasAutoTool, MuroTool, PilarTool, PuertaTool,
     VentanaTool, ArmarioTool, SuperficieTool, CamaraTool, EscaleraTool,
-    ElementosTool, BloqueTool, MemoriaCarpTool, SelAtribTool, TramaTool,
+    ElementosTool, BloqueTool, MemoriaCarpTool, MemoriaCarpTexto, SelAtribTool, TramaTool,
     HiperVinculoTool, UrlTool, Curvas3DTool, VertPolyTool, VerticesTool,
     ListaTextosTool, AyudaArqTool,
 )
@@ -1605,6 +1562,7 @@ def plugin_spec() -> PluginSpec:
                 MenuItem("Convertir muros de versiones anteriores", "ARQMIGRAR", icon=glyph / "arqmigrar.svg"),
             )),
             Submenu("Documentación", (
+                MenuItem("Plano de carpintería (fichas, cotas y tabla)", "MEMORIACARP", icon=glyph / "carpinteria.svg"),
                 MenuItem("Rejilla estructural", "EJES", icon=glyph / "ejes.svg"),
                 MenuItem("Editar o renumerar eje", "EDITAREJE", icon=glyph / "editareje.svg"),
                 MenuItem("Pilares en intersecciones", "PILARESENEJES", icon=glyph / "pilaresenejes.svg"),
@@ -1626,7 +1584,6 @@ def plugin_spec() -> PluginSpec:
                 MenuItem("Superficie / Área", "SUPERFICIE", icon=glyph / "heredado.svg"),
                 MenuItem("Bloque mobiliario", "BLOQUE", icon=glyph / "heredado.svg"),
                 MenuItem("Trama / Hatch", "TRAMA", icon=glyph / "heredado.svg"),
-                MenuItem("Memoria de Carpintería", "MEMORIACARP", icon=glyph / "heredado.svg"),
                 MenuItem("Vértices y coordenadas", "VERTPOLY", icon=glyph / "heredado.svg"),
                 MenuItem("Listado de textos", "LISTATEXTOS", icon=glyph / "heredado.svg"),
                 MenuItem("Selección por atributos", "SELATRIB", icon=glyph / "heredado.svg"),

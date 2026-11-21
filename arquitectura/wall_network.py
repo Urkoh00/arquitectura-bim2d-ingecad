@@ -52,6 +52,8 @@ class RegenerateContoursCommand(Command):
         self.orphans=[]         # openings whose wall was erased (unlinked)
         self.old_opening_layer_off=None
         self.layer_routes=None
+        self.memoria_change = None
+        self.memoria_applied = False
     def _current(self,msp,kind='junction_edge'):
         from .architectural import metadata
         return [e for e in msp if (metadata(e) or {}).get('kind')==kind]
@@ -367,7 +369,7 @@ class RegenerateContoursCommand(Command):
             self.sync=[(e,copy.deepcopy(metadata(e)),new,_frame(e))
                        for e,new in SY.sync_changes(document.doc,notes=self.sync_notes)]
             self.removed_labels=(self._current(msp,'space_label')+self._current(msp,'column_detail')
-                                 +self._current(msp,'opening_symbol'))
+                                 +self._current(msp,'opening_symbol')+self._current(msp,'opening_mark'))
             from .architectural import OPENING_LAYER
             self.old_opening_layer_off=(document.doc.layers.get(OPENING_LAYER).is_off()
                                         if OPENING_LAYER in document.doc.layers else None)
@@ -416,6 +418,13 @@ class RegenerateContoursCommand(Command):
                     msp.unlink_entity(e)
             self._apply_spaces(document,'new')
             self._apply_openings(document,'new')
+            from . import memoria_modelo
+            from .memoria_plano import crear_rotulos
+            if first and memoria_modelo.catalogo(document.doc)[0] is not None:
+                _, self.memoria_change = memoria_modelo.preparar(document.doc)
+            if self.memoria_change is not None:
+                self.memoria_change.do(document)
+                self.memoria_applied = True
             if first:
                 from .openings import SYMBOL_LAYER
                 if SYMBOL_LAYER not in document.doc.layers:
@@ -424,7 +433,7 @@ class RegenerateContoursCommand(Command):
                 else:
                     for ident,items in self.level_segments:self._new_lines(msp,items,ident)
                 self.added_labels=(self._new_labels(document)+self._new_details(document)
-                                   +self._new_symbols(document))
+                                   +self._new_symbols(document)+crear_rotulos(document))
             else:
                 for e in self.added+self.added_labels:
                     msp.add_entity(e)
@@ -474,6 +483,9 @@ class RegenerateContoursCommand(Command):
         for e in (self.removed or [])+getattr(self,'removed_labels',[]):
             if e.is_alive and e.dxf.owner is None:
                 msp.add_entity(e)
+        if self.memoria_applied:
+            self.memoria_change.undo(document)
+            self.memoria_applied = False
         self._apply_spaces(document,'old')
         self._apply_openings(document,'old')
         for e in self.orphans:

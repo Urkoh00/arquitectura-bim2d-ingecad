@@ -75,6 +75,8 @@ def audit_architecture(document):
                 issues.append(f'Contorno referido a muro inexistente: {ident}')
     issues += _outline_issues(drawing, sources, outlines)
     issues += _space_issues(drawing)
+    from .memoria_plano import avisos
+    issues += avisos(drawing)
     if any(e.dxftype()=='LWPOLYLINE' and e.closed for e,_ in sources):
         issues.append('Hay muros de versiones antiguas con geometría duplicada; ejecutar ARQMIGRAR')
     if sources and not outlines:

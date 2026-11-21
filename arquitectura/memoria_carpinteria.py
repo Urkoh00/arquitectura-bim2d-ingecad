@@ -68,10 +68,20 @@ def medir(muro, registro):
             final = max(p[0] for p in contorno)
         anterior = limites_hojas.get(parte["name"], (inicio, final))
         limites_hojas[parte["name"]] = (min(inicio, anterior[0]), max(final, anterior[1]))
+    factor = ancho / float(registro["width"]) if registro.get("curve_mode") == "curva" else 1.0
     return {
+        "origen_s": float(trasladado["offset"]),
+        "factor_s": factor,
         "ancho": ancho,
         "alto": coronacion - base,
-        "hojas": [final - inicio for inicio, final in limites_hojas.values()],
+        "hojas": [(final - inicio) * factor for inicio, final in limites_hojas.values()],
+        "limites_hojas": [
+            [
+                (inicio - float(trasladado["offset"])) * factor,
+                (final - float(trasladado["offset"])) * factor,
+            ]
+            for inicio, final in limites_hojas.values()
+        ],
         "antepecho": base,
         "fondo_cerco": 0.0 if registro["type"] == "gap" else fondo_final - fondo_inicial,
         "plantillas": plantillas,

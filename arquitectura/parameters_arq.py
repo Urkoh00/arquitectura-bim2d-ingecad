@@ -65,7 +65,7 @@ DEFAULTS = {
     #     una división interior fija (vivienda protegida de Madrid, tasación).
     #     Solo cambia la superficie útil del recinto: el IfcSpace llega siempre
     #     a las caras de los muros, como piden los programas de cálculo (v1.37).
-    'general': {'usar_usos': False, 'cota_minima': 0.0, 'norte': 0.0,
+    'general': {'escala': 50, 'usar_usos': False, 'cota_minima': 0.0, 'norte': 0.0,
                 'armarios_superficie_util': 'computan',
                 'lineas': {'muros': [], 'pilares': [], 'carpinteria': [], 'paralelismo': 0.005}},
     # Wall types (IfcWallType). Each one is a list of layers, from the
@@ -163,6 +163,8 @@ def validate_defaults(values):
         if d.get('shape','rect') not in ('rect','circ','hex','oct'):
             raise ValueError('Sección de pilar no válida')
     g = values.get('general') or {}
+    if type(g.get('escala', 50)) is not int or g.get('escala', 50) not in (20, 25, 50):
+        raise ValueError('general.escala: 20, 25 o 50')
     if not isinstance(g.get('usar_usos', False), bool):
         raise ValueError('general.usar_usos: sí o no')
     cm = g.get('cota_minima', 0.0)

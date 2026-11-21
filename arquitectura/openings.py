@@ -495,8 +495,24 @@ def plan_symbol(spec, rec):
 def simbolos_apertura_alzado(rec):
     """Polilíneas (s, z) compartidas por la ficha y las vistas de memoria."""
     rec = normalise(rec)
-    if rec["type"] == "gap" or rec["operation"] not in ("SWINGING", "SIDEHUNG", "TILTANDTURN"):
+    if rec["type"] == "gap" or rec["operation"] == "FIXED":
         return []
+    if rec["operation"] == "SLIDING":
+        inicio = float(rec["offset"]) + float(rec["frame_width"])
+        ancho = float(rec["width"]) - 2 * float(rec["frame_width"])
+        numero = max(1, int(rec["leaves"]))
+        altura = float(rec["sill"]) + float(rec["height"]) / 2
+        trazos = []
+        for indice in range(numero):
+            izquierda = inicio + ancho * (indice + 0.2) / numero
+            derecha = inicio + ancho * (indice + 0.8) / numero
+            sentido = 1 if (rec["hinge"] + indice) % 2 == 0 else -1
+            origen, punta = (izquierda, derecha) if sentido > 0 else (derecha, izquierda)
+            ala = min(0.08, ancho / numero / 5)
+            trazos.append([(origen, altura), (punta, altura)])
+            trazos.append([(punta - sentido * ala, altura + ala / 2), (punta, altura),
+                           (punta - sentido * ala, altura - ala / 2)])
+        return trazos
     ancho_marco = float(rec["frame_width"])
     inicio = float(rec["offset"]) + ancho_marco
     final = float(rec["offset"]) + float(rec["width"]) - ancho_marco

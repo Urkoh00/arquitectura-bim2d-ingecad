@@ -428,3 +428,38 @@ El recorrido de ventana de R27 admite `R27_VALORES_CUADRO` para teclear campos
 QLineEdit de una ficha real antes de aceptarla. R28 lo usa para comparar la edición
 de `mark` en PROPIEDADESARQ y su variante; el ensayo conserva las identidades y
 comprueba que la variante no abre cuadros.
+
+### Plano de carpintería derivado (R28-A)
+
+`memoria_tools.py` registra MEMORIACARP y -MEMORIACARP. La primera ofrece Ficha o
+Actualizar antes de abrir un cuadro, de modo que Actualizar no pregunta nada.
+La segunda usa PreguntasTexto. Ambas comparten `campos_memoria` y
+`normalizar_memoria` de `linea_fichas.py`; las preguntas no tienen otro generador.
+La escala inicial se lee de General → Escala de documentación, también editable
+en -PARAMETROSARQ, y queda guardada en la configuración de cada plano.
+
+`memoria_modelo.filas` filtra por planta/huecos, agrupa por marca o marca/planta,
+cuenta unidades y manos vistas desde el exterior, consulta recintos y el espesor
+de muro más frecuente. Las áreas de vidrio proceden de las piezas cerradas de
+openings. La U solo se estima si coinciden exactamente los nombres normalizados
+de vidrio y marco de la biblioteca: se pondera por áreas y se identifica «sin ψ»;
+si faltan datos se muestra «sin datos», sin asignar valores genéricos.
+
+`memoria_dibujo.py` utiliza las plantillas de `carpentry_parts`, sus desarrollos y
+los símbolos comunes de `simbolos_apertura_alzado`. Las cotas son DIMENSION con
+el estilo activo del dibujo; solo se ajusta su escala gráfica para un texto de
+2,5 mm en papel a la escala elegida. La geometría se dibuja en metros a tamaño
+real. La tabla reutiliza `core.tables.insert_table`: en IngeCAD 0.8.0 ya produce
+LINE/TEXT estables, por lo que no se introduce otro ACAD_TABLE ni un motor de tabla.
+
+`memoria_plano.PlanoMemoria` conserva inserción, configuración, filas y huellas de
+fuente/biblioteca en un POINT con XDATA `carpentry_schedule`. Cada derivado lleva
+`carpentry_schedule_detail`, versión y `schedule_id`. Las capas de plano y cotas
+se crean bloqueadas; Actualizar las escribe mediante su propia transacción.
+Sus grupos ARQMEM_ son independientes de los grupos de fuentes ARQ_. Se guardan
+las entidades y sus bloques de cotas para recuperar el mismo estado al deshacer.
+
+La regeneración común recalcula marcas cuando existe catálogo y reconstruye los
+rótulos `opening_mark`, incorporados al grupo de su carpintería. No rehace un
+plano por sorpresa: ARQVALIDAR avisa cuando la planta o la biblioteca lo dejan
+obsoleto. Actualizar reemplaza los derivados en su sitio, en un solo Deshacer.

@@ -123,7 +123,7 @@ class RouteLevels(Command):
                     opening=source
                     source=sources.get(source.get('wall_id'),(None,{}))[1]
                     opening_ident=opening_level(document.doc,opening,source)['id']
-                    prefix='ARQ-CARPINTERIA'
+                    prefix='ARQ-CARPINTERIA-MARCAS' if m.get('kind')=='opening_mark' else 'ARQ-CARPINTERIA'
                 elif source.get('kind')=='wall':
                     from .wall_categories import category,LAYERS
                     prefix=LAYERS[category(source)]

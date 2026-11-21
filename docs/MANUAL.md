@@ -534,7 +534,7 @@ Con niveles o forjados, el intercambio usa `.arqbim` v3 y necesita la extensión
 | `EXPORTARBIM` | Exportar a IngeTrazo (.arqbim) | Sí |
 | `ARQDIAG` / `AYUDAARQ` | Diagnóstico y ayuda | No |
 
-**Órdenes heredadas.** El submenú «Herramientas antiguas (sin datos BIM)» reúne utilidades de versiones antiguas que dibujan geometría sin datos BIM y no se exportan al modelo: PUERTA, VENTANA, ARMARIO, CAMARA, ESCALERA, SUPERFICIE, BLOQUE, TRAMA, MEMORIACARP, VERTPOLY, LISTATEXTOS, SELATRIB, ELEMENTOS, HIPERVINCULO, CURVAS3D. Para el modelo BIM use las órdenes de la tabla.
+**Órdenes heredadas.** El submenú «Herramientas antiguas (sin datos BIM)» reúne utilidades de versiones antiguas que dibujan geometría sin datos BIM y no se exportan al modelo: PUERTA, VENTANA, ARMARIO, CAMARA, ESCALERA, SUPERFICIE, BLOQUE, TRAMA, VERTPOLY, LISTATEXTOS, SELATRIB, ELEMENTOS, HIPERVINCULO, CURVAS3D. Para el modelo BIM use las órdenes de la tabla.
 
 ## Limitaciones conocidas
 
@@ -542,7 +542,7 @@ Estas son las limitaciones conocidas de la versión 1.46.0-dev; cada versión ac
 
 - **Plataforma:** las pruebas automáticas se ejecutan en Linux con la última versión oficial de IngeCAD y de IngeTrazo, pero sin pantalla. Solo se prueba con la última versión de cada programa, porque ambos publican casi cada semana.
 - **Muros curvos:** cada muro llega como mucho a media circunferencia (un muro redondo son dos). MUROPARALELO y DIVIDEMURO solo toman líneas rectas como referencia. El gesto de esquina en L al terminar un MURO solo recorta muros rectos.
-- **Carpinterías:** en muros curvos son planas; no hay carpintería curva. Faltan armarios, memoria de carpintería, catálogo de modelos, lucernarios y borrar la carpintería dejando el vano.
+- **Carpinterías:** en muros curvos son planas; no hay carpintería curva. Faltan catálogo de modelos y lucernarios y borrar la carpintería dejando el vano.
 - **LINEASAMURO:** no reconoce puertas ni ventanas en muros curvos. Las medianeras toman el espesor hasta la línea paralela más próxima de otra capa: revise su espesor.
 - **Recintos:** una sola altura por recinto (no calcula descuelgues parciales); las escaleras no se descuentan todavía.
 - **Edificio:** aún no hay plantas múltiples, forjados, escaleras ni barandillas. Las cotas de COTAMUROS no son asociativas: si se mueve un muro, hay que volver a acotar. Una simetría de un muro respecto de su propio eje no cambia su lado; para eso use la cara (I o F5) o su ficha.
@@ -601,3 +601,38 @@ Estas son las limitaciones conocidas de la versión 1.46.0-dev; cada versión ac
 | 6-11-2026 | 1.6.2-dev | El muro se maneja como un objeto (grupos, sincronización) |
 
 El detalle técnico de cada versión está en `CHANGELOG.md`, dentro del ZIP y del repositorio.
+
+
+## Plano de carpintería — MEMORIACARP
+
+Escriba MEMORIACARP y pulse Intro (o Ficha) para elegir Todo, Tabla o Fichas,
+una planta o Todas, y agrupación por marca o por planta. La escala puede ser
+1:20, 1:25 o 1:50; su valor inicial es General → Escala de documentación.
+También puede incluir huecos, rótulos de marca en planta y sección horizontal.
+Después indique el punto superior izquierdo del plano. Un punto directo en el
+aviso inicial genera el contenido con las opciones predeterminadas.
+
+-MEMORIACARP presenta las mismas opciones por texto, sin cuadros ni selectores.
+Escriba MEMORIACARP Actualizar o -MEMORIACARP Actualizar para regenerar todos los
+planos ya creados en su posición original: no se piden opciones ni inserción.
+Cada generación o actualización ocupa un solo Deshacer.
+
+Las puertas, ventanas, huecos y frentes de armario se agrupan por su definición
+física y reciben marcas P/V/H/A persistentes. La posición y la mano no crean otro
+tipo; la mano se cuenta mirando desde el exterior hacia el interior. Cambiar una
+medida puede asignar otra marca. La ficha de propiedades permite solicitar una
+marca manual; las piezas iguales comparten la marca y se rechazan las colisiones.
+
+Las fichas muestran alzado exterior, apertura, cotas reales, materiales, unidades,
+localización y superficie. Las curvas se rotulan «desarrollo». La sección usa el
+espesor de muro más frecuente del grupo; se mantiene la geometría en metros y
+las anotaciones corresponden a la escala elegida. Las cotas usan el estilo activo.
+La tabla es geometría LINE/TEXT, como la TABLE nativa de esta versión de IngeCAD.
+
+Si vidrio y marco constan con esos nombres en BIBLIOTECAHE, se ofrece una U por
+áreas, identificada «sin ψ» porque no incorpora el puente lineal del fabricante.
+Si falta alguno se muestra «sin datos»; no constituye una certificación térmica.
+
+El plano y sus cotas se generan en capas bloqueadas. Los rótulos de planta siguen
+a su carpintería y pertenecen a su grupo. Tras cambiar las fuentes, ARQVALIDAR
+avisa de que el plano está desactualizado; use Actualizar para rehacerlo.

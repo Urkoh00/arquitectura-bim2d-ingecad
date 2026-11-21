@@ -550,3 +550,45 @@ def campos_rejilla(datos):
         Campo("dimensions", "Cotas en cadena y total", "logico"),
         Campo("interactive_angle", "Giro con cursor después del origen", "logico"),
     ]
+
+
+def campos_memoria(ctx, datos):
+    from .levels import load
+    from .compat import require_document
+
+    niveles = load(require_document(ctx))["levels"]
+    generar = lambda valores: valores["accion"] == "generar"
+    return [
+        opcion("accion", "Acción", [("Generar", "generar"), ("Actualizar", "actualizar")]),
+        opcion("modo", "Contenido", [("Todo", "todo"), ("Tabla", "tabla"), ("Fichas", "fichas")], generar),
+        opcion("planta", "Planta", [("Todas", "all"), *[(nivel["name"], nivel["id"]) for nivel in niveles]], generar),
+        opcion("agrupar", "Agrupar", [("Marca", "marca"), ("Planta", "planta")], generar),
+        opcion("escala", "Escala", [("1:20", 20), ("1:25", 25), ("1:50", 50)], generar),
+        Campo("huecos", "Incluir huecos", "logico", cuando=generar),
+        Campo("rotulos", "Rótulos en planta", "logico", cuando=generar),
+        Campo("seccion", "Sección horizontal", "logico", cuando=generar),
+    ]
+
+
+def normalizar_memoria(ctx, datos):
+    from .levels import load
+    from .compat import require_document
+
+    valores = dict(datos)
+    if valores.get("accion") not in ("generar", "actualizar"):
+        raise ValueError("Acción de memoria no válida")
+    if valores["accion"] == "actualizar":
+        return {"accion": "actualizar"}
+    if valores.get("modo") not in ("todo", "tabla", "fichas"):
+        raise ValueError("Contenido: Todo, Tabla o Fichas")
+    if valores.get("agrupar") not in ("marca", "planta"):
+        raise ValueError("Agrupar por marca o por planta")
+    permitidos = {nivel["id"] for nivel in load(require_document(ctx))["levels"]}
+    if valores.get("planta") != "all" and valores.get("planta") not in permitidos:
+        raise ValueError("La planta de la memoria ya no existe")
+    if type(valores.get("escala")) is not int or valores["escala"] not in (20, 25, 50):
+        raise ValueError("Escala: 1:20, 1:25 o 1:50")
+    for clave in ("huecos", "rotulos", "seccion"):
+        if type(valores.get(clave)) is not bool:
+            raise ValueError(clave + ": Sí o No")
+    return {clave: valores[clave] for clave in ("accion", "modo", "planta", "agrupar", "escala", "huecos", "rotulos", "seccion")}

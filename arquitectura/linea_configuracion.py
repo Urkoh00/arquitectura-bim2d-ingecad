@@ -74,10 +74,11 @@ def campos_parametros(valores):
             else:
                 campos.append(texto(ruta, etiqueta))
     general = valores["general"]
-    for clave in ("usar_usos", "cota_minima", "norte", "armarios_superficie_util"):
+    for clave in ("escala", "usar_usos", "cota_minima", "norte", "armarios_superficie_util"):
         planos["general." + clave] = general[clave]
     campos.extend(
         [
+            opcion("general.escala", "Escala de documentación", [("1:20", 20), ("1:25", 25), ("1:50", 50)]),
             Campo("general.usar_usos", "Trabajar con usos de recinto", "logico"),
             medida("general.cota_minima", "Cota mínima (m)", 0.0, 10.0),
             Campo(
