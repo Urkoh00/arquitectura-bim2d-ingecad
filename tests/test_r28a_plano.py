@@ -167,3 +167,15 @@ def test_actualizar_despues_de_borrar_todas_las_carpinterias_retira_marcas_y_vac
     assert not plano.avisos(sesion.document.doc)
     sesion.history.undo()
     assert estado(plugin, sesion.document) == antes
+
+
+def test_biblioteca_ilegible_no_impide_el_plano_ni_inventa_u(plugin, monkeypatch):
+    sesion, _, _ = modelo(plugin)
+
+    def ilegible():
+        raise ValueError("Biblioteca no válida")
+
+    monkeypatch.setattr(modulo(plugin, "biblioteca_termica"), "cargar", ilegible)
+    plano = generar(sesion, plugin)
+    assert all(fila["u"] is None for fila in plano.planos(sesion.document.doc)[0][1]["rows"])
+    assert not plano.avisos(sesion.document.doc)

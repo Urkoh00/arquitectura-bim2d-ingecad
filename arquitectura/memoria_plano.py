@@ -40,7 +40,10 @@ def configuracion_inicial(documento):
 def biblioteca():
     from .biblioteca_termica import cargar
 
-    return cargar()
+    try:
+        return cargar()
+    except (OSError, ValueError):
+        return None
 
 
 def huella_termica(datos):
