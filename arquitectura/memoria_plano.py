@@ -150,8 +150,8 @@ class PlanoMemoria(Command):
             self.nuevos = []
         originales = {entidad.dxf.handle for entidad in espacio}
         nombres_bloques = set(dibujo.blocks.block_names())
-        self._capas(dibujo)
         try:
+            self._capas(dibujo)
             if self.nombre_grupo in dibujo.groups:
                 dibujo.groups.get(self.nombre_grupo).clear()
             for entidad in self.anteriores:

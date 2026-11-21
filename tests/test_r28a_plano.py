@@ -314,3 +314,25 @@ def test_un_material_largo_no_sale_fuera_del_marco_de_su_ficha(plugin):
             assert (
                 bbox.extents([entidad]).extmin.y >= bbox.extents([marcos[datos["mark"]]]).extmin.y
             )
+
+
+def test_un_fallo_al_preparar_las_capas_no_deja_recursos_huerfanos(plugin, monkeypatch):
+    sesion, _, _ = modelo(plugin)
+    plano = modulo(plugin, "memoria_plano")
+    antes = estado(plugin, sesion.document)
+    capas = {capa.dxf.name for capa in sesion.document.doc.layers}
+    tipos = {tipo.dxf.name for tipo in sesion.document.doc.linetypes}
+    preparar = plano.PlanoMemoria._capas
+
+    def fallar(self, dibujo):
+        preparar(self, dibujo)
+        raise ValueError("Fallo de prueba en recursos")
+
+    monkeypatch.setattr(plano.PlanoMemoria, "_capas", fallar)
+    with pytest.raises(ValueError, match="recursos"):
+        plano.generar(
+            sesion.tool("MURO").ctx, plano.configuracion_inicial(sesion.document), (30, 30)
+        )
+    assert estado(plugin, sesion.document) == antes
+    assert {capa.dxf.name for capa in sesion.document.doc.layers} == capas
+    assert {tipo.dxf.name for tipo in sesion.document.doc.linetypes} == tipos
