@@ -38,6 +38,7 @@ def test_plano_real_crea_fichas_cotas_tabla_rotulos_y_un_solo_deshacer(plugin):
     assert len(derivados) == datos["detail_count"]
     assert any(e.dxftype() == "DIMENSION" for e in derivados)
     assert any(sesion.meta(e)["role"] == "table" for e in derivados)
+    assert any(e.dxftype() == "TEXT" and e.dxf.text.startswith("1 · ") for e in derivados)
     assert len([r for r in registros(sesion) if r["kind"] == "opening_mark"]) == 2
     assert all(sesion.document.doc.layers.get(e.dxf.layer).is_locked() for e in derivados)
     assert not plano.avisos(sesion.document.doc)

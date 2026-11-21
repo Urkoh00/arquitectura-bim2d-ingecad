@@ -323,7 +323,7 @@ class Dibujante:
             "Ud",
             "Tipo",
             "Ancho × alto (m)",
-            "Hojas",
+            "Hojas (nº · m)",
             "Apertura",
             "Mano",
             "Materiales",
@@ -348,16 +348,28 @@ class Dibujante:
                         else openings.NAMES[definicion["type"]]
                     ),
                     numero(fila["medidas"]["ancho"]) + " × " + numero(fila["medidas"]["alto"]),
-                    " / ".join(numero(valor) for valor in fila["medidas"]["hojas"]) or "—",
+                    (
+                        (
+                            str(len(fila["medidas"]["hojas"]))
+                            + " · "
+                            + " / ".join(numero(valor) for valor in fila["medidas"]["hojas"])
+                        )
+                        if fila["medidas"]["hojas"]
+                        else "0"
+                    ),
                     openings.OPERATION_NAMES.get(definicion["operation"]) or "sin carpintería",
                     ", ".join(
                         f"{cantidad} {mano}" for mano, cantidad in sorted(fila["manos"].items())
                     ),
-                    "C: "
-                    + materiales["frame"]
-                    + "; H: "
-                    + materiales["leaf"]
-                    + ("; V: " + materiales["glass"] if definicion["type"] == "window" else ""),
+                    (
+                        "sin carpintería"
+                        if definicion["type"] == "gap"
+                        else "C: "
+                        + materiales["frame"]
+                        + "; H: "
+                        + materiales["leaf"]
+                        + ("; V: " + materiales["glass"] if definicion["type"] == "window" else "")
+                    ),
                     numero(fila["area_unitaria"]),
                     numero(fila["area_total"]),
                     localizacion,
