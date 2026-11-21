@@ -70,6 +70,9 @@ if orden.lstrip("-") == "NIVELASIGNAR":
     )
     ventana.tools.selection = {fuente.dxf.handle}
 
+if os.environ.get("R27_TAMANO"):
+    ancho_ventana, alto_ventana = map(int, os.environ["R27_TAMANO"].split(","))
+    ventana.resize(ancho_ventana, alto_ventana)
 ventana.show()
 QTest.qWaitForWindowExposed(ventana, 5000)
 linea = ventana.command_line.input
@@ -319,6 +322,22 @@ if os.environ.get("R28_CAPTURAS_MEMORIA") == "1":
     escribir(f"{x-0.5},{y+0.5}")
     escribir(f"{x+15.5},{y-10.5}")
     ventana.grab().save(str(destino / "fichas_acotadas.png"))
+    marca_ventana = next(
+        (fila["marca"] for fila in memorias[0]["rows"] if fila["apertura"] == "TILTANDTURN"), None
+    )
+    recuadros = [
+        e
+        for e in ventana.document.doc.modelspace()
+        if (modulo_arq.metadata(e) or {}).get("role") == "frame_card"
+        and modulo_arq.metadata(e).get("mark") == marca_ventana
+    ]
+    ventana_carpinteria = bbox.extents(recuadros)
+    if ventana_carpinteria.has_data:
+        escribir("ZOOM")
+        escribir("W")
+        escribir(f"{ventana_carpinteria.extmin.x-0.2},{ventana_carpinteria.extmax.y+0.2}")
+        escribir(f"{ventana_carpinteria.extmax.x+0.2},{ventana_carpinteria.extmin.y-0.2}")
+        ventana.grab().save(str(destino / "ficha_oscilobatiente.png"))
     tabla = [
         e
         for e in ventana.document.doc.modelspace()

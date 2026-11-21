@@ -55,6 +55,24 @@ def estado(spec, documento):
     return {"bim": datos_bim(spec, documento), "entidades": sorted(entidades)}
 
 
+def contenido_memoria(spec, documento):
+    from tests.escenarios_r27 import modulo
+    import unicodedata
+
+    arquitectura = modulo(spec, "architectural")
+    textos = []
+    cotas = []
+    for entidad in documento.doc.modelspace():
+        datos = arquitectura.metadata(entidad) or {}
+        if datos.get("kind") != "carpentry_schedule_detail":
+            continue
+        if entidad.dxftype() in ("TEXT", "MTEXT"):
+            textos.append(unicodedata.normalize("NFC", entidad.plain_text()).replace("\r\n", "\n"))
+        elif entidad.dxftype() == "DIMENSION":
+            cotas.append(float(entidad.get_measurement()))
+    return sorted(textos), sorted(cotas)
+
+
 def persistencia(spec, documento, destino):
     from core.document import Document
     from formats.dwg_bridge import load_dwg
@@ -62,6 +80,7 @@ def persistencia(spec, documento, destino):
     from tests.escenarios_r27 import modulo
 
     esperado = datos_bim(spec, documento)
+    textos, cotas = contenido_memoria(spec, documento)
     resultados = []
     for extension in ("dxf", "dwg"):
         ruta = Path(destino) / ("modelo." + extension)
@@ -70,6 +89,14 @@ def persistencia(spec, documento, destino):
         iguales = datos_bim(spec, recuperado) == esperado
         contrato = modulo(spec, "exchange").build(recuperado.doc)
         validate_contract(contrato)
+        textos_reabiertos, cotas_reabiertas = contenido_memoria(spec, recuperado)
+        pruebas_memoria = {}
+        if textos:
+            pruebas_memoria = {
+                "memoria_textos_iguales": textos_reabiertos == textos,
+                "memoria_cotas_iguales": len(cotas_reabiertas) == len(cotas)
+                and all(abs(a - b) <= 1e-7 for a, b in zip(cotas, cotas_reabiertas)),
+            }
         resultados.append(
             {
                 "formato": extension,
@@ -77,6 +104,7 @@ def persistencia(spec, documento, destino):
                 "avisos": avisos,
                 "datos_bim_iguales": iguales,
                 "contrato_valido": True,
+                **pruebas_memoria,
             }
         )
     return resultados

@@ -47,6 +47,7 @@ def test_generacion_y_actualizacion_en_ventana_real(plugin, tmp_path, orden, act
         **os.environ,
         "R27_SEMILLA": str(semilla),
         "R27_TITULO": "Ensayo sintético R28-A",
+        "R27_TAMANO": "2400,1500",
         "R27_ORDEN_INICIAL": orden + (" Actualizar" if actualizar else ""),
         "R27_RESPUESTAS": json.dumps(
             [] if actualizar else (["30,30"] if orden.startswith("-") else ["", "30,30"])
@@ -73,12 +74,16 @@ def test_generacion_y_actualizacion_en_ventana_real(plugin, tmp_path, orden, act
     assert proceso.returncode == 0, proceso.stdout + proceso.stderr
     datos = json.loads((destino / "resultado.json").read_text())
     assert not datos["excepciones"]
+    if os.environ.get("QT_QPA_PLATFORM") == "xcb":
+        assert datos["plataforma"] == "xcb"
     assert len(datos["cuadros"]) == (0 if actualizar or orden.startswith("-") else 1)
     assert {
         r["id"] for r in datos["registros"] if r.get("kind") in ("wall", "opening", "space")
     } == identidades
     memorias = [r for r in datos["registros"] if r.get("kind") == "carpentry_schedule"]
     assert len(memorias) == 1 and memorias[0]["rows"]
+    armario = next(fila for fila in memorias[0]["rows"] if fila["marca"].startswith("A"))
+    assert armario["unidades"] == 3 and armario["manos"] == {"izquierda": 2, "derecha": 1}
     if actualizar:
         assert memorias[0]["id"] == identidad
     assert all(
@@ -91,5 +96,9 @@ def test_generacion_y_actualizacion_en_ventana_real(plugin, tmp_path, orden, act
         assert verificaciones["uniones_idempotente"]
         assert not verificaciones["incidencias_despues"]
         assert all(
-            p["datos_bim_iguales"] and p["contrato_valido"] for p in verificaciones["persistencia"]
+            p["datos_bim_iguales"]
+            and p["contrato_valido"]
+            and p["memoria_textos_iguales"]
+            and p["memoria_cotas_iguales"]
+            for p in verificaciones["persistencia"]
         )
