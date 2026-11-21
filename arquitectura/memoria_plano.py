@@ -22,6 +22,16 @@ def planos(dibujo):
     ]
 
 
+def insercion_actual(entidad, datos):
+    """Posición del plano para Actualizar: la del punto ancla, que acompaña al
+    dibujo cuando el usuario lo desplaza; la guardada solo si falta."""
+    try:
+        punto = entidad.dxf.location
+        return (float(punto.x), float(punto.y))
+    except AttributeError:
+        return tuple(map(float, datos["insert"][:2]))
+
+
 def configuracion_inicial(documento):
     from .parameters_arq import general_options
 
@@ -274,7 +284,8 @@ def actualizar(ctx):
         return None
     _, marcas = memoria_modelo.preparar(documento.doc)
     cambios = [
-        PlanoMemoria(datos["config"], datos["insert"], entidad) for entidad, datos in existentes
+        PlanoMemoria(datos["config"], insercion_actual(entidad, datos), entidad)
+        for entidad, datos in existentes
     ]
     apply_architectural_change(
         ctx, SafeArchitecturalCommand("MEMORIACARP Actualizar", [marcas, *cambios]), kind="opening"

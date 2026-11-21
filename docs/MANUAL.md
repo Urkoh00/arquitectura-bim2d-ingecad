@@ -1,12 +1,12 @@
-# Manual de Arquitectura para IngeCAD — versión 1.47.0-dev
+# Manual de Arquitectura para IngeCAD — versión 1.47.1-dev
 
-Versión 1.47.0-dev · 21-11-2026
+Versión 1.47.1-dev · 21-11-2026
 
 > Copia del manual publicado como documento en claude.ai; se regenera con cada versión.
 
 ## Qué es
 
-Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.47.0-dev** y se actualiza con cada versión.
+Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.47.1-dev** y se actualiza con cada versión.
 
 Cada elemento guarda su identidad persistente, su clase IFC, su geometría editable en planta, sus parámetros 3D (altura, espesor, cota), sus propiedades constructivas (tipo, material, capas) y su nivel. Las carpinterías conocen su muro y los recintos siguen a los muros que los cierran.
 
@@ -27,7 +27,7 @@ El plugin se instala copiando una carpeta en IngeCAD, y la extensión copiando t
 
 **En IngeCAD**
 
-1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.47.0-dev.zip`.
+1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.47.1-dev.zip`.
 2. Copie la carpeta `arquitectura` en la carpeta de plugins de IngeCAD.
 3. Reinicie IngeCAD. Aparece el menú *Arquitectura* y su barra de herramientas.
 4. Escriba `ARQDIAG` en la línea de órdenes para comprobar que la versión cargada es la que acaba de copiar.
@@ -374,7 +374,7 @@ Después indique el punto superior izquierdo del plano. Si en lugar de pulsar In
 
 **Transmitancia.** Si el vidrio y el marco de la carpintería figuran con esos nombres en `BIBLIOTECAHE`, la ficha da una U estimada por áreas y la rotula «sin ψ», porque no incluye el puente térmico lineal del fabricante. Si falta algún dato, pone «sin datos». No sustituye al cálculo de la certificación energética.
 
-**Actualizar.** El plano queda en capas bloqueadas para no estropearlo por accidente. Si después cambia alguna carpintería, `ARQVALIDAR` avisa de que el plano está desactualizado. Escriba `MEMORIACARP Actualizar`: todos los planos del dibujo se rehacen en su sitio, con sus opciones, sin preguntar nada y en un solo Deshacer. Los rótulos de marca en planta se mueven con su carpintería.
+**Actualizar.** El plano queda en capas bloqueadas para no estropearlo por accidente. Si después cambia alguna carpintería, `ARQVALIDAR` avisa de que el plano está desactualizado. Escriba `MEMORIACARP Actualizar`: todos los planos del dibujo se rehacen en su sitio, con sus opciones, sin preguntar nada y en un solo Deshacer. Para mover el plano, desbloquee sus capas, desplácelo y vuelva a bloquearlas: Actualizar lo rehace donde esté. Los rótulos de marca en planta se mueven con su carpintería.
 
 **Por la línea de órdenes.** `-MEMORIACARP` pregunta las mismas opciones sin cuadros de diálogo, y `-MEMORIACARP Actualizar` no pregunta nada.
 
@@ -567,7 +567,7 @@ Con niveles o forjados, el intercambio usa `.arqbim` v3 y necesita la extensión
 
 ## Limitaciones conocidas
 
-Estas son las limitaciones conocidas de la versión 1.47.0-dev; cada versión actualiza esta lista.
+Estas son las limitaciones conocidas de la versión 1.47.1-dev; cada versión actualiza esta lista.
 
 - **Plataforma:** las pruebas automáticas se ejecutan en Linux con la última versión oficial de IngeCAD y de IngeTrazo, pero sin pantalla. Solo se prueba con la última versión de cada programa, porque ambos publican casi cada semana.
 - **Muros curvos:** cada muro llega como mucho a media circunferencia (un muro redondo son dos). MUROPARALELO y DIVIDEMURO solo toman líneas rectas como referencia. El gesto de esquina en L al terminar un MURO solo recorta muros rectos.
@@ -581,6 +581,7 @@ Estas son las limitaciones conocidas de la versión 1.47.0-dev; cada versión ac
 
 | Fecha | Versión | Novedades |
 | --- | --- | --- |
+| 21-11-2026 | 1.47.1-dev | MEMORIACARP Actualizar deja el plano donde el usuario lo haya movido (antes volvía a su posición original) |
 | 21-11-2026 | 1.47.0-dev | Nueva MEMORIACARP: plano de carpintería con fichas acotadas, sección, tabla, marcas P/V/H/A persistentes, rótulos en planta y Actualizar en un solo Deshacer; -MEMORIACARP; ventana oscilobatiente de ambas manos; ELEMENTOS, SELATRIB, HIPERVINCULO y LISTATEXTOS explican su alcance |
 | 20-11-2026 | 1.46.0-dev | Variantes -ORDEN sin cuadros de diálogo en 25 órdenes. Repaso de todas las órdenes: corregidos fallos en EJES, EDITAREJE, BLOQUE, ESCALERA, TIPOSMURO (CSV y capas), PILAR, TRAMA, ARMARIOBIM, validación de contornos por planta y órdenes sin ventana |
 | 20-11-2026 | 1.45.0-dev | Tab recorre las cotas temporales y fija su valor: longitud y ángulo en MURO; izquierda, derecha y ancho en CARPINTERIA; MOVERCARP mueve con Tab. El ángulo del muro se muestra como cota propia |

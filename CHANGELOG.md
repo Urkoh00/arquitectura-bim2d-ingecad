@@ -2,6 +2,14 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.47.1-dev — 2026-11-21
+
+Corrección tras la primera prueba del propietario con la v1.47.
+
+- `MEMORIACARP Actualizar` respeta el plano que el usuario ha desplazado: toma la posición del punto
+  ancla, que se mueve con el dibujo, y no la guardada al generarlo. Antes devolvía el plano a su sitio
+  original. Prueba nueva en `tests/test_r28a_plano.py`.
+
 ## 1.47.0-dev — 2026-11-21
 
 Plano de carpintería (encargo R28-A, desarrollado por Codex y revisado por Claude).

@@ -337,3 +337,38 @@ def test_un_fallo_al_preparar_las_capas_no_deja_recursos_huerfanos(plugin, monke
     assert estado(plugin, sesion.document) == antes
     assert {capa.dxf.name for capa in sesion.document.doc.layers} == capas
     assert {tipo.dxf.name for tipo in sesion.document.doc.linetypes} == tipos
+
+
+def test_actualizar_respeta_el_plano_desplazado_por_el_usuario(plugin):
+    """El propietario desbloquea las capas y mueve el plano; Actualizar no debe
+    devolverlo a su posición original (caso de la prueba 1 con la v1.47)."""
+    sesion, _, arquitectura = modelo(plugin)
+    plano = generar(sesion, plugin)
+    dibujo = sesion.document.doc
+    entidad, datos = plano.planos(dibujo)[0]
+
+    def derivados():
+        return [
+            e
+            for e in dibujo.modelspace()
+            if (sesion.meta(e) or {}).get("schedule_id") == datos["id"]
+        ]
+
+    def esquina():
+        textos = [e for e in derivados() if e.dxftype() in ("TEXT", "MTEXT")]
+        return min(e.dxf.insert.x for e in textos), max(e.dxf.insert.y for e in textos)
+
+    x0, y0 = esquina()
+    for nombre in (plano.CAPA_PLANO, plano.CAPA_COTAS):
+        dibujo.layers.get(nombre).unlock()
+    for e in [*derivados(), entidad]:
+        e.translate(-25.0, 14.0, 0.0)
+    puerta = next(e for e in dibujo.modelspace() if (sesion.meta(e) or {}).get("kind") == "opening")
+    modulo(plugin, "transactions").apply_architectural_change(
+        sesion.tool("MURO").ctx, arquitectura.edit_opening(puerta, width=1.085), kind="opening"
+    )
+    sesion.tool("-MEMORIACARP").on_option("Actualizar")
+    x1, y1 = esquina()
+    assert abs(x1 - (x0 - 25.0)) < 1e-6 and abs(y1 - (y0 + 14.0)) < 1e-6
+    _, nuevos = plano.planos(dibujo)[0]
+    assert nuevos["insert"] == [datos["insert"][0] - 25.0, datos["insert"][1] + 14.0]
