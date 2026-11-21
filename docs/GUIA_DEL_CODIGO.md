@@ -463,3 +463,16 @@ La regeneración común recalcula marcas cuando existe catálogo y reconstruye l
 rótulos `opening_mark`, incorporados al grupo de su carpintería. No rehace un
 plano por sorpresa: ARQVALIDAR avisa cuando la planta o la biblioteca lo dejan
 obsoleto. Actualizar reemplaza los derivados en su sitio, en un solo Deshacer.
+
+
+### Continuidad de cubiertas: adenda 2, fuera de R28-A
+
+La base futura de B2 es `roof_tile_tool.py` de PESI3D/ingetrazo-roof-tiles v1.3 y
+`roof_any.py` de equipexq/archxq-it-lite v0.13.0, adaptado del primero con crédito.
+Claude comunica GPL-3.0-or-later y pesos por lado/velocidad cero en piñones.
+Antes de proponer una incorporación deben pasar los ocho casos de B0 y comprobar
+patios y arranques distintos. Se anotarán los copyrights y la procedencia exactos
+en la cabecera de cualquier módulo reutilizado y aquí, sin retirar «o posterior»
+ni créditos. Las mejoras se ofrecerán a los autores, sin mantener una copia
+divergente sin avisar. La estimación se rehace sobre esa base. Véase
+`docs/ADENDA_2_R28_BASE_B2.md`. R28-A no incorpora ninguno de esos módulos.

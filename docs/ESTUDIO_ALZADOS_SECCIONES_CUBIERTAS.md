@@ -67,7 +67,8 @@ Para una pendiente `p` y distancia interior `d` al lado de arranque:
 
 La interfaz admite porcentaje y grados, pero el dato almacenado es la pendiente
 adimensional positiva; `p = tan(ángulo)`. «Piñón» es un borde vertical sin faldón
-propio, no una pendiente infinita ni un peso cero. Las normales de las caras y el
+propio: la nueva base de B2 lo trata como un frente de velocidad cero, sin
+introducir una pendiente infinita. Las normales de las caras y el
 espesor se comprueban sobre los sólidos, no con la orientación visual de la vista.
 
 La cubierta plana es un caso explícito. Una pendiente cero no se entrega a un
@@ -93,11 +94,19 @@ El orden sigue siendo B0 (modelo y referencias, ya aceptado e integrado), B1
 junto con las mejoras de LINEASAMURO. B2 **no entra en R28**. El cierre de R28-A
 se dedica a MEMORIACARP; no instala bibliotecas ni modifica los anfitriones.
 
-En el encargo específico de B2 deberán fijarse repositorios y revisiones de las
-nuevas bases, su licencia y procedencia, las capacidades reales de patios y
-piñones, los tipos geométricos y sus dependencias. Se conservarán los avisos de
-autoría y las licencias aplicables al reutilizar código. No se trasladan sin
-revisión las estimaciones de la alternativa anterior a estas nuevas fuentes.
+La [adenda 2](ADENDA_2_R28_BASE_B2.md) identifica `roof_tile_tool.py` de
+PESI3D/ingetrazo-roof-tiles v1.3 y `roof_any.py` de equipexq/archxq-it-lite
+v0.13.0, adaptado del anterior con crédito. Claude comunica que ambos son
+esqueletos ponderados en Python puro bajo **GPL-3.0-or-later**, con velocidades
+`cot α` por lado y velocidad cero para piñones. No se han ensayado en R28.
+
+Antes de proponer código de B2 deberán pasar los ocho casos de B0. Hay que
+comprobar patios y arranques a distinta cota: una lista de polígonos en el
+primero no demuestra soporte de patios y el segundo solo recibe exterior.
+Se fijarán commits concretos, copyright y procedencia en el módulo y en la guía,
+se conservará «o posterior» y los créditos, y las mejoras se ofrecerán a sus
+autores, sin mantener una copia divergente sin avisar. La estimación se rehace
+sobre estas fuentes, que ya tienen pesos y piñones.
 
 La condición geométrica permanece: con pendiente `p > 0`, distancia interior `d`
 y alero común, `z=z0+p*d`. Si el tiempo representa altura, la velocidad del frente
@@ -105,7 +114,7 @@ es `v=1/p`. Con normal interior unitaria `n`, la recta móvil satisface
 `n·x=c+v*t`. Los pesos cambian trayectorias, tiempos de colapso y partición y
 posición de encuentros; no se obtienen escalando al final un esqueleto uniforme.
 
-Los piñones son restricciones explícitas sin faldón propio. Los arranques a cotas
+Los piñones son restricciones explícitas de velocidad cero, sin faldón propio. Los arranques a cotas
 distintas exigen frentes desfasados o resolución manual: hasta que el automático
 los implemente, debe rechazarlos con motivo y conservar el estado anterior.
 El algoritmo que se adopte tendrá que superar las ocho referencias aceptadas de

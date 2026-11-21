@@ -94,3 +94,9 @@ La instrucción directa del propietario sobre la adenda 2 deja B2 fuera de R28 y
 fija «Tejados y tejas» y ArchXQ como sus nuevas fuentes. B0 ya está aceptado e
 integrado; B1 se desarrollará en el encargo nuevo R29 junto a LINEASAMURO. Esta
 entrega no modifica el esquema ni los casos analíticos aprobados de B0.
+
+
+El texto íntegro de la adenda 2 se recibió y leyó durante el cierre de R28-A;
+queda recogido en `docs/ADENDA_2_R28_BASE_B2.md`, incluidas las versiones,
+GPL-3.0-or-later, los pesos y piñones ya disponibles, las comprobaciones previas
+y la coordinación con sus autores. No se ha desarrollado B2.
