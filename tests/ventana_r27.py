@@ -52,7 +52,7 @@ cargado = load_plugin(carpeta_plugin, bundled=False)
 assert cargado.available, cargado.reason
 ventana.plugins.loaded[cargado.spec.id] = cargado
 assert ventana.plugins.activate(cargado.spec.id)
-ventana.new_document("Ensayo sintético R27")
+ventana.new_document(os.environ.get("R27_TITULO", "Ensayo sintético R27"))
 from core.document import Document
 
 semilla = Path(os.environ.get("R27_SEMILLA", "/workspace/work/r27-evidence/semilla"))
@@ -305,6 +305,32 @@ resultado = {
     "modo_cuadros": modo,
     "historial": ventana.command_line.history.toPlainText(),
 }
+if os.environ.get("R28_CAPTURAS_MEMORIA") == "1":
+    from ezdxf import bbox
+
+    memorias = [r for r in registros if r.get("kind") == "carpentry_schedule"]
+    assert memorias, ventana.command_line.history.toPlainText()
+    x, y = memorias[0]["insert"]
+    escribir("ZOOM")
+    escribir("E")
+    ventana.grab().save(str(destino / "plano_general.png"))
+    escribir("ZOOM")
+    escribir("W")
+    escribir(f"{x-0.5},{y+0.5}")
+    escribir(f"{x+15.5},{y-10.5}")
+    ventana.grab().save(str(destino / "fichas_acotadas.png"))
+    tabla = [
+        e
+        for e in ventana.document.doc.modelspace()
+        if (modulo_arq.metadata(e) or {}).get("role") == "table"
+    ]
+    limites = bbox.extents(tabla)
+    if limites.has_data:
+        escribir("ZOOM")
+        escribir("W")
+        escribir(f"{limites.extmin.x-0.5},{limites.extmax.y+0.5}")
+        escribir(f"{limites.extmax.x+0.5},{limites.extmin.y-0.5}")
+        ventana.grab().save(str(destino / "tabla_resumen.png"))
 ventana.grab().save(str(destino / "ventana.png"))
 (destino / "resultado.json").write_text(json.dumps(resultado, ensure_ascii=False, indent=2) + "\n")
 ventana.tools.cancel()

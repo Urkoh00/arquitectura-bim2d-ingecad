@@ -132,7 +132,8 @@ class MemoriaCarpTool(PreguntasTexto, Tool):
             else:
                 self._ficha()
         else:
-            self.ctx.echo("Use Ficha, Todo, Tabla, Fichas o Actualizar")
+            # IngeCAD ofrece el texto a on_option antes de interpretarlo como punto.
+            return False
         return True
 
     def on_point(self, punto):
