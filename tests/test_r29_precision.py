@@ -161,3 +161,26 @@ def test_las_cotas_temporales_de_crear_y_mover_carpinteria_usan_milimetros(plugi
     assert mover.entity is not None
     textos = [e.dxf.text for e in mover.preview_entities((2.0, 0.15)) if e.dxftype() == "TEXT"]
     assert "0,885" in textos
+
+
+@pytest.mark.parametrize(
+    "valor,cm,mm",
+    [
+        (0.885, "0,89", "0,885"),
+        (0.8849999999999998, "0,89", "0,885"),
+        (0.8850000000000002, "0,89", "0,885"),
+        (2.347, "2,35", "2,347"),
+        (2.1, "2,10", "2,100"),
+        (0.0, "0,00", "0,000"),
+        (-0.125, "-0,13", "-0,125"),
+        (0.004, "0,00", "0,004"),
+    ],
+)
+def test_la_mitad_exacta_se_escribe_siempre_por_exceso(plugin, valor, cm, mm):
+    """0,885 no puede salir unas veces «0,88» y otras «0,89» según el error
+    de coma flotante que arrastre el cálculo (hallado al integrar R29-B)."""
+    sesion = Session(plugin)
+    presentacion = modulo(plugin, "presentacion")
+    assert presentacion.longitud(valor, sesion.document) == cm
+    configurar(sesion, "Milímetros")
+    assert presentacion.longitud(valor, sesion.document) == mm
