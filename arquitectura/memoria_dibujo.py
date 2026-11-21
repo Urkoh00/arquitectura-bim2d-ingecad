@@ -112,7 +112,7 @@ class Dibujante:
                 local = ancho - local
             return (origen_x + local, suelo + altura)
 
-        self.contorno(
+        marco_tarjeta = self.contorno(
             [
                 (x, techo),
                 (x + ancho_tarjeta, techo),
@@ -210,7 +210,9 @@ class Dibujante:
             )
         siguiente = suelo - desplazamiento - 4 * self.altura
         if self.seccion:
-            siguiente = self.seccion_horizontal(fila, origen_x, siguiente)
+            siguiente = self.seccion_horizontal(
+                fila, origen_x, siguiente, ancho_tarjeta - margen - self.altura
+            )
         materiales = fila["definicion"]["materiales"]
         manos = ", ".join(f"{cantidad} {mano}" for mano, cantidad in sorted(fila["manos"].items()))
         u = "sin datos" if fila["u"] is None else numero(fila["u"]) + " W/m²K (sin ψ)"
@@ -222,9 +224,26 @@ class Dibujante:
             f"Hueco: {numero(fila['area_unitaria'])} m² · U: {u}",
             "Recintos: " + (" / ".join(fila["recintos"]) or "sin recinto asociado"),
         ]
-        self.texto((x + self.altura, siguiente), "\n".join(textos), ancho_tarjeta - 2 * self.altura)
+        if registro["type"] == "gap":
+            textos[2:4] = ["Sin cerco, hojas ni vidrio"]
+        cuerpo = self.texto(
+            (x + self.altura, siguiente), "\n".join(textos), ancho_tarjeta - 2 * self.altura
+        )
+        from ezdxf import bbox
 
-    def seccion_horizontal(self, fila, x, y):
+        limites = bbox.extents([cuerpo])
+        alto_real = max(alto_tarjeta, techo - limites.extmin.y + 2 * self.altura)
+        marco_tarjeta.set_points(
+            [
+                (x, techo),
+                (x + ancho_tarjeta, techo),
+                (x + ancho_tarjeta, techo - alto_real),
+                (x, techo - alto_real),
+            ]
+        )
+        return alto_real
+
+    def seccion_horizontal(self, fila, x, y, ancho_texto):
         from .geom.junctions import Wall
 
         medidas = fila["medidas"]
@@ -290,10 +309,10 @@ class Dibujante:
         self.texto(
             (x, origen_y - espesor / 2 - self.altura),
             "Sección · muro " + numero(espesor) + " m (más frecuente)",
-            ancho + 0.6,
+            ancho_texto,
             papel="section_caption",
         )
-        return origen_y - espesor / 2 - 4 * self.altura
+        return origen_y - espesor / 2 - 7 * self.altura
 
     def tabla(self, filas, insercion):
         from core.tables import insert_table
@@ -385,15 +404,17 @@ def dibujar(documento, filas, insercion, configuracion, identificador):
         alto = max(fila["medidas"]["alto"] + fila["medidas"]["antepecho"] for fila in filas)
         alto += 2.4 + 22 * dibujante.altura + (1.6 if dibujante.seccion else 0)
         columnas = min(4, len(filas))
+        techo_fila = y
+        alto_fila = alto
         for indice, fila in enumerate(filas):
-            dibujante.ficha(
-                fila,
-                x + (indice % columnas) * (ancho + 0.4),
-                y - (indice // columnas) * (alto + 0.4),
-                ancho,
-                alto,
+            alto_real = dibujante.ficha(
+                fila, x + (indice % columnas) * (ancho + 0.4), techo_fila, ancho, alto
             )
-        y -= ((len(filas) + columnas - 1) // columnas) * (alto + 0.4) + 0.5
+            alto_fila = max(alto_fila, alto_real)
+            if (indice + 1) % columnas == 0 or indice == len(filas) - 1:
+                techo_fila -= alto_fila + 0.4
+                alto_fila = alto
+        y = techo_fila - 0.5
     if configuracion["modo"] in ("todo", "tabla"):
         dibujante.marca = ""
         dibujante.tabla(filas, (x, y))

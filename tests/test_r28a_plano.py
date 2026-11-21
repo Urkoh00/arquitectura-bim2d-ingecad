@@ -268,3 +268,49 @@ def test_un_fallo_al_redibujar_recupera_plano_marcas_grupos_y_capas(plugin, monk
     assert sesion.history.depth == profundidad
     assert {capa.dxf.name for capa in sesion.document.doc.layers} == capas
     assert set(sesion.document.doc.blocks.block_names()) == bloques
+
+
+def test_los_textos_de_la_seccion_y_de_la_ficha_no_se_superponen(plugin):
+    from ezdxf import bbox
+
+    sesion, _, _ = modelo(plugin)
+    generar(sesion, plugin)
+    textos = [e for e in sesion.document.doc.modelspace() if e.dxftype() == "MTEXT"]
+    seccion = next(e for e in textos if (sesion.meta(e) or {}).get("role") == "section_caption")
+    cuerpos = [e for e in textos if (sesion.meta(e) or {}).get("role") == "caption"]
+    cuerpo = min(cuerpos, key=lambda entidad: entidad.dxf.insert.y)
+    assert bbox.extents([cuerpo]).extmax.y < bbox.extents([seccion]).extmin.y
+
+
+def test_un_material_largo_no_sale_fuera_del_marco_de_su_ficha(plugin):
+    from ezdxf import bbox
+
+    sesion, _, arquitectura = modelo(plugin)
+    muro = next(iter(sesion.walls().values()))
+    for indice, distancia in enumerate((6.0, 8.0, 10.0)):
+        sesion.history.execute(
+            arquitectura.create_opening(
+                muro, distancia, 0.885, 0.0, 2.1, kind="door", type_name="Ensayo " + str(indice)
+            )
+        )
+    puerta = next(
+        e
+        for e in sesion.document.doc.modelspace()
+        if (sesion.meta(e) or {}).get("kind") == "opening"
+    )
+    sesion.history.execute(
+        arquitectura.edit_opening(puerta, frame_material="Material sintético muy descriptivo " * 35)
+    )
+    generar(sesion, plugin, {"modo": "Fichas"})
+    entidades = list(sesion.document.doc.modelspace())
+    marcos = {
+        sesion.meta(e)["mark"]: e
+        for e in entidades
+        if (sesion.meta(e) or {}).get("role") == "frame_card"
+    }
+    for entidad in entidades:
+        datos = sesion.meta(entidad) or {}
+        if datos.get("role") == "caption":
+            assert (
+                bbox.extents([entidad]).extmin.y >= bbox.extents([marcos[datos["mark"]]]).extmin.y
+            )
