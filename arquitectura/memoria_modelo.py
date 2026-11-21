@@ -160,7 +160,12 @@ def transmitancia(pieza, biblioteca):
         if len(coincidencias) != 1:
             return None
         valor = coincidencias[0].get("u")
-        if not isinstance(valor, (int, float)) or not math.isfinite(valor) or valor <= 0:
+        if (
+            isinstance(valor, bool)
+            or not isinstance(valor, (int, float))
+            or not math.isfinite(valor)
+            or valor <= 0
+        ):
             return None
         valores.append(valor)
     area_vidrio = 0.0
@@ -176,6 +181,7 @@ def transmitancia(pieza, biblioteca):
                 abs(poligonos.area(patio)) for patio in patios
             )
     medidas = pieza["medidas"]
+    area_vidrio *= medidas["factor_s"]
     area_total = medidas["ancho"] * medidas["alto"]
     if not 0 < area_vidrio < area_total:
         return None
