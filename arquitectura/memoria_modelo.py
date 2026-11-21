@@ -44,6 +44,8 @@ def leer(dibujo):
                 if (hueco.get("hinge", 0) == 0) == (hueco.get("side", 1) > 0)
                 else "derecha"
             )
+            if hueco["type"] == "gap" or hueco["operation"] == "FIXED":
+                pieza["mano"] = "sin mano"
             pieza["recintos"] = recintos_vecinos(dibujo, muro, pieza["registro"], pieza["nivel_id"])
             pieza["posicion"] = muro.point(hueco["offset"] + hueco["width"] / 2, 0.0)
             pieza["muro_id"] = muro.id
