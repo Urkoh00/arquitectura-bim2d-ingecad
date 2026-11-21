@@ -1,8 +1,9 @@
 # R28: aplicación de la adenda del 21-11-2026
 
 Base v1.46.0-dev, `78c528bb7cc6123e33a43443e945fe91d200e998`.
-Se entregan propuestas para que Claude revise e integre. R28-A continúa abierto:
-la nueva MEMORIACARP aún no está conectada al catálogo ni dibuja el plano final.
+Estado actualizado: R28-A implementa la nueva MEMORIACARP sobre `3d963c2`,
+con fichas, cotas, tabla, Actualizar, rótulos y variante textual. Claude revisa
+e integra la propuesta; el manual y la guía describen su funcionamiento actual.
 
 ## Decisiones aplicadas
 
@@ -12,9 +13,8 @@ la nueva MEMORIACARP aún no está conectada al catálogo ni dibuja el plano fin
 - **Ventanas oscilobatientes: implementadas** mediante `operation=TILTANDTURN`,
   `hinge=0|1` y `side=+1|-1`. La ficha y `-VENTANAARQ` muestran la operación y la
   bisagra. El tipo sigue siendo ventana, con marco/hoja/vidrio cerrados en 3D.
-- **Cubiertas: estudio actualizado**, con B1 manual antes de B2 Python derivado
-  de bpypolyskel, eliminación de mathutils, velocidades `1/pendiente`, piñones y
-  procedencia/licencia dentro de `arquitectura/geom/`. No se ha implementado B2.
+- **Cubiertas: estudio actualizado**, con B1 manual y B2 fuera de R28.
+  La adenda 2 cambia la base de B2 al esqueleto de «Tejados y tejas» y ArchXQ; se mantienen velocidades `1/pendiente`, piñones y procedencia/licencias. No se ha implementado B2.
   CGAL queda como referencia local opcional; no se traduce ni se distribuye.
 
 ## Datos y representación de la oscilobatiente
@@ -59,7 +59,9 @@ sigue copiando los módulos compartidos con `scripts/bundle_roundtrip.py`.
 coincidentes y niveles identificados. Incluye ocho puertas planas (ambas manos,
 una/dos hojas y correderas), una puerta corredera curva, cinco ventanas (fija,
 abatible, corredera y dos oscilobatientes), un hueco y un armario de tres frentes.
-No tiene aún recintos ni el plano de memoria final: se completarán al conectar A.
+Incluye cuatro recintos (Salón y Dormitorio en cada nivel) y el plano de
+memoria generado. Las pruebas comprueban la asociación de recintos y la
+actualización de las fichas y la tabla.
 
 Las dos oscilobatientes tienen la misma definición física: se agrupan bajo una
 marca, con mano y nivel por unidad. La prueba contrasta el catálogo después de
@@ -77,7 +79,7 @@ puertas ni para hojas realmente curvas».
 
 ## Estudios y alcance de la entrega
 
-El estudio B incluye la comparación por commit de bpypolyskel (GPL-3.0-only),
+El estudio B conserva como antecedente de la adenda 1 la comparación por commit de bpypolyskel (GPL-3.0-only),
 polyskel original (LGPLv3) y ladybug-geometry-polyskel (AGPLv3), sus patios, ausencia
 de pesos por lado, mantenimiento y esfuerzo estimado. Conserva los ocho casos
 analíticos como requisito de B2; todavía no se han ensayado esas bibliotecas.
@@ -86,3 +88,9 @@ El estudio C registra CC0 como decisión tomada, sin volver a pedir aprobación.
 No se han modificado IngeCAD ni IngeTrazo. No se ha instalado ni usado una
 biblioteca de SketchUp. El manual recibido y su extracción permanecen fuera de
 la entrega. Solo se incluyen modelos sintéticos propios y código del plugin.
+
+
+La instrucción directa del propietario sobre la adenda 2 deja B2 fuera de R28 y
+fija «Tejados y tejas» y ArchXQ como sus nuevas fuentes. B0 ya está aceptado e
+integrado; B1 se desarrollará en el encargo nuevo R29 junto a LINEASAMURO. Esta
+entrega no modifica el esquema ni los casos analíticos aprobados de B0.

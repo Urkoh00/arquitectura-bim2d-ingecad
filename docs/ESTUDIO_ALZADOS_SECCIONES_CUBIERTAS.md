@@ -81,61 +81,40 @@ exportador no debe contar dos veces el mismo volumen. Una restricción de muro o
 recinto hacia cubierta apunta a la fuente y calcula su límite con la misma cara
 inferior resuelta; no a una cota máxima común a todo el recinto.
 
-## 3. Trazado: vía Python aprobada y solución manual inicial
+## 3. Trazado: actualización de la base futura de B2
 
-**Decisión del propietario del 21-11:** B1 comienza por faldones manuales; B2
-parte de `bpypolyskel`, con el algoritmo en Python dentro de `arquitectura/geom/`.
-La propuesta anterior de un adaptador C++ queda sustituida. No se traduce CGAL,
-no se enlaza con él ni se distribuye. Podrá servir como contraste local opcional;
-no se ha ejecutado ese contraste ni incorporado ninguna biblioteca en R28.
+**Decisión del propietario, adenda 2 (21-11-2026):** B2 partirá del esqueleto de
+«Tejados y tejas» y de ArchXQ. Esta decisión sustituye a bpypolyskel como base
+principal. La comparación de las tres bibliotecas del apéndice queda como
+antecedente de la adenda 1. No se incorpora ahora código de ninguna de ellas.
 
-`bpypolyskel` admite contornos con patios y reconstruye caras de cubiertas. En el
-commit examinado **no es todavía una dependencia Python pura distribuible**:
-`bpyeuclid.py` importa `mathutils`, una extensión compilada. `polygonize` admite
-`holesInfo`, altura o una pendiente `tan` común; `unitVectors` son direcciones,
-no pesos. No hay pendientes distintas por lado en esa interfaz. El apéndice
-compara las tres alternativas con su revisión y licencia concretas.
+El orden sigue siendo B0 (modelo y referencias, ya aceptado e integrado), B1
+(faldones manuales) y después B2 (trazado automático). B1 se encarga en R29,
+junto con las mejoras de LINEASAMURO. B2 **no entra en R28**. El cierre de R28-A
+se dedica a MEMORIACARP; no instala bibliotecas ni modifica los anfitriones.
 
-B2 requiere estos bloques, cada uno con su prueba:
+En el encargo específico de B2 deberán fijarse repositorios y revisiones de las
+nuevas bases, su licencia y procedencia, las capacidades reales de patios y
+piñones, los tipos geométricos y sus dependencias. Se conservarán los avisos de
+autoría y las licencias aplicables al reutilizar código. No se trasladan sin
+revisión las estimaciones de la alternativa anterior a estas nuevas fuentes.
 
-1. Fijar la revisión de procedencia; conservar autoría, licencia GPL-3.0-only,
-   avisos, enlace y relación de cambios. No copiar ejemplos de edificios ajenos.
-   Guardar solo el subconjunto necesario en un subpaquete de `arquitectura/geom/`,
-   con su `LICENSE` y `PROCEDENCIA.md`; no modificar la licencia de código ajeno.
-2. Sustituir `mathutils` por vectores y operaciones propias en Python, incluidas
-   normalización, productos e intersecciones que utiliza realmente el algoritmo.
-   `numpy` es una alternativa autorizada, pero los vectores pequeños propios
-   evitan añadir también esa dependencia binaria. Separar este cambio del de
-   pesos y contrastar primero la solución no ponderada con geometría sintética.
-3. Incorporar identidad y pendiente por **lado original**, conservarlas al
-   dividir/fusionar frentes y recalcular tiempos de eventos de arista y de
-   partición. La posición en planta no se obtiene escalando después la altura de
-   un esqueleto no ponderado: cambiar las pendientes cambia también las aristas.
-4. Definir piñones como restricciones explícitas, sin faldón propio. Una
-   restricción estacionaria puede intervenir en el frente; no se simula con una
-   pendiente arbitrariamente grande ni se pasa un peso cero a una API que exige
-   pesos positivos. Hay que tratar sus encuentros y el cierre vertical.
-5. Reconstruir los paños conservando la incidencia lado/paño, patios y eventos
-   simultáneos. Podar demostraciones, dependencias y ramas que no se utilicen,
-   después de fijar pruebas de regresión. Validar dominios, cierre y volumen con
-   las mismas tolerancias geométricas del plugin.
+La condición geométrica permanece: con pendiente `p > 0`, distancia interior `d`
+y alero común, `z=z0+p*d`. Si el tiempo representa altura, la velocidad del frente
+es `v=1/p`. Con normal interior unitaria `n`, la recta móvil satisface
+`n·x=c+v*t`. Los pesos cambian trayectorias, tiempos de colapso y partición y
+posición de encuentros; no se obtienen escalando al final un esqueleto uniforme.
 
-Con pendiente `p > 0`, distancia interior `d` y alero común, `z = z0 + p*d`.
-Si el tiempo representa altura, la velocidad del frente es **`v = 1/p`**. Para
-normal interior unitaria `n`, su línea satisface `n·x = c + v*t`. La intersección
-de líneas móviles da la trayectoria del vértice; los tiempos de colisión y los
-eventos de división se recalculan con esas velocidades. No basta con añadir un
-campo de peso ni con reutilizar las bisectrices de igual velocidad.
+Los piñones son restricciones explícitas sin faldón propio. Los arranques a cotas
+distintas exigen frentes desfasados o resolución manual: hasta que el automático
+los implemente, debe rechazarlos con motivo y conservar el estado anterior.
+El algoritmo que se adopte tendrá que superar las ocho referencias aceptadas de
+B0, sin cambiar sus resultados para adaptarlos a la biblioteca.
 
-Las cotas de arranque distintas tampoco se resuelven solo con pesos: requieren
-frentes con arranques desfasados o paños manuales. Hasta implementarlo, B2 debe
-rechazar de forma explícita los casos automáticos fuera de alcance. El estado
-previo queda intacto y el usuario puede resolverlos mediante B1.
-
-La interfaz propia recibe anillos orientados, lados identificados y restricciones;
-devuelve paños, encuentros e incidencias, sin tipos de una biblioteca en el
-contrato BIM. El éxito se mide con los ocho casos siguientes, no con una cifra
-de edificios procesados que publique un autor.
+Se mantiene la vía sin adaptador C++: no se traduce CGAL ni se distribuye como
+dependencia. Un contraste local opcional no convierte su implementación en la
+base del plugin. Cualquier dependencia compilada de las nuevas bases se revisará
+en el encargo de B2; R28 no prepara ese trabajo.
 
 Casos de aceptación del solucionador:
 
@@ -237,7 +216,7 @@ el desarrollo o la proyección; ambas se rotulan de forma distinta.
 |---|---|---:|---|
 | B0 | Modelo de datos y 8 casos analíticos de cubierta | 2–3 jornadas | Contrato y alcance aprobados |
 | B1 | Faldones manuales, planta y sólido único | 5–8 | Volumen y encuentros, recintos, DXF/DWG, Undo/Redo |
-| B2 | Derivación Python de bpypolyskel: vectores, pesos, piñones y reconstrucción | 15–25 jornadas | Los 8 casos analíticos; sin dependencia C++/mathutils; Windows/Linux |
+| B2 | Esqueleto de «Tejados y tejas» y ArchXQ: pesos, piñones y reconstrucción | Por revisar en su encargo | Los 8 casos analíticos; sin adaptador C++; Windows/Linux |
 | B3 | Relación Roof/Slab en contrato y propuesta IFC | 3–5 | Jerarquía y cantidades sin duplicados; aceptación externa |
 | B4 | Prueba de alzado/sección en compositor y retorno DXF | 3–5 | Dos cámaras, corte con huecos, acentos y escala |
 | B5 | Actualizar asociativo, estilos y cotas de nivel | 4–6 | Cambios, eliminación de fuentes, Undo/Redo exactos |
@@ -250,7 +229,10 @@ capas, jerarquía IFC y documentación tras una edición.
 Se ha leído el manual 2015 recibido como PDF (19 páginas), incluidos los capítulos 6, 7 y 10 sobre componentes y asociación 2D/3D. Es una referencia funcional; no contiene un diseño de cubiertas o de HLR que se deba trasplantar al plugin. Por ello se mantiene el principio de sólidos compartidos y se reutilizan las capacidades examinadas de IngeTrazo. El vídeo no se ha recibido por separado ni se ha examinado. El manual y su extracción no se distribuyen. No se ha instalado ni usado ninguna biblioteca de SketchUp.
 
 
-## Apéndice A. Comparación de esqueletos rectos Python (21-11-2026)
+## Apéndice A. Comparación histórica de la adenda 1 (21-11-2026)
+
+La adenda 2 cambia la base elegida a «Tejados y tejas» y ArchXQ. Las siguientes
+fuentes y estimaciones documentan la evaluación anterior; no son el encargo B2.
 
 Consulta de fuentes primarias, fijadas por commit. Es una lectura de código y
 licencias, **no un ensayo de las bibliotecas ni una integración**. «No» en pesos
@@ -265,9 +247,8 @@ interfaces inspeccionadas; una pendiente global no satisface ese requisito.
 
 Los intervalos son estimaciones de ingeniería sujetas a B0, no resultados de un
 prototipo. El número de líneas (aproximadamente 1178 en el núcleo bpypolyskel,
-517 en el original y 860 en el de Ladybug) no mide robustez ni esfuerzo. En la
-opción elegida B2 completo se estima en 15–25 jornadas; si B0 detecta ambigüedades
-numéricas, se desglosa otro encargo. B1 continúa siendo útil por sí mismo.
+517 en el original y 860 en el de Ladybug) no mide robustez ni esfuerzo. La estimación anterior de 15–25 jornadas de B2 debe revisarse con las nuevas
+fuentes. B0 ya está integrado; B1 continúa siendo útil por sí mismo.
 
 **Licencias y distribución.** La combinación de código propio GPL-3.0-or-later
 con GPL-3.0-only se distribuye bajo términos compatibles de GPLv3, conservando los
@@ -283,7 +264,7 @@ AGPLv3 §13 exige que esos usuarios puedan obtener su fuente. Usar el plugin sol
 localmente no convierte automáticamente su salida DXF/IFC en AGPL ni impone un
 servicio en red, pero una futura versión remota sí requeriría revisar ese punto.
 La actividad reciente de Ladybug no justifica introducir esa dependencia extra
-frente a la vía elegida. No se ha incorporado código de ninguna candidata y la
+para la vía actualmente elegida. No se ha incorporado código de ninguna candidata y la
 licencia del plugin permanece GPL-3.0-or-later.
 
 **Fuentes fijadas:**
@@ -305,7 +286,7 @@ licencia del plugin permanece GPL-3.0-or-later.
 ### Aceptación obligatoria antes de integrar B2
 
 Los ocho casos del apartado 3 son requisito de salida, aunque el cambio inicial
-solo sustituya vectores. B0 fijará coordenadas, tolerancias y resultados exactos:
+solo sustituya vectores. B0 ya fija las referencias concretas en `docs/R28B_B0_MODELO_Y_CASOS.md`:
 
 1. Rectángulo 8 × 6 m, cuatro pendientes 0,5 y aleros a z=0: cumbrera a 1,5 m,
    longitud 2 m, volumen bajo faldones **27 m³**; comprobar por integración de las

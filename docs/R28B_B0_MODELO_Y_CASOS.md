@@ -201,8 +201,9 @@ nivel referenciado, recintos bajo varios paños con volumen analítico, espesor 
 encuentros de sólidos cerrados, DXF/DWG y ficha/variante textual sin diálogos.
 El esquema propuesto no suplanta esas pruebas de aplicación.
 
-B2 añadirá después la vía Python ponderada y los piñones sobre bpypolyskel,
-retirando mathutils y conservando procedencia/licencia. B3 resolverá las relaciones
+Actualización de continuidad, adenda 2 del propietario (21-11): B2 partirá del
+esqueleto de «Tejados y tejas» y de ArchXQ, conservando procedencia/licencias.
+Esta decisión sustituye a bpypolyskel; B2 no entra en R28. B3 resolverá las relaciones
 IfcRoof/IfcSlab con sus cantidades sin duplicación; no se cambia ahora el escritor
 de IngeTrazo. B4/B5 continuarán las vistas y su actualización. La memoria de
 carpinterías pendiente en R28-A se mantiene como trabajo distinto.

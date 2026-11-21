@@ -542,7 +542,7 @@ Estas son las limitaciones conocidas de la versión 1.46.0-dev; cada versión ac
 
 - **Plataforma:** las pruebas automáticas se ejecutan en Linux con la última versión oficial de IngeCAD y de IngeTrazo, pero sin pantalla. Solo se prueba con la última versión de cada programa, porque ambos publican casi cada semana.
 - **Muros curvos:** cada muro llega como mucho a media circunferencia (un muro redondo son dos). MUROPARALELO y DIVIDEMURO solo toman líneas rectas como referencia. El gesto de esquina en L al terminar un MURO solo recorta muros rectos.
-- **Carpinterías:** en muros curvos son planas; no hay carpintería curva. Faltan catálogo de modelos y lucernarios y borrar la carpintería dejando el vano.
+- **Carpinterías:** en muros curvos se admiten modelos planos y modelos curvos fijos o correderos; las oscilobatientes son planas. Faltan catálogo de modelos y lucernarios y borrar la carpintería dejando el vano.
 - **LINEASAMURO:** no reconoce puertas ni ventanas en muros curvos. Las medianeras toman el espesor hasta la línea paralela más próxima de otra capa: revise su espesor.
 - **Recintos:** una sola altura por recinto (no calcula descuelgues parciales); las escaleras no se descuentan todavía.
 - **Edificio:** aún no hay plantas múltiples, forjados, escaleras ni barandillas. Las cotas de COTAMUROS no son asociativas: si se mueve un muro, hay que volver a acotar. Una simetría de un muro respecto de su propio eje no cambia su lado; para eso use la cara (I o F5) o su ficha.
@@ -615,7 +615,9 @@ aviso inicial genera el contenido con las opciones predeterminadas.
 -MEMORIACARP presenta las mismas opciones por texto, sin cuadros ni selectores.
 Escriba MEMORIACARP Actualizar o -MEMORIACARP Actualizar para regenerar todos los
 planos ya creados en su posición original: no se piden opciones ni inserción.
-Cada generación o actualización ocupa un solo Deshacer.
+Cada generación o actualización ocupa un solo Deshacer. Si se eliminan todas
+las carpinterías, Actualizar vacía las fichas y retira sus marcas. Las ventanas
+fijas y los huecos figuran «sin mano»; los armarios cuentan la mano de cada frente.
 
 Las puertas, ventanas, huecos y frentes de armario se agrupan por su definición
 física y reciben marcas P/V/H/A persistentes. La posición y la mano no crean otro
