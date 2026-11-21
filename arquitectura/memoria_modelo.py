@@ -30,6 +30,7 @@ def leer(dibujo):
     geometria = {muro.id: muro for muro in walls_from_records(muros)}
     niveles = {nivel["id"]: nivel["name"] for nivel in load(dibujo)["levels"]}
     piezas = []
+    indice_recintos = _indice_recintos(dibujo)
     for hueco in huecos:
         muro = geometria[hueco["wall_id"]]
         anfitrion = registros[hueco["wall_id"]]
@@ -46,7 +47,14 @@ def leer(dibujo):
             )
             if hueco["type"] == "gap" or hueco["operation"] == "FIXED":
                 pieza["mano"] = "sin mano"
-            pieza["recintos"] = recintos_vecinos(dibujo, muro, pieza["registro"], pieza["nivel_id"])
+            pieza["recintos"] = recintos_vecinos(
+                dibujo,
+                muro,
+                pieza["registro"],
+                pieza["nivel_id"],
+                indice=indice_recintos,
+                solo_cara=hueco.get("cabinet", False),
+            )
             pieza["posicion"] = muro.point(hueco["offset"] + hueco["width"] / 2, 0.0)
             pieza["muro_id"] = muro.id
             piezas.append(pieza)
@@ -108,36 +116,58 @@ def preparar(dibujo):
     return grupos, SafeArchitecturalCommand("ARQ marcas de carpintería", ordenes)
 
 
-def recintos_vecinos(dibujo, muro, registro, nivel_id):
-    """Muestrea ambas caras del vano; un hueco largo puede dar a varios recintos."""
+def _indice_recintos(dibujo):
     from .geom import polygon as poligonos
-    from .geom.soldadura import TOLERANCIA
-    from .levels import load
 
-    cotas = {nivel["id"]: nivel["elevation"] for nivel in load(dibujo)["levels"]}
-    muestras = []
-    for fraccion in (0.25, 0.5, 0.75):
-        estacion = registro["offset"] + registro["width"] * fraccion
-        for cara in (muro.lo - 0.01, muro.hi + 0.01):
-            muestras.append(muro.point(estacion, cara))
-    vecinos = []
+    indice = []
     for entidad in dibujo.modelspace():
         datos = metadata(entidad) or {}
         if datos.get("kind") != "space" or entidad.dxftype() != "LWPOLYLINE":
             continue
-        if datos.get("level_id"):
-            if datos["level_id"] != nivel_id:
-                continue
-        elif abs(float(datos.get("base", 0)) - cotas.get(nivel_id, 0)) > TOLERANCIA:
-            continue
         exterior = [tuple(punto) for punto in entidad.get_points("xy")]
-        patios = datos.get("islands", [])
+        partes = poligonos.convex_parts(exterior)
+        for patio in datos.get("islands", []):
+            partes = poligonos.subtract(partes, patio)
+        indice.append(
+            {
+                "nivel": datos.get("level_id"),
+                "base": float(datos.get("base", 0)),
+                "nombre": str(datos.get("name") or datos.get("number") or "Recinto sin nombre"),
+                "partes": partes,
+            }
+        )
+    return indice
+
+
+def recintos_vecinos(dibujo, muro, registro, nivel_id, *, indice=None, solo_cara=False):
+    """Interseca todo el vano con las caras libres, sin perder estancias en sus extremos."""
+    from .geom.spaces import _clip_segment
+    from .geom.soldadura import TOLERANCIA
+    from .levels import load
+
+    cotas = {nivel["id"]: nivel["elevation"] for nivel in load(dibujo)["levels"]}
+    caras = [muro.lo - 0.01, muro.hi + 0.01]
+    if solo_cara:
+        caras = [caras[1] if registro["side"] > 0 else caras[0]]
+    segmentos = []
+    for cara in caras:
+        inicio = muro.point(registro["offset"], cara)
+        final = muro.point(registro["offset"] + registro["width"], cara)
+        puntos = muro.run(cara, inicio, final)
+        segmentos.extend(zip(puntos, puntos[1:]))
+    vecinos = []
+    for recinto in indice if indice is not None else _indice_recintos(dibujo):
+        if recinto["nivel"]:
+            if recinto["nivel"] != nivel_id:
+                continue
+        elif abs(recinto["base"] - cotas.get(nivel_id, 0)) > TOLERANCIA:
+            continue
         if any(
-            poligonos.point_in_polygon(punto, exterior)
-            and not any(poligonos.point_in_polygon(punto, patio) for patio in patios)
-            for punto in muestras
+            _clip_segment(inicio, final, parte) is not None
+            for inicio, final in segmentos
+            for parte in recinto["partes"]
         ):
-            vecinos.append(datos.get("name") or datos.get("number") or "Recinto sin nombre")
+            vecinos.append(recinto["nombre"])
     return sorted(set(vecinos))
 
 
