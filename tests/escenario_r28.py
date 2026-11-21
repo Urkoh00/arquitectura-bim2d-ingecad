@@ -38,6 +38,9 @@ def modelo_carpinterias(plugin):
         # Ambas plantas comparten coordenadas XY; la elevación pertenece al nivel.
         puertas = crear_muro((0.0, 0.0), (20.0, 0.0), nivel)
         ventanas = crear_muro((0.0, 6.0), (20.0, 6.0), nivel)
+        crear_muro((0.0, 0.0), (0.0, 6.0), nivel)
+        crear_muro((20.0, 0.0), (20.0, 6.0), nivel)
+        crear_muro((12.0, 0.0), (12.0, 6.0), nivel)
         for numero, (distancia, hojas, operacion, bisagra) in enumerate(
             (
                 (1.0, 1, "SWINGING", 0),
@@ -106,4 +109,12 @@ def modelo_carpinterias(plugin):
                     leaves=1,
                 )
             )
+        activos = niveles.load(sesion.document)
+        activos["active"] = nivel["id"]
+        niveles.apply(contexto, activos)
+        for nombre, semilla in (("Salón", (4.0, 3.0)), ("Dormitorio", (16.0, 3.0))):
+            recinto = sesion.tool("RECINTO")
+            recinto.next_name = nombre + " — " + nivel["name"]
+            recinto.on_point(semilla)
+            recinto.on_enter()
     return sesion

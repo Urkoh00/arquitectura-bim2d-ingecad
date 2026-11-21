@@ -179,3 +179,92 @@ def test_biblioteca_ilegible_no_impide_el_plano_ni_inventa_u(plugin, monkeypatch
     plano = generar(sesion, plugin)
     assert all(fila["u"] is None for fila in plano.planos(sesion.document.doc)[0][1]["rows"])
     assert not plano.avisos(sesion.document.doc)
+
+
+def test_localizacion_manos_y_recintos_salen_de_las_fuentes_y_no_del_ejemplo(plugin):
+    sesion = modelo_carpinterias(plugin)
+    plano = generar(sesion, plugin)
+    filas = plano.planos(sesion.document.doc)[0][1]["rows"]
+    assert any("Salón" in nombre for fila in filas for nombre in fila["recintos"])
+    assert any("Dormitorio" in nombre for fila in filas for nombre in fila["recintos"])
+    dobles = [fila for fila in filas if fila["apertura"] == "TILTANDTURN"]
+    assert len(dobles) == 1 and dobles[0]["manos"] == {"izquierda": 1, "derecha": 1}
+    assert len(dobles[0]["plantas"]) == 2
+
+
+def test_cotas_usan_estilo_activo_y_midien_la_misma_pieza(plugin):
+    sesion, _, _ = modelo(plugin)
+    sesion.document.doc.dimstyles.new(
+        "Ensayo", dxfattribs={"dimtxt": 2.0, "dimdec": 3, "dimlfac": 1000.0}
+    )
+    sesion.document.doc.header["$DIMSTYLE"] = "Ensayo"
+    plano = generar(sesion, plugin, {"escala": "1:25"})
+    fila = plano.planos(sesion.document.doc)[0][1]["rows"][0]
+    cotas = [e for e in sesion.document.doc.modelspace() if e.dxftype() == "DIMENSION"]
+    assert cotas and all(e.dxf.dimstyle == "Ensayo" for e in cotas)
+    ancho = next(e for e in cotas if sesion.meta(e)["dimension_kind"] == "ancho")
+    assert ancho.get_measurement() == pytest.approx(fila["ancho"])
+    assert sesion.document.doc.dimstyles.get("Ensayo").dxf.dimtxt == 2.0
+
+
+def test_rotulos_siguen_la_carpinteria_y_estan_en_su_grupo(plugin):
+    sesion, _, arquitectura = modelo(plugin)
+    generar(sesion, plugin)
+    fuente = next(
+        e
+        for e in sesion.document.doc.modelspace()
+        if (sesion.meta(e) or {}).get("kind") == "opening"
+    )
+    identificador = sesion.meta(fuente)["id"]
+    contexto = sesion.tool("MURO").ctx
+    modulo(plugin, "transactions").apply_architectural_change(
+        contexto, arquitectura.edit_opening(fuente, offset=2.0), kind="opening"
+    )
+    rotulo = next(
+        e
+        for e in sesion.document.doc.modelspace()
+        if (sesion.meta(e) or {}).get("kind") == "opening_mark"
+        and sesion.meta(e)["opening_id"] == identificador
+    )
+    assert rotulo.dxf.insert.x == pytest.approx(2.0 + sesion.meta(fuente)["width"] / 2)
+    assert any(
+        fuente in list(grupo) and rotulo in list(grupo) for _, grupo in sesion.document.doc.groups
+    )
+
+
+def test_transmitancia_necesita_ambos_materiales_reales(plugin):
+    memoria = modulo(plugin, "memoria_modelo")
+    sesion = modelo_carpinterias(plugin)
+    pieza = next(p for p in memoria.leer(sesion.document.doc) if p["registro"]["type"] == "window")
+    assert memoria.transmitancia(pieza, {"vidrios": {"Vidrio": {"u": 1.0}}, "marcos": {}}) is None
+    resultado = memoria.transmitancia(
+        pieza, {"vidrios": {"Vidrio": {"u": 1.0}}, "marcos": {"Aluminio": {"u": 2.0}}}
+    )
+    assert 1.0 < resultado < 2.0
+    assert (
+        memoria.transmitancia(
+            pieza, {"vidrios": {"Otro vidrio": {"u": 1.0}}, "marcos": {"Aluminio": {"u": 2.0}}}
+        )
+        is None
+    )
+
+
+def test_un_fallo_al_redibujar_recupera_plano_marcas_grupos_y_capas(plugin, monkeypatch):
+    sesion, _, _ = modelo(plugin)
+    plano = generar(sesion, plugin)
+    antes = estado(plugin, sesion.document)
+    capas = {capa.dxf.name for capa in sesion.document.doc.layers}
+    bloques = set(sesion.document.doc.blocks.block_names())
+    profundidad = sesion.history.depth
+
+    def fallar(documento, *args):
+        documento.doc.modelspace().add_line((30, 30), (31, 31))
+        raise ValueError("Fallo de prueba durante el dibujo")
+
+    monkeypatch.setattr(modulo(plugin, "memoria_dibujo"), "dibujar", fallar)
+    with pytest.raises(ValueError, match="Fallo de prueba"):
+        plano.actualizar(sesion.tool("MURO").ctx)
+    assert estado(plugin, sesion.document) == antes
+    assert sesion.history.depth == profundidad
+    assert {capa.dxf.name for capa in sesion.document.doc.layers} == capas
+    assert set(sesion.document.doc.blocks.block_names()) == bloques

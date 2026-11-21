@@ -16,6 +16,13 @@ def test_modelo_dos_plantas_con_oscilobatientes_y_familias_reales(plugin, tmp_pa
         for e in sesion.document.doc.modelspace()
         if (sesion.meta(e) or {}).get("kind") == "opening"
     ]
+    recintos = [
+        sesion.meta(e)
+        for e in sesion.document.doc.modelspace()
+        if (sesion.meta(e) or {}).get("kind") == "space"
+    ]
+    assert len(recintos) == 4
+    assert any("Salón" in r["name"] for r in recintos)
     ventanas = [r for r in piezas if r["type"] == "window"]
     oscilobatientes = [r for r in ventanas if r["operation"] == "TILTANDTURN"]
     assert len(ventanas) == 5
