@@ -1,12 +1,12 @@
-# Manual de Arquitectura para IngeCAD — versión 1.47.1-dev
+# Manual de Arquitectura para IngeCAD — versión 1.47.2-dev
 
-Versión 1.47.1-dev · 21-11-2026
+Versión 1.47.2-dev · 23-11-2026
 
 > Copia del manual publicado como documento en claude.ai; se regenera con cada versión.
 
 ## Qué es
 
-Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.47.1-dev** y se actualiza con cada versión.
+Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.47.2-dev** y se actualiza con cada versión.
 
 Cada elemento guarda su identidad persistente, su clase IFC, su geometría editable en planta, sus parámetros 3D (altura, espesor, cota), sus propiedades constructivas (tipo, material, capas) y su nivel. Las carpinterías conocen su muro y los recintos siguen a los muros que los cierran.
 
@@ -23,11 +23,11 @@ El plugin calcula una sola vez la huella final de cada elemento, con los encuent
 
 El plugin se instala copiando una carpeta en IngeCAD, y la extensión copiando todo el contenido de su carpeta en IngeTrazo. No hace falta instalar Python aparte.
 
-**Requisitos.** La última versión publicada de IngeCAD y de IngeTrazo; hoy, IngeCAD 0.8.0 e IngeTrazo 0.6.2.1. Los dos programas publican versiones nuevas casi cada semana, con muchos cambios en cada una, así que el plugin solo se desarrolla y se prueba con la última de cada uno: no use versiones anteriores.
+**Requisitos.** La última versión publicada de IngeCAD y de IngeTrazo; hoy, IngeCAD 0.8.0 e IngeTrazo 0.6.3.2. Los dos programas publican versiones nuevas casi cada semana, con muchos cambios en cada una, así que el plugin solo se desarrolla y se prueba con la última de cada uno: no use versiones anteriores.
 
 **En IngeCAD**
 
-1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.47.1-dev.zip`.
+1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.47.2-dev.zip`.
 2. Copie la carpeta `arquitectura` en la carpeta de plugins de IngeCAD.
 3. Reinicie IngeCAD. Aparece el menú *Arquitectura* y su barra de herramientas.
 4. Escriba `ARQDIAG` en la línea de órdenes para comprobar que la versión cargada es la que acaba de copiar.
@@ -274,7 +274,7 @@ Un muro curvo es el mismo muro BIM que uno recto: sus caras son arcos concéntri
 
 Las puertas se crean de 2,10 m de altura; las ventanas, de 1,20 m con antepecho de 0,90 m. Los muros se crean por su eje. Ajuste tipos, alturas y carpinterías después.
 
-La lectura del plano usa el módulo libre `walldetect` del proyecto cad2ingetrazo (GPL-3.0), incorporado sin cambios.
+La lectura del plano usa el módulo libre `walldetect` del proyecto cad2ingetrazo (GPL-3.0-or-later), con mejoras propias del plugin para trazos partidos, ventanas, puertas dobles y encuentros oblicuos, anotadas en la cabecera del fichero.
 
 **Entrada revisada (capas REV-\*).** Un plano preparado y revisado fuera de IngeCAD puede llegar con sus elementos en capas `REV-*` (por ejemplo `REV-MURO-CARA`, `REV-PUERTA`, `REV-VENTANA`) y, junto al DXF, un fichero de procedencia con el mismo nombre más `.procedencia.json` (para `plano.dxf`, `plano.dxf.procedencia.json`). Ese fichero declara el papel y el estado de cada capa REV-\* (y, si hace falta, de cada objeto), que el plano está en metros con la escala comprobada y que la revisión está terminada; lleva además la huella SHA-256 del DXF, de modo que cualquier cambio en el plano lo invalida.
 
@@ -398,7 +398,7 @@ Si cambia la elevación de un nivel, se recalculan los muros, forjados y recinto
 
 **Iconos y ficha de carpintería.** Todas las órdenes del menú tienen icono, y `LINEASAMURO` está justo antes de «Intercambio BIM». En la ficha de carpintería, la planta y el alzado se dibujan a la misma escala, sin solaparse, con las medidas al pie.
 
-**Límite del IFC de IngeTrazo.** El exportador IFC oficial de IngeTrazo crea todavía una sola planta, relaciona mal los recintos y no transmite el tipo de muro, sus propiedades ni sus cantidades. La geometría es correcta y el fichero de IngeTrazo conserva todos los datos, pero el IFC aún no tiene la semántica completa. Se han propuesto a IngeTrazo las correcciones (norte, propiedades, tipos y plantas); este apartado cambiará cuando se publiquen.
+**Límite del IFC de IngeTrazo.** Desde IngeTrazo 0.6.3, el IFC oficial ya lleva el norte, identificadores estables, los recintos dentro de su planta, el tipo de cada muro (PARTITIONING, o USERDEFINED con EXTERNALWALL, PARTYWALL o BASEMENTWALL), el de cada forjado (solera, cubierta…), la marca de puertas y ventanas, el material, si el elemento es exterior y sus cantidades, y da 0 errores en el validador. Falta todavía: una planta por nivel (escribe una sola «Storey»), las capas de material de muros y forjados, los tipos compartidos, el hueco de cada puerta y ventana y los grupos de propiedades propios del plugin (`ARQ_Recinto` y demás). El fichero de IngeTrazo conserva todos esos datos; las mejoras se proponen a IngeTrazo de una en una y este apartado cambiará con cada versión.
 
 ## Recintos y superficies útiles
 
@@ -490,7 +490,7 @@ Si encuentra alguno, abre un cuadro con la lista. Al seleccionar un problema, su
 | Recinto | IfcSpace | Superficie útil y computable, si es habitable, usos |
 | Falso techo | IfcCovering | Placa de 15 mm bajo el techo del recinto |
 
-**Estado.** Con la versión oficial actual de IngeTrazo, el IFC no relaciona aún las puertas y ventanas con su hueco ni escribe sus tipos de apertura, y coloca los recintos de una forma que el validador marca como error. Las correcciones están preparadas para proponerlas a su desarrollador. Con ellas, los modelos de prueba dan 0 errores en IfcOpenShell. La extensión valida el fichero completo antes de importarlo. Los modelos a más de 100 km del origen (coordenadas UTM) se desplazan cerca del origen con la misma regla que IngeTrazo aplica a cualquier fichero, y se avisa del desplazamiento.
+**Estado.** Con IngeTrazo 0.6.3.2 los modelos de prueba dan 0 errores en IfcOpenShell. Todos los muros, forjados, puertas y ventanas salen con su tipo, su material, sus propiedades comunes y sus cantidades, y los recintos dentro de la planta. Si la versión de IngeTrazo instalada no admite alguna clase (los armarios, por ejemplo), ese elemento se exporta sin esos datos para no impedir la exportación del resto. Quedan pendientes las plantas por nivel, las capas de material, los tipos compartidos y la relación de cada puerta o ventana con su hueco (ver *Límite del IFC de IngeTrazo*). La extensión valida el fichero completo antes de importarlo. Los modelos a más de 100 km del origen (coordenadas UTM) se desplazan cerca del origen con la misma regla que IngeTrazo aplica a cualquier fichero, y se avisa del desplazamiento.
 
 **Volver a importar (desde la 1.20).** Si cambia el plano en IngeCAD, exporte de nuevo el `.arqbim` y vuelva a abrirlo en IngeTrazo: el modelo se **actualiza** en lugar de duplicarse. Los elementos se reconocen por su identificador BIM; los cambiados se sustituyen, los nuevos se añaden y los borrados se retiran, todo en un solo `Deshacer`. Copie en la carpeta de extensiones de IngeTrazo todo el contenido de `ingetrazo_ext`. Los modelos importados con versiones anteriores no se actualizan solos: bórrelos antes de la primera reimportación.
 
@@ -567,7 +567,7 @@ Con niveles o forjados, el intercambio usa `.arqbim` v3 y necesita la extensión
 
 ## Limitaciones conocidas
 
-Estas son las limitaciones conocidas de la versión 1.47.1-dev; cada versión actualiza esta lista.
+Estas son las limitaciones conocidas de la versión 1.47.2-dev; cada versión actualiza esta lista.
 
 - **Plataforma:** las pruebas automáticas se ejecutan en Linux con la última versión oficial de IngeCAD y de IngeTrazo, pero sin pantalla. Solo se prueba con la última versión de cada programa, porque ambos publican casi cada semana.
 - **Muros curvos:** cada muro llega como mucho a media circunferencia (un muro redondo son dos). MUROPARALELO y DIVIDEMURO solo toman líneas rectas como referencia. El gesto de esquina en L al terminar un MURO solo recorta muros rectos.
@@ -581,6 +581,7 @@ Estas son las limitaciones conocidas de la versión 1.47.1-dev; cada versión ac
 
 | Fecha | Versión | Novedades |
 | --- | --- | --- |
+| 23-11-2026 | 1.47.2-dev | IFC con IngeTrazo 0.6.3: muros, forjados, puertas y ventanas salen con su tipo, material, marca y propiedades comunes (fachada EXTERNALWALL, medianera PARTYWALL, solera, cubierta…), con 0 errores en el validador |
 | 21-11-2026 | 1.47.1-dev | MEMORIACARP Actualizar deja el plano donde el usuario lo haya movido (antes volvía a su posición original) |
 | 21-11-2026 | 1.47.0-dev | Nueva MEMORIACARP: plano de carpintería con fichas acotadas, sección, tabla, marcas P/V/H/A persistentes, rótulos en planta y Actualizar en un solo Deshacer; -MEMORIACARP; ventana oscilobatiente de ambas manos; ELEMENTOS, SELATRIB, HIPERVINCULO y LISTATEXTOS explican su alcance |
 | 20-11-2026 | 1.46.0-dev | Variantes -ORDEN sin cuadros de diálogo en 25 órdenes. Repaso de todas las órdenes: corregidos fallos en EJES, EDITAREJE, BLOQUE, ESCALERA, TIPOSMURO (CSV y capas), PILAR, TRAMA, ARMARIOBIM, validación de contornos por planta y órdenes sin ventana |

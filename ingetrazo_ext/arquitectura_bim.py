@@ -320,6 +320,67 @@ def _etiqueta_material_muro(etiqueta, elemento):
     etiqueta["layer_offset"] = desplazamiento
 
 
+def _reglas_entrega():
+    """Clases y propiedades que el escritor IFC de IngeTrazo admite en el
+    bloque ``delivery`` de cada objeto (0.6.3 en adelante). None si este
+    IngeTrazo no lo tiene: entonces no se añade el bloque."""
+    try:
+        from core.turkiye_delivery import rules
+        return rules()["classes"]
+    except Exception:  # noqa: BLE001  (IngeTrazo anterior a 0.6.3)
+        return None
+
+
+def _valor_admitido(tipo, valor):
+    if tipo == "IfcBoolean":
+        return type(valor) is bool
+    if tipo == "IfcLabel":
+        return isinstance(valor, str) and bool(valor.strip())
+    return (type(valor) in (int, float) and math.isfinite(valor) and valor > 0)
+
+
+def _entrega_ifc(elemento, etiqueta, reglas):
+    """El bloque ``delivery`` que el escritor IFC oficial convierte en
+    PredefinedType, ObjectType, Tag, material, capas de material y juegos de
+    propiedades comunes, con los datos que el plugin ya exporta. Solo lo que
+    IngeTrazo admite para esa clase: una clase o un valor que no admite haría
+    fallar la exportación entera. Devuelve el bloque (vacío si no procede)."""
+    clase = elemento["ifc_class"]
+    regla = (reglas or {}).get(clase)
+    if regla is None:
+        return {}
+    entrega = {}
+    enumerados = elemento.get("enums") or {}
+    atributos = elemento.get("attributes") or {}
+    tipo = enumerados.get("PredefinedType")
+    admitidos = set(regla["predefined_types"].get("IFC4", [])) & set(
+        regla["predefined_types"].get("IFC4X3_ADD2", []))
+    tipo_objeto = atributos.get("ObjectType")
+    if tipo in admitidos and (tipo != "USERDEFINED" or tipo_objeto):
+        entrega["predefined_type"] = tipo
+    if isinstance(tipo_objeto, str) and tipo_objeto.strip():
+        entrega["object_type"] = tipo_objeto
+    marca = (elemento.get("params") or {}).get("mark")
+    if clase != "IfcSpace" and isinstance(marca, str) and marca.strip():
+        entrega["tag"] = marca
+    material = elemento.get("material")
+    if clase != "IfcSpace" and isinstance(material, str) and material.strip():
+        entrega["material"] = material
+        # IngeTrazo 0.6.3 solo admite capas de material en IfcCovering: en un
+        # muro rechaza la exportación. Las capas siguen en el IGZ
+        # (material_layers) hasta que el escritor las acepte en muros.
+    propiedades = {}
+    for juego, campos in regla.get("psets", {}).items():
+        origen = (elemento.get("psets") or {}).get(juego) or {}
+        valores = {nombre: origen[nombre] for nombre, tipo_valor in campos.items()
+                   if nombre in origen and _valor_admitido(tipo_valor, origen[nombre])}
+        if valores:
+            propiedades[juego] = valores
+    if propiedades:
+        entrega["psets"] = propiedades
+    return entrega
+
+
 def _etiqueta_eje_muro(etiqueta, elemento, desplazamiento):
     """Sitúa la línea dibujada en las mismas coordenadas que los vértices."""
     if elemento["ifc_class"] != "IfcWall":
@@ -510,6 +571,7 @@ def build_scene(data, offset=None):
             attrs["back"] = True                 # glass: seen from both sides
         return attrs
 
+    reglas_entrega = _reglas_entrega()
     for el in data["elements"]:
         mesh = Mesh()
         parts = el.get("parts") or []
@@ -537,6 +599,9 @@ def build_scene(data, offset=None):
             tag["type"] = el["type_name"]
         _etiqueta_material_muro(tag, el)
         _etiqueta_eje_muro(tag, el, (ox, oy, oz))
+        entrega = _entrega_ifc(el, tag, reglas_entrega)
+        if entrega:
+            tag["delivery"] = entrega
         if el.get("psets"):
             tag["psets"] = el["psets"]
         if el.get("quantities"):

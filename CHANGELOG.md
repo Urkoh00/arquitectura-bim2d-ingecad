@@ -2,6 +2,21 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.47.2-dev — 2026-11-23
+
+IFC con IngeTrazo 0.6.3 (primera versión que incluye nuestra aportación #1498).
+
+- La extensión de IngeTrazo rellena el bloque de entrega que el escritor IFC oficial de 0.6.3 lee de
+  cada objeto: tipo predefinido, ObjectType, marca (Tag), material y las propiedades comunes que admite
+  (IsExternal, FireRating, LoadBearing…). Con ello los muros salen como USERDEFINED + EXTERNALWALL o
+  PARTYWALL, o PARTITIONING; los forjados como BASESLAB o ROOF; y puertas y ventanas con su marca.
+- El bloque se filtra con la lista de clases y valores del IngeTrazo instalado: una clase que no admite
+  (armarios, proxies) no lleva bloque, porque haría fallar la exportación entera; con un IngeTrazo
+  anterior a 0.6.3 no se añade nada.
+- Las capas de material de muros y forjados no se envían todavía: 0.6.3 solo las admite en IfcCovering.
+- Pruebas nuevas en `tests/test_extension_entrega_ifc.py`, incluida la cadena completa contrato → IGZ →
+  IFC con el IngeTrazo real (`INGETRAZO_SRC`), que da 0 errores EXPRESS.
+
 ## 1.47.1-dev — 2026-11-21
 
 Corrección tras la primera prueba del propietario con la v1.47.
