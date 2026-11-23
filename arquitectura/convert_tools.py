@@ -229,11 +229,14 @@ def collect(drawing, lo, hi, wall_layers=None, column_layers=(), carpentry_layer
     return faces, context, sources, arcs, columns, in_blocks, others
 
 
-def party_walls(unpaired, others, tmin, tmax, min_len, ang_tol=1.5, overlap=0.6):
+def party_walls(unpaired, others, tmin, tmax, min_len, ang_tol=1.5, overlap=0.6, notes=None):
     """Walls whose second face is not on a wall layer: a party wall drawn
     with its inner face only, closed by the neighbour's boundary or a
-    reference line.  Each long unpaired face takes the NEAREST parallel line
-    of another layer a wall thickness away that runs along most of it.
+    reference line.  Parallel lines of other layers a wall thickness away
+    are grouped by distance (5 mm); the group that runs along MOST of the
+    face wins (fragments of one boundary add up), and only on a tie the
+    NEAREST one, as before.  A tie between different thicknesses is
+    reported in ``notes`` (a list of messages) so the operator can check it.
     -> ([(a, b, thickness)], faces used)."""
     out, used = [], []
     for f in unpaired:
@@ -243,7 +246,7 @@ def party_walls(unpaired, others, tmin, tmax, min_len, ang_tol=1.5, overlap=0.6)
             continue
         u = ((q[0] - p[0]) / L, (q[1] - p[1]) / L)
         n = (-u[1], u[0])
-        best = None
+        groups = []                      # [distance, [(t0, t1)]], distance = signed mean
         for g in others:
             a, b = g[:2], g[2:4]
             lg = math.dist(a, b)
@@ -259,15 +262,37 @@ def party_walls(unpaired, others, tmin, tmax, min_len, ang_tol=1.5, overlap=0.6)
                 continue
             ta = (a[0] - p[0]) * u[0] + (a[1] - p[1]) * u[1]
             tb = (b[0] - p[0]) * u[0] + (b[1] - p[1]) * u[1]
-            cover = min(L, max(ta, tb)) - max(0.0, min(ta, tb))
-            if cover < overlap * L:
+            lo, hi = max(0.0, min(ta, tb)), min(L, max(ta, tb))
+            if hi <= lo:
                 continue
-            if best is None or abs(d) < abs(best):
-                best = d
-        if best is not None:
-            off = (n[0] * best / 2, n[1] * best / 2)
-            out.append(((p[0] + off[0], p[1] + off[1]), (q[0] + off[0], q[1] + off[1]), abs(best)))
-            used.append(f)
+            for grp in groups:
+                if abs(grp[0] - d) <= 0.005:
+                    grp[1].append((lo, hi))
+                    break
+            else:
+                groups.append([d, [(lo, hi)]])
+        eligible = []
+        for d, spans in groups:
+            cover, reach = 0.0, -1.0
+            for lo, hi in sorted(spans):          # union of the pieces
+                if lo > reach:
+                    cover += hi - lo
+                else:
+                    cover += max(0.0, hi - reach)
+                reach = max(reach, hi)
+            if cover >= overlap * L:
+                eligible.append((d, cover / L))
+        if not eligible:
+            continue
+        top = max(round(c * 20) for d, c in eligible)       # coverage in 5 % steps
+        tied = [d for d, c in eligible if round(c * 20) == top]
+        best = min(tied, key=abs)
+        if notes is not None and len(tied) > 1:
+            notes.append('Medianera con varias líneas candidatas a distinto espesor (%s m): se toma %.3f m; revíselo'
+                         % (', '.join('%.3f' % abs(d) for d in sorted(tied, key=abs)), abs(best)))
+        off = (n[0] * best / 2, n[1] * best / 2)
+        out.append(((p[0] + off[0], p[1] + off[1]), (q[0] + off[0], q[1] + off[1]), abs(best)))
+        used.append(f)
     return out, used
 
 
@@ -351,7 +376,9 @@ def detect_all(drawing, lo, hi, tmin=0.07, tmax=0.50, wall_layers=None, column_l
     if wall_layers is not None:
         # party walls: only with known wall layers (otherwise every line is
         # already a candidate face)
-        extra, used_faces = party_walls(unpaired, others, tmin, tmax, max(tmax + 0.05, 1.5))
+        party_notes = []
+        extra, used_faces = party_walls(unpaired, others, tmin, tmax, max(tmax + 0.05, 1.5), notes=party_notes)
+        reader.warnings.update(party_notes)
         walls = list(walls) + extra
         unpaired = [f for f in unpaired if f not in used_faces]
     if recognition is not None:

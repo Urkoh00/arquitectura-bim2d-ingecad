@@ -501,7 +501,7 @@ def analyse(drawing, lo, hi, classification, tmin=.07, tmax=.5, height=3.,
         ops.append((k,pos,width,kind,hinge,face))
         details.append(attrs if kind in ('door','window') else {})
     if cabinet_vetoes:warnings.append(f'Armarios: {cabinet_vetoes} cortes pasantes evitados; nicho parcial pendiente de definición explícita')
-    warnings.extend(w for w in recognition['warnings'] if w.startswith('Jambas'))
+    warnings.extend(w for w in recognition['warnings'] if w.startswith(('Jambas', 'Medianera')))
     warnings.extend(sorted(reader.warnings))
     review=[];unresolved=set()
     for entity,role in leaves:
