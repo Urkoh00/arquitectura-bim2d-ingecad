@@ -41,7 +41,8 @@ def outline(a, b, bulge, thickness, reference):
 def _bulge_for(a, b, p):
     bulge = CV.bulge_through(a, b, p)
     if abs(bulge) > CV.MAX_BULGE + 1e-9:
-        raise ValueError("más de media circunferencia: elija un punto de paso más cercano a la cuerda")
+        raise ValueError(f"más de {math.degrees(CV.MAX_SWEEP):g}°: un muro no puede cerrar el círculo, "
+                         "elija un punto de paso más cercano a la cuerda (o dibuje dos muros)")
     return bulge
 
 

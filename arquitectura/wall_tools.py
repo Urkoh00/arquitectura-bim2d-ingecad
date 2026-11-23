@@ -28,6 +28,7 @@ from tools.base import Tool
 
 from .architectural import metadata
 from .architectural_v10 import EditArchitecturalCommand, create_wall, edit_opening, _find_openings
+from .geom import curved_drafting as CD
 from .geom import drafting as D
 from .tools_v10 import MuroTool as _MuroV10
 
@@ -114,14 +115,27 @@ def sub_wall(m, s1, s2):
     """(a, b, bulge) of the part of a wall between s1 and s2 (metres along its
     reference line; beyond its ends too: a curved wall goes on along its
     circle). A straight wall: bulge 0."""
-    w = spec_of(m)
-    a, b = w.point(s1, 0.0), w.point(s2, 0.0)
-    if not w.curved:
-        return a, b, 0.0
-    sweep = w.sweep * (s2 - s1) / w.length
-    if abs(sweep) > math.pi + 1e-9:
-        raise ValueError("El muro curvo pasaría de media circunferencia")
-    return a, b, math.tan(sweep / 4.0)
+    return CD.sub_wall_of_spec(spec_of(m), s1, s2)
+
+
+def specs_in(drawing):
+    """({id: junctions.Wall}, {id: entity}) of ALL the drawing's walls, straight AND
+    curved. ``walls_in`` keeps only the straight ones (tuples for ``drafting.py``);
+    the gestures on curves (``geom/curved_drafting.py``) need both."""
+    specs, ents = {}, {}
+    for e in drawing.modelspace():
+        m = metadata(e) or {}
+        if m.get("kind") != "wall" or e.dxftype() != "LWPOLYLINE" or e.closed or len(e) != 2:
+            continue
+        from .level_layers import target_available
+        if not target_available(drawing, m):
+            continue
+        try:
+            specs[m["id"]] = spec_of(m)
+        except ValueError:
+            continue                      # a wall that cannot be built is reported by ARQVALIDAR
+        ents[m["id"]] = e
+    return specs, ents
 
 
 def reshape_wall(entity, a, b, end_moved, bulge=None):
@@ -714,7 +728,8 @@ class MuroCarasTool(WallTypeChoice, _MuroV10):
         try:
             host_entity = gesture["host_entity"]
             end_moved = 1 if gesture["kept"] == "start" else 0
-            commands = reshape_wall(host_entity, gesture["host_a"], gesture["host_b"], end_moved)
+            commands = reshape_wall(host_entity, gesture["host_a"], gesture["host_b"], end_moved,
+                                    gesture.get("host_bulge"))          # None: a straight host
             new = create_wall(self.startpoint, gesture["new_end"], self.thickness, self.height,
                               self.base, self.reference, **self.bim)
             apply(self.ctx, "ARQ MURO en esquina", commands + [new])
@@ -739,6 +754,17 @@ class MuroCarasTool(WallTypeChoice, _MuroV10):
                 self.ctx.echo(f"MURO: {exc}")
                 continue
             g["host_entity"] = ents[wid]
+            return g
+        # a CURVED wall under the click: the same rule, on its circle (geom/curved_drafting.py)
+        specs, cents = specs_in(_document(self.ctx).doc)
+        for wid, side, _s in CD.face_at(specs, p, FACE_TOL):
+            try:
+                g = CD.end_gesture(self.startpoint, p, self.thickness, self.reference,
+                                   specs[wid], side, click=p)
+            except ValueError as exc:
+                self.ctx.echo(f"MURO: {exc}")
+                continue
+            g["host_entity"] = cents[wid]
             return g
         return None
 
@@ -921,12 +947,13 @@ class MuroParaleloTool(WallTypeChoice, Tool):
         self.face = None
         self.side = None
         self.last = None            # (a, b, ref) of the last wall made
+        self.last_spec = None       # the same wall as a junctions.Wall (curved or not)
         self.stage = "face"
         self._ask_face()
 
     def _ask_face(self):
         self.stage = "face"
-        txt = "línea base o lado de paralela" if self.last else "línea base (cara, eje o línea)"
+        txt = "línea base o lado de paralela" if self.last else "línea base (cara, eje, línea o arco)"
         self.prompt(f"MUROPARALELO ({self._type_label()}; distancia {self.distance:g} m): "
                     f"indique {txt}; o teclee [distancia/Espesor/Tipo]:")
 
@@ -983,8 +1010,82 @@ class MuroParaleloTool(WallTypeChoice, Tool):
             return None
         return line
 
+    def _picked_curve(self, p):
+        """A curve under the click: a curved wall (its face or axis, along the whole
+        wall), or an ARC or CIRCLE of the drawing. A straight line or wall: None."""
+        services = getattr(self.ctx, "services", None)
+        picked = services.pick_entity(p) if services else None
+        if picked is None:
+            return None
+        from .arq_properties import resolve_arch_entity
+        from .compat import require_document
+        entity, _err = resolve_arch_entity(require_document(self.ctx), picked)
+        if entity is not None and (metadata(entity) or {}).get("kind") == "wall":
+            m = metadata(entity)
+            return CD.base_from_wall(spec_of(m), p) if float(m.get("bulge") or 0.0) else None
+        kind = picked.dxftype()
+        if kind in ("ARC", "CIRCLE"):
+            c = picked.dxf.center
+            start, end = ((picked.dxf.start_angle, picked.dxf.end_angle) if kind == "ARC"
+                          else (0.0, 360.0))
+            return CD.base_from_arc((float(c[0]), float(c[1])), float(picked.dxf.radius), start, end)
+        return None
+
+    def _make_arcs(self, p):
+        """The parallel wall(s) to a curved base: concentric, same angles. A full circle
+        is two half circles (like MUROCURVO, O); otherwise the ends go to the faces
+        of the neighbouring walls, as with a straight base."""
+        from .geom import junctions as J
+        try:
+            base = self.face["base"]
+            walls = CD.parallel_arcs(base, self.distance, self.side, p)
+            specs, _ents = specs_in(_document(self.ctx).doc)
+            cmds, made = [], []
+            for a, b, bulge, ref in walls:
+                if len(walls) == 1:
+                    a, b, bulge = CD.extend_arc_to_faces(a, b, bulge, specs,
+                                                         self.distance + self.thickness + 0.5)
+                cmds.append(create_wall(a, b, self.thickness, self.height, self.base, ref,
+                                        bulge=bulge, **self.bim))
+                made.append((a, b, ref, bulge))
+            apply(self.ctx, "ARQ MURO PARALELO", cmds)
+            a, b, ref, bulge = made[-1]
+            if len(made) == 1:
+                self.last, self.last_thickness = (a, b, ref), self.thickness
+                self.last_spec = J.Wall("ultimo", a, b, self.thickness, ref, bulge=bulge)
+            else:
+                self.last = self.last_spec = None
+            w = J.Wall("nuevo", a, b, self.thickness, ref, bulge=bulge)
+            self.ctx.echo(f"MUROPARALELO: muro curvo de {self.thickness:g} m a {self.distance:g} m "
+                          f"de la línea base (radio {w.r:.3f} m, desarrollo {w.length:.3f} m).")
+        except Exception as exc:  # noqa: BLE001
+            self.ctx.echo(f"MUROPARALELO: {type(exc).__name__}: {exc}")
+        self._ask_face()
+
+    def _arc_preview(self, cursor):
+        from .curve_tools import outline
+        from .geom import junctions as J
+        base = self.face["base"]
+        if self.stage == "side":                  # the reference arc(s) at the distance, on the cursor's side
+            segs = []
+            for a, b, bulge, _ref in CD.parallel_arcs(base, self.distance, cursor, cursor):
+                w = J.Wall("v", a, b, 0.01, "eje", bulge=bulge)
+                pts = [w.point(w.length * k / 48.0, 0.0) for k in range(49)]
+                segs += list(zip(pts, pts[1:]))
+            return segs
+        segs = []
+        for a, b, bulge, ref in CD.parallel_arcs(base, self.distance, self.side, cursor):
+            segs += outline(a, b, bulge, self.thickness, ref)
+        return segs
+
     def on_point(self, p):
         if self.stage == "face":
+            base = self._picked_curve(p)
+            if base is not None:                   # a curved wall, an ARC or a CIRCLE
+                self.face = {"base": base}
+                self.stage = "side"
+                self.prompt("MUROPARALELO: lado de la paralela (dentro o fuera del arco):")
+                return
             line = self._picked_line(p)
             if line is not None:
                 self.face = line
@@ -992,7 +1093,14 @@ class MuroParaleloTool(WallTypeChoice, Tool):
                 self.prompt("MUROPARALELO: lado de la paralela:")
                 return
             if self.last is None:
-                self.ctx.echo("Designe una línea recta (cara de muro, eje o línea).")
+                self.ctx.echo("Designe una línea recta (cara de muro, eje o línea) o un arco.")
+                return
+            if self.last_spec is not None and self.last_spec.curved:
+                # chained after a curved wall: base = its far face, side = this click
+                self.face = {"base": CD.far_face_base(self.last_spec, p)}
+                self.side = p
+                self.stage = "body"
+                self.prompt("MUROPARALELO: lado del espesor:")
                 return
             # chained: base = far face of the last wall, side = this click
             a, b, ref = self.last
@@ -1009,15 +1117,19 @@ class MuroParaleloTool(WallTypeChoice, Tool):
             self.stage = "body"
             self.prompt("MUROPARALELO: lado del espesor:")
             return
+        if self.stage == "body" and isinstance(self.face, dict):
+            self._make_arcs(p)
+            return
         if self.stage == "body":
             try:
                 a, b, ref = D.parallel_wall(self.face[0], self.face[1], self.distance, self.side,
                                             self.thickness, body_point=p)
-                geo, _ents = walls_in(_document(self.ctx).doc)
-                a, b = D.extend_to_faces(a, b, geo, max_gap=self.distance + self.thickness + 0.5)
+                specs, _ents = specs_in(_document(self.ctx).doc)     # straight AND curved neighbours
+                a, b = CD.extend_line_to_faces(a, b, specs, max_gap=self.distance + self.thickness + 0.5)
                 cmd = create_wall(a, b, self.thickness, self.height, self.base, ref, **self.bim)
                 apply(self.ctx, "ARQ MURO PARALELO", [cmd])
                 self.last, self.last_thickness = (a, b, ref), self.thickness
+                self.last_spec = None
                 self.ctx.echo(f"MUROPARALELO: muro de {self.thickness:g} m a {self.distance:g} m "
                               f"de la línea base ({math.dist(a, b):.3f} m de longitud).")
             except Exception as exc:  # noqa: BLE001
@@ -1027,6 +1139,8 @@ class MuroParaleloTool(WallTypeChoice, Tool):
     def preview_segments(self, cursor):
         from .architectural_v10 import wall_corners
         try:
+            if isinstance(self.face, dict) and self.stage in ("side", "body"):
+                return self._arc_preview(cursor)
             if self.stage == "side" and self.face is not None:
                 return [D.parallel_line(self.face[0], self.face[1], self.distance, cursor)]
             if self.stage == "body" and self.face is not None:
@@ -1465,7 +1579,7 @@ class UnirMuroTool(Tool):
 
     def _join_curved(self, first, entity, m1, m2):
         """Two curved walls on the same circle (same centre, axis radius and
-        thickness) become one arc, if it is not more than half a circle."""
+        thickness) become one arc, if it is not more than ``curves.MAX_SWEEP``."""
         from core.actions import EraseCommand
         from .architectural_v10 import axis_points
         try:
@@ -1478,9 +1592,7 @@ class UnirMuroTool(Tool):
             r2 = f2.r - f2.d * (f2.lo + f2.hi) / 2
             if math.dist(f1.c, f2.c) > 1e-3 or abs(r1 - r2) > 1e-3:
                 raise ValueError("Los muros no están sobre la misma circunferencia")
-            mid = (f2.lo + f2.hi) / 2
-            ss = [0.0, f1.length] + [f1.local(f2.point(q, mid))[0] for q in (0.0, f2.length)]
-            smin, smax = min(ss), max(ss)
+            smin, smax = CD.joined_span(f1, f2)       # also when the result is over half a circle
             a, b, bulge = sub_wall(m1, smin, smax)
             m1["a"], m1["b"], m1["bulge"] = list(a), list(b), bulge
             cmds = [EditArchitecturalCommand(first, m1, points=axis_points(m1))]
@@ -1521,6 +1633,7 @@ class DivideMuroTool(WallTypeChoice, Tool):
         self.parts = getattr(type(self), "_last_parts", 2)
         self.length = None
         self.p1 = None
+        self.specs = {}             # every wall (straight and curved), read at the first point
         self.pending = None
         self._prompt()
 
@@ -1584,16 +1697,42 @@ class DivideMuroTool(WallTypeChoice, Tool):
             return
         self.ctx.finish()
 
+    def _arc_span(self, p1, p2):
+        """(centre, +1 | -1) when both points lie on the same face (or axis) of ONE curved
+        wall: the span is then the ARC between them along that wall (+1: counter-clockwise
+        from the first point to the second), and the dividing walls are radial."""
+        for w in self.specs.values():
+            if not w.curved:
+                continue
+            (s1, o1), (s2, o2) = w.local(p1), w.local(p2)
+            mid = (w.lo + w.hi) / 2
+            if abs(o1 - o2) > FACE_TOL or min(abs(o1 - off) for off in (w.lo, mid, w.hi)) > FACE_TOL:
+                continue
+            if not all(-FACE_TOL <= s <= w.length + FACE_TOL for s in (s1, s2)) or abs(s2 - s1) < 1e-6:
+                continue
+            return w.c, (w.d if s2 > s1 else -w.d)
+        return None
+
+    def _lines(self, p1, p2, length, specs):
+        arc = self._arc_span(p1, p2)
+        if arc is not None:
+            return CD.divide_arc_walls(arc[0], p1, p2, arc[1], self.parts, self.thickness, length, specs)
+        return CD.divide_walls(p1, p2, self.parts, self.thickness, length, specs)
+
     def on_point(self, p):
         if self.p1 is None:
             self.p1 = tuple(p)
             self.last_point = self.p1
-            self.prompt("DIVIDEMURO: segundo punto (los muros se dibujan a la izquierda del sentido):")
+            try:
+                self.specs, _ents = specs_in(_document(self.ctx).doc)
+            except Exception:  # noqa: BLE001
+                self.specs = {}
+            self.prompt("DIVIDEMURO: segundo punto (los muros se dibujan a la izquierda del sentido; "
+                        "con los dos puntos sobre un muro curvo, se divide su arco):")
             return
         p1, self.p1, self.last_point = self.p1, None, None
         try:
-            geo, _ents = walls_in(_document(self.ctx).doc)
-            lines = D.divide_walls(p1, p, self.parts, self.thickness, self.length, geo)
+            lines = self._lines(p1, p, self.length, self.specs)
             cmds = [create_wall(a, b, self.thickness, self.height, self.base, ref, **self.bim)
                     for a, b, ref in lines]
             apply(self.ctx, "ARQ DIVIDEMURO", cmds)
@@ -1606,8 +1745,7 @@ class DivideMuroTool(WallTypeChoice, Tool):
         if self.p1 is None or math.dist(self.p1, cursor) < 1e-6:
             return []
         try:
-            lines = D.divide_walls(self.p1, cursor, self.parts, self.thickness,
-                                   self.length or 1.0)
+            lines = self._lines(self.p1, tuple(cursor), self.length or 1.0, None)
         except ValueError:
             return [(self.p1, tuple(cursor))]
         from .architectural_v10 import wall_corners

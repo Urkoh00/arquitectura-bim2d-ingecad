@@ -20,7 +20,8 @@ from __future__ import annotations
 import math
 
 CHORD = 0.001            # m: greatest distance from a chord to its arc
-MAX_BULGE = 1.0          # half a circle; larger sweeps are not accepted yet
+MAX_SWEEP = math.radians(350.0)   # a wall may sweep up to 350° (a full circle is two or three walls)
+MAX_BULGE = math.tan(MAX_SWEEP / 4.0)   # 22.9; one half circle is 1.0
 
 
 def arc_of(a, b, bulge):

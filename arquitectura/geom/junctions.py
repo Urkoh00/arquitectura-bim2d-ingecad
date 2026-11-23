@@ -87,7 +87,7 @@ class Wall:
             self.length = chord
             return
         if abs(self.bulge) > CV.MAX_BULGE + 1e-9:
-            raise ValueError(f"Muro {self.id}: curvatura mayor que media circunferencia")
+            raise ValueError(f"Muro {self.id}: curvatura mayor que 350°")
         self.c, self.r, self.t0, self.sweep = CV.arc_of(self.a, self.b, self.bulge)
         self.d = 1.0 if self.bulge > 0 else -1.0
         self.length = self.r * abs(self.sweep)
