@@ -229,6 +229,9 @@ def collect(drawing, lo, hi, wall_layers=None, column_layers=(), carpentry_layer
     return faces, context, sources, arcs, columns, in_blocks, others
 
 
+TIE_COVER = 0.05     # party walls: coverages this close (share of the face) are a tie
+
+
 def party_walls(unpaired, others, tmin, tmax, min_len, ang_tol=1.5, overlap=0.6, notes=None):
     """Walls whose second face is not on a wall layer: a party wall drawn
     with its inner face only, closed by the neighbour's boundary or a
@@ -246,7 +249,7 @@ def party_walls(unpaired, others, tmin, tmax, min_len, ang_tol=1.5, overlap=0.6,
             continue
         u = ((q[0] - p[0]) / L, (q[1] - p[1]) / L)
         n = (-u[1], u[0])
-        groups = []                      # [distance, [(t0, t1)]], distance = signed mean
+        groups = []                      # [distance, [(t0, t1)]], distance of the first line
         for g in others:
             a, b = g[:2], g[2:4]
             lg = math.dist(a, b)
@@ -284,8 +287,8 @@ def party_walls(unpaired, others, tmin, tmax, min_len, ang_tol=1.5, overlap=0.6,
                 eligible.append((d, cover / L))
         if not eligible:
             continue
-        top = max(round(c * 20) for d, c in eligible)       # coverage in 5 % steps
-        tied = [d for d, c in eligible if round(c * 20) == top]
+        top = max(c for d, c in eligible)
+        tied = [d for d, c in eligible if c >= top - TIE_COVER]    # within 5 % of the best
         best = min(tied, key=abs)
         if notes is not None and len(tied) > 1:
             notes.append('Medianera con varias líneas candidatas a distinto espesor (%s m): se toma %.3f m; revíselo'

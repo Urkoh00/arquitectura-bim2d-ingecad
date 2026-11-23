@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Resumen: LINEASAMURO: une tramos de muro curvo detectados, solo a través de huecos comprobados.
-#   Capa 1 (v1.47.2-dev): los huecos de un anillo o de un conjunto de más de 180° ya no se pierden;
-#   el conjunto se reparte en muros de 180° como máximo, con cada hueco dentro de un solo muro.
+#   Desde la v1.48: los huecos de un anillo o de un conjunto mayor que un muro curvo ya no se
+#   pierden; el conjunto se reparte en muros de curves.MAX_SWEEP como máximo, con cada hueco
+#   dentro de un solo muro.
 #   (Guía del código: docs/GUIA_DEL_CODIGO.md)
 """Join detected circular wall runs only across evidenced openings.
 
@@ -9,7 +10,7 @@ Reuse the existing arc pairing and swing reader. The result is the normal
 wall/opening records, not a second geometric representation. Unknown gaps
 and planar frames that do not fit remain separate, with a warning.
 
-What changed with respect to v1.47.1-dev
+What changed in v1.48
 ----------------------------------------
 * The evidence for one gap (radial jambs, glazing arcs, swing chords, plane
   frame fit) is the same code as before, moved into ``_read_gap``.
@@ -18,7 +19,7 @@ What changed with respect to v1.47.1-dev
   largest uncovered interval was taken as the seam and never read, so a ring
   with a door lost the door without any warning.
 * Runs joined through evidenced gaps form a *chain*. A wall record holds at
-  most half a circle (bulge <= 1), so a chain longer than that is cut in
+  most ``curves.MAX_SWEEP``, so a chain longer than that (a ring) is cut in
   solid wall, never inside an opening (``plan_cuts``). Before, such a chain
   was not joined and its door was lost with a warning.
 """
@@ -26,14 +27,15 @@ from __future__ import annotations
 import math
 
 TAU = math.tau
-HALF = math.pi + 1e-9          # a wall record covers at most half a circle
+from .geom.curves import MAX_SWEEP
+HALF = MAX_SWEEP + 1e-9        # the largest sweep of one wall record (curves.MAX_SWEEP)
 GAP_MIN, GAP_MAX = .3, 2.4     # m of axis arc: smaller is not a door, wider is not read
 CUT_MARGIN = .30               # m of solid wall kept between a cut and the nearest jamb
 
 
 def plan_cuts(start, end, openings, radius, margin=CUT_MARGIN):
     """Angles at which to cut the chain ``start..end`` into walls of at most
-    half a circle, every cut in solid wall at least ``margin`` metres from a
+    ``curves.MAX_SWEEP``, every cut in solid wall at least ``margin`` metres from a
     jamb. ``openings``: [(lo, hi)] inside the chain. [] if no cut is needed,
     None if no valid division exists."""
     total = end - start
@@ -224,7 +226,8 @@ def recover(curved, leaves):
             start, end = solids[0][0], solids[-1][1]
             cuts = plan_cuts(start, end, [(o[0], o[1]) for o in opens], spec.r)
             if cuts is None:
-                warnings.append('Hueco curvo: el conjunto supera 180° y no admite corte en muro macizo; fragmentos conservados')
+                warnings.append(f'Hueco curvo: el conjunto supera {math.degrees(MAX_SWEEP):g}° y no admite corte en muro macizo; '
+                                'fragmentos conservados')
                 for lo, hi in solids:
                     emit(spec, lo, hi, [])
                 continue

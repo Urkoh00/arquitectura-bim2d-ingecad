@@ -2,7 +2,7 @@
 
 Esta guía es para quien vaya a **leer, estudiar o mantener** el código. No sustituye al manual de uso (`docs/MANUAL.md`). Explica cómo está organizado el plugin, qué recorrido hace un elemento desde el clic hasta el IFC y dónde buscar cada cosa.
 
-Versión de referencia: **1.47.2-dev**, con 82 módulos y unas 26 000 líneas en `arquitectura/`, más la extensión de IngeTrazo en `ingetrazo_ext/`.
+Versión de referencia: **1.48.0-dev**, con 83 módulos y unas 26 000 líneas en `arquitectura/`, más la extensión de IngeTrazo en `ingetrazo_ext/`.
 
 ---
 
@@ -66,8 +66,9 @@ Se puede probar sin IngeCAD. Es la parte más delicada y la mejor probada.
 | `geom/bands.py` | Encuentros por franjas de altura (muros de distinta altura) y la entrada de pilares. Lleva las particiones virtuales al resultado. |
 | `geom/spaces.py` | Recintos: el hueco que dejan los muros alrededor de un punto, el reparto por particiones virtuales y los muros exteriores. |
 | `geom/solids.py` | Sólidos 3D cerrados desde las huellas: prismas, muros con huecos, comprobación de caras. |
-| `geom/curves.py` | Arcos de los muros curvos. |
+| `geom/curves.py` | Arcos de los muros curvos; `MAX_SWEEP` (350°) es el arco mayor de un muro. |
 | `geom/drafting.py` | Las decisiones geométricas de los gestos de dibujo (dónde termina un muro, qué cara se pincha…). |
+| `geom/curved_drafting.py` | Los mismos gestos cuando la referencia es un arco: esquina en L contra un muro curvo, paralela a un arco o círculo, división radial, alargar hasta caras curvas. Python puro. |
 
 ### 3.2 Elementos BIM: registro, creación y edición
 | Módulo | Qué hace |

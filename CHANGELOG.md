@@ -2,6 +2,28 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.48.0-dev — 2026-11-23
+
+Muros curvos y LINEASAMURO: aportaciones de otra instancia de Claude sobre la 1.47.1, revisadas,
+ajustadas y comprobadas con IngeCAD e IngeTrazo reales por Claude.
+
+- **Muros curvos de hasta 350°** (`curves.MAX_SWEEP`; antes, media circunferencia). Nuevo módulo
+  `geom/curved_drafting.py` (Python puro), que reutiliza `junctions.Wall`, `curves.intersect` y `drafting`:
+  - MUROPARALELO acepta un muro curvo (cara o eje), un ARC o un CIRCLE y crea un muro concéntrico; sus
+    extremos llegan a las caras vecinas, rectas o curvas; con base recta, también ve los muros curvos;
+  - DIVIDEMURO divide con muros radiales si los dos puntos están en la misma cara o eje de un muro curvo;
+  - MURO hace la esquina en L al terminar en la cara lejana de un muro curvo;
+  - UNIRMURO une arcos cuyo resultado pasa de media circunferencia.
+- **LINEASAMURO (capa 1):** un anillo con una puerta o ventana ya no pierde el hueco en la costura; un
+  conjunto mayor que un muro se reparte cortando solo en muro macizo, a 0,30 m de las jambas
+  (`conversion_curves.plan_cuts`, con el tope de los muros curvos). Las medianeras toman el espesor de la
+  línea paralela que recorre más longitud de la cara (tramos sumados); un empate a distinto espesor se
+  avisa. El empate se decide con una tolerancia, sin redondeos.
+- Pruebas: `test_muros_curvos_v2.py` (28), `test_capa1_huecos_curvos_medianeras.py` (51) y
+  `test_r48_muros_curvos_mayores.py` (22: bahías de 200°–340°, carpinterías en arcos de 270° y 340° con
+  conservación del volumen, y las órdenes ejecutadas en la sesión de IngeCAD). Un muro de 300° con ventana
+  llega al IFC de IngeTrazo 0.6.3.2 con 0 errores.
+
 ## 1.47.2-dev — 2026-11-23
 
 IFC con IngeTrazo 0.6.3 (primera versión que incluye nuestra aportación #1498).

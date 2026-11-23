@@ -1,12 +1,12 @@
-# Manual de Arquitectura para IngeCAD — versión 1.47.2-dev
+# Manual de Arquitectura para IngeCAD — versión 1.48.0-dev
 
-Versión 1.47.2-dev · 23-11-2026
+Versión 1.48.0-dev · 23-11-2026
 
 > Copia del manual publicado como documento en claude.ai; se regenera con cada versión.
 
 ## Qué es
 
-Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.47.2-dev** y se actualiza con cada versión.
+Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.48.0-dev** y se actualiza con cada versión.
 
 Cada elemento guarda su identidad persistente, su clase IFC, su geometría editable en planta, sus parámetros 3D (altura, espesor, cota), sus propiedades constructivas (tipo, material, capas) y su nivel. Las carpinterías conocen su muro y los recintos siguen a los muros que los cierran.
 
@@ -27,7 +27,7 @@ El plugin se instala copiando una carpeta en IngeCAD, y la extensión copiando t
 
 **En IngeCAD**
 
-1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.47.2-dev.zip`.
+1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.48.0-dev.zip`.
 2. Copie la carpeta `arquitectura` en la carpeta de plugins de IngeCAD.
 3. Reinicie IngeCAD. Aparece el menú *Arquitectura* y su barra de herramientas.
 4. Escriba `ARQDIAG` en la línea de órdenes para comprobar que la versión cargada es la que acaba de copiar.
@@ -184,10 +184,10 @@ Una defensa va en la capa `ARQ-DEFENSAS` y no admite carpinterías. Es un muro c
 
 | Orden | Qué hace |
 | --- | --- |
-| `MUROPARALELO` | Muro paralelo a una cara o línea: distancia, línea base, lado de la paralela y lado del espesor. Un clic en vacío encadena otro paralelo desde la cara alejada del último |
+| `MUROPARALELO` | Muro paralelo a una cara, una línea o un arco: distancia, línea base, lado de la paralela y lado del espesor. Sobre un muro curvo, un ARC o un CIRCLE crea un muro concéntrico (un círculo da dos medias circunferencias), y sus extremos llegan a las caras de los muros vecinos, rectos o curvos. Un clic en vacío encadena otro paralelo desde la cara alejada del último |
 | `ESTIRAMURO` | Alarga o acorta el extremo designado hasta un punto, una línea o la cara de otro muro (T o L) |
 | `PIVOTAMURO` | Mueve un extremo; el otro queda fijo |
-| `DIVIDEMURO` | Divide el espacio entre dos puntos en N partes iguales con muros perpendiculares; con `L` fija su longitud, sin ella llegan al muro de enfrente |
+| `DIVIDEMURO` | Divide el espacio entre dos puntos en N partes iguales con muros perpendiculares (radiales, si los dos puntos están en la misma cara o eje de un muro curvo); con `L` fija su longitud, sin ella llegan al muro de enfrente |
 | `BORRATRAMO` | Borra el tramo de muro entre dos cruces (o entre un cruce y el extremo) |
 | `PARTEMURO` | Abre un vano a toda altura entre dos puntos: el muro queda en dos |
 | `UNIRMURO` | Une dos muros alineados del mismo espesor; el primero conserva su identidad y recibe las carpinterías del segundo |
@@ -198,7 +198,7 @@ Si una edición dejaría una carpintería fuera del muro, la orden se detiene y 
 
 ## Muros curvos
 
-Un muro curvo es el mismo muro BIM que uno recto: sus caras son arcos concéntricos y admite las mismas órdenes, carpinterías y recintos. Cada muro llega como mucho a media circunferencia; un muro redondo son dos medios círculos.
+Un muro curvo es el mismo muro BIM que uno recto: sus caras son arcos concéntricos y admite las mismas órdenes, carpinterías y recintos. Un muro curvo puede abarcar hasta 350°; un muro redondo son dos o más muros.
 
 **MUROCURVO.**
 
@@ -220,7 +220,7 @@ Un muro curvo es el mismo muro BIM que uno recto: sus caras son arcos concéntri
 | `PIVOTAMURO` | Mueve un extremo y conserva el ángulo de arco |
 | `BORRATRAMO` | Borra el tramo entre cruces con otros muros, rectos o curvos |
 | `PARTEMURO` | Abre un vano; quedan dos muros curvos sobre la misma circunferencia |
-| `UNIRMURO` | Une dos muros curvos de la misma circunferencia y espesor, si el resultado no pasa de media circunferencia |
+| `UNIRMURO` | Une dos muros curvos de la misma circunferencia y espesor, si el resultado no pasa de 350° |
 
 **Precisión.** En planta las caras se dibujan como arcos verdaderos. Para los recintos, el 3D y el IFC se sustituyen por cuerdas que se separan del arco 1 mm como máximo.
 
@@ -268,7 +268,7 @@ Un muro curvo es el mismo muro BIM que uno recto: sus caras son arcos concéntri
 
 - **Capas por nombre.** Reconoce las capas por su nombre: *pared* o *muro* para las caras, *pilar* para los pilares, *carp*, *puerta* o *ventana* para la carpintería. Las opciones `K`, `L` y `R` las fijan. Así, las escaleras, las cotas, el mobiliario y las líneas de cámara (capas con *cámara* o *aislamiento*) no se leen como muros.
 - **Bloques.** Si la planta está dentro de un bloque, la lee sin modificarlo.
-- **Medianeras.** Una medianera dibujada con su cara interior se cierra con la línea paralela más próxima de otra capa, normalmente el límite con el vecino.
+- **Medianeras.** Una medianera dibujada con su cara interior se cierra con la línea paralela de otra capa que recorre más longitud de su cara (los tramos de un mismo límite se suman), normalmente el límite con el vecino. Si dos líneas a distinto espesor empatan, toma la más próxima y lo avisa.
 - **Pilares.** Los dibujados como contorno cerrado se convierten en `PILAR`.
 - **Líneas sin pareja.** Las líneas de muro que se quedan sin pareja no se ocultan: quedan seleccionadas para revisarlas o dibujar esos muros con `MURO`.
 
@@ -567,12 +567,12 @@ Con niveles o forjados, el intercambio usa `.arqbim` v3 y necesita la extensión
 
 ## Limitaciones conocidas
 
-Estas son las limitaciones conocidas de la versión 1.47.2-dev; cada versión actualiza esta lista.
+Estas son las limitaciones conocidas de la versión 1.48.0-dev; cada versión actualiza esta lista.
 
 - **Plataforma:** las pruebas automáticas se ejecutan en Linux con la última versión oficial de IngeCAD y de IngeTrazo, pero sin pantalla. Solo se prueba con la última versión de cada programa, porque ambos publican casi cada semana.
-- **Muros curvos:** cada muro llega como mucho a media circunferencia (un muro redondo son dos). MUROPARALELO y DIVIDEMURO solo toman líneas rectas como referencia. El gesto de esquina en L al terminar un MURO solo recorta muros rectos.
+- **Muros curvos:** cada muro llega como mucho a 350° (un muro redondo son dos o más). La elección automática de cara de MURO y ESTIRAMURO hasta una cara curva solo conocen muros rectos: con un muro curvo, elija la cara a mano. DIVIDEMURO divide el arco entre los dos puntos designados; para dividir un arco entero, designe sus dos extremos.
 - **Carpinterías:** en muros curvos se admiten modelos planos y, curvos, la ventana fija, la ventana corredera y la puerta corredera; las oscilobatientes son siempre planas. Faltan el catálogo de modelos, los lucernarios y borrar la carpintería dejando el vano. MEMORIACARP no da todavía una U con puente térmico lineal (ψ): es una estimación, no una certificación.
-- **LINEASAMURO:** no reconoce puertas ni ventanas en muros curvos. Las medianeras toman el espesor hasta la línea paralela más próxima de otra capa: revise su espesor.
+- **LINEASAMURO:** los huecos en muros curvos necesitan jambas radiales y se convierten con carpintería plana; no se leen los de menos de 0,30 m ni los de más de 2,40 m de arco. Un anillo con huecos se reparte en varios muros, cortando siempre en muro macizo. Dos arcos concéntricos de más de media circunferencia siguen dándose como dos muros. En las medianeras, revise el espesor cuando LINEASAMURO avise de un empate.
 - **Recintos:** una sola altura por recinto (no calcula descuelgues parciales); las escaleras no se descuentan todavía.
 - **Edificio:** aún no hay plantas múltiples, forjados, escaleras ni barandillas. Las cotas de COTAMUROS no son asociativas: si se mueve un muro, hay que volver a acotar. Una simetría de un muro respecto de su propio eje no cambia su lado; para eso use la cara (I o F5) o su ficha.
 - **IFC con IngeTrazo oficial:** ver *Exportación a IngeTrazo e IFC*.
@@ -581,6 +581,7 @@ Estas son las limitaciones conocidas de la versión 1.47.2-dev; cada versión ac
 
 | Fecha | Versión | Novedades |
 | --- | --- | --- |
+| 23-11-2026 | 1.48.0-dev | Muros curvos de hasta 350°; MUROPARALELO sobre muros curvos, arcos y círculos; DIVIDEMURO radial; esquina en L contra un muro curvo. LINEASAMURO conserva los huecos de los anillos y elige mejor el espesor de las medianeras |
 | 23-11-2026 | 1.47.2-dev | IFC con IngeTrazo 0.6.3: muros, forjados, puertas y ventanas salen con su tipo, material, marca y propiedades comunes (fachada EXTERNALWALL, medianera PARTYWALL, solera, cubierta…), con 0 errores en el validador |
 | 21-11-2026 | 1.47.1-dev | MEMORIACARP Actualizar deja el plano donde el usuario lo haya movido (antes volvía a su posición original) |
 | 21-11-2026 | 1.47.0-dev | Nueva MEMORIACARP: plano de carpintería con fichas acotadas, sección, tabla, marcas P/V/H/A persistentes, rótulos en planta y Actualizar en un solo Deshacer; -MEMORIACARP; ventana oscilobatiente de ambas manos; ELEMENTOS, SELATRIB, HIPERVINCULO y LISTATEXTOS explican su alcance |

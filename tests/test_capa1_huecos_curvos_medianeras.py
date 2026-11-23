@@ -1,25 +1,15 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Capa 1 de limitaciones: huecos en muros curvos de LINEASAMURO y espesor de medianeras.
 
-Son pruebas de geometría pura: no necesitan abrir IngeCAD. Si IngeCAD no está instalado
-se simulan solo sus módulos de interfaz (tests/_sin_ingecad.py).
+Aportación de otra instancia de Claude (capa 1), integrada en la v1.48 con el tope de los
+muros curvos (curves.MAX_SWEEP) en lugar de media circunferencia.
 """
 import math
 from types import SimpleNamespace as NS
 import pytest
 
-try:
-    import core  # noqa: F401  (IngeCAD real)
-except ImportError:
-    import importlib.util
-    import os
-    _ruta = os.path.join(os.path.dirname(os.path.abspath(__file__)), '_sin_ingecad.py')
-    _spec = importlib.util.spec_from_file_location('_sin_ingecad', _ruta)
-    _mod = importlib.util.module_from_spec(_spec)
-    _spec.loader.exec_module(_mod)
-    _mod.install()
-
 from arquitectura import convert_tools as C, conversion_curves as K
+from arquitectura.geom.curves import MAX_SWEEP
 from arquitectura.geom.junctions import Wall
 
 
@@ -94,7 +84,7 @@ def _muros(res):
 
 def _verifica(res, ops, esperados, ancho):
     muros = _muros(res)
-    assert all(abs(m.sweep) <= math.pi+1e-6 for m in muros), 'un muro supera 180°'
+    assert all(abs(m.sweep) <= MAX_SWEEP+1e-6 for m in muros), 'un muro supera el máximo'
     assert [o[3] for o in ops] == esperados
     for k, pos, w, *_ in ops:
         assert w == pytest.approx(ancho, abs=1e-6)
@@ -111,23 +101,24 @@ def test_anillo_con_un_hueco_conserva_el_hueco(radio, centro, tipo, esperado):
     curved, leaves = _anillo(radio, huecos=[(centro, .9, tipo)])
     res, ops, avisos = K.recover(curved, leaves)
     _verifica(res, ops, [esperado], .9)
-    assert len(res) == 3, 'un anillo de 360° necesita tres muros de 180° como máximo'
+    assert 2 <= len(res) <= 3, 'un anillo de 360° no cabe en un muro: se reparte'
+    assert all(abs(m.sweep) <= MAX_SWEEP+1e-6 for m in _muros(res))
 
 
 def test_anillo_con_dos_huecos():
     curved, leaves = _anillo(3.0, huecos=[(30, .9, 'puerta'), (210, 1.2, 'ventana')])
     res, ops, _ = K.recover(curved, leaves)
     assert sorted(o[3] for o in ops) == ['door', 'window']
-    assert all(abs(m.sweep) <= math.pi+1e-6 for m in _muros(res))
+    assert all(abs(m.sweep) <= MAX_SWEEP+1e-6 for m in _muros(res))
 
 
 @pytest.mark.parametrize('radio', [1.5, 3.0, 6.0])
-def test_conjunto_de_mas_de_180_grados_se_reparte_sin_perder_el_hueco(radio):
-    """Dos tramos de 100° unidos por una puerta: el muro único no cabe (máximo 180°)."""
+def test_conjunto_de_mas_de_180_grados_es_un_solo_muro_con_su_hueco(radio):
+    """Dos tramos de 100° unidos por una puerta: desde la v1.48 caben en un solo muro."""
     curved, leaves = _anillo(radio, huecos=[(90, .9, 'puerta doble')], recorrido=100)
     res, ops, _ = K.recover(curved, leaves)
     assert [o[3] for o in ops] == ['door']
-    assert all(abs(m.sweep) <= math.pi+1e-6 for m in _muros(res))
+    assert len(res) == 1 and abs(_muros(res)[0].sweep) > math.pi
 
 
 def test_hueco_sin_evidencia_no_se_une():
@@ -146,24 +137,33 @@ def test_sin_huecos_la_salida_no_cambia():
     assert len(res) == len(curved) and ops == []
 
 
-# ---------------------------------------------------------------- reparto en muros de 180°
+# ---------------------------------------------------------------- reparto en muros
 def test_plan_cuts_no_corta_si_cabe():
     assert K.plan_cuts(0, math.pi, [(1.0, 1.3)], 3.0) == []
 
 
 def test_plan_cuts_no_corta_dentro_de_un_hueco():
     cortes = K.plan_cuts(0, math.tau, [(math.pi-.15, math.pi+.15)], 3.0)
-    assert cortes and len(cortes) == 2
+    assert cortes
+    margen = K.CUT_MARGIN/3.0                    # 0,30 m de muro macizo a cada lado del hueco
     for c in cortes:
-        assert not (math.pi-.15-.1 <= c <= math.pi+.15+.1)
+        assert not (math.pi-.15-margen+1e-9 < c < math.pi+.15+margen-1e-9)
     limites = [0, *cortes, math.tau]
-    assert all(b-a <= math.pi+1e-9 for a, b in zip(limites, limites[1:]))
+    assert all(b-a <= MAX_SWEEP+1e-9 for a, b in zip(limites, limites[1:]))
+
+
+def test_medianera_coberturas_casi_iguales_son_empate():
+    """Sin redondeos: 95 % y 100 % de cobertura empatan; 80 % y 100 %, no."""
+    _, avisos = _medianera([[0, .20, 5.7, .20], [0, .30, 6, .30]])
+    assert avisos
+    espesor, avisos = _medianera([[0, .20, 4.8, .20], [0, .30, 6, .30]])
+    assert espesor == [.30] and not avisos
 
 
 def test_plan_cuts_sin_solucion_devuelve_none():
-    # cuatro huecos casi contiguos: no queda muro macizo donde cortar
-    huecos = [(i*1.5, i*1.5+1.45) for i in range(4)]
-    assert K.plan_cuts(0, 6.0, huecos, 1.0) is None
+    # un anillo de huecos casi contiguos: no queda muro macizo donde cortar
+    huecos = [(i*1.25, i*1.25+1.2) for i in range(5)]
+    assert K.plan_cuts(0, math.tau, huecos, 1.0) is None
 
 
 # ---------------------------------------------------------------- medianeras
