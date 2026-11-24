@@ -1,12 +1,12 @@
-# Manual de Arquitectura para IngeCAD — versión 1.48.12-dev
+# Manual de Arquitectura para IngeCAD — versión 1.48.13-dev
 
-Versión 1.48.12-dev · 24-11-2026
+Versión 1.48.13-dev · 24-11-2026
 
 > Copia del manual publicado como documento en claude.ai; se regenera con cada versión.
 
 ## Qué es
 
-Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.48.12-dev** y se actualiza con cada versión.
+Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.48.13-dev** y se actualiza con cada versión.
 
 Cada elemento guarda su identidad persistente, su clase IFC, su geometría editable en planta, sus parámetros 3D (altura, espesor, cota), sus propiedades constructivas (tipo, material, capas) y su nivel. Las carpinterías conocen su muro y los recintos siguen a los muros que los cierran.
 
@@ -27,7 +27,7 @@ El plugin se instala copiando una carpeta en IngeCAD, y la extensión copiando t
 
 **En IngeCAD**
 
-1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.48.12-dev.zip`.
+1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.48.13-dev.zip`.
 2. Copie la carpeta `arquitectura` en la carpeta de plugins de IngeCAD.
 3. Reinicie IngeCAD. Aparece el menú *Arquitectura* y su barra de herramientas.
 4. Escriba `ARQDIAG` en la línea de órdenes para comprobar que la versión cargada es la que acaba de copiar.
@@ -369,6 +369,10 @@ Cada pilar es un solo paso de `Deshacer`, con los muros y recintos ya actualizad
 
 En planta, el símbolo (hoja y giro, cerco, vidrio, alféizar) se dibuja en la capa ARQ-CARPINTERIA y se agrupa con la carpintería.
 
+**Manillas.** En las puertas abatibles, cada hoja activa lleva manillas por las dos caras. En las puertas de dos hojas, la opción «Hojas con manillas por ambas caras» permite ponerlas solo en la hoja activa (por defecto) o en las dos; la hoja principal se conserva. En las ventanas abatibles y oscilobatientes se elige una o dos manillas interiores en la hoja principal. Con dos, la altura que se escriba es la del centro de la pareja; con 0 se reparten a tercios de la hoja. Si no caben, la ficha lo dice y no acepta esas medidas. Las correderas llevan un tirador. Las mismas opciones están en `-CARPINTERIA`, `-PUERTAARQ` y `-VENTANAARQ`. Las manillas aparecen también en las secciones, los alzados y el modelo 3D.
+
+**Precisión de la curva.** «Precisión de la curva (flecha máxima)» es la separación admitida entre el arco y los segmentos que lo representan. Solo se activa, o se pregunta por la línea de órdenes, al elegir geometría curva; no afecta a una carpintería plana.
+
 ## Secciones y alzados: SECCIONARQ y ALZADOARQ
 
 `SECCIONARQ` y `ALZADOARQ` (menú Arquitectura > Documentación) dibujan en el propio dibujo una sección o un alzado del edificio. No se dibujan a mano ni se reconstruyen: proyectan **los mismos sólidos que se exportan a IngeTrazo y al IFC**, de modo que la vista, la planta y el modelo 3D siempre coinciden.
@@ -414,6 +418,8 @@ Después indique el punto superior izquierdo del plano. Si en lugar de pulsar In
 **Actualizar.** El plano queda en capas bloqueadas para no estropearlo por accidente. Si después cambia alguna carpintería, `ARQVALIDAR` avisa de que el plano está desactualizado. Escriba `MEMORIACARP Actualizar`: todos los planos del dibujo se rehacen en su sitio, con sus opciones, sin preguntar nada y en un solo Deshacer. Para mover el plano, desbloquee sus capas, desplácelo y vuelva a bloquearlas: Actualizar lo rehace donde esté. Los rótulos de marca en planta se mueven con su carpintería.
 
 **Por la línea de órdenes.** `-MEMORIACARP` pregunta las mismas opciones sin cuadros de diálogo, y `-MEMORIACARP Actualizar` no pregunta nada.
+
+**Planos de versiones anteriores.** Desde la versión 1.48.13 el plano dibuja también las manillas. Si el dibujo tiene un plano hecho con una versión anterior, `ARQVALIDAR` lo avisa; `MEMORIACARP Actualizar` lo rehace en su sitio, con la misma identidad.
 
 **Ventana oscilobatiente.** Desde esta versión, `VENTANAARQ` (y `-VENTANAARQ`) ofrece la apertura Oscilobatiente, con mano izquierda o derecha. La planta y el alzado muestran sus dos aperturas; en 3D la ventana se ve cerrada.
 
@@ -607,7 +613,7 @@ Con niveles o forjados, el intercambio usa `.arqbim` v3 y necesita la extensión
 
 ## Limitaciones conocidas
 
-Estas son las limitaciones conocidas de la versión 1.48.12-dev; cada versión actualiza esta lista.
+Estas son las limitaciones conocidas de la versión 1.48.13-dev; cada versión actualiza esta lista.
 
 - **Plataforma:** las pruebas automáticas se ejecutan en Linux con la última versión oficial de IngeCAD y de IngeTrazo, pero sin pantalla. Solo se prueba con la última versión de cada programa, porque ambos publican casi cada semana.
 - **Muros curvos:** cada muro llega como mucho a 350° (un muro redondo son dos o más). La elección automática de cara de MURO y ESTIRAMURO hasta una cara curva solo conocen muros rectos: con un muro curvo, elija la cara a mano. DIVIDEMURO divide el arco entre los dos puntos designados; para dividir un arco entero, designe sus dos extremos.
@@ -621,6 +627,7 @@ Estas son las limitaciones conocidas de la versión 1.48.12-dev; cada versión a
 
 | Fecha | Versión | Novedades |
 | --- | --- | --- |
+| 1.48.13-dev | 24-11-2026 | Manillas en puertas (por las dos caras; una o las dos hojas) y en ventanas (una o dos), también en secciones, alzados, 3D y MEMORIACARP; la precisión de la curva solo en carpinterías curvas. |
 | 1.48.12-dev | 24-11-2026 | UNIRMURO de muros opuestos conserva las carpinterías en su sitio; particiones virtuales con la altura hasta el nivel siguiente; DEFENSA no se convierte en muro; doble clic en defensas y recintos; el número y el uso de un recinto se pueden vaciar; varias órdenes ya no se interrumpen con datos vacíos o imposibles. |
 | 1.48.11-dev | 24-11-2026 | Un armario con más hojas de las que caben ya no impide regenerar el dibujo: queda sin símbolo, con aviso, y ARQVALIDAR lo señala. |
 | 1.48.10-dev | 24-11-2026 | PILAR en esquina con un paramento de longitud nula da un error claro; Tab rechazado conserva lo escrito; pegar elementos BIM en un dibujo sin ellos se sincroniza al momento; capas bloqueadas comprobadas con una sola lectura; cota de nivel no numérica avisada. |

@@ -69,7 +69,7 @@ si se cambia de geometría; la validación y el facetado siguen en
 
 Esta guía es para quien vaya a **leer, estudiar o mantener** el código. No sustituye al manual de uso (`docs/MANUAL.md`). Explica cómo está organizado el plugin, qué recorrido hace un elemento desde el clic hasta el IFC y dónde buscar cada cosa.
 
-Versión de referencia: **1.48.12-dev**, con 86 módulos y unas 26 000 líneas en `arquitectura/`, más la extensión de IngeTrazo en `ingetrazo_ext/`.
+Versión de referencia: **1.48.13-dev**, con 86 módulos y unas 26 000 líneas en `arquitectura/`, más la extensión de IngeTrazo en `ingetrazo_ext/`.
 
 ---
 

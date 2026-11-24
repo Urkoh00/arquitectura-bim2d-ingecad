@@ -2,7 +2,9 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
-## R29 — propuesta en curso, sin publicar — 2026-11-24
+## 1.48.13-dev — 2026-11-24
+
+Integración del parcial 02 de R29 (Codex, revisado por Claude), sobre la 1.48.12-dev. R29 no está terminado.
 
 - Rebase de A, B y C sobre v1.48.10-dev, conservando los ajustes de secciones
   y alzados y las correcciones de la depuración.
