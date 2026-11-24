@@ -11,7 +11,7 @@ def fronts(spec,rec):
     n=int(rec['leaves']);fw=float(rec['frame_width']);step=(rec['width']-2*fw)/n
     if step<=.06:raise ValueError('Ancho insuficiente para las hojas del armario')
     for i in range(n):
-        yield {**rec,'cabinet':False,'offset':rec['offset']+fw+i*step+.002,'width':step-.004,
+        yield {**rec,'cabinet':False,'_cabinet_front':True,'offset':rec['offset']+fw+i*step+.002,'width':step-.004,
                'leaves':1,'hinge':i%2,'face':'distancia','setback_from':'interior',
                'setback':0.,'frame_depth':min(.05,rec['niche_depth']),
                'frame_width':0.,'leaf':step-.004,'leaf2':0.,

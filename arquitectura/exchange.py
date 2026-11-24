@@ -582,6 +582,7 @@ def _filling(o, spec, wall_meta, level, void_guid, wall_id):
     pieces, not of the hole."""
     from . import openings as OP
     base = float(wall_meta.get("base", 0.0))
+    o = OP.normalise(o)
     s0, s1, f0, f1, z0, z1 = OP.filling_box(spec, o, base)
     pieces = OP.carpentry_parts(spec, o, base)
     spec = OP.carpentry_spec(spec, o)          # a curved wall: the planar carpentry on its chord
@@ -636,6 +637,9 @@ def _filling(o, spec, wall_meta, level, void_guid, wall_id):
                                               "side", "hinge", "face", "setback", "setback_from", "frame_width", "frame_depth",
                                               "sill_kind", "chord", "operation", "leaf_thickness",
                                               "frame_material", "leaf_material", "glass_material")})
+    el["params"].update({clave: o[clave] for clave in (
+        "main_leaf", "handles_mode", "handles", "handle_height", "handle_material",
+    )})
     # the canonical opening type, not a translated word (audit R10, S3)
     el["params"]["operation"] = OP.normalise(o)["operation"]
     common = el["psets"].setdefault(PSET[cls], {})

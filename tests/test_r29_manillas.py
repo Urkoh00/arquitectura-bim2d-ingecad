@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Resumen: una sola manilla en la hoja activa, con material y altura compartidos por 2D y 3D.
+# Resumen: manillas de la hoja activa, con material y altura compartidos por 2D y 3D.
 import pytest
 from tests.test_ingecad_integration import plugin  # noqa: F401
 from tests.test_fichas_tipos_usos import qapp  # noqa: F401
@@ -15,7 +15,7 @@ from tests.test_r28_oscilobatiente import ventana
 )
 @pytest.mark.parametrize("principal", ["left", "right"])
 @pytest.mark.parametrize("lado", [1, -1])
-def test_manilla_unica_en_la_hoja_principal_con_material_y_altura_reales(
+def test_manillas_en_la_hoja_principal_con_material_y_altura_reales(
     plugin, tipo, operacion, principal, lado
 ):
     aberturas = modulo(plugin, "openings")
@@ -32,7 +32,8 @@ def test_manilla_unica_en_la_hoja_principal_con_material_y_altura_reales(
     )
     piezas = aberturas.carpentry_parts(muro, registro, 3.2)
     manillas = [p for p in piezas if p["role"] == "handle"]
-    assert len(manillas) == 1
+    # La adenda de R29 añade la pareja enfrentada solo en puertas abatibles.
+    assert len(manillas) == (2 if tipo == "door" and operacion == "SWINGING" else 1)
     manilla = manillas[0]
     assert manilla["material"] == "Acero sintético"
     a, b, p, q, z0, z1 = manilla["box"]

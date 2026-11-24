@@ -11,7 +11,7 @@ from . import memoria_modelo
 from .memoria_dibujo import CAPA_PLANO, CAPA_COTAS, DISCONTINUA
 
 CAPA_ROTULOS = "ARQ-CARPINTERIA-MARCAS"
-VERSION = 2
+VERSION = 3
 
 
 def planos(dibujo):

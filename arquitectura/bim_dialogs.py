@@ -1014,6 +1014,12 @@ def carpentry_form(ctx, record, *, editing=False):
     facet.setToolTip('Separación máxima entre el arco y los tramos rectos que lo representan. '
                      'Solo interviene cuando la geometría de la carpintería es curva.')
     principal = _choice([('Izquierda', 'left'), ('Derecha', 'right')], d['main_leaf'])
+    hojas_manillas = _choice([('Solo la activa', 'activa'), ('Ambas hojas', 'ambas')], d['handles_mode'])
+    from PySide6.QtWidgets import QSpinBox
+    cantidad_manillas = QSpinBox()
+    cantidad_manillas.setRange(1, 2)
+    cantidad_manillas.setValue(d['handles'])
+    cantidad_manillas.setToolTip('Manillas en la cara interior de la hoja principal de la ventana.')
     altura_manilla = _spin(d['handle_height'])
     altura_manilla.setRange(0.0, 1000.0)
     altura_manilla.setToolTip('Desde el suelo del nivel; 0 = 1,05 m en puertas y centro de la hoja en ventanas.')
@@ -1026,7 +1032,10 @@ def carpentry_form(ctx, record, *, editing=False):
     hole = QLabel("")
     rows = [("Tipo:", typ),("Geometría curva:",curve_mode),("Referencia del ancho:",width_reference),("Precisión de la curva (flecha máxima):",facet), ("Apertura:", operation), ("Hojas:", leaves), ("Hoja normalizada:", preset),
             ("Hoja principal (exterior):", principal), ("Primera hoja desde el inicio (m):", leaf), ("Segunda hoja (0 = igual):", leaf2), ("Ancho del hueco:", width),
-            ("Hueco resultante:", hole), ("Altura:", height), ("Antepecho:", sill), ("Altura de manilla (m; 0 = automática):", altura_manilla)]
+            ("Hueco resultante:", hole), ("Altura:", height), ("Antepecho:", sill),
+            ("Hojas con manillas por ambas caras:", hojas_manillas),
+            ("Manillas interiores en la hoja principal:", cantidad_manillas),
+            ("Altura de manilla (m; 0 = automática):", altura_manilla)]
     for label, w in rows:
         f.addRow(label, w)
     if not editing:
@@ -1135,6 +1144,8 @@ def carpentry_form(ctx, record, *, editing=False):
         principal.setEnabled(kind != "gap" and leaves.value() == 2)
         con_manilla = kind != "gap" and operation.currentData() != "FIXED"
         show(altura_manilla, con_manilla)
+        show(hojas_manillas, door and operation.currentData() == 'SWINGING' and leaves.value() == 2)
+        show(cantidad_manillas, window and operation.currentData() not in ('FIXED', 'SLIDING'))
         show(m_manilla, con_manilla, mf)
         leaves.setMaximum(2 if door else 6)
         for w in (preset, leaf, leaf2):
@@ -1205,6 +1216,7 @@ def carpentry_form(ctx, record, *, editing=False):
                       frame_depth=frame_d.value(), name=name.text().strip(), mark=mark.text().strip(),
                       type_name=type_name.text().strip(), material=material.text().strip(),
                       leaves=leaves.value(), main_leaf=principal.currentData(), handle_height=altura_manilla.value(),
+                      handles_mode=hojas_manillas.currentData(), handles=cantidad_manillas.value(),
                       handle_material=m_manilla.currentText().strip(), leaf=leaf.value(), leaf2=leaf2.value(), width=width.value(),
                       sill_kind=sill_kind.currentData(), frame_material=m_frame.currentText().strip(),
                       leaf_material=m_leaf.currentText().strip(), glass_material=m_glass.currentText().strip(),
@@ -1232,7 +1244,7 @@ def carpentry_form(ctx, record, *, editing=False):
         fill_operations()
         refresh()
     typ.currentIndexChanged.connect(kind_changed)
-    for w in (leaves, leaf, leaf2, frame_w, frame_d, width, height, sill, setback, altura_manilla):
+    for w in (leaves, leaf, leaf2, frame_w, frame_d, width, height, sill, setback, altura_manilla, cantidad_manillas):
         w.valueChanged.connect(refresh)
     ref_state={'curve_mode':d['curve_mode'],'width_reference':d['width_reference']}
     def reference_changed(*_):
@@ -1248,6 +1260,7 @@ def carpentry_form(ctx, record, *, editing=False):
         w.currentIndexChanged.connect(refresh)
     facet.valueChanged.connect(refresh)
     m_manilla.currentTextChanged.connect(refresh)
+    hojas_manillas.currentIndexChanged.connect(refresh)
     preset.currentIndexChanged.connect(on_preset)
     refresh()
     catalog_choice=QComboBox();catalog_choice.addItem('Parámetros actuales',None)
@@ -1262,16 +1275,17 @@ def carpentry_form(ctx, record, *, editing=False):
         item=catalog_choice.currentData()
         if not item:return
         v=item['values'];typ.setCurrentIndex(typ.findData(item['type']))
-        for key,control in [('height',height),('sill',sill),('leaves',leaves),('leaf',leaf),('leaf2',leaf2),('width',width),('frame_width',frame_w),('frame_depth',frame_d),('setback',setback),('handle_height',altura_manilla)]:
+        for key,control in [('height',height),('sill',sill),('leaves',leaves),('leaf',leaf),('leaf2',leaf2),('width',width),('frame_width',frame_w),('frame_depth',frame_d),('setback',setback),('handle_height',altura_manilla),('handles',cantidad_manillas)]:
             if key in v:control.setValue(v[key])
-        for key,control in [('operation',operation),('main_leaf',principal),('face',face),('sill_kind',sill_kind),('setback_from',setback_from),('curve_mode',curve_mode),('width_reference',width_reference)]:
+        for key,control in [('operation',operation),('main_leaf',principal),('handles_mode',hojas_manillas),('face',face),('sill_kind',sill_kind),('setback_from',setback_from),('curve_mode',curve_mode),('width_reference',width_reference)]:
             if key in v:control.setCurrentIndex(control.findData(v[key]))
         for key,control in [('frame_material',m_frame),('leaf_material',m_leaf),('glass_material',m_glass),('sill_material',m_sill),('handle_material',m_manilla)]:
             if key in v:control.setCurrentText(v[key])
         type_name.setText(item['name']);material.setText(v.get('material',''));refresh()
     catalog_choice.currentIndexChanged.connect(select_catalog)
     dlg._arq = dict(catalog_choice=catalog_choice,typ=typ, operation=operation, hinge=hinge, main_leaf=principal,
-                    handle_height=altura_manilla, handle_material=m_manilla, leaves=leaves, preset=preset, leaf=leaf, leaf2=leaf2,
+                    handle_height=altura_manilla, handle_material=m_manilla, handles_mode=hojas_manillas,
+                    handles=cantidad_manillas, leaves=leaves, preset=preset, leaf=leaf, leaf2=leaf2,
                     width=width, height=height, sill=sill, face=face, sill_kind=sill_kind, name=name, mark=mark,
                     clear=status, status=status, ifc=ifc, preview=preview, frame_width=frame_w,
                     curve_mode=curve_mode,width_reference=width_reference,facet_sagitta=facet,

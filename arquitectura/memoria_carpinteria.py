@@ -123,8 +123,17 @@ def definir(muro, registro):
     if registro["leaves"] == 2:
         definicion["main_leaf"] = registro["main_leaf"]
     if registro["type"] != "gap" and registro["operation"] != "FIXED":
-        manilla = next(p for p in medidas["plantillas"] if p["role"] == "handle")
-        definicion["handle_height"] = (manilla["box"][4] + manilla["box"][5]) / 2
+        alturas = [(pieza["box"][4] + pieza["box"][5]) / 2
+                   for pieza in medidas["plantillas"] if pieza["role"] == "handle"]
+        definicion["handle_height"] = (min(alturas) + max(alturas)) / 2
+        definicion["handles_mode"] = (
+            registro["handles_mode"] if registro["type"] == "door"
+            and registro["operation"] == "SWINGING" and registro["leaves"] == 2 else "activa"
+        )
+        definicion["handles"] = (
+            registro["handles"] if registro["type"] == "window"
+            and registro["operation"] != "SLIDING" else 1
+        )
         definicion["materiales"]["handle"] = openings.part_material(registro, "handle")
     if registro["curve_mode"] == "curva":
         # Dos arcos de igual desarrollo y distinto radio no son la misma pieza.
@@ -164,6 +173,11 @@ def unidades(muro, registro):
 
 def coincide_tipo_anterior(anterior, actual):
     actual = deepcopy(actual)
+    for campo, defecto in (("handles_mode", "activa"), ("handles", 1)):
+        if campo not in anterior and campo in actual:
+            if actual[campo] != defecto:
+                return False
+            actual.pop(campo)
     # En v1.47 no se distinguía la hoja activa: la primera de las nuevas
     # agrupaciones conserva la marca, y las demás reciben números nuevos.
     if "main_leaf" not in anterior and "main_leaf" in actual:

@@ -1,5 +1,25 @@
 # Guía del código del plugin Arquitectura
 
+### R29: adenda de manillas y memoria v3
+
+`openings.alturas_manillas` comparte la validación de altura con la generación
+de las piezas: las puertas abatibles llevan una pareja enfrentada en la hoja
+activa, o en las dos hojas con `handles_mode=ambas`. En ventanas, `handles=2`
+reparte dos palancas interiores a tercios de la hoja; una altura explícita es
+el centro de la pareja. Se rechazan las parejas sin espacio suficiente, sin
+encoger sus piezas. Las correderas y los frentes de armario conservan un tirador
+por hoja activa. No se modelan cierres ni pestillos.
+
+La ficha, sus variantes de texto, el catálogo, el contrato y la definición de
+tipos comparten esos campos. En los registros anteriores, los valores ausentes
+son `activa` y `1`. Solo los campos que modifican piezas separan tipos. El plano
+de memoria pasa a versión 3; los planos v2 requieren Actualizar con el mismo
+mecanismo de aviso y la misma identidad y posición que en C3.
+
+Pruebas: `test_r29_adenda_manillas.py`, `test_r29_manillas.py` y
+`test_r29_memoria_version.py`. La posible opción de tirador largo vertical
+(`handle_kind`) queda como propuesta para una versión posterior.
+
 ### R29-E: reglas del recubrimiento de pilares
 
 `recubrimientos_pilar.py` separa el espesor del tabique (`cover`) del aislamiento

@@ -42,7 +42,7 @@ SYMBOL_LAYER = "ARQ-CARPINTERIA"
 V3_KEYS = ("leaves", "leaf", "leaf2", "frame_width", "frame_depth", "side", "hinge",
            "angle", "face", "setback", "setback_from", "sill_kind", "operation", "leaf_thickness",
            "frame_material", "leaf_material", "glass_material", "sill_material",
-           "curve_mode", "facet_sagitta", "width_reference", "cabinet", "niche_depth", "cabinet_mode", "body_material", "mark", "mark_manual", "main_leaf", "handle_height", "handle_material")
+           "curve_mode", "facet_sagitta", "width_reference", "cabinet", "niche_depth", "cabinet_mode", "body_material", "mark", "mark_manual", "main_leaf", "handle_height", "handle_material", "handles_mode", "handles")
 # opening type (IFC names, as in the properties dialog)
 OPERATIONS = {
     "door": ("SWINGING", "SLIDING"),
@@ -103,6 +103,11 @@ def dimension_problems(rec):
     (opening_record) y ARQVALIDAR: un registro antiguo con una medida
     imposible se señala, pero no se corrige en silencio."""
     out = []
+    if rec.get("handles_mode", "activa") not in ("activa", "ambas"):
+        out.append("hojas con manilla: activa o ambas")
+    cantidad = rec.get("handles", 1)
+    if type(cantidad) is not int or cantidad not in (1, 2):
+        out.append("número de manillas de ventana: 1 o 2")
     for key, name in NON_NEGATIVE:
         if rec.get(key) is None:
             continue
@@ -113,12 +118,11 @@ def dimension_problems(rec):
             continue
         if not math.isfinite(v) or v < 0:
             out.append(f"{name} negativo o no válido ({rec[key]})")
-    if (not out and rec.get("handle_height") and rec.get("type") != "gap"
-            and rec.get("operation") != "FIXED"):
-        altura = float(rec["handle_height"])
-        inferior, superior = limites_verticales_hoja(rec)
-        if not inferior < altura < superior:
-            out.append("altura de manilla fuera de la hoja libre del marco")
+    if not out and "height" in rec and "width" in rec:
+        try:
+            alturas_manillas(rec)
+        except ValueError as error:
+            out.append(str(error))
     return out
 
 
@@ -130,6 +134,12 @@ def normalise(rec):
     out.setdefault("mark_manual", False)
     out.setdefault("handle_height", 0.0)
     out.setdefault("handle_material", "Acero")
+    out.setdefault("handles_mode", "activa")
+    out.setdefault("handles", 1)
+    if out["handles_mode"] not in ("activa", "ambas"):
+        raise ValueError("Hojas con manilla: activa o ambas")
+    if type(out["handles"]) is not int or out["handles"] not in (1, 2):
+        raise ValueError("Número de manillas de ventana: 1 o 2")
     out.setdefault('curve_mode','plana')
     out.setdefault('facet_sagitta',.005)
     out.setdefault('width_reference','cuerda' if out['curve_mode']=='plana' else 'eje')
@@ -618,9 +628,41 @@ def limites_verticales_hoja(registro, base=0.0):
     return inferior, superior
 
 
+def alturas_manillas(registro, base=0.0):
+    """Alturas desde la misma hoja utilizada por ficha, memoria y sólido."""
+    if registro.get("type") == "gap" or registro.get("operation") == "FIXED":
+        return []
+    from .geom.soldadura import TOLERANCIA
+
+    inferior, superior = limites_verticales_hoja(registro, base)
+    pedido = float(registro.get("handle_height") or 0)
+    altura = base + pedido if pedido else (
+        base + 1.05 if registro["type"] == "door" else (inferior + superior) / 2
+    )
+    if not inferior < altura < superior:
+        if pedido:
+            raise ValueError("Altura de manilla fuera de la hoja libre del marco")
+        altura = (inferior + superior) / 2
+    cantidad = registro.get("handles", 1) if registro["type"] == "window" else 1
+    if registro.get("operation") == "SLIDING":
+        cantidad = 1
+    if cantidad == 1:
+        return [altura]
+    # Las dos palancas conservan su tamaño: no se encogen para hacerlas caber.
+    # El valor pedido es el centro de la pareja; sin petición quedan a tercios.
+    separacion = (superior - inferior) / 3
+    alturas = [altura - separacion / 2, altura + separacion / 2]
+    if (alturas[0] - 0.006 < inferior - TOLERANCIA
+            or alturas[1] + 0.006 > superior + TOLERANCIA
+            or separacion < 0.012 + PART_GAP - TOLERANCIA):
+        raise ValueError("No caben dos manillas dentro de la hoja libre del marco")
+    return alturas
+
+
 def _con_manilla(piezas, registro, base):
-    """Una palanca cerrada propia de la hoja activa, sin otra entidad BIM."""
-    if registro["type"] == "gap" or registro["operation"] == "FIXED":
+    """Palancas cerradas de sus hojas; las puertas abatibles tienen dos caras."""
+    alturas = alturas_manillas(registro, base)
+    if not alturas:
         return piezas
     hojas = {}
     for pieza in piezas:
@@ -634,27 +676,38 @@ def _con_manilla(piezas, registro, base):
     ordenadas = sorted(hojas.values(), key=lambda caja: caja[0])
     if not ordenadas:
         return piezas
-    indice = indice_hoja_principal(registro)
-    a, b, p, q, inferior, superior = ordenadas[indice]
-    pedido = float(registro.get("handle_height") or 0)
-    altura = base + pedido if pedido else (
-        base + 1.05 if registro["type"] == "door" else (inferior + superior) / 2
+    enfrentadas = (
+        registro["type"] == "door" and registro["operation"] == "SWINGING"
+        and not registro.get("_cabinet_front")
     )
-    if not inferior < altura < superior:
-        if pedido:
-            raise ValueError("La manilla queda fuera de la hoja")
-        altura = (inferior + superior) / 2
-    margen = min(0.06, (b - a) * 0.15)
-    largo = min(0.10, (b - a) * 0.4)
-    bisagra = (registro["hinge"] + indice) % 2
-    if registro["type"] == "door" and len(ordenadas) == 2:
-        bisagra = indice
-    inicio, final = (b - margen - largo, b - margen) if bisagra == 0 else (a + margen, a + margen + largo)
-    cara = p if registro["side"] > 0 else q
-    bajo, alto_fondo = (cara - 0.025, cara - PART_GAP) if registro["side"] > 0 else (cara + PART_GAP, cara + 0.025)
-    semialtura = min(0.006, (altura - inferior) / 2, (superior - altura) / 2)
-    piezas.append({"name": "Manilla", "role": "handle", "material": part_material(registro, "handle"),
-                   "box": (inicio, final, bajo, alto_fondo, altura - semialtura, altura + semialtura)})
+    indices = [indice_hoja_principal(registro)]
+    if enfrentadas and registro.get("handles_mode", "activa") == "ambas":
+        indices = list(range(len(ordenadas)))
+    for indice in indices:
+        a, b, p, q, inferior, superior = ordenadas[indice]
+        margen = min(0.06, (b - a) * 0.15)
+        largo = min(0.10, (b - a) * 0.4)
+        bisagra = (registro["hinge"] + indice) % 2
+        if registro["type"] == "door" and len(ordenadas) == 2:
+            bisagra = indice
+        if bisagra == 0:
+            inicio, final = b - margen - largo, b - margen
+        else:
+            inicio, final = a + margen, a + margen + largo
+        caras = [(p - 0.025, p - PART_GAP), (q + PART_GAP, q + 0.025)]
+        if not enfrentadas:
+            caras = [caras[0] if registro["side"] > 0 else caras[1]]
+        for altura in alturas:
+            semialtura = min(0.006, (altura - inferior) / 2, (superior - altura) / 2)
+            if semialtura <= 0:
+                raise ValueError("La manilla queda fuera de la hoja")
+            for bajo, alto_fondo in caras:
+                piezas.append({
+                    "name": f"Manilla {indice + 1}", "role": "handle",
+                    "material": part_material(registro, "handle"),
+                    "box": (inicio, final, bajo, alto_fondo,
+                            altura - semialtura, altura + semialtura),
+                })
     return piezas
 
 

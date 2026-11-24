@@ -310,6 +310,15 @@ def campos_carpinteria(ctx, datos, editar=False):
         medida("sill", "Antepecho (m)", 0.0),
         medida("handle_height", "Altura de manilla desde suelo, 0 = automática (m)", 0.0, 1000.0,
                lambda v: con_marco(v) and v["operation"] != "FIXED"),
+        opcion(
+            "handles_mode", "Hojas de puerta con manillas por las dos caras",
+            [("Activa", "activa"), ("Ambas", "ambas")],
+            lambda v: puerta(v) and v["operation"] == "SWINGING" and v["leaves"] == 2,
+        ),
+        Campo(
+            "handles", "Manillas interiores en la hoja principal", "entero", minimo=1, maximo=2,
+            cuando=lambda v: ventana(v) and v["operation"] not in ("FIXED", "SLIDING"),
+        ),
         texto("handle_material", "Material de manilla", lambda v: con_marco(v) and v["operation"] != "FIXED"),
         opcion(
             "face",
@@ -363,6 +372,8 @@ def campos_carpinteria(ctx, datos, editar=False):
                 "main_leaf",
                 "handle_height",
                 "handle_material",
+                "handles_mode",
+                "handles",
                 "leaf",
                 "leaf2",
                 "width",
