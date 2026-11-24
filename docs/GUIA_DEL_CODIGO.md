@@ -47,17 +47,19 @@ Pruebas: `test_r29_adenda_manillas.py`, `test_r29_manillas.py` y
 `test_r29_memoria_version.py`. La posible opción de tirador largo vertical
 (`handle_kind`) queda como propuesta para una versión posterior.
 
-### R29-E: reglas del recubrimiento de pilares
+### R29-E: núcleo preliminar pendiente de integración
 
-`recubrimientos_pilar.py` separa el espesor del partición (`cover`) del aislamiento
-resuelto. Reutiliza las huellas de `sections.py`, las franjas verticales de los
-muros y la tolerancia común. No modifica las entradas. Los tipos se leen desde
-su primera cara: un aislante precedido solo de acabados es superficial; entre
-capas constructivas, es de cámara. Los proveedores incompatibles y los muros
-sin capas se notifican, sin elegir un aislamiento arbitrario. El modo manual
-permite indicar material y espesor. Pruebas: `test_r29_recubrimientos_pilar.py`.
-La integración con la ficha, la regeneración y las piezas de exportación es una
-etapa posterior; este módulo por sí solo todavía no cambia el dibujo.
+`recubrimientos_pilar.py` separa el espesor de la partición (`cover`) del
+aislamiento resuelto y no modifica las entradas. Su integración con las
+fichas, la regeneración y las piezas de exportación aún está pendiente;
+el módulo por sí solo no cambia el dibujo.
+
+La heurística preliminar de primera cara y nombres de materiales queda
+sustituida por el criterio recibido el 24-11: lado exterior geométrico,
+orden explícito de capas y clasificación de materiales en el catálogo.
+Debe reemplazarse antes de integrar E. El criterio completo y los casos
+obligatorios constan en `docs/REVISION_EXTERNA_D1_2026-11-24.md`. Las
+pruebas preliminares actuales no certifican esa integración.
 
 ### R29-G: precisión de la carpintería curva
 
@@ -740,3 +742,20 @@ y símbolo, modos adosado y nicho, cancelación, conservación de todos los
 campos existentes y Deshacer/Rehacer. La ficha podrá incorporar «Frente en
 partición» sin añadir otro recorrido de edición; esa función la integra
 Claude y no se implementa en este cambio.
+
+### D1: desfase real del pilar vinculado a ejes
+
+Al actualizar sin un gesto previo de ejes, RegenerateGrid obtiene el
+desfase del centro reconciliado mediante current_link. Una transformación
+nativa del pilar ya no se pierde por leer su desfase antiguo. Al mover
+los ejes se conserva el cálculo sobre su estado anterior, para que los
+pilares los sigan. El índice de ejes se reutiliza en current_link, sin
+recorrer el dibujo por cada pilar. Los ensayos usan las órdenes nativas
+y los reactores públicos de IngeCAD 0.8.0, incluidas rejillas giradas.
+
+Para integrar E, el criterio vigente sustituye al preliminar del núcleo:
+la geometría determina el exterior, con anulación cara_exterior por muro;
+los nuevos tipos de envolvente se ordenan exterior-interior y los tipos
+sin campo de orden conservan su significado con aviso. Los materiales
+se clasifican por catálogo, sin deducir su tipo del nombre. Véase
+docs/REVISION_EXTERNA_D1_2026-11-24.md.

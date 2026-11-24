@@ -98,10 +98,12 @@ def binding(drawing,point,tol=.02):
     link['offset']=local_offset((point[0]-p[0],point[1]-p[1]),endpoints(lookup[link['u']]),endpoints(lookup[link['v']]))
     return link
 
-def current_link(drawing,record):
+def current_link(drawing,record,ejes=None):
     link=copy.deepcopy(record.get('grid_link'))
     if not link:return None
-    lookup={m['id']:(e,m) for e,m in axes(drawing)}
+    lookup = ejes
+    if lookup is None:
+        lookup = {m['id']: (e, m) for e, m in axes(drawing)}
     if link['u'] not in lookup or link['v'] not in lookup:return link
     e,u=lookup[link['u']];f,v=lookup[link['v']];p=intersect(e,f)
     if p is None:return link
@@ -196,7 +198,11 @@ class RegenerateGrid(Command):
         for entity in list(msp):
             m=metadata(entity)or{}
             if m.get('kind')!='column' or not m.get('grid_link'):continue
-            rec=reconcile(entity,m,[]);link=copy.deepcopy(rec['grid_link'])
+            rec = reconcile(entity, m, [])
+            # Sin un gesto de ejes anterior, actualizar adopta el desfase real
+            # del pilar ya transformado; el guardado puede ser anterior a DESPLAZA.
+            link = (copy.deepcopy(rec['grid_link']) if self.before_axes
+                    else current_link(doc.doc, rec, byid))
             if link['u'] not in byid or link['v'] not in byid:continue
             e,mu=byid[link['u']];f,mv=byid[link['v']];p=intersect(e,f)
             if p is None:continue
