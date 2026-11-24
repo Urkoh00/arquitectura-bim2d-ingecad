@@ -679,3 +679,17 @@ En planta se mantiene el símbolo habitual. Se propone una marca de manilla
 solo a 1:20 como opción futura; no se impone ahora. El recorrido real de R29
 amplía el ayudante QTest de R27 para teclear controles numéricos y materiales
 editables; no modifica la interacción del producto ni al anfitrión.
+
+### D1: designación de elementos que atraviesan niveles
+
+`level_layers.target_available` comprueba el tramo vertical y el estado nativo
+de la categoría en la planta activa. Si todavía no existe esa capa, consulta
+el estado que heredaría al crearla; comparte `_estado_capa_nueva` con
+`RouteLevels`. Consultar no crea capas ni modifica el dibujo. Una categoría
+ya existente conserva sus estados propios.
+
+Los estados mixtos se resuelven igual que en la creación: solo un apagado,
+una inutilización o un bloqueo comunes imponen ese estado a la categoría
+nueva. Sin capas de la planta, se heredan los de la categoría base si existe.
+`test_d1_designacion_niveles.py` comprueba pilares y particiones que nacen
+más abajo, los límites verticales y las restricciones nativas de capa.

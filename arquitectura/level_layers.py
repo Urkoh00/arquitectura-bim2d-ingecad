@@ -82,6 +82,24 @@ def check_locked(document, before):
             raise ValueError('La operación modificaría elementos de una capa o nivel bloqueado')
 
 
+def _estado_capa_nueva(capas, prefijo, estado_nivel, tiene_capas_nivel):
+    """Resuelve los mismos estados nativos al crear y al designar una capa."""
+    estado = estado_nivel
+    if not tiene_capas_nivel and prefijo in capas:
+        capa_base = capas.get(prefijo)
+        estado = {
+            'on': capa_base.is_on(),
+            'frozen': capa_base.is_frozen(),
+            'locked': capa_base.is_locked(),
+        }
+    # Un estado mixto no impone un valor a la categoría nueva, como al crearla.
+    return {
+        'on': estado['on'] is not False,
+        'frozen': estado['frozen'] is True,
+        'locked': estado['locked'] is True,
+    }
+
+
 class RouteLevels(Command):
     """Assign native layers to sources and their representations; exact undo."""
     name='ARQ capas de nivel'
@@ -101,7 +119,9 @@ class RouteLevels(Command):
                 attrs={'color':abs(base.dxf.color),'linetype':base.dxf.linetype,'lineweight':base.dxf.get('lineweight',-3),'plot':base.dxf.get('plot',1)}if base else {'color':8}
                 layer=document.doc.layers.new(target,dxfattribs=attrs)
                 layer.description='Nivel: '+catalog[ident]['name']
-                st=oldstates[ident]if existing_levels[ident]or base is None else {'on':base.is_on(),'frozen':base.is_frozen(),'locked':base.is_locked()}
+                st = _estado_capa_nueva(
+                    document.doc.layers, prefix, oldstates[ident], existing_levels[ident]
+                )
                 if st['on'] is False:layer.off()
                 if st['frozen'] is True:layer.freeze()
                 if st['locked'] is True:layer.lock()
@@ -262,9 +282,16 @@ def target_available(drawing,record):
     from .wall_categories import category,layer_name
     prefix=layer_name(category(record),drawing.layers) if record.get('kind')=='wall' else 'ARQ-PILARES'
     name=prefix+suffix(lv['id'])
-    if name not in drawing.layers:return False
-    layer=drawing.layers.get(name)
-    return layer.is_on()and not layer.is_frozen()and not layer.is_locked()
+    if name in drawing.layers:
+        layer = drawing.layers.get(name)
+        return layer.is_on() and not layer.is_frozen() and not layer.is_locked()
+    # El elemento puede nacer más abajo y atravesar la planta activa sin tener
+    # todavía una capa de su categoría allí. Consultar no debe crear esa capa.
+    documento = type('Drawing', (), {'doc': drawing})()
+    estado = _estado_capa_nueva(
+        drawing.layers, prefix, state(documento, lv['id']), bool(names(documento, lv['id']))
+    )
+    return estado['on'] and not estado['frozen'] and not estado['locked']
 
 
 def before_command(ctx, event):
