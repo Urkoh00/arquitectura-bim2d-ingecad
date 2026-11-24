@@ -1134,7 +1134,16 @@ def carpentry_form(ctx, record, *, editing=False):
         show(m_glass, window, mf)
         show(m_sill, window and sill_kind.currentData() != "ventanal", mf)
         ifc.setText(OP.IFC[kind] if kind != "gap" else "IfcOpeningElement")
-        v = read()
+        try:
+            v = read()
+        except ValueError as exc:
+            # p. ej. una marca de otro tipo tras cambiarlo: se avisa y no se
+            # puede aceptar; antes el error escapaba de la señal de Qt
+            status.setText(str(exc) + ".")
+            ok = buttons.button(buttons.StandardButton.Ok)
+            if ok is not None:
+                ok.setEnabled(False)
+            return
         if door:
             hole.setText(f"{v['width']:.3f} m de ancho (hojas + cerco)".replace(".", ","))
         notes = problems(v)

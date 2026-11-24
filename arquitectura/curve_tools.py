@@ -315,10 +315,10 @@ class CurvaMuroTool(Tool):
             self.ctx.echo(f"CURVAMURO: {exc}")
 
     def on_option(self, text):
+        if str(text).strip().lower() in ("f", "fin"):
+            self.ctx.finish()
+            return True
         if self.wall is None:
-            if str(text).strip().lower() in ("f", "fin"):
-                self.ctx.finish()
-                return True
             return False
         try:
             sag = _num(text)

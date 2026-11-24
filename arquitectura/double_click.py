@@ -35,6 +35,8 @@ def on_double_click(ctx, entity):
     m = dict(metadata(target) or {})
     kind = m.get("kind")
     tool = {"wall": "MURO", "opening": "CARPINTERIA", "column": "PILAR"}.get(kind)
+    if kind == "wall" and m.get("wall_category") == "defensa":
+        tool = "DEFENSA"                 # una defensa abre DEFENSA, no MURO
     if tool:
         _PRESETS[tool] = m
         ctx.start_tool(tool)
@@ -46,7 +48,11 @@ def on_double_click(ctx, entity):
             return False
         values = bim_dialogs.space_properties(ctx, m)
         if values is not None:
-            from .transactions import SafeArchitecturalCommand
-            ctx.execute(SafeArchitecturalCommand("ARQ RECINTO", [space_change(target, values)]))
+            from .transactions import apply_architectural_change
+            try:
+                # como PROPIEDADESARQ: regenera etiqueta y envolvente
+                apply_architectural_change(ctx, space_change(target, values), kind="space")
+            except ValueError as exc:
+                ctx.echo(f"Recinto: {exc}")
         return True
     return False

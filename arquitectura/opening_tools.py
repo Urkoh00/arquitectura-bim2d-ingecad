@@ -100,7 +100,8 @@ class CarpinteriaTool(Tool):
         if taken:
             # a double-click on a carpentry: its model, no sheet (D opens it)
             keys = ("type", "operation", "leaves", "leaf", "leaf2", "width", "height", "sill", "face",
-                    "curve_mode", "facet_sagitta", "width_reference", "frame_width", "frame_depth", "setback", "setback_from", "sill_kind", "name", "type_name", "material")
+                    "curve_mode", "facet_sagitta", "width_reference", "frame_width", "frame_depth", "setback", "setback_from", "sill_kind", "name", "type_name", "material",
+                    "leaf_thickness", "frame_material", "leaf_material", "glass_material", "sill_material")
             self.apply_sheet({k: taken[k] for k in keys if k in taken})
             self.ctx.echo(f"{self.name}: con el modelo de {taken.get('name') or 'la carpintería'}.")
         elif not self._sheet(first=True):
@@ -300,6 +301,8 @@ class CarpinteriaTool(Tool):
             self.width_given = True
         elif key == "hojas":
             parts = raw.replace(";", " ").split()
+            if not parts:
+                raise ValueError("indique el número de hojas")
             n = int(parts[0])
             if v["type"] == "door":
                 if n not in (1, 2):

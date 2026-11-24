@@ -7,13 +7,21 @@ from . import slabs as S
 from .architectural import metadata
 
 
+def _nivel(data,rec):
+    """Nivel de un forjado; si el suyo no existe (pegado de otro dibujo) o
+    no lo tiene, el activo, en vez de StopIteration (revisión del 24-11)."""
+    ident=rec.get('level_id') or data['active']
+    return next((v for v in data['levels']if v['id']==ident),
+                next(v for v in data['levels']if v['id']==data['active']))
+
+
 def form(ctx,record=None):
     from PySide6.QtWidgets import QFormLayout,QLineEdit,QDoubleSpinBox,QCheckBox,QLabel
     from .bim_dialogs import _dialog
     from .compat import require_document
     from .levels import load
     data=load(require_document(ctx));rec=record or{}
-    lv=next(v for v in data['levels']if v['id']==rec.get('level_id',data['active']))
+    lv=_nivel(data,rec)
     dlg,layout,buttons=_dialog(ctx,'Arquitectura — Forjado horizontal',
         'El contorno y los huecos se dibujan en planta. La cara superior se mide respecto del nivel; el espesor crece hacia abajo.')
     fields=QFormLayout();name=QLineEdit(rec.get('name','Forjado'));material=QLineEdit(rec.get('material','Sin definir'));fields.addRow('Nombre',name);fields.addRow('Material',material)
@@ -36,7 +44,7 @@ def form(ctx,record=None):
 def edit_change(ctx,entity,values):
     from .levels import load
     from .compat import require_document
-    m=S.read(entity);data=load(require_document(ctx));lv=next(v for v in data['levels']if v['id']==m.get('level_id',data['active']))
+    m=S.read(entity);data=load(require_document(ctx));lv=_nivel(data,m)
     out={**m,'name':values['name'],'material':values['material'],'thickness':values['thickness'],
          'slab_kind':values.get('slab_kind',m.get('slab_kind',S.DEFAULT_KIND)),
          'base':lv['elevation']+values['top_offset']-values['thickness']}

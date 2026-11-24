@@ -2,6 +2,54 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.48.12-dev — 2026-11-24
+
+Segunda lista de una revisión externa (24-11): unos 35 puntos comprobados; 22 reales, todos corregidos.
+
+- **Excepciones que rompían órdenes:**
+  - COTAMUROS con dos puntos iguales;
+  - CARPINTERIA con «hojas» vacío;
+  - PILAR con una sección inválida (ya no deja los valores a medias);
+  - 2UPN empresillado con separación negativa o no finita;
+  - carpintería curva en un muro casi recto (división por cero);
+  - ficha de carpintería al cambiar de tipo con una marca puesta (el error escapaba de la señal de Qt; ahora
+    se avisa y no se puede aceptar);
+  - forjado con un nivel inexistente (pegado de otro dibujo): usa el activo;
+  - -PROPIEDADESARQ de un hueco sin muro;
+  - NIVELASIGNAR sin selección válida;
+  - ficha de barandilla o reja sin separación;
+  - un recinto con altura libre imposible ya no deja sin cuadro de superficies a los demás.
+- **UNIRMURO de dos muros dibujados en sentidos opuestos:** las carpinterías del segundo conservaban lado y
+  jamba, y quedaban invertidas. Ahora se invierten con el muro.
+- **Particiones virtuales:**
+  - tomaban siempre 3 m de altura; ahora, hasta el nivel siguiente;
+  - una copia recibe ya identidad propia.
+- **Niveles:** la primera activación de las capas por nivel desde el estado de un nivel reparte también los
+  contornos, como el diálogo de niveles.
+- **DEFENSA:**
+  - ya no acepta las opciones de MURO que la convertían en un muro corriente (categoría, tipo, igual);
+  - el doble clic sobre una defensa abre DEFENSA con sus medidas.
+- **Doble clic sobre un recinto:** regenera etiqueta y envolvente, como PROPIEDADESARQ.
+- **Recintos:** el número y el uso se pueden vaciar.
+- **Doble clic sobre una carpintería:** también copia grueso de hoja y materiales.
+- **Órdenes:**
+  - CURVAMURO acepta «Fin» también con el muro designado;
+  - SECCIONARQ/ALZADOARQ vuelven a pedir el lado si la vista no se puede generar;
+  - renumerar un eje suelto admite números.
+- **TIPOSMURO:** un tipo nuevo solo hereda la categoría de otro con su mismo nombre exacto.
+- **LINEASAMURO con rangos de espesor y sin selección:** se leía el dibujo entero en vez de la ventana elegida.
+- **Descartados con razón:**
+  - `_prompt_source` y `wants_raw_text` existen en la clase base de IngeCAD;
+  - `centesimas` recibe grosores ya validados;
+  - los métodos heredados por ARMARIOBIM están protegidos con `getattr` o `try`;
+  - un armario en un muro curvo se rechaza antes de usar `spec.n`;
+  - `mark_manual` se fuerza a propósito: es la solicitud que consume la regeneración;
+  - `leaf2` de un armario no se usa.
+- **Encargados a Codex:**
+  - `target_available` con capas de nivel aún no creadas;
+  - `reference_changed` de la ficha de carpintería;
+  - doble clic sobre forjados y armarios.
+
 ## 1.48.11-dev — 2026-11-24
 
 Lista de posibles errores de una revisión externa (24-11): 20 puntos comprobados, 1 real y 1 menor.

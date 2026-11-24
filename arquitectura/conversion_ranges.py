@@ -22,11 +22,15 @@ def analyse_ranges(drawing,lo,hi,classification,tmin,tmax,height,parallel,origin
         def keep(r):return r not in WALLS or r==role
         layers={k:v for k,v in classification.layers.items()if keep(v)and(i==0 or v!='pilares')}
         handles={k:v for k,v in classification.handles.items()if keep(v)and(i==0 or v!='pilares')}
-        selected=set(selected_handles)if selected_handles is not None else{e.dxf.handle for e in drawing.modelspace()}
-        selected-={k for k,v in classification.handles.items()if not keep(v)or(i>0 and v=='pilares')}
+        fuera={k for k,v in classification.handles.items()if not keep(v)or(i>0 and v=='pilares')}
+        # sin selección se conserva la ventana: se excluye lo de otras
+        # categorías en vez de «seleccionar todo el dibujo», que hacía leer
+        # el dibujo entero (revisión del 24-11)
+        selected=set(selected_handles)-fuera if selected_handles is not None else None
         c=Classification(layers,handles,True,reviewed_source=classification.reviewed_source,
                          reviewed_wall_role=role)
-        plans.append(analyse(drawing,lo,hi,c,*bounds[role],height,parallel,origin,selected))
+        plans.append(analyse(drawing,lo,hi,c,*bounds[role],height,parallel,origin,selected,
+                             excluded_handles=None if selected is not None else fuera))
     walls=[];ops=[];curves=[];curved_ops=[];columns=[];loose=[];blocks=0;sources=[];roles=[];details=[];review=[];warnings=[]
     for p in plans:
         w,o,raw,c,col,unpaired,b=p.result

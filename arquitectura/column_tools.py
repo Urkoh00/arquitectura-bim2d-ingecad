@@ -124,8 +124,9 @@ class PilarTool(Tool):
             key, self.pending = self.pending, None
             try:
                 if key == "section":
-                    self.values.update(SEC.parse_section(raw))
-                    SEC.local_footprint(self.values)            # validate now
+                    nuevos = {**self.values, **SEC.parse_section(raw)}
+                    SEC.local_footprint(nuevos)                 # validate before keeping
+                    self.values = nuevos
                 elif key == "anchor":
                     k = int(txt)
                     if not 1 <= k <= 9:

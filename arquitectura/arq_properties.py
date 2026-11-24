@@ -74,7 +74,8 @@ def space_change(entity, values):
     from .architectural_v10 import EditArchitecturalCommand
     d=copy.deepcopy(metadata(entity))
     for k in ('name','number','use','enclosure','height','ceiling','level','height_mode'):
-        if k in values and values[k] not in (None,''):
+        # el número y el uso se pueden vaciar; el resto, vacío, no cambia
+        if k in values and (values[k] not in (None,'') or (k in ('number','use') and values[k]=='')):
             d[k]=values[k]
     if 'cte' in values:                  # an empty classification is a valid choice
         from .cte_usos import validate

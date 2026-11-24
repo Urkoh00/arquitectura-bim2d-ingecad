@@ -54,6 +54,9 @@ def pieces(spec,rec,base):
     edges=sorted({x for group in boxes for a,b,p,q,z0,z1 in group for x in (a,b)})
     sag=min(float(rec.get('facet_sagitta',.005)),.002)
     step=2*math.acos(max(-1.,1-sag/rmax))*spec.r
+    if not step>1e-12:
+        # radio tan grande que la flecha no se distingue: un tramo por pieza
+        step=math.inf
     if len(edges)>1000 or (edges and (edges[-1]-edges[0])/step>10000):
         raise ValueError('Facetado excesivo; aumente la flecha')
     stations=[]

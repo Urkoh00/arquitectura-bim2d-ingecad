@@ -95,7 +95,7 @@ def facade_points(edges, p, q, reach=3.0, tol_deg=1.0):
     dx, dy = q[0] - p[0], q[1] - p[1]
     L = math.hypot(dx, dy)
     if L < 1e-9:
-        return []
+        return [], 0.0
     ux, uy = dx / L, dy / L
     cand = []
     for e in edges:

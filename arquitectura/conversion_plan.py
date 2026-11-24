@@ -298,7 +298,7 @@ def scale_check(leaves):
 
 
 def analyse(drawing, lo, hi, classification, tmin=.07, tmax=.5, height=3.,
-            parallel=.005, origin='ocultar', selected_handles=None):
+            parallel=.005, origin='ocultar', selected_handles=None, excluded_handles=None):
     if classification.reviewed_source is not None:
         classification.reviewed_source.comprobar(drawing)
     if classification.thickness_ranges:
@@ -335,6 +335,7 @@ def analyse(drawing, lo, hi, classification, tmin=.07, tmax=.5, height=3.,
             if box.has_data:cabinet_bounds.append((box.extmin,box.extmax))
     for e in drawing.modelspace():
         if selected_handles is not None and e.dxf.handle not in selected_handles:continue
+        if excluded_handles and e.dxf.handle in excluded_handles:continue
         if metadata(e):
             continue
         if e.dxf.layer in hidden and e.dxf.handle not in classification.handles:

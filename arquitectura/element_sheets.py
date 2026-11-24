@@ -26,7 +26,7 @@ def validate(kind, record):
     for key,label,default in fields:
         v=float(record.get(key,default))
         if not math.isfinite(v) or (key!='base' and v<=0):raise ValueError(label+': medida inválida')
-    if kind in ('railing','grille') and record['spacing']<=record['bar_width']:
+    if kind in ('railing','grille') and float(record.get('spacing',.12))<=float(record.get('bar_width',.02)):
         raise ValueError('La separación debe ser mayor que la anchura del barrote')
     return record
 

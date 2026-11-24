@@ -50,7 +50,8 @@ class PropiedadesTexto(PreguntasTexto, Tool):
 
             datos = deepcopy(slabs.read(entidad))
             catalogo = load(require_document(self.ctx))
-            nivel = next(n for n in catalogo["levels"] if n["id"] == datos["level_id"])
+            from .slab_tools import _nivel
+            nivel = _nivel(catalogo, datos)
             datos["top_offset"] = datos["base"] + datos["thickness"] - nivel["elevation"]
             campos = F.campos_forjado(datos)
         elif datos.get("cabinet"):
@@ -60,10 +61,14 @@ class PropiedadesTexto(PreguntasTexto, Tool):
             from .geom.junctions import walls_from_records
 
             anfitrion = next(
-                metadata(e)
-                for e in entidad.doc.modelspace()
-                if (metadata(e) or {}).get("id") == datos["wall_id"]
+                (metadata(e)
+                 for e in entidad.doc.modelspace()
+                 if (metadata(e) or {}).get("id") == datos["wall_id"]),
+                None,
             )
+            if anfitrion is None:
+                self.ctx.echo(self.name + ": la carpintería no tiene muro anfitrión")
+                return
             muro = walls_from_records([(anfitrion["id"], anfitrion)])[0]
             datos["width"] = openings.measure_of(
                 muro, datos["width"], datos, int(datos.get("side", 1))

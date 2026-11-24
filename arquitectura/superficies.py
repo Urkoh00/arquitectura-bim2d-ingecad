@@ -188,7 +188,12 @@ def table(drawing, crit=None):
         if room is None:
             rows.append({"name": m.get("name") or "Recinto", "error": "no está cerrado"})
             continue
-        m = SE.effective(m, SE.resolve(m, room, limits))
+        try:
+            m = SE.effective(m, SE.resolve(m, room, limits))
+        except ValueError as exc:
+            # un recinto imposible no deja sin cuadro al resto (revisión 24-11)
+            rows.append({"name": m.get("name") or "Recinto", "error": str(exc)})
+            continue
         room_u = (SE.outline(m, res_u, _e)[0]
                   if res_u is not None else None)
         from . import cabinets as C

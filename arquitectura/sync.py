@@ -30,7 +30,7 @@ import uuid
 from .architectural import metadata
 
 GROUP_PREFIX = "ARQ_"
-KINDS = ("wall", "column", "opening", "space", "slab")
+KINDS = ("wall", "column", "opening", "space", "slab", "virtual_partition")
 
 
 def _handle_key(entity):

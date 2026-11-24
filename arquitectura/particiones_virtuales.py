@@ -101,7 +101,11 @@ def _level_of(drawing):
         return "Planta baja", 0.0, None, DEFAULT_HEIGHT
     data = load(drawing)
     lv = next(v for v in data["levels"] if v["id"] == data["active"])
-    return lv["name"], float(lv["elevation"]), lv["id"], float(lv.get("height") or DEFAULT_HEIGHT)
+    z = float(lv["elevation"])
+    # los niveles guardan cotas, no alturas: la del nivel es la distancia al
+    # siguiente; el último toma la altura por defecto (revisión del 24-11)
+    encima = [float(v["elevation"]) for v in data["levels"] if float(v["elevation"]) > z + 1e-9]
+    return lv["name"], z, lv["id"], (min(encima) - z) if encima else DEFAULT_HEIGHT
 
 
 def _ensure_linetype(drawing):

@@ -462,7 +462,9 @@ def crear_herramientas(Tool):
                 vista = generar(self.ctx, datos)
             except (ValueError, RuntimeError) as error:
                 self.ctx.echo(f"{self.name}: {error}")
-                self.puntos.pop()
+                # el lado (3.er punto) suele ser la causa: se piden de nuevo
+                # el lado y la inserción (revisión del 24-11)
+                del self.puntos[2:]
                 self._pedir()
                 return
             r = vista.resumen

@@ -224,4 +224,6 @@ def asignar(ctx,*args):
     for v in data['levels']:box.addItem(v['name'],v['id'])
     box.setCurrentIndex(max(0,box.findData(data['active'])));layout.addWidget(box)
     keep=QCheckBox('Conservar cota absoluta (desactivado: alinear la base/cara superior al nivel)');keep.setChecked(True);layout.addWidget(keep);layout.addWidget(buttons)
-    if dlg.exec()==1:assign(ctx,selection,box.currentData(),keep.isChecked())
+    if dlg.exec()==1:
+        try:assign(ctx,selection,box.currentData(),keep.isChecked())
+        except ValueError as exc:ctx.echo(f'NIVELASIGNAR: {exc}')

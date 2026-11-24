@@ -797,7 +797,20 @@ class DefensaTool(MuroCarasTool):
         self.bim["wall_category"] = "defensa"
         self.bim.pop("layers", None)
         self.bim["type_name"] = ""
-        self._set_defense(DF.DEFAULT_TYPE)
+        from .double_click import preset
+        taken = preset("DEFENSA")
+        kind = DF.defense_type(taken) if taken else DF.DEFAULT_TYPE
+        self._set_defense(kind)
+        if taken:
+            # doble clic sobre una defensa: sus medidas y propiedades
+            self.thickness, self.height = float(taken["thickness"]), float(taken["height"])
+            self.base = float(taken.get("base", 0.0))
+            self.bim["void_ratio"] = DF.void_ratio(taken)
+            for k in ("name", "material", "level"):
+                if taken.get(k):
+                    self.bim[k] = taken[k]
+            self._status()
+            self._reprompt()
 
     # --- tipo y valores --------------------------------------------------------------------
     def _set_defense(self, kind):
@@ -864,6 +877,13 @@ class DefensaTool(MuroCarasTool):
                 return True
             self.pending = "voids"
             self.prompt("DEFENSA: proporción de huecos del alzado (%):")
+            return True
+        from .wall_categories import CATEGORIES
+        ajenas = {k for _n, k in CATEGORIES} | {"sótano", "partición", "tabique"}
+        if not getattr(self, "pending", None) and txt in (ajenas - {"defensa"}) | {"t", "tipo", "g", "igual"}:
+            # heredadas de MURO: convertirían la defensa en un muro corriente
+            self.ctx.echo("DEFENSA: una defensa no cambia de categoría ni toma tipos o propiedades de muro.")
+            self._reprompt()
             return True
         before = self.height
         handled = super().on_option(text)
@@ -1354,19 +1374,26 @@ def _props(m):
     return {k: m.get(k) for k in ("name", "type_name", "material", "level", "wall_category") if m.get(k) is not None}
 
 
-def _rehost(opening, new_wall_cmd, offset):
+def _rehost(opening, new_wall_cmd, offset, reversed_=False):
     """Deferred: the opening now belongs to the wall created by
-    ``new_wall_cmd`` (known only after it runs), at ``offset`` from its start."""
+    ``new_wall_cmd`` (known only after it runs), at ``offset`` from its start.
+    ``reversed_``: the new wall runs against the old one (UNIRMURO of two
+    walls drawn in opposite directions), so the opening keeps its place in
+    space with its side and hinge mirrored in the new wall's frame."""
     from .architectural_v10 import opening_record, opening_symbol
     from . import openings as OP
 
     def factory(_doc):
         d = metadata(opening)
         wall = new_wall_cmd.entity
+        v3 = {k: d[k] for k in OP.V3_KEYS if k in d and k != "operation"}
+        if reversed_:
+            v3["side"] = -int(d.get("side") or 1)
+            v3["hinge"] = 0 if int(d.get("hinge") or 0) else 1
         rec, pt = opening_record(wall, offset, d["width"], d["sill"], d["height"], d["type"],
                                  existing=d["id"], **{k: d.get(k, "") for k in
                                                       ("name", "type_name", "material", "operation")},
-                                 **{k: d[k] for k in OP.V3_KEYS if k in d and k != "operation"})
+                                 **v3)
         if opening.dxftype() == "LWPOLYLINE":
             return EditArchitecturalCommand(opening, rec, points=opening_symbol(wall, rec))
         return EditArchitecturalCommand(opening, rec, position=(pt[0], pt[1], 0.0))
@@ -1568,7 +1595,7 @@ class UnirMuroTool(Tool):
                 d = metadata(o)
                 ends = [f1.local(f2.point(float(d["offset"]) + k))[0] - smin
                         for k in (0.0, float(d["width"]))]
-                cmds.append(_rehost(o, _Done, min(ends)))
+                cmds.append(_rehost(o, _Done, min(ends), reversed_=ends[1] < ends[0]))
             from .sync import DropGroupsCommand
             cmds += [DropGroupsCommand([entity]), EraseCommand([entity])]
             apply(self.ctx, "ARQ UNIRMURO", cmds)
@@ -1607,7 +1634,7 @@ class UnirMuroTool(Tool):
                 d = metadata(o)
                 ends = [f1.local(f2.point(float(d["offset"]) + k, 0.0))[0] - smin
                         for k in (0.0, float(d["width"]))]
-                cmds.append(_rehost(o, _Done, min(ends)))
+                cmds.append(_rehost(o, _Done, min(ends), reversed_=ends[1] < ends[0]))
             from .sync import DropGroupsCommand
             cmds += [DropGroupsCommand([entity]), EraseCommand([entity])]
             apply(self.ctx, "ARQ UNIRMURO", cmds)

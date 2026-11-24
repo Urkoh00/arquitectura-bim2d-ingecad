@@ -245,10 +245,11 @@ class GridEditTool(Tool):
             self.ctx.finish();return True
         parts=str(text).strip().split(maxsplit=1)
         if self.entity is None or len(parts)!=2 or parts[0].lower()!='renumerar':return False
-        m=G.metadata(self.entity);first=int(parts[1]) if m['family']=='U' else G.letter_index(parts[1])
+        m=G.metadata(self.entity);numerica=m['family']=='U' or (m['family']=='S' and parts[1].strip().isdigit())
+        first=int(parts[1]) if numerica else G.letter_index(parts[1])
         if first<1:raise ValueError('Numeración positiva')
         members=sorted([(e,n) for e,n in G.axes(require_document(self.ctx).doc) if n['grid_id']==m['grid_id'] and n['family']==m['family'] and n['index']>=m['index']],key=lambda x:x[1]['index'])
-        commands=[G.SetAxis(e,label=n.get('prefix','')+(str(first+i) if m['family']=='U' else G.letter(first+i))+n.get('suffix','')) for i,(e,n) in enumerate(members)]
+        commands=[G.SetAxis(e,label=n.get('prefix','')+(str(first+i) if numerica else G.letter(first+i))+n.get('suffix','')) for i,(e,n) in enumerate(members)]
         apply_architectural_change(self.ctx,SafeArchitecturalCommand('ARQ RENUMERAR',[*commands,G.RegenerateGrid()]),kind='column');self.ctx.finish();return True
     def on_enter(self):self.ctx.finish()
 

@@ -163,11 +163,18 @@ def set_state(ctx, ident, prop, value):
     doc=require_document(ctx);data=load(doc)
     if ident not in {lv['id']for lv in data['levels']}:raise ValueError('Nivel inexistente')
     if prop not in ('on','frozen','locked') or type(value)is not bool:raise ValueError('Estado de nivel no válido')
+    was_managed=bool(data.get('layer_managed'))
     data['layer_managed']=True
     def native(_):return SafeArchitecturalCommand('Estado de capas',[
         LayerPropertyCommand(n,prop,value)for n in names(doc,ident)])
-    ctx.execute(SafeArchitecturalCommand('ARQ estado de nivel',[
-        *catalog_steps(doc,data),RouteLevels(),DeferredCommand('Capas nativas',native)]))
+    change=SafeArchitecturalCommand('ARQ estado de nivel',[
+        *catalog_steps(doc,data),RouteLevels(),DeferredCommand('Capas nativas',native)])
+    if was_managed:ctx.execute(change)
+    else:
+        # la primera activación reparte los contornos por nivel en la misma
+        # operación, como el diálogo de niveles (revisión del 24-11)
+        from .transactions import apply_architectural_change
+        apply_architectural_change(ctx,change)
 
 
 def install_toolbar(ctx, *_):

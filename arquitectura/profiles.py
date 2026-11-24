@@ -182,6 +182,8 @@ def parse(text):
                     out.update(mode="cajon", gap=0.0)
                 elif mode.startswith("emp"):
                     gap = float(rest[2]) if len(rest) > 2 else 0.10
+                    if not (math.isfinite(gap) and gap >= 0):
+                        raise ValueError("2UPN empresillado: separación positiva y finita")
                     out.update(mode="empresillado", gap=gap)
                 else:
                     raise ValueError("2UPN: indique «cajon» o «empresillado <separación m>»")

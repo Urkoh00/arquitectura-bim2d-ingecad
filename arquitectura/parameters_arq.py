@@ -495,7 +495,8 @@ def tipos_muro(ctx, *args):
                 return
         else:
             entry = parse_type(text)
-            previous = find_wall_type(types, entry['name'])
+            # mismo nombre exacto: find_wall_type también acepta número o prefijo
+            previous = next((t for t in types if t['name'].lower() == entry['name'].lower()), None)
             if previous is not None:
                 # Cambiar las capas no solicita reclasificar el tipo constructivo.
                 entry = normalise_type({**entry, 'wall_category': previous['wall_category']})
