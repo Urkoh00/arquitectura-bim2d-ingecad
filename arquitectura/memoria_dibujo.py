@@ -271,6 +271,10 @@ class Dibujante:
             textos[2:4] = ["Sin cerco, hojas ni vidrio"]
         if registro["leaves"] == 2:
             textos.insert(1, "Hoja principal: " + principal(fila))
+        manilla = next((p for p in medidas["plantillas"] if p["role"] == "handle"), None)
+        if manilla:
+            altura_manilla = (manilla["box"][4] + manilla["box"][5]) / 2
+            textos.append("Manilla: " + materiales["handle"] + " · altura " + self.longitud(altura_manilla) + " m")
         cuerpo = self.texto(
             (x + self.altura, siguiente), "\n".join(textos), ancho_tarjeta - 2 * self.altura
         )
@@ -423,6 +427,7 @@ class Dibujante:
                         + materiales["frame"]
                         + "; H: "
                         + materiales["leaf"]
+                        + ("; M: " + materiales["handle"] if "handle" in materiales else "")
                         + ("; V: " + materiales["glass"] if definicion["type"] == "window" else "")
                     ),
                     numero(fila["area_unitaria"]),

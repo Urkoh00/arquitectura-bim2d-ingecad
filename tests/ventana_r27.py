@@ -19,6 +19,7 @@ from PySide6.QtTest import QTest
 from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
+    QAbstractSpinBox,
     QDialogButtonBox,
     QFileDialog,
     QLineEdit,
@@ -132,12 +133,24 @@ def contestar_cuadro():
             elif isinstance(campo, QComboBox):
                 # La prueba real recorre el selector por teclado, igual que el usuario.
                 indice = campo.findData(valor)
+                if indice < 0 and campo.isEditable():
+                    campo.setFocus()
+                    campo.lineEdit().selectAll()
+                    QTest.keyClicks(campo, str(valor))
+                    assert campo.currentText() == str(valor)
+                    continue
                 assert indice >= 0, (clave, valor)
                 campo.setFocus()
                 QTest.keyClick(campo, Qt.Key_Home)
                 for _ in range(indice):
                     QTest.keyClick(campo, Qt.Key_Down)
                 assert campo.currentData() == valor
+            elif isinstance(campo, QAbstractSpinBox):
+                campo.setFocus()
+                campo.selectAll()
+                QTest.keyClicks(campo, str(valor))
+                QTest.keyClick(campo, Qt.Key_Tab)
+                assert abs(campo.value() - float(valor)) < 1e-8, (clave, campo.value())
             else:
                 raise AssertionError("No hay un campo editable en la ficha: " + clave)
     if os.environ.get("R27_VALORES_CUADRO"):

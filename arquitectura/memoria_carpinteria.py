@@ -122,6 +122,10 @@ def definir(muro, registro):
     )
     if registro["leaves"] == 2:
         definicion["main_leaf"] = registro["main_leaf"]
+    if registro["type"] != "gap" and registro["operation"] != "FIXED":
+        manilla = next(p for p in medidas["plantillas"] if p["role"] == "handle")
+        definicion["handle_height"] = (manilla["box"][4] + manilla["box"][5]) / 2
+        definicion["materiales"]["handle"] = openings.part_material(registro, "handle")
     if registro["curve_mode"] == "curva":
         # Dos arcos de igual desarrollo y distinto radio no son la misma pieza.
         definicion["radio"] = muro.r
@@ -159,10 +163,24 @@ def unidades(muro, registro):
 
 
 def coincide_tipo_anterior(anterior, actual):
+    actual = deepcopy(actual)
     # En v1.47 no se distinguía la hoja activa: la primera de las nuevas
     # agrupaciones conserva la marca, y las demás reciben números nuevos.
     if "main_leaf" not in anterior and "main_leaf" in actual:
         actual = {clave: valor for clave, valor in actual.items() if clave != "main_leaf"}
+    if "handle_height" not in anterior and "handle_height" in actual:
+        inferior = actual["antepecho"] + 0.005
+        superior = actual["antepecho"] + actual["alto"] - actual["frame_width"]
+        automatica = (1.05 if inferior < 1.05 < superior else (inferior + superior) / 2)
+        if actual["type"] == "window":
+            automatica = actual["antepecho"] + actual["alto"] / 2
+        if not iguales(actual["handle_height"], automatica):
+            return False
+        actual.pop("handle_height")
+    if "handle" not in anterior["materiales"] and "handle" in actual["materiales"]:
+        if actual["materiales"]["handle"] != "Acero":
+            return False
+        actual["materiales"].pop("handle")
     return iguales(anterior, actual)
 
 

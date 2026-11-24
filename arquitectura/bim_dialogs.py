@@ -797,7 +797,7 @@ def _int_spin(value, lo, hi):
 CARPENTRY_MATERIALS = ("Madera", "Aluminio", "PVC", "Acero", "Vidrio", "Vidrio laminar",
                        "Piedra", "Mármol", "Hormigón polímero")
 PREVIEW_COLORS = {"frame": (138, 90, 51), "leaf": (176, 122, 72), "glass": (158, 195, 230),
-                  "sill": (216, 210, 196)}
+                  "sill": (216, 210, 196), "handle": (140, 146, 153)}
 
 
 MATERIAL_COLORS = (("vidrio", (158, 195, 230)), ("madera", (176, 122, 72)), ("alumin", (178, 183, 189)),
@@ -833,7 +833,7 @@ def carpentry_preview(get_record, wall_thickness=0.25):
             self.error = ""
 
         def sample(self):
-            rec = OP.normalise({**get_record(), "offset": 0.4, "side": 1})
+            rec = OP.normalise({**get_record(), "offset": 0.4})
             width = float(rec.get("width") or 0.9)
             spec = J.walls_from_records([("muestra", {"id": "muestra", "kind": "wall",
                                                       "a": [0.0, 0.0], "b": [width + 0.8, 0.0],
@@ -887,6 +887,8 @@ def carpentry_preview(get_record, wall_thickness=0.25):
                             'footer_top': H-38}
 
             def E(s_, z):
+                if rec["side"] < 0:
+                    s_ = span - s_
                 return QPointF(ox + s_ * k, elev_h - 18 - z * k)
             # the wall in elevation, with its hole
             wall = QPolygonF([E(0, 0), E(span, 0), E(span, top), E(0, top)])
@@ -898,7 +900,7 @@ def carpentry_preview(get_record, wall_thickness=0.25):
             qp.setBrush(QBrush(QColor(250, 250, 248)))
             qp.drawPolygon(QPolygonF([E(s0, z0), E(s1, z0), E(s1, z1), E(s0, z1)]))
             # its pieces, seen from the face it opens to
-            order = {"sill": 0, "frame": 1, "leaf": 2, "glass": 3}
+            order = {"sill": 0, "frame": 1, "leaf": 2, "glass": 3, "handle": 4}
             for part in sorted(pieces, key=lambda p: order[p["role"]]):
                 part=part.get("unrolled",part)
                 c = QColor(*_material_color(part["material"], part["role"]))
@@ -932,7 +934,7 @@ def carpentry_preview(get_record, wall_thickness=0.25):
 
             def m(v):
                 return f"{v:.3f}".replace(".", ",")
-            qp.drawText(QRectF(4, 2, W-8, 16), Qt.AlignLeft, "Alzado (desde la cara hacia la que abre)")
+            qp.drawText(QRectF(4, 2, W-8, 16), Qt.AlignLeft, "Alzado (vista desde el exterior)")
             qp.drawText(QRectF(8, H-36, W-16, 32), Qt.AlignLeft | Qt.TextWordWrap,
                         f"Ancho {m(width)} m · Alto {m(z1-z0)} m · Antepecho {m(z0)} m")
 
@@ -1010,6 +1012,9 @@ def carpentry_form(ctx, record, *, editing=False):
                              ('Arco de cara interior','interior'),('Arco de cara exterior','exterior')],d['width_reference'])
     facet=_spin(d['facet_sagitta']);facet.setRange(.0001,.02);facet.setDecimals(4)
     principal = _choice([('Izquierda', 'left'), ('Derecha', 'right')], d['main_leaf'])
+    altura_manilla = _spin(d['handle_height'])
+    altura_manilla.setRange(0.0, 1000.0)
+    altura_manilla.setToolTip('Desde el suelo del nivel; 0 = 1,05 m en puertas y centro de la hoja en ventanas.')
     setback = _spin(d.get("setback", 0.0)); setback.setRange(0., 1000.); setback.setSuffix(" m")
     setback_from = _choice([("Cara hacia la que abre", "interior"), ("Cara opuesta", "exterior")], d.get("setback_from", "exterior"))
     frame_w = _spin(d.get("frame_width") or 0.0)
@@ -1019,7 +1024,7 @@ def carpentry_form(ctx, record, *, editing=False):
     hole = QLabel("")
     rows = [("Tipo:", typ),("Geometría curva:",curve_mode),("Referencia del ancho:",width_reference),("Flecha máxima:",facet), ("Apertura:", operation), ("Hojas:", leaves), ("Hoja normalizada:", preset),
             ("Hoja principal (exterior):", principal), ("Primera hoja desde el inicio (m):", leaf), ("Segunda hoja (0 = igual):", leaf2), ("Ancho del hueco:", width),
-            ("Hueco resultante:", hole), ("Altura:", height), ("Antepecho:", sill)]
+            ("Hueco resultante:", hole), ("Altura:", height), ("Antepecho:", sill), ("Altura de manilla (m; 0 = automática):", altura_manilla)]
     for label, w in rows:
         f.addRow(label, w)
     if not editing:
@@ -1042,7 +1047,8 @@ def carpentry_form(ctx, record, *, editing=False):
         return box
     m_frame, m_leaf = mat_box("frame_material", "frame"), mat_box("leaf_material", "leaf")
     m_glass, m_sill = mat_box("glass_material", "glass"), mat_box("sill_material", "sill")
-    for label, w in (("Marco:", m_frame), ("Hojas:", m_leaf), ("Vidrio:", m_glass), ("Alféizar:", m_sill)):
+    m_manilla = mat_box("handle_material", "handle")
+    for label, w in (("Marco:", m_frame), ("Hojas:", m_leaf), ("Vidrio:", m_glass), ("Alféizar:", m_sill), ("Manilla:", m_manilla)):
         mf.addRow(label, w)
     left.addWidget(mats)
     place = None
@@ -1123,6 +1129,9 @@ def carpentry_form(ctx, record, *, editing=False):
             show(hinge, window and operation.currentData() == "TILTANDTURN")
         show(leaves, kind != "gap")
         principal.setEnabled(kind != "gap" and leaves.value() == 2)
+        con_manilla = kind != "gap" and operation.currentData() != "FIXED"
+        show(altura_manilla, con_manilla)
+        show(m_manilla, con_manilla, mf)
         leaves.setMaximum(2 if door else 6)
         for w in (preset, leaf, leaf2):
             show(w, door)
@@ -1162,7 +1171,7 @@ def carpentry_form(ctx, record, *, editing=False):
             pieces = [] if problems(v) else OP.carpentry_parts(_sample_spec(v), {**v, "offset": 0.4}, 0.0)
             roles = {p["role"] for p in pieces}
             names = [n for r, n in (("frame", "marco"), ("leaf", "hojas"), ("glass", "vidrio"),
-                                    ("sill", "alféizar")) if r in roles]
+                                    ("sill", "alféizar"), ("handle", "manilla")) if r in roles]
             notes.append("En 3D: " + ", ".join(names) + ".")
         status.setText("\n".join(n for n in notes if n))
         ok = buttons.button(buttons.StandardButton.Ok) if hasattr(buttons, "StandardButton") else None
@@ -1191,7 +1200,8 @@ def carpentry_form(ctx, record, *, editing=False):
                       setback_from=setback_from.currentData(), frame_width=frame_w.value(),
                       frame_depth=frame_d.value(), name=name.text().strip(), mark=mark.text().strip(),
                       type_name=type_name.text().strip(), material=material.text().strip(),
-                      leaves=leaves.value(), main_leaf=principal.currentData(), leaf=leaf.value(), leaf2=leaf2.value(), width=width.value(),
+                      leaves=leaves.value(), main_leaf=principal.currentData(), handle_height=altura_manilla.value(),
+                      handle_material=m_manilla.currentText().strip(), leaf=leaf.value(), leaf2=leaf2.value(), width=width.value(),
                       sill_kind=sill_kind.currentData(), frame_material=m_frame.currentText().strip(),
                       leaf_material=m_leaf.currentText().strip(), glass_material=m_glass.currentText().strip(),
                       sill_material=m_sill.currentText().strip())
@@ -1218,7 +1228,7 @@ def carpentry_form(ctx, record, *, editing=False):
         fill_operations()
         refresh()
     typ.currentIndexChanged.connect(kind_changed)
-    for w in (leaves, leaf, leaf2, frame_w, frame_d, width, height, sill, setback):
+    for w in (leaves, leaf, leaf2, frame_w, frame_d, width, height, sill, setback, altura_manilla):
         w.valueChanged.connect(refresh)
     ref_state={'curve_mode':d['curve_mode'],'width_reference':d['width_reference']}
     def reference_changed(*_):
@@ -1233,6 +1243,7 @@ def carpentry_form(ctx, record, *, editing=False):
     for w in (operation, hinge, principal, face, sill_kind, setback_from,curve_mode,width_reference):
         w.currentIndexChanged.connect(refresh)
     facet.valueChanged.connect(refresh)
+    m_manilla.currentTextChanged.connect(refresh)
     preset.currentIndexChanged.connect(on_preset)
     refresh()
     catalog_choice=QComboBox();catalog_choice.addItem('Parámetros actuales',None)
@@ -1247,15 +1258,16 @@ def carpentry_form(ctx, record, *, editing=False):
         item=catalog_choice.currentData()
         if not item:return
         v=item['values'];typ.setCurrentIndex(typ.findData(item['type']))
-        for key,control in [('height',height),('sill',sill),('leaves',leaves),('leaf',leaf),('leaf2',leaf2),('width',width),('frame_width',frame_w),('frame_depth',frame_d),('setback',setback)]:
+        for key,control in [('height',height),('sill',sill),('leaves',leaves),('leaf',leaf),('leaf2',leaf2),('width',width),('frame_width',frame_w),('frame_depth',frame_d),('setback',setback),('handle_height',altura_manilla)]:
             if key in v:control.setValue(v[key])
         for key,control in [('operation',operation),('main_leaf',principal),('face',face),('sill_kind',sill_kind),('setback_from',setback_from),('curve_mode',curve_mode),('width_reference',width_reference)]:
             if key in v:control.setCurrentIndex(control.findData(v[key]))
-        for key,control in [('frame_material',m_frame),('leaf_material',m_leaf),('glass_material',m_glass),('sill_material',m_sill)]:
+        for key,control in [('frame_material',m_frame),('leaf_material',m_leaf),('glass_material',m_glass),('sill_material',m_sill),('handle_material',m_manilla)]:
             if key in v:control.setCurrentText(v[key])
         type_name.setText(item['name']);material.setText(v.get('material',''));refresh()
     catalog_choice.currentIndexChanged.connect(select_catalog)
-    dlg._arq = dict(catalog_choice=catalog_choice,typ=typ, operation=operation, hinge=hinge, main_leaf=principal, leaves=leaves, preset=preset, leaf=leaf, leaf2=leaf2,
+    dlg._arq = dict(catalog_choice=catalog_choice,typ=typ, operation=operation, hinge=hinge, main_leaf=principal,
+                    handle_height=altura_manilla, handle_material=m_manilla, leaves=leaves, preset=preset, leaf=leaf, leaf2=leaf2,
                     width=width, height=height, sill=sill, face=face, sill_kind=sill_kind, name=name, mark=mark,
                     clear=status, status=status, ifc=ifc, preview=preview, frame_width=frame_w,
                     curve_mode=curve_mode,width_reference=width_reference,facet_sagitta=facet,

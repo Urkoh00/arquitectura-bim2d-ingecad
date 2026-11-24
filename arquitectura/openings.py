@@ -42,7 +42,7 @@ SYMBOL_LAYER = "ARQ-CARPINTERIA"
 V3_KEYS = ("leaves", "leaf", "leaf2", "frame_width", "frame_depth", "side", "hinge",
            "angle", "face", "setback", "setback_from", "sill_kind", "operation", "leaf_thickness",
            "frame_material", "leaf_material", "glass_material", "sill_material",
-           "curve_mode", "facet_sagitta", "width_reference", "cabinet", "niche_depth", "cabinet_mode", "body_material", "mark", "mark_manual", "main_leaf")
+           "curve_mode", "facet_sagitta", "width_reference", "cabinet", "niche_depth", "cabinet_mode", "body_material", "mark", "mark_manual", "main_leaf", "handle_height", "handle_material")
 # opening type (IFC names, as in the properties dialog)
 OPERATIONS = {
     "door": ("SWINGING", "SLIDING"),
@@ -94,7 +94,7 @@ def kind_of(text):
 # medidas de la carpintería que no pueden ser negativas (RG-01, revisión de Codex)
 NON_NEGATIVE = (("frame_width", "ancho de cerco"), ("frame_depth", "fondo de cerco"),
                 ("leaf", "hoja"), ("leaf2", "segunda hoja"), ("leaf_thickness", "grueso de hoja"),
-                ("setback", "retranqueo"), ("niche_depth", "fondo de nicho"))
+                ("setback", "retranqueo"), ("niche_depth", "fondo de nicho"), ("handle_height", "altura de manilla"))
 
 
 def dimension_problems(rec):
@@ -113,6 +113,11 @@ def dimension_problems(rec):
             continue
         if not math.isfinite(v) or v < 0:
             out.append(f"{name} negativo o no válido ({rec[key]})")
+    if not out and rec.get("handle_height"):
+        altura = float(rec["handle_height"])
+        inferior = float(rec.get("sill", 0))
+        if not inferior < altura < inferior + float(rec["height"]):
+            out.append("altura de manilla fuera de la carpintería")
     return out
 
 
@@ -122,6 +127,8 @@ def normalise(rec):
     out = dict(rec)
     out.setdefault("mark", "")
     out.setdefault("mark_manual", False)
+    out.setdefault("handle_height", 0.0)
+    out.setdefault("handle_material", "Acero")
     out.setdefault('curve_mode','plana')
     out.setdefault('facet_sagitta',.005)
     out.setdefault('width_reference','cuerda' if out['curve_mode']=='plana' else 'eje')
@@ -582,17 +589,58 @@ GLASS_THICKNESS = 0.024          # double glazing 4/16/4
 SASH_PROFILE = 0.06
 DOOR_FLOOR_GAP = 0.005
 SILL_THICKNESS = 0.03
-PART_NAMES = {"frame": "Marco", "leaf": "Hoja", "glass": "Vidrio", "sill": "Alféizar"}
-MATERIALS = {"door": {"frame": "Madera", "leaf": "Madera"},
-             "window": {"frame": "Aluminio", "leaf": "Aluminio", "glass": "Vidrio", "sill": "Piedra"}}
+PART_NAMES = {"frame": "Marco", "leaf": "Hoja", "glass": "Vidrio", "sill": "Alféizar", "handle": "Manilla"}
+MATERIALS = {"door": {"frame": "Madera", "leaf": "Madera", "handle": "Acero"},
+             "window": {"frame": "Aluminio", "leaf": "Aluminio", "glass": "Vidrio", "sill": "Piedra", "handle": "Acero"}}
 
 
 def part_material(rec, role):
     """The material of a piece: the record's own (``frame_material``...) or
     the usual one for its kind."""
     key = {"frame": "frame_material", "leaf": "leaf_material", "glass": "glass_material",
-           "sill": "sill_material"}[role]
+           "sill": "sill_material", "handle": "handle_material"}[role]
     return str(rec.get(key) or MATERIALS.get(rec.get("type"), {}).get(role) or "")
+
+
+def _con_manilla(piezas, registro, base):
+    """Una palanca cerrada propia de la hoja activa, sin otra entidad BIM."""
+    if registro["type"] == "gap" or registro["operation"] == "FIXED":
+        return piezas
+    hojas = {}
+    for pieza in piezas:
+        if pieza["role"] != "leaf":
+            continue
+        caja = pieza["box"]
+        limites = hojas.setdefault(pieza["name"], list(caja))
+        for minimo, maximo in ((0, 1), (2, 3), (4, 5)):
+            limites[minimo] = min(limites[minimo], caja[minimo])
+            limites[maximo] = max(limites[maximo], caja[maximo])
+    ordenadas = sorted(hojas.values(), key=lambda caja: caja[0])
+    if not ordenadas:
+        return piezas
+    indice = indice_hoja_principal(registro)
+    a, b, p, q, inferior, superior = ordenadas[indice]
+    alto = superior - inferior
+    pedido = float(registro.get("handle_height") or 0)
+    altura = base + pedido if pedido else (
+        base + 1.05 if registro["type"] == "door" else (inferior + superior) / 2
+    )
+    if not inferior < altura < superior:
+        if pedido:
+            raise ValueError("La manilla queda fuera de la hoja")
+        altura = (inferior + superior) / 2
+    margen = min(0.06, (b - a) * 0.15)
+    largo = min(0.10, (b - a) * 0.4)
+    bisagra = (registro["hinge"] + indice) % 2
+    if registro["type"] == "door" and len(ordenadas) == 2:
+        bisagra = indice
+    inicio, final = (b - margen - largo, b - margen) if bisagra == 0 else (a + margen, a + margen + largo)
+    cara = p if registro["side"] > 0 else q
+    bajo, alto_fondo = (cara - 0.025, cara - PART_GAP) if registro["side"] > 0 else (cara + PART_GAP, cara + 0.025)
+    semialtura = min(0.006, (altura - inferior) / 2, (superior - altura) / 2)
+    piezas.append({"name": "Manilla", "role": "handle", "material": part_material(registro, "handle"),
+                   "box": (inicio, final, bajo, alto_fondo, altura - semialtura, altura + semialtura)})
+    return piezas
 
 
 def carpentry_parts(spec, rec, base):
@@ -657,7 +705,7 @@ def carpentry_parts(spec, rec, base):
             for k, (a, b, d) in enumerate(runs, 1):
                 p, q = sorted((h + d, h + d + sg * 0.02))
                 add("leaf", (a, b, p, q, zb, zt), k if len(runs) > 1 else None)
-            return out
+            return _con_manilla(out, rec, base)
         p, q = (h - lt, h) if sg > 0 else (h, h + lt)
         if rec["leaves"] == 1:
             add("leaf", (c0, c1, p, q, zb, zt))
@@ -665,7 +713,7 @@ def carpentry_parts(spec, rec, base):
             m = c0 + float(rec["leaf"])
             add("leaf", (c0, m - g / 2, p, q, zb, zt), 1)
             add("leaf", (m + g / 2, c1, p, q, zb, zt), 2)
-        return out
+        return _con_manilla(out, rec, base)
     # window: sashes (stiles, rails) with their glass
     mid, band = (f0 + f1) / 2, f1 - f0
     n = max(1, int(rec["leaves"]))
@@ -701,7 +749,7 @@ def carpentry_parts(spec, rec, base):
         ext, e = (spec.lo, -1) if sg > 0 else (spec.hi, 1)
         p, q = sorted((ext, ext + e * proj))
         add("sill", (s0 - SILL_OVERHANG, s1 + SILL_OVERHANG, p, q, z0 - SILL_THICKNESS, z0))
-    return out
+    return _con_manilla(out, rec, base)
 
 
 def carpentry_spec(spec, rec):

@@ -305,6 +305,9 @@ def campos_carpinteria(ctx, datos, editar=False):
         ),
         medida("height", "Altura (m)"),
         medida("sill", "Antepecho (m)", 0.0),
+        medida("handle_height", "Altura de manilla desde suelo, 0 = automática (m)", 0.0, 1000.0,
+               lambda v: con_marco(v) and v["operation"] != "FIXED"),
+        texto("handle_material", "Material de manilla", lambda v: con_marco(v) and v["operation"] != "FIXED"),
         opcion(
             "face",
             "Ajuste del cerco",
@@ -355,6 +358,8 @@ def campos_carpinteria(ctx, datos, editar=False):
                 "sill",
                 "leaves",
                 "main_leaf",
+                "handle_height",
+                "handle_material",
                 "leaf",
                 "leaf2",
                 "width",

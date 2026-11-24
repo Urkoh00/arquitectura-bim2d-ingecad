@@ -39,7 +39,7 @@ def _niche_parts(spec,rec,base):
     for i,front in enumerate(fronts(spec,rec)):
         for piece in OP.carpentry_parts(spec,front,base):
             piece=dict(piece);a,b,lo,hi,z0,z1=piece['box'];shift=front['_track']
-            piece['box']=(a,b,lo+shift,hi+shift,z0,z1);piece['name']=f'Hoja {i+1}'
+            piece['box']=(a,b,lo+shift,hi+shift,z0,z1);piece['name']=OP.PART_NAMES[piece['role']] + f' {i+1}'
             result.append(piece)
     return result
 

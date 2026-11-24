@@ -43,7 +43,11 @@ def test_la_principal_separa_tipos_y_la_mano_sigue_sin_separarlos(plugin):
     diferente = {**primera, "id": "c", "main_leaf": "right"}
     assert memoria.iguales(memoria.definir(muro, primera), memoria.definir(muro, opuesta))
     assert not memoria.iguales(memoria.definir(muro, primera), memoria.definir(muro, diferente))
-    piezas = [pieza for registro in (primera, opuesta, diferente) for pieza in memoria.unidades(muro, registro)]
+    piezas = [
+        pieza
+        for registro in (primera, opuesta, diferente)
+        for pieza in memoria.unidades(muro, registro)
+    ]
     grupos, _ = memoria.asignar_marcas(piezas)
     assert sorted(len(grupo["piezas"]) for grupo in grupos) == [1, 2]
 
@@ -65,7 +69,9 @@ def test_un_catalogo_v147_conserva_su_marca_al_anadir_la_principal(plugin):
 def test_la_ficha_y_el_guion_comparten_la_principal_exterior(plugin, qapp, orden):
     sesion = Session(plugin)
     herramienta = sesion.tool(orden)
-    ficha, leer = modulo(plugin, "bim_dialogs").carpentry_form(herramienta.ctx, {**herramienta.v, **herramienta.bim})
+    ficha, leer = modulo(plugin, "bim_dialogs").carpentry_form(
+        herramienta.ctx, {**herramienta.v, **herramienta.bim}
+    )
     ficha._arq["leaves"].setValue(2)
     selector = ficha._arq["main_leaf"]
     selector.setCurrentIndex(selector.findData("right"))

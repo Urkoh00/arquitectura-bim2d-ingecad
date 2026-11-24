@@ -592,3 +592,23 @@ v1.47 sin ese campo conserva su marca en la primera agrupación compatible;
 si ahora se divide en dos principales distintas, la otra recibe una marca
 nueva. Una vez escrito el catálogo nuevo, las comparaciones son estrictas.
 La ficha y la tabla de memoria muestran la principal y el contrato la conserva.
+
+`openings._con_manilla` añade una única palanca cerrada a la hoja activa,
+también en correderas. Las fijas y los vanos no la tienen. La altura automática
+es 1,05 m desde el suelo en puertas y el centro de la hoja en ventanas; una
+altura explícita fuera de la hoja se rechaza. Se admite `handle_height` y
+`handle_material` en ficha y texto. Las manillas curvas reutilizan la
+transformación de las piezas planas de `curved_carpentry`, sin otro generador.
+
+La manilla es una parte `handle` del mismo IfcDoor/IfcWindow; no se crea otro
+elemento BIM. La vista previa y la memoria proyectan esa misma pieza. La
+igualdad de tipos usa su altura efectiva y material: automática y explícita
+iguales no separan tipos. En el IGZ viaja tanto la geometría pintada como la
+descripción de la pieza. La exportación IFC depende del escritor del anfitrión;
+el informe de entrega distingue las comprobaciones geométricas de las
+limitaciones de asociación de materiales de ese escritor.
+
+En planta se mantiene el símbolo habitual. Se propone una marca de manilla
+solo a 1:20 como opción futura; no se impone ahora. El recorrido real de R29
+amplía el ayudante QTest de R27 para teclear controles numéricos y materiales
+editables; no modifica la interacción del producto ni al anfitrión.
