@@ -241,20 +241,24 @@ def test_exporta_puerta_que_rellena_su_hueco(plugin):
     # the door is its pieces (audit R10, S1): the frame, one ring 0,03 wide
     # and 0,15 deep (jambs, head and a 5 mm threshold), and the 4 cm leaf
     roles = [p['role'] for p in door['parts']]
-    assert roles == ['frame', 'leaf']
+    assert roles == ['frame', 'leaf', 'handle']
     g = 0.0005
     frame = (0.885 * 2.10 - (0.885 - 0.06) * (2.10 - 0.03 - 0.005)) * 0.15
     leaf = (0.885 - 0.06 - 2 * g) * 0.04 * (2.10 - 0.03 - g - 0.005 - g)
     assert door['parts'][0]['volume'] == pytest.approx(frame)
-    assert door['volume'] == pytest.approx(frame + leaf)
+    # Palanca de 100 × 12 mm, con fondo de 25 mm menos la junta de 0,5 mm.
+    manilla = 0.10 * 0.012 * (0.025 - g)
+    assert door['parts'][2]['volume'] == pytest.approx(manilla)
+    assert door['volume'] == pytest.approx(frame + leaf + manilla)
     assert sum(p['volume'] for p in door['parts']) == pytest.approx(door['volume'])
-    assert {f['part'] for f in door['faces']} == {0, 1}
+    assert {f['part'] for f in door['faces']} == {0, 1, 2}
     assert door['params']['operation'] == 'SWINGING'
     # the window: its frame ring, two sashes of four profiles with their glass, and the sill
     wroles = [p['role'] for p in win['parts']]
     assert wroles.count('frame') == 1 and wroles.count('glass') == 2 and wroles.count('sill') == 1
     assert wroles.count('leaf') == 8
-    assert {p['material'] for p in win['parts']} == {'Aluminio', 'Vidrio', 'Piedra'}
+    assert wroles.count('handle') == 1
+    assert {p['material'] for p in win['parts']} == {'Aluminio', 'Vidrio', 'Piedra', 'Acero'}
     assert win['psets']['Pset_WindowCommon']['IsExternal'] is True
     for el in (door, win):
         faces = [(f['outer'], f['holes']) for f in el['faces']]
