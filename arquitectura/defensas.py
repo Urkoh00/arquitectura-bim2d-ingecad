@@ -176,7 +176,10 @@ def railing_solid(geometry, spec, base, height, voids):
     solid_share = max(1.0 - voids, 1e-6)
     spacing = max(t / solid_share, t + POST_MIN_GAP)
     mid = (spec.lo + spec.hi) / 2.0
-    count = max(int(math.floor(spec.length / spacing)) + 1, 2)
+    # 1 − 0,80 vale 0,19999… en coma flotante: sin la tolerancia relativa, 2 m
+    # entre una separación de 0,25000…1 m daban 7,999… tramos y 8 montantes en
+    # vez de 9 (revisión del 24-11). Tolerancia, no redondeo.
+    count = max(int(math.floor(spec.length / spacing * (1.0 + 1e-9))) + 1, 2)
     step = spec.length / (count - 1)
     pieces = [P.ccw(list(pc)) for pc in geometry["pieces"]]
 

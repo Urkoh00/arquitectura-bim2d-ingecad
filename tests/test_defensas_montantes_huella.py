@@ -73,10 +73,9 @@ def test_sin_recorte_los_montantes_no_cambian():
     base = _montantes(faces, 0.0, 1.0 - DF.RAIL_HEIGHT)
     assert min(p[0] for p in base) == pytest.approx(0.0)
     assert max(p[0] for p in base) == pytest.approx(largo)
-    # volumen: pasamanos + montantes enteros
-    paso = max(t / max(1.0 - 0.8, 1e-6), t + DF.POST_MIN_GAP)     # la misma cuenta que el código
-    n = max(int(math.floor(largo / paso)) + 1, 2)
-    esperado = largo * t * DF.RAIL_HEIGHT + n * t * t * (1.0 - DF.RAIL_HEIGHT)
+    # volumen: pasamanos + 9 montantes enteros (80 % de huecos: separación
+    # 0,05 / 0,20 = 0,25 m, 2 / 0,25 = 8 tramos, 9 montantes, calculado a mano)
+    esperado = largo * t * DF.RAIL_HEIGHT + 9 * t * t * (1.0 - DF.RAIL_HEIGHT)
     assert volumen == pytest.approx(esperado)
 
 

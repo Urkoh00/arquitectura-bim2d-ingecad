@@ -2,6 +2,15 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.48.6-dev — 2026-11-24
+
+- **Montantes de barandilla:** por un error de coma flotante (1 − 0,80 = 0,19999…), una barandilla de 2 m con un
+  80 % de huecos salía con 8 montantes en lugar de 9, y otras combinaciones de longitud y huecos perdían también
+  un montante. El recuento usa ahora una tolerancia relativa. **Cambia los modelos ya dibujados** en esos casos:
+  al regenerar o exportar, la barandilla gana el montante que le faltaba (decisión del propietario, 24-11).
+- La prueba del volumen de `test_defensas_montantes_huella.py` usa ahora 9 montantes calculados a mano y falla
+  sin la corrección.
+
 ## 1.48.5-dev — 2026-11-24
 
 - **ARQMIGRAR, Deshacer exacto** (revisión de código del 24-11): al deshacer, los contornos antiguos se recreaban
