@@ -521,7 +521,7 @@ class MuroCarasTool(WallTypeChoice, _MuroV10):
         lab = self._type_label()
         self.prompt(f"MURO ({lab}): siguiente punto o longitud; [Tipo/Espesor/Altura/Cota/Referencia/Invertir/iGual/Fin]:"
                     if self.startpoint is not None else
-                    f"MURO ({lab}): espesor total o primer punto; [Tipo/Fachada/Tabique/Medianera/Sótano/Altura/Cota/Referencia/Invertir/iGual/Fin]:")
+                    f"MURO ({lab}): espesor total o primer punto; [Tipo/Fachada/Partición/Medianera/Sótano/Altura/Cota/Referencia/Invertir/iGual/Fin]:")
 
     def _status(self):
         side = {"izquierda": "cara derecha (cuerpo a la izquierda)",
@@ -554,7 +554,7 @@ class MuroCarasTool(WallTypeChoice, _MuroV10):
             return True
         from .wall_categories import CATEGORIES
         choices={k:k for _,k in CATEGORIES}
-        choices.update({'fachada':'fachada','sótano':'sotano'})
+        choices.update({'fachada':'fachada','sótano':'sotano','partición':'particion','tabique':'particion'})
         if txt in choices and not getattr(self,'pending',None) and not getattr(self,'choosing_type',False) and getattr(self,'type_candidates',None)is None:
             self.bim['wall_category']=choices[txt];self._reprompt();return True
         if self._type_answer(text):

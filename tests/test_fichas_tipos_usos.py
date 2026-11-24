@@ -29,11 +29,11 @@ def test_ficha_de_muro_elige_tipo_con_sus_capas(plugin, qapp):
     dlg, read = bd.wall_form(CTX, {'thickness': 0.3, 'name': 'Muro'}, types)
     w = dlg._arq
     assert w['type'].currentData() is None                     # generic
-    i = w['type'].findData('Tabique LHD 7 guarnecido')
+    i = w['type'].findData('Partición LHD 7 guarnecida')
     w['type'].setCurrentIndex(i)
     assert w['layers'].rowCount() == 3 and not w['thickness'].isEnabled()
     v = read()
-    assert v['thickness'] == pytest.approx(0.10) and v['type_name'] == 'Tabique LHD 7 guarnecido'
+    assert v['thickness'] == pytest.approx(0.10) and v['type_name'] == 'Partición LHD 7 guarnecida'
     assert [round(l[0], 3) for l in v['layers']] == [0.015, 0.07, 0.015]
     w['type'].setCurrentIndex(0)                                # back to generic
     w['thickness'].setValue(0.25)

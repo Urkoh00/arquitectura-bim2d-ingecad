@@ -2,7 +2,7 @@
 
 Esta guía es para quien vaya a **leer, estudiar o mantener** el código. No sustituye al manual de uso (`docs/MANUAL.md`). Explica cómo está organizado el plugin, qué recorrido hace un elemento desde el clic hasta el IFC y dónde buscar cada cosa.
 
-Versión de referencia: **1.48.0-dev**, con 83 módulos y unas 26 000 líneas en `arquitectura/`, más la extensión de IngeTrazo en `ingetrazo_ext/`.
+Versión de referencia: **1.48.1-dev**, con 84 módulos y unas 26 000 líneas en `arquitectura/`, más la extensión de IngeTrazo en `ingetrazo_ext/`.
 
 ---
 
@@ -75,7 +75,8 @@ Se puede probar sin IngeCAD. Es la parte más delicada y la mejor probada.
 |---|---|
 | `architectural.py` | Lectura y escritura de los datos BIM en XDATA (`metadata`, `_xdata`) y la comprobación de un muro con sus huecos (`validate_wall`). |
 | `architectural_v10.py` | **Crear y editar** muros y carpinterías (`create_wall`, `edit_wall`, `create_opening`, `edit_opening`). Es el núcleo actual, aunque su nombre diga «v10». |
-| `wall_categories.py` | Categorías de muro (fachada, tabique, medianera, sótano, defensa) y sus capas. |
+| `wall_categories.py` | Categorías de muro (fachada, partición, medianera, sótano, defensa) y sus capas; `layer_name` conserva ARQ-TABIQUES en dibujos sin migrar. |
+| `catalogo_constructivo.py` | CATALOGOEC: catálogo de elementos constructivos del usuario (IFC importados), contraste con la biblioteca térmica del Ministerio y tipos de muro. |
 | `wall_constraints.py` | Altura del muro de nivel a nivel (restricción superior). |
 | `defensas.py` | Barandillas, balaustradas y antepechos: un muro con categoría «defensa». |
 | `particiones_virtuales.py` | Límites de recinto sin muro, y su orden. |
@@ -293,6 +294,41 @@ repositorio. `u_opaco` calcula la U con las resistencias superficiales del
 DA DB-HE/1. Es la base de E1–E3 (exportador a EnvolventeCTE). Pruebas:
 `tests/test_biblioteca_termica.py` (BDL sintético; con `ARQ_BDC_PRUEBA`
 también el catálogo instalado).
+
+### Catálogo de elementos constructivos (`catalogo_constructivo.py`, orden CATALOGOEC)
+
+v1.48.1. Mismo criterio que la biblioteca térmica: el plugin lleva solo el
+lector; el usuario importa los IFC4 que exporta la aplicación web del
+catálogo autonómico y el resultado va a un JSON de su carpeta de
+configuración (`ARQ_CATALOGO_CONSTRUCTIVO` lo cambia). `leer_step` es un
+lector STEP mínimo (sin IfcOpenShell): quita los comentarios `/* */`,
+decodifica `\S\`, `\X\` y `\X2\` y repara `IFCREAL(15,00)`.
+`soluciones_de` toma cada `IfcWallType`, `IfcSlabType` o `IfcRoofType` con
+su conjunto de capas y sus conjuntos de propiedades; la clave es el código
+de la solución (los GlobalId del catálogo se repiten entre ficheros). Los
+textos con coma decimal son números y un 0 en magnitudes que no pueden ser
+nulas (`SIN_CERO`) es «sin dato». `importar` acumula ficheros y avisa si un
+código llega con datos distintos.
+
+**Rango de las fuentes.** La biblioteca del Ministerio prevalece y no puede
+haber contradicciones: `tipo_de_muro` solo copia nombres de material y
+espesores (las propiedades térmicas se leen siempre de `biblioteca_termica`
+por nombre) y `contrastar` compara solo materiales de **nombre idéntico**
+(sin tildes, mayúsculas ni espacios repetidos), avisa de cada diferencia y
+calcula la U con el Ministerio cuando todas las capas tienen
+correspondencia. Las referencias al catálogo estatal solo se anotan si el
+fichero las declara. Pruebas: `tests/test_catalogo_constructivo.py` (IFC
+sintéticos; con `ARQ_CEC_PRUEBA` también una carpeta de IFC reales).
+
+### Particiones (antes «tabiques»)
+
+v1.48.1. La categoría `particion` sustituye a `tabique` y la capa
+`ARQ-PARTICIONES` a `ARQ-TABIQUES`. Compatibilidad: `wall_categories.ALIASES`
+lee `tabique`; `conversion_plan.role_name` lee el papel `tabiques`;
+`layer_name(cat, capas)` devuelve ARQ-TABIQUES si el dibujo solo tiene esa,
+y `_ensure_layers` no crea la nueva en él. `ARQMIGRAR` (`PartitionLayers`)
+renombra ARQ-TABIQUES y sus capas por nivel, en el mismo Deshacer. Pruebas:
+`tests/test_particiones_nombre.py`.
 
 ### R26-P4: huecos y medidas reales en el IFC
 

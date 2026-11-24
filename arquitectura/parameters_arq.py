@@ -75,16 +75,16 @@ DEFAULTS = {
     # TIPOSMURO (also from a CSV file). Sources of the defaults:
     #   Termoarcilla: blocks 30 x 19 cm, 14/19/24/29 cm thick (Hispalyt).
     #   Plasterboard partitions: designation total/stud, 1x15 or 2x12.5
-    #   boards per face (Placo, guía de tabiques 2022).
+    #   boards per face (a manufacturer's partition guide, 2022).
     'opening_types': [],
     'wall_types': [
-        {'name': 'PYL 78/48', 'wall_category':'tabique', 'layers': [[0.015, 'Placa de yeso laminado'], [0.048, 'Montante 48 + lana mineral'], [0.015, 'Placa de yeso laminado']]},
-        {'name': 'PYL 98/48', 'wall_category':'tabique', 'layers': [[0.025, 'Placa de yeso laminado 2x12,5'], [0.048, 'Montante 48 + lana mineral'], [0.025, 'Placa de yeso laminado 2x12,5']]},
-        {'name': 'PYL 100/70', 'wall_category':'tabique', 'layers': [[0.015, 'Placa de yeso laminado'], [0.070, 'Montante 70 + lana mineral'], [0.015, 'Placa de yeso laminado']]},
-        {'name': 'PYL 120/70', 'wall_category':'tabique', 'layers': [[0.025, 'Placa de yeso laminado 2x12,5'], [0.070, 'Montante 70 + lana mineral'], [0.025, 'Placa de yeso laminado 2x12,5']]},
-        {'name': 'PYL 120/90', 'wall_category':'tabique', 'layers': [[0.015, 'Placa de yeso laminado'], [0.090, 'Montante 90 + lana mineral'], [0.015, 'Placa de yeso laminado']]},
-        {'name': 'PYL 140/90', 'wall_category':'tabique', 'layers': [[0.025, 'Placa de yeso laminado 2x12,5'], [0.090, 'Montante 90 + lana mineral'], [0.025, 'Placa de yeso laminado 2x12,5']]},
-        {'name': 'Tabique LHD 7 guarnecido', 'wall_category':'tabique', 'layers': [[0.015, 'Guarnecido de yeso'], [0.070, 'Ladrillo hueco doble'], [0.015, 'Guarnecido de yeso']]},
+        {'name': 'PYL 78/48', 'wall_category':'particion', 'layers': [[0.015, 'Placa de yeso laminado'], [0.048, 'Montante 48 + lana mineral'], [0.015, 'Placa de yeso laminado']]},
+        {'name': 'PYL 98/48', 'wall_category':'particion', 'layers': [[0.025, 'Placa de yeso laminado 2x12,5'], [0.048, 'Montante 48 + lana mineral'], [0.025, 'Placa de yeso laminado 2x12,5']]},
+        {'name': 'PYL 100/70', 'wall_category':'particion', 'layers': [[0.015, 'Placa de yeso laminado'], [0.070, 'Montante 70 + lana mineral'], [0.015, 'Placa de yeso laminado']]},
+        {'name': 'PYL 120/70', 'wall_category':'particion', 'layers': [[0.025, 'Placa de yeso laminado 2x12,5'], [0.070, 'Montante 70 + lana mineral'], [0.025, 'Placa de yeso laminado 2x12,5']]},
+        {'name': 'PYL 120/90', 'wall_category':'particion', 'layers': [[0.015, 'Placa de yeso laminado'], [0.090, 'Montante 90 + lana mineral'], [0.015, 'Placa de yeso laminado']]},
+        {'name': 'PYL 140/90', 'wall_category':'particion', 'layers': [[0.025, 'Placa de yeso laminado 2x12,5'], [0.090, 'Montante 90 + lana mineral'], [0.025, 'Placa de yeso laminado 2x12,5']]},
+        {'name': 'Partición LHD 7 guarnecida', 'wall_category':'particion', 'layers': [[0.015, 'Guarnecido de yeso'], [0.070, 'Ladrillo hueco doble'], [0.015, 'Guarnecido de yeso']]},
         {'name': 'Termoarcilla 14', 'layers': [[0.14, 'Bloque Termoarcilla']]},
         {'name': 'Termoarcilla 19', 'layers': [[0.19, 'Bloque Termoarcilla']]},
         {'name': 'Termoarcilla 24', 'layers': [[0.24, 'Bloque Termoarcilla']]},
@@ -217,7 +217,12 @@ def normalise_type(t):
     total = round(sum(th for th, _m in layers), 6)
     main = max(layers, key=lambda lm: lm[0])[1] if layers else ''
     from .wall_categories import category
-    return {'name': name, 'layers': layers, 'thickness': total, 'material': main, 'wall_category':category(t)}
+    out = {'name': name, 'layers': layers, 'thickness': total, 'material': main, 'wall_category':category(t)}
+    ref = t.get('catalogo')
+    if isinstance(ref, dict) and ref.get('codigo'):
+        # solución del catálogo de elementos constructivos de la que procede (v1.48.1)
+        out['catalogo'] = {'codigo': str(ref['codigo']), 'fuente': str(ref.get('fuente') or '')}
+    return out
 
 
 def _num(v):

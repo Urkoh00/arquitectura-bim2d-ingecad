@@ -125,8 +125,8 @@ class RouteLevels(Command):
                     opening_ident=opening_level(document.doc,opening,source)['id']
                     prefix='ARQ-CARPINTERIA-MARCAS' if m.get('kind')=='opening_mark' else 'ARQ-CARPINTERIA'
                 elif source.get('kind')=='wall':
-                    from .wall_categories import category,LAYERS
-                    prefix=LAYERS[category(source)]
+                    from .wall_categories import category,layer_name
+                    prefix=layer_name(category(source),document.doc.layers)
                 else:prefix={'column':'ARQ-PILARES','space':'ARQ-RECINTOS','slab':'ARQ-FORJADOS'}.get(source.get('kind'))
                 ident=m.get('display_level_id')or opening_ident or source.get('level_id')
                 if not prefix or ident not in catalog:continue
@@ -247,8 +247,8 @@ def target_available(drawing,record):
     lv=next(v for v in data['levels']if v['id']==data['active'])
     base=float(record.get('base',0));height=float(record.get('height',0))
     if not base-1e-8<=lv['elevation']<base+height-1e-8:return False
-    from .wall_categories import category,LAYERS
-    prefix=LAYERS[category(record)] if record.get('kind')=='wall' else 'ARQ-PILARES'
+    from .wall_categories import category,layer_name
+    prefix=layer_name(category(record),drawing.layers) if record.get('kind')=='wall' else 'ARQ-PILARES'
     name=prefix+suffix(lv['id'])
     if name not in drawing.layers:return False
     layer=drawing.layers.get(name)

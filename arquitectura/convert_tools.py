@@ -87,7 +87,7 @@ def _segments(entity):
 #: are drawn in; lower case, «contains»).  Used only when the operator has
 #: not chosen the layers (option K/L/R): with none of them in the window,
 #: every layer is read, as before.
-WALL_HINTS = ("pared", "muro", "wall", "tabique", "cerramiento", "fachada", "medianer")
+WALL_HINTS = ("pared", "muro", "wall", "tabique", "partici", "cerramiento", "fachada", "medianer")
 COLUMN_HINTS = ("pilar", "column", "soporte")
 CARPENTRY_HINTS = ("carp", "puert", "ventan", "door", "window", "hueco")
 #: lines INSIDE a wall (its cavity or insulation): never a wall face

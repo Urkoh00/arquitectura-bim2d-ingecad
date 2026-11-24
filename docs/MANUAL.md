@@ -1,12 +1,12 @@
-# Manual de Arquitectura para IngeCAD — versión 1.48.0-dev
+# Manual de Arquitectura para IngeCAD — versión 1.48.1-dev
 
-Versión 1.48.0-dev · 23-11-2026
+Versión 1.48.1-dev · 24-11-2026
 
 > Copia del manual publicado como documento en claude.ai; se regenera con cada versión.
 
 ## Qué es
 
-Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.48.0-dev** y se actualiza con cada versión.
+Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.48.1-dev** y se actualiza con cada versión.
 
 Cada elemento guarda su identidad persistente, su clase IFC, su geometría editable en planta, sus parámetros 3D (altura, espesor, cota), sus propiedades constructivas (tipo, material, capas) y su nivel. Las carpinterías conocen su muro y los recintos siguen a los muros que los cierran.
 
@@ -27,7 +27,7 @@ El plugin se instala copiando una carpeta en IngeCAD, y la extensión copiando t
 
 **En IngeCAD**
 
-1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.48.0-dev.zip`.
+1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.48.1-dev.zip`.
 2. Copie la carpeta `arquitectura` en la carpeta de plugins de IngeCAD.
 3. Reinicie IngeCAD. Aparece el menú *Arquitectura* y su barra de herramientas.
 4. Escriba `ARQDIAG` en la línea de órdenes para comprobar que la versión cargada es la que acaba de copiar.
@@ -126,7 +126,7 @@ Aquí se guardan también las capas y la tolerancia que usa `LINEASAMURO`.
 | `TIPOSMURO importar ruta.csv` | Lee líneas `Nombre;capas` o `Nombre;espesor;material` |
 | `TIPOSMURO exportar ruta.csv` | Guarda el catálogo |
 
-El catálogo inicial trae tabiques de placa de yeso laminado y fábricas de termoarcilla. Al dibujar un muro, escriba primero el espesor total: si hay un solo tipo con ese espesor se aplica; si hay varios, se elige de una lista.
+El catálogo inicial trae particiones de placa de yeso laminado y fábricas de termoarcilla. Al dibujar un muro, escriba primero el espesor total: si hay un solo tipo con ese espesor se aplica; si hay varios, se elige de una lista.
 
 **USOSARQ** guarda tres clasificaciones independientes del edificio, que nunca se deducen unas de otras:
 
@@ -147,6 +147,23 @@ El catálogo inicial trae tabiques de placa de yeso laminado y fábricas de term
 | `BIBLIOTECAHE buscar <texto>` | Materiales que contienen el texto, sin distinguir tildes ni mayúsculas |
 | `BIBLIOTECAHE u <composición>` | U de una composición del catálogo como muro; con `/ techo` o `/ suelo`, como cubierta o como suelo sobre el exterior (resistencias superficiales del DA DB-HE/1) |
 | `BIBLIOTECAHE` | Muestra el fichero, el catálogo de origen y los recuentos |
+
+**CATALOGOEC** guarda el catálogo de elementos constructivos del usuario: soluciones de fachada (FC), partición (PT), forjado (FJ) y cubierta (QB), con sus capas, materiales y prestaciones (masa, aislamiento acústico, resistencia al fuego, U declarada). El plugin **no distribuye** el catálogo: exporte en IFC las soluciones que necesite desde la aplicación web del catálogo e impórtelas; se guardan en su carpeta de configuración, para todos los proyectos, nunca en el dibujo.
+
+Al importar se corrigen los defectos conocidos de esos IFC: identificadores repetidos entre ficheros, un desplazamiento de −140 m, números escritos con coma y ceros que significan «sin dato». Puede importar varios ficheros, un ZIP o una carpeta; las soluciones se acumulan por su código.
+
+**Prevalece la biblioteca del Ministerio.** La biblioteca térmica de BIBLIOTECAHE tiene rango superior y no puede haber contradicciones. Por eso un tipo de muro creado desde el catálogo solo copia los nombres de los materiales y sus espesores: las propiedades térmicas se toman siempre de la biblioteca del Ministerio. `CATALOGOEC ver` compara cada material con el del Ministerio **de nombre idéntico** (sin contar tildes, mayúsculas ni espacios repetidos), avisa de cada diferencia y da la U calculada con el Ministerio, que prevalece sobre la declarada por el catálogo. No se presuponen equivalencias entre materiales de nombre distinto, y las referencias al catálogo estatal solo se muestran si el fichero las declara.
+
+| Orden | Qué hace |
+| --- | --- |
+| `CATALOGOEC importar <ruta> [<ruta>…]` | Añade las soluciones de los IFC, ZIP o carpetas indicados |
+| `CATALOGOEC buscar <texto>` | Soluciones cuyo código, nombre o materiales contienen el texto |
+| `CATALOGOEC ver <código>` | Capas, prestaciones del catálogo (informativas) y contraste con el Ministerio |
+| `CATALOGOEC tipo <código> [nombre]` | Crea o actualiza un tipo de muro desde una fachada o una partición; se deshace |
+| `CATALOGOEC vaciar` | Borra el catálogo del usuario |
+| `CATALOGOEC` | Estado: fichero, orígenes y recuentos |
+
+Las capas del tipo siguen el orden del catálogo: en las fachadas, de la cara exterior a la interior. MURO puede invertirlas al dibujar. Los forjados y cubiertas se guardan y se consultan, pero todavía no se asignan a forjados ni cubiertas del dibujo.
 
 La biblioteca se guarda en la carpeta de configuración del usuario (en Windows, `%APPDATA%\IngeCAD\arquitectura\biblioteca_termica.json`) y sirve para todos los proyectos; no se copia al dibujo. Las referencias rotas del propio catálogo se avisan al importar. La U que calcula sirve para tantear tipos de muro mientras se dibuja; no sustituye a los programas reconocidos.
 
@@ -228,21 +245,21 @@ Un muro curvo es el mismo muro BIM que uno recto: sus caras son arcos concéntri
 
 `LINEASAMURO` convierte un plano antiguo dibujado con líneas en muros, puertas, ventanas y vanos BIM, con un solo `Deshacer`.
 
-**Cuadro de clasificación (desde la 1.20).** Al lanzar `LINEASAMURO` se abre un cuadro con las capas del plano. Asigne cada capa a muros, medianeras, tabiques, pilares, puertas, ventanas, vanos, rejas, barandillas o escaleras, o déjela sin convertir. Con «Designar gráficamente en el plano» puede asignar objetos sueltos con clics (pulse Intro para volver al cuadro); esas asignaciones prevalecen sobre la capa. Después enmarque la zona: verá los ejes previstos y el recuento de muros, huecos y pilares sin que el dibujo cambie. Intro o «Confirmar» aplica la conversión; «Cancelar» la descarta. También se leen rellenos y rayados simples y la geometría de los bloques, sin explotarlos. Rejas, barandillas y escaleras se clasifican pero todavía no se convierten. La opción «Diálogo» vuelve a abrir el cuadro.
+**Cuadro de clasificación (desde la 1.20).** Al lanzar `LINEASAMURO` se abre un cuadro con las capas del plano. Asigne cada capa a muros, medianeras, particiones, pilares, puertas, ventanas, vanos, rejas, barandillas o escaleras, o déjela sin convertir. Con «Designar gráficamente en el plano» puede asignar objetos sueltos con clics (pulse Intro para volver al cuadro); esas asignaciones prevalecen sobre la capa. Después enmarque la zona: verá los ejes previstos y el recuento de muros, huecos y pilares sin que el dibujo cambie. Intro o «Confirmar» aplica la conversión; «Cancelar» la descarta. También se leen rellenos y rayados simples y la geometría de los bloques, sin explotarlos. Rejas, barandillas y escaleras se clasifican pero todavía no se convierten. La opción «Diálogo» vuelve a abrir el cuadro.
 
 **Carpintería en una sola capa (desde la 1.20.1).** Si puertas y ventanas están en la misma capa, asígnela a **«Carpintería (puerta o ventana según el dibujo)»**: cada hueco se lee por lo que tiene dibujado. Un giro (arco o polilínea con curva) hace una puerta, de una o dos hojas, con su mano y su cara de apertura; las líneas de marco y vidrio dentro del espesor del muro hacen una ventana; sin nada dibujado, es un vano. No hace falta separar puertas y ventanas en capas. Asignar la capa a «Puertas» o a «Ventanas» es una orden: convierte **todos** sus huecos en ese tipo. Las excepciones que el dibujo no distingue (puertas correderas o balconeras sin arco, que se leerían como ventanas) se corrigen con «Designar gráficamente», asignando esas líneas a «Puertas». La primera vez, el cuadro propone la categoría de cada capa por su nombre (*pared*, *pilar*, *carp*, *escal*…; las de *cámara* y *cota* quedan sin convertir), y lista también las capas de las entidades que están dentro de bloques: si la planta es un bloque, cada línea se clasifica por su propia capa. La altura de las puertas (2,10 m) y la de las ventanas (1,20 m con antepecho de 0,90 m) son valores por defecto: ajústelas después con `PROPIEDADESARQ`.
 
 **Antes de convertir (desde la 1.20.2).** El plano debe estar **a escala real y en metros**: un muro de 25 cm debe medir 0,25. Muchos planos antiguos están dibujados a otra escala (1/4, 1/5…). Si los giros de las puertas miden menos de 0,35, `LINEASAMURO` se detiene sin tocar el dibujo y propone el factor; escale el dibujo con `ESCALA` desde un punto y repita. Las capas **apagadas o inutilizadas no se leen**: apague las de mobiliario, textos, sanitarios, escaleras o referencias en lugar de borrarlas. En «Designar gráficamente» puede pulsar objetos uno a uno o, pulsando en vacío, abrir una **ventana**: hacia la derecha toma lo que queda dentro; hacia la izquierda, lo que toca. También se reconocen huecos en muros curvos (dos arcos concéntricos interrumpidos), con carpintería plana en la cuerda.
 
-**Revisar la previsualización (desde la 1.20.3).** Antes de confirmar, la planta muestra cada hueco con su símbolo: las puertas con su giro, las ventanas con su vidrio y los vanos con una X. Compruebe sobre todo las puertas dobles, las puertas de los tabiques finos y los pasos abiertos entre machones. Lo que salga mal se corrige con «Designar gráficamente» antes de confirmar, o después con `PROPIEDADESARQ`.
+**Revisar la previsualización (desde la 1.20.3).** Antes de confirmar, la planta muestra cada hueco con su símbolo: las puertas con su giro, las ventanas con su vidrio y los vanos con una X. Compruebe sobre todo las puertas dobles, las puertas de las particiones finas y los pasos abiertos entre machones. Lo que salga mal se corrige con «Designar gráficamente» antes de confirmar, o después con `PROPIEDADESARQ`.
 
 **Puertas dobles, jambas y correderas (desde la 1.22.1).** Dos giros con bisagras opuestas que abren hacia el mismo lado forman una puerta de dos hojas, también si son desiguales. El ancho del hueco se mide entre las jambas dibujadas (con 5 mm de tolerancia), no por el radio del giro. Las hojas paralelas solapadas de una corredera pueden ser de puerta o de ventana: si el dibujo no lo aclara, la vista previa avisa y deja un vano; desígnelas como «Puertas» o «Ventanas». Lo mismo ocurre con la corredera de bolsillo. Los encuentros oblicuos en L, T o X se distinguen mejor de los huecos.
 
 **Zona de lectura visible (desde la 1.22.2).** Al elegir la zona, se dibuja el rectángulo desde la primera esquina y se resaltan las líneas de las capas clasificadas que se van a leer: hacia la derecha, las que quedan dentro; hacia la izquierda, las que toca. En `TIPOSMURO` se ve el **espesor total** de cada tipo, suma de sus capas; la ficha del muro avisa si su espesor no coincide con el del tipo.
 
-**Ventanas, correderas y armarios (desde la 1.22.3).** De cada ventana se lee el marco entre las jambas: profundidad y retranqueo respecto a la cara. El lado exterior sale del contorno del edificio o de un alféizar claro. Los arcos de giro reconocidos se retiran del dibujo original con la conversión. Las correderas de dos hojas aparcadas por fuera del muro se detectan, pero hay que confirmarlas como «Puertas». Los **armarios empotrados** tienen categoría propia (`ARQ-ARMARIOS`): por ahora su dibujo se conserva y en su zona no se corta el muro de lado a lado; el nicho BIM llegará más adelante. Las **escaleras** clasificadas se conservan como dibujo, con un aviso de cuántos objetos hay, hasta que exista la orden ESCALERA. En dibujos nuevos conviene separar capas: `ARQ-MUROS`, `ARQ-TABIQUES`, `ARQ-PUERTAS`, `ARQ-VENTANAS` y `ARQ-ARMARIOS`, que el cuadro reconoce; los tabiques se exportan como tabiques (`IfcWall` PARTITIONING). La capa de pilares se llama `ARQ-PILARES`, y `ARQMIGRAR` renombra la antigua `ARQ-PILAres`.
+**Ventanas, correderas y armarios (desde la 1.22.3).** De cada ventana se lee el marco entre las jambas: profundidad y retranqueo respecto a la cara. El lado exterior sale del contorno del edificio o de un alféizar claro. Los arcos de giro reconocidos se retiran del dibujo original con la conversión. Las correderas de dos hojas aparcadas por fuera del muro se detectan, pero hay que confirmarlas como «Puertas». Los **armarios empotrados** tienen categoría propia (`ARQ-ARMARIOS`): por ahora su dibujo se conserva y en su zona no se corta el muro de lado a lado; el nicho BIM llegará más adelante. Las **escaleras** clasificadas se conservan como dibujo, con un aviso de cuántos objetos hay, hasta que exista la orden ESCALERA. En dibujos nuevos conviene separar capas: `ARQ-MUROS`, `ARQ-PARTICIONES`, `ARQ-PUERTAS`, `ARQ-VENTANAS` y `ARQ-ARMARIOS`, que el cuadro reconoce; las particiones se exportan como particiones (`IfcWall` PARTITIONING). La capa de pilares se llama `ARQ-PILARES`, y `ARQMIGRAR` renombra la antigua `ARQ-PILAres`.
 
-**Armarios empotrados con ARMARIOBIM (desde la 1.23).** Designe el muro o tabique anfitrión y rellene la ficha: ancho, fondo, altura, cota de base, número de hojas y apertura (corredera o abatible). El armario es un **nicho** que no atraviesa el muro: este conserva el espesor restante en planta, en 3D y en sus cantidades, y los frentes se exportan como puertas de armario. Si después reduce el espesor del muro, la orden avisa antes de que el nicho llegue a atravesarlo. En `LINEASAMURO` puede activar **rangos de espesor independientes** para muros, medianeras y tabiques, para que no se emparejen caras de categorías distintas.
+**Armarios empotrados con ARMARIOBIM (desde la 1.23).** Designe el muro o la partición anfitriona y rellene la ficha: ancho, fondo, altura, cota de base, número de hojas y apertura (corredera o abatible). El armario es un **nicho** que no atraviesa el muro: este conserva el espesor restante en planta, en 3D y en sus cantidades, y los frentes se exportan como puertas de armario. Si después reduce el espesor del muro, la orden avisa antes de que el nicho llegue a atravesarlo. En `LINEASAMURO` puede activar **rangos de espesor independientes** para muros, medianeras y particiones, para que no se emparejen caras de categorías distintas.
 
 1. Dibuje o importe el plano con líneas, polilíneas y arcos en capas que no empiecen por ARQ.
 2. Ejecute `LINEASAMURO` y enmarque con dos clics la zona que quiere convertir.
@@ -312,7 +329,7 @@ Cada pilar es un solo paso de `Deshacer`, con los muros y recintos ya actualizad
 
 ## Carpinterías: puertas, ventanas y huecos
 
-`CARPINTERIA` inserta puertas (IfcDoor), ventanas (IfcWindow) y huecos sin carpintería en un muro o tabique. Cada una abre su hueco en el muro, en planta y en 3D, y lo acompaña si el muro se mueve. `PUERTAARQ`, `VENTANAARQ` y `HUECOARQ` son la misma orden con ese tipo de partida.
+`CARPINTERIA` inserta puertas (IfcDoor), ventanas (IfcWindow) y huecos sin carpintería en un muro o partición. Cada una abre su hueco en el muro, en planta y en 3D, y lo acompaña si el muro se mueve. `PUERTAARQ`, `VENTANAARQ` y `HUECOARQ` son la misma orden con ese tipo de partida.
 
 **Representación en planta.** Las puertas se dibujan con las jambas del cerco con su rebaje, la hoja con su grueso (4 cm) y el arco de giro. Las ventanas se dibujan con las jambas, los perfiles de cada hoja con su vidrio, la marca de encuentro entre hojas y el alféizar cerrando el hueco. Las correderas muestran sus carriles. El símbolo se regenera con la carpintería: si cambia el muro o la ficha, cambia el dibujo. En 3D, la carpintería se construye con sus piezas reales, a partir de los mismos datos: el marco (un anillo alrededor del hueco; en las puertas, con un umbral de 5 mm), las hojas donde cierran, los perfiles y el vidrio de cada hoja de ventana y el alféizar. Cada pieza lleva su material; el vidrio se ve translúcido en IngeTrazo.
 
@@ -386,7 +403,7 @@ Después indique el punto superior izquierdo del plano. Si en lugar de pulsar In
 
 Las capas de cada nivel llevan `@` y una clave fija del nivel; su descripción tiene el nombre, que se puede cambiar sin afectarlas. Esta organización se activa desde `NIVELES`; abrir un dibujo no cambia sus capas. Con la barra oculta se usa la orden `NIVELES ESTADO <id> on|frozen|locked 0|1`.
 
-**Categoría del muro.** `MURO`, su ficha y `TIPOSMURO` ofrecen **Fachada**, **Tabique**, **Medianera** y **Muro de sótano**, que van a las capas `ARQ-MUROS`, `ARQ-TABIQUES`, `ARQ-MEDIANERAS` y `ARQ-SOTANO`. Cambiar la categoría cambia la capa y conserva la identidad BIM. Al exportar, el tabique es `IfcWall` PARTITIONING; la fachada, USERDEFINED con ObjectType EXTERNALWALL; la medianera, USERDEFINED con PARTYWALL; y el muro de sótano, USERDEFINED con BASEMENTWALL, como los escribe un modelador IFC de referencia y como los piden los programas de cálculo energético. Fachada, medianera y sótano son exteriores (`IsExternal`), y medianera y sótano llevan su marca (medianera, contacto con el terreno). `LINEASAMURO` usa las mismas categorías. `ARQMIGRAR` asigna categoría a los muros antiguos y avisa para revisar medianeras y sótanos.
+**Categoría del muro.** `MURO`, su ficha y `TIPOSMURO` ofrecen **Fachada**, **Partición**, **Medianera** y **Muro de sótano**, que van a las capas `ARQ-MUROS`, `ARQ-PARTICIONES`, `ARQ-MEDIANERAS` y `ARQ-SOTANO`. Cambiar la categoría cambia la capa y conserva la identidad BIM. Al exportar, la partición es `IfcWall` PARTITIONING; la fachada, USERDEFINED con ObjectType EXTERNALWALL; la medianera, USERDEFINED con PARTYWALL; y el muro de sótano, USERDEFINED con BASEMENTWALL, como los escribe un modelador IFC de referencia y como los piden los programas de cálculo energético. Fachada, medianera y sótano son exteriores (`IsExternal`), y medianera y sótano llevan su marca (medianera, contacto con el terreno). `LINEASAMURO` usa las mismas categorías. `ARQMIGRAR` asigna categoría a los muros antiguos y avisa para revisar medianeras y sótanos. Desde la 1.48.1, «Tabique» se llama «Partición» y su capa es ARQ-PARTICIONES. Los dibujos anteriores se leen igual y conservan su capa ARQ-TABIQUES (también las de cada nivel) hasta que ARQMIGRAR la renombra, en el mismo Deshacer. MURO sigue aceptando la palabra «tabique».
 
 **Muro hasta un nivel.** Por defecto, el muro tiene **altura fija**, como siempre. En su ficha se puede elegir **Hasta un nivel**, con nivel base, nivel superior y un desfase en cada uno; la altura resultante se muestra sin poder editarla:
 
@@ -410,7 +427,7 @@ Un recinto (IfcSpace) se crea con un clic dentro de la estancia y sigue a los mu
 
 **Altura por envolvente y recinto por polilínea (desde la 1.25).** Si hay forjados, `RECINTO` calcula la altura libre por defecto: el suelo es la cara superior del forjado inferior y el techo, la cara inferior del forjado superior del nivel activo, o el falso techo si lo hay. Una cubierta inclinada sobre un forjado horizontal no recorta el recinto. Sin forjado superior se usa la altura de la ficha. La opción `Altura` fija una altura manual y `Envolvente` vuelve al cálculo. Los recintos anteriores conservan su altura manual. Si el forjado tiene huecos o no cubre todo el recinto, se calcula por zonas: la ficha muestra el límite superior, la altura libre **máxima** y el volumen neto exacto. La opción `Polilínea` dibuja el recinto punto a punto (puede ser cóncavo; sin arcos), con la longitud junto al cursor; Intro cierra, `Retroceder` quita el último punto y `Clic` vuelve a la detección por muros. Ese contorno sigue a la polilínea si se mueve o se editan sus vértices.
 
-**RECINTO.** Haga clic dentro de una estancia cerrada por muros, tabiques o pilares. Opciones:
+**RECINTO.** Haga clic dentro de una estancia cerrada por muros, particiones o pilares. Opciones:
 
 | Opción | Efecto |
 | --- | --- |
@@ -555,6 +572,7 @@ Con niveles o forjados, el intercambio usa `.arqbim` v3 y necesita la extensión
 | `TIPOSMURO` | Catálogo de tipos de muro | No |
 | `USOSARQ` | Usos del edificio | No |
 | `BIBLIOTECAHE` | Biblioteca térmica: importar el catálogo de la Herramienta Unificada, buscar materiales y U de composiciones | No |
+| `CATALOGOEC` | Catálogo de elementos constructivos: importar IFC, buscar, ver con el contraste del Ministerio y crear tipos de muro | No |
 | `UNIONESARQ` | Sincronizar y regenerar | Sí |
 | `ARQVALIDAR` | Validar el dibujo | Sí |
 | `DIAGNOSTICOARQ` | Listar encuentros | No |
@@ -567,7 +585,7 @@ Con niveles o forjados, el intercambio usa `.arqbim` v3 y necesita la extensión
 
 ## Limitaciones conocidas
 
-Estas son las limitaciones conocidas de la versión 1.48.0-dev; cada versión actualiza esta lista.
+Estas son las limitaciones conocidas de la versión 1.48.1-dev; cada versión actualiza esta lista.
 
 - **Plataforma:** las pruebas automáticas se ejecutan en Linux con la última versión oficial de IngeCAD y de IngeTrazo, pero sin pantalla. Solo se prueba con la última versión de cada programa, porque ambos publican casi cada semana.
 - **Muros curvos:** cada muro llega como mucho a 350° (un muro redondo son dos o más). La elección automática de cara de MURO y ESTIRAMURO hasta una cara curva solo conocen muros rectos: con un muro curvo, elija la cara a mano. DIVIDEMURO divide el arco entre los dos puntos designados; para dividir un arco entero, designe sus dos extremos.
@@ -581,6 +599,7 @@ Estas son las limitaciones conocidas de la versión 1.48.0-dev; cada versión ac
 
 | Fecha | Versión | Novedades |
 | --- | --- | --- |
+| 24-11-2026 | 1.48.1-dev | Nueva orden CATALOGOEC: catálogo de elementos constructivos del usuario (IFC importados, no se distribuye), contrastado con la biblioteca del Ministerio, que prevalece, y tipos de muro desde fachadas y particiones. «Tabique» pasa a llamarse «Partición» (capa ARQ-PARTICIONES); ARQMIGRAR renombra la capa anterior |
 | 23-11-2026 | 1.48.0-dev | Muros curvos de hasta 350°; MUROPARALELO sobre muros curvos, arcos y círculos; DIVIDEMURO radial; esquina en L contra un muro curvo. LINEASAMURO conserva los huecos de los anillos y elige mejor el espesor de las medianeras |
 | 23-11-2026 | 1.47.2-dev | IFC con IngeTrazo 0.6.3: muros, forjados, puertas y ventanas salen con su tipo, material, marca y propiedades comunes (fachada EXTERNALWALL, medianera PARTYWALL, solera, cubierta…), con 0 errores en el validador |
 | 21-11-2026 | 1.47.1-dev | MEMORIACARP Actualizar deja el plano donde el usuario lo haya movido (antes volvía a su posición original) |

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Resumen: LINEASAMURO: rangos de espesor por categoría (muros, tabiques, medianeras).
+# Resumen: LINEASAMURO: rangos de espesor por categoría (muros, particiones, medianeras).
 #   (Guía del código: docs/GUIA_DEL_CODIGO.md)
 """Category ranges by composing existing read-only conversion plans."""
 import math
@@ -8,12 +8,14 @@ from .conversion_plan import Classification,WALLS,analyse,Plan,fingerprint
 
 def analyse_ranges(drawing,lo,hi,classification,tmin,tmax,height,parallel,origin,selected_handles):
     bounds={}
+    from .conversion_plan import role_name
+    rangos={role_name(k):v for k,v in classification.thickness_ranges.items()}
     for role in WALLS:
-        v=classification.thickness_ranges.get(role,(tmin,tmax))
+        v=rangos.get(role,(tmin,tmax))
         if len(v)!=2 or not all(math.isfinite(float(x))for x in v)or not 0<float(v[0])<=float(v[1]):
             raise ValueError('Rango de espesores inválido: '+role)
         bounds[role]=tuple(map(float,v))
-    unknown=set(classification.thickness_ranges)-WALLS
+    unknown=set(rangos)-WALLS
     if unknown:raise ValueError('Categoría sin rango de muro')
     plans=[]
     for i,role in enumerate(sorted(WALLS)):

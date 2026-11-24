@@ -36,7 +36,7 @@ import os
 from collections import defaultdict
 from pathlib import Path
 
-_VERSION = "1.48.0-dev"
+_VERSION = "1.48.1-dev"
 
 from core.plugins import SEPARATOR, MenuItem, PluginSpec, Submenu, ToolbarItem
 from tools.base import Tool
@@ -49,7 +49,7 @@ from .compat import require_document, document_of
 
 LAYERS = {
     "ARQ-MUROS":         {"color": 8,  "linetype": "Continuous"},
-    "ARQ-TABIQUES":      {"color": 8,  "linetype": "Continuous"},
+    "ARQ-PARTICIONES":   {"color": 8,  "linetype": "Continuous"},
     "ARQ-MEDIANERAS":    {"color": 8,  "linetype": "Continuous"},
     "ARQ-SOTANO":        {"color": 8,  "linetype": "Continuous"},
     "ARQ-DEFENSAS":      {"color": 8,  "linetype": "Continuous"},
@@ -83,8 +83,12 @@ def _ensure_layers(ctx):
     """Crear capas mediante comandos deshacibles del núcleo vigente."""
     from core.layers import NewLayerCommand
     doc = require_document(ctx)
+    from .wall_categories import LEGACY_LAYERS, LAYERS as CAPAS_MURO
+    anteriores = {CAPAS_MURO[c]: vieja for c, vieja in LEGACY_LAYERS.items()}
     for name, props in LAYERS.items():
-        if name not in doc.doc.layers:
+        # un dibujo sin migrar conserva ARQ-TABIQUES: no se le crea la nueva
+        anterior = anteriores.get(name)
+        if name not in doc.doc.layers and (anterior is None or anterior not in doc.doc.layers):
             ctx.execute(NewLayerCommand(name, color=props["color"]))
 
 
@@ -334,7 +338,7 @@ class CapasAutoTool(ArchitectureTool):
     def on_start(self):
         _ensure_layers(self.ctx)
         self.ctx.echo("Distribución recomendada:")
-        self.ctx.echo("  Muros/particiones → ARQ-MUROS / ARQ-TABIQUES")
+        self.ctx.echo("  Muros/particiones → ARQ-MUROS / ARQ-PARTICIONES")
         self.ctx.echo("  Pilares           → ARQ-PILARES")
         self.ctx.echo("  Puertas/Ventanas  → ARQ-PUERTAS / ARQ-VENTANAS")
         self.ctx.echo("  Áreas / textos    → ARQ-AREAS / ARQ-TEXTOS")
@@ -772,7 +776,7 @@ class ElementosTool(ArchitectureTool):
 
     GROUPS = {
         "1": ("Muros", "ARQ-MUROS"),
-        "2": ("Tabiques", "ARQ-TABIQUES"),
+        "2": ("Particiones", "ARQ-PARTICIONES"),
         "3": ("Pilares", "ARQ-PILARES"),
         "4": ("Puertas", "ARQ-PUERTAS"),
         "5": ("Ventanas", "ARQ-VENTANAS"),
@@ -854,7 +858,7 @@ class SelAtribTool(ArchitectureTool):
         "6":  ("Curvas por puntos", None),
         "7":  ("Elipses", None),
         "8":  ("Particiones curvas", ["ARQ-MUROS"]),
-        "9":  ("Particiones rectas", ["ARQ-MUROS", "ARQ-TABIQUES"]),
+        "9":  ("Particiones rectas", ["ARQ-MUROS", "ARQ-PARTICIONES", "ARQ-TABIQUES"]),
         "10": ("Pilares", ["ARQ-PILARES"]),
         "11": ("Polígonos", None),
         "12": ("Polilíneas", None),
@@ -1447,6 +1451,7 @@ TOOL_CLASSES = tuple(MuroCarasTool if t.name == "MURO" else PilarPerfilesTool if
 
 from .roundtrip import sincronizar_arq
 from .biblioteca_termica import biblioteca_he
+from .catalogo_constructivo import catalogo_ec
 
 def arqdiag(ctx, *args):
     """Diagnóstico sin mutar el dibujo y sin depender de PySide6."""
@@ -1509,7 +1514,7 @@ def plugin_spec() -> PluginSpec:
     if "on_regen_done" in fields:extra["on_regen_done"]=install_level_toolbar
     if "on_before" in fields:extra["on_before"]=level_before_command
     herramientas = {tool.name: tool for tool in (*TOOL_CLASSES, SlabTool,SlabHoleTool,CabinetTool,GridTool,RejillaTool,GridEditTool,GridColumnsTool)}
-    comandos = {"SINCRONIZARARQ":sincronizar_arq,"NIVELES":niveles,"NIVELASIGNAR":asignar_nivel,"ACTUALIZAEJES":update,"EXPORTARBIM": exportar_bim, "DIAGNOSTICOARQ": diagnostico_arq, "ARQDIAG": arqdiag, "UNIONESARQ": unionesarq, "ARQVALIDAR": validar_arq, "ARQMIGRAR": migrar_arq, "PARAMETROSARQ": parametros_arq, "TIPOSMURO": tipos_muro, "USOSARQ": usos_arq, "BIBLIOTECAHE": biblioteca_he}
+    comandos = {"SINCRONIZARARQ":sincronizar_arq,"NIVELES":niveles,"NIVELASIGNAR":asignar_nivel,"ACTUALIZAEJES":update,"EXPORTARBIM": exportar_bim, "DIAGNOSTICOARQ": diagnostico_arq, "ARQDIAG": arqdiag, "UNIONESARQ": unionesarq, "ARQVALIDAR": validar_arq, "ARQMIGRAR": migrar_arq, "PARAMETROSARQ": parametros_arq, "TIPOSMURO": tipos_muro, "USOSARQ": usos_arq, "BIBLIOTECAHE": biblioteca_he, "CATALOGOEC": catalogo_ec}
     from .linea_ordenes import crear_variantes
     herramientas.update(crear_variantes(herramientas, comandos))
     return PluginSpec(
@@ -1526,6 +1531,7 @@ def plugin_spec() -> PluginSpec:
             MenuItem("Tipos de muro (espesor total y capas)...", "TIPOSMURO", icon=glyph / "tiposmuro.svg"),
             MenuItem("Usos del edificio (certificado energético, DB-HE, DB-SI)...", "USOSARQ", icon=glyph / "usos.svg"),
             MenuItem("Biblioteca térmica (importar el catálogo de la Herramienta Unificada)...", "BIBLIOTECAHE", icon=glyph / "bibliotecahe.svg"),
+            MenuItem("Catálogo de elementos constructivos (importar IFC, tipos de muro)...", "CATALOGOEC", icon=glyph / "catalogoec.svg"),
             MenuItem("Niveles y planta activa...", "NIVELES", icon=glyph / "niveles.svg"),
             MenuItem("Asignar selección a nivel...", "NIVELASIGNAR", icon=glyph / "nivelasignar.svg"),
             MenuItem("Forjado horizontal con huecos...", "FORJADO", icon=glyph / "forjado.svg"),

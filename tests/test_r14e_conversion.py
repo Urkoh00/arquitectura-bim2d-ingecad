@@ -74,7 +74,7 @@ def test_range_and_cabinet_sheets_are_readable(plugin):
     app=QApplication.instance()or QApplication([])
     s=Session(plugin);P=module(s,'conversion_plan');D=module(s,'conversion_dialog');C=module(s,'cabinets')
     dlg,read=D.classification_form(None,s.document.doc,P.Classification())
-    dlg._arq['separate_ranges'].setChecked(True);c=read();assert c.thickness_ranges['tabiques']==pytest.approx((.05,.15));dlg.close()
+    dlg._arq['separate_ranges'].setChecked(True);c=read();assert c.thickness_ranges['particiones']==pytest.approx((.05,.15));dlg.close()
     dlg,read=C.form(None);dlg._arq['leaves'].setValue(4);assert read()['leaves']==4;dlg.close()
 
 

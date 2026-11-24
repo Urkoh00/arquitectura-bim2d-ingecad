@@ -81,9 +81,9 @@ def create_wall(a, b, thickness=0.15, height=3.0, base=0.0, reference='eje', bul
         resolved=resolve(bind(msp.doc,rec),load(msp.doc))
         e=msp.add_lwpolyline(axis_points(resolved),format='xyb')
         return _xdata(msp,e,resolved)
-    from .wall_categories import LAYERS
+    from .wall_categories import layer_name
     from .level_layers import tagged
-    return tagged(AddEntityCommand('ARQ MURO',factory,layer=LAYERS[rec['wall_category']]),rec)
+    return tagged(AddEntityCommand('ARQ MURO',factory,layer=layer_name(rec['wall_category'])),rec)
 
 
 def _find_openings(drawing, wall_id):

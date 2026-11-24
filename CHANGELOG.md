@@ -2,6 +2,28 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.48.1-dev — 2026-11-24
+
+Catálogo de elementos constructivos y particiones.
+
+- **CATALOGOEC** (`catalogo_constructivo.py`): importa a una biblioteca del usuario los IFC que exporta la
+  aplicación del catálogo de elementos constructivos (fachadas FC, particiones PT, forjados FJ y cubiertas
+  QB), con sus capas, materiales y prestaciones. El plugin no distribuye ningún dato del catálogo: se
+  guarda en la carpeta de configuración del usuario, como la biblioteca térmica. Corrige al importar los
+  defectos comprobados en esos IFC (GlobalId repetidos, desplazamiento de −140 m, coma decimal en textos
+  y en `IFCREAL`, 0 como «sin dato», comentarios). Lector STEP propio, sin IfcOpenShell.
+- **Prevalece la biblioteca del Ministerio:** los tipos de muro creados desde el catálogo (`CATALOGOEC tipo`)
+  solo llevan nombres de material y espesores; `CATALOGOEC ver` contrasta cada material con el de nombre
+  idéntico de BIBLIOTECAHE, avisa de cada diferencia y da la U con el Ministerio, que prevalece sobre la
+  declarada. No se presuponen equivalencias: las referencias al catálogo estatal solo se anotan si el
+  fichero las declara.
+- **Tabiques → Particiones:** categoría `particion`, capa `ARQ-PARTICIONES`, opción «Partición» de MURO,
+  categoría «Particiones» de LINEASAMURO. Los dibujos anteriores se leen igual (alias `tabique` /
+  `tabiques`), conservan ARQ-TABIQUES hasta `ARQMIGRAR`, que la renombra con sus capas por nivel.
+- Se quita un nombre comercial de un comentario de `parameters_arq.py`.
+- Pruebas: `test_catalogo_constructivo.py` (12) y `test_particiones_nombre.py` (6). Comprobado además con los
+  IFC reales del propietario (40 soluciones; capas y U idénticas a la lectura con IfcOpenShell).
+
 ## 1.48.0-dev — 2026-11-23
 
 Muros curvos y LINEASAMURO: aportaciones de otra instancia de Claude sobre la 1.47.1, revisadas,

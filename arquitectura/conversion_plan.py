@@ -14,17 +14,23 @@ from dataclasses import dataclass, field
 
 from .entrada_revisada import es_capa_revisada, filtrar_huecos
 
-ROLES = {'muros': 'Muros', 'medianeras': 'Medianeras', 'tabiques': 'Tabiques',
+ROLES = {'muros': 'Muros', 'medianeras': 'Medianeras', 'particiones': 'Particiones',
          'pilares': 'Pilares',
          'carpinteria': 'Carpintería (puerta o ventana según el dibujo)',
          'ventanas': 'Ventanas', 'puertas': 'Puertas',
          'vanos': 'Vanos', 'rejas': 'Rejas', 'barandillas': 'Barandillas',
          'escaleras': 'Escaleras', 'armarios': 'Armarios (nicho y frentes)'}
-WALLS = {'muros', 'medianeras', 'tabiques'}
+WALLS = {'muros', 'medianeras', 'particiones'}
 MANUAL = {'rejas', 'barandillas', 'escaleras', 'armarios'}
 OPENINGS = {'carpinteria', 'puertas', 'ventanas', 'vanos'}
 VOTES = {'puertas': 'door', 'ventanas': 'window', 'vanos': 'void'}   # «carpinteria» no vota
 BLOCK_DEPTH = 4
+ROLE_ALIASES = {'tabiques': 'particiones'}
+
+
+def role_name(role):
+    """Nombre vigente de una categoría de conversión (acepta el anterior)."""
+    return ROLE_ALIASES.get(role, role)
 
 
 @dataclass
@@ -36,9 +42,17 @@ class Classification:
     reviewed_source: object = None
     reviewed_wall_role: str = ""
 
+    def __post_init__(self):
+        # v1.48.1: «tabiques» se llama «particiones»; se aceptan clasificaciones
+        # y rangos guardados con el nombre anterior.
+        self.layers = {k: role_name(v) for k, v in self.layers.items()}
+        self.handles = {k: role_name(v) for k, v in self.handles.items()}
+        self.thickness_ranges = {role_name(k): v for k, v in self.thickness_ranges.items()}
+        self.reviewed_wall_role = role_name(self.reviewed_wall_role)
+
     def role(self, entity):
         if self.reviewed_source is not None:
-            categoria = self.reviewed_source.categoria(entity)
+            categoria = role_name(self.reviewed_source.categoria(entity))
             if self.reviewed_wall_role and categoria in WALLS and categoria != self.reviewed_wall_role:
                 return None
             return categoria
@@ -60,6 +74,7 @@ class Classification:
         return self.layers.get(insert_layer if layer == '0' else layer)
 
     def assign(self, handles, role):
+        role = role_name(role)
         if role not in ROLES:
             raise ValueError('Categoría no válida')
         for h in handles:
@@ -159,7 +174,7 @@ def layers_present(drawing):
 # layer goes to «carpinteria» (the drawing decides), not to doors or windows.
 _GUESS = (('camara', None), ('cámara', None), ('aislam', None), ('cota', None), ('armario', 'armarios'),
           ('escal', 'escaleras'), ('barand', 'barandillas'), ('reja', 'rejas'),
-          ('medianer', 'medianeras'), ('tabique', 'tabiques'),
+          ('medianer', 'medianeras'), ('tabique', 'particiones'), ('partici', 'particiones'),
           ('pilar', 'pilares'), ('soporte', 'pilares'),
           ('puert', 'puertas'), ('ventan', 'ventanas'), ('carp', 'carpinteria'),
           ('hueco', 'vanos'),
@@ -174,7 +189,7 @@ def guess_roles(layers):
         if es_capa_revisada(name):
             continue
         n = str(name).lower()
-        canonical={'arq-muros':'muros','arq-tabiques':'tabiques','arq-pilares':'pilares',
+        canonical={'arq-muros':'muros','arq-tabiques':'particiones','arq-particiones':'particiones','arq-pilares':'pilares',
                    'arq-puertas':'puertas','arq-ventanas':'ventanas','arq-armarios':'armarios','arq-escaleras':'escaleras'}
         if n.startswith('arq-'):
             if n in canonical:out[name]=canonical[n]

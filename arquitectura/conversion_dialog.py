@@ -54,7 +54,7 @@ def classification_form(ctx, drawing, current):
     categorias = [
         ("muros", "Muros", (.07, .50)),
         ("medianeras", "Medianeras", (.07, .50)),
-        ("tabiques", "Tabiques", (.05, .15)),
+        ("particiones", "Particiones", (.05, .15)),
     ]
     for clave, etiqueta, valores_iniciales in categorias:
         fila = QHBoxLayout()

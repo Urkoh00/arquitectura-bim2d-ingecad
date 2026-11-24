@@ -73,6 +73,33 @@ class CanonicalPillarLayer(Command):
         if self.inner:self.inner.undo(document)
         document.dirty=True
 
+class PartitionLayers(Command):
+    """v1.48.1: las capas ARQ-TABIQUES (con o sin sufijo de nivel) pasan a
+    ARQ-PARTICIONES. Se renombran en el dibujo, así que sus entidades las
+    siguen sin cambiar de identificador; si la capa nueva ya existe, se deja
+    como está y se avisa."""
+    name='ARQ CAPAS DE PARTICIONES'
+    needs_regen=True
+    def __init__(self):self.inner=None;self.count=0;self.skipped=[]
+    def do(self,document):
+        if self.inner is None:
+            from core.layers import RenameLayerCommand
+            from .transactions import SafeArchitecturalCommand
+            from .wall_categories import LAYERS,LEGACY_LAYERS
+            commands=[]
+            for cat,old in LEGACY_LAYERS.items():
+                for layer in list(document.doc.layers):
+                    name=layer.dxf.name
+                    if name.split('@')[0].upper()!=old:continue
+                    new=LAYERS[cat]+name[len(old):]
+                    if new in document.doc.layers:self.skipped.append(name);continue
+                    commands.append(RenameLayerCommand(name,new));self.count+=1
+            self.inner=SafeArchitecturalCommand(self.name,commands)
+        self.inner.do(document)
+    def undo(self,document):
+        if self.inner:self.inner.undo(document)
+        document.dirty=True
+
 def migrar_arq(ctx,*args):
     try:
         from .transactions import SafeArchitecturalCommand
@@ -80,13 +107,15 @@ def migrar_arq(ctx,*args):
         from core.commands import DeferredCommand
         from .wall_categories import migrate_steps,LAYERS
         from core.layers import NewLayerCommand
-        cmd=MigrateLegacyWalls();layers=CanonicalPillarLayer()
+        cmd=MigrateLegacyWalls();layers=CanonicalPillarLayer();particiones=PartitionLayers()
         ctx.execute(SafeArchitecturalCommand('ARQ migrar ejes y regenerar',[
-            *[NewLayerCommand(n,color=8)for n in LAYERS.values()if n not in ctx.document.doc.layers],
+            particiones,DeferredCommand('ARQ capas nuevas',lambda doc:SafeArchitecturalCommand('Capas',[NewLayerCommand(n,color=8)for n in LAYERS.values()if n not in doc.doc.layers])),
             layers,cmd,DeferredCommand('ARQ categorías',lambda doc:SafeArchitecturalCommand('Categorías explícitas',migrate_steps(doc))),
             DeferredCommand('ARQ contorno',lambda _:RegenerateContoursCommand())]))
         ctx.echo('Categorías de muros deducidas y confirmadas; revise las medianeras y los contactos con el terreno.')
         ctx.echo(f'ARQMIGRAR: {cmd.count} registros anteriores convertidos a ejes BIM. Se puede deshacer.')
+        if particiones.count:ctx.echo(f'ARQ-PARTICIONES: {particiones.count} capas ARQ-TABIQUES renombradas; mismo Deshacer.')
+        if particiones.skipped:ctx.echo('ARQ-PARTICIONES ya existe: revise '+', '.join(particiones.skipped))
         if layers.count:ctx.echo(f'ARQ-PILARES: {layers.count} entidades conservadas en la capa normalizada; mismo Deshacer.')
     except Exception as exc:
         ctx.echo(f'ARQMIGRAR: error ({type(exc).__name__}: {exc})')

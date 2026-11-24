@@ -70,8 +70,8 @@ def test_muro_espesor_total_primero(plugin, tmp_path):
     assert t.bim['type_name'] == 'Termoarcilla 24' and t.thickness == pytest.approx(0.24)
     t.on_option('0,10')                    # dos tipos con 0,10: pregunta
     assert t.type_candidates and len(t.type_candidates) == 2
-    t.on_option('2')                       # orden por nombre: 1) PYL 100/70, 2) Tabique LHD 7
-    assert t.bim['type_name'] == 'Tabique LHD 7 guarnecido' and len(t.bim['layers']) == 3
+    t.on_option('2')                       # 1) PYL 100/70, 2) Partición LHD 7 (orden de la lista)
+    assert t.bim['type_name'] == 'Partición LHD 7 guarnecida' and len(t.bim['layers']) == 3
     t.on_option('0,10')
     t.on_enter()                           # Intro: genérico
     assert t.bim['type_name'] == 'Muro 0,1' and 'layers' not in t.bim

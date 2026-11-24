@@ -63,7 +63,7 @@ def make_wall(s, **values):
 
 
 @pytest.mark.parametrize('category,layer,predefined,external', [
-    ('fachada','ARQ-MUROS','USERDEFINED/EXTERNALWALL',True),('tabique','ARQ-TABIQUES','PARTITIONING',False),
+    ('fachada','ARQ-MUROS','USERDEFINED/EXTERNALWALL',True),('particion','ARQ-PARTICIONES','PARTITIONING',False),
     ('medianera','ARQ-MEDIANERAS','USERDEFINED/PARTYWALL',True),('sotano','ARQ-SOTANO','USERDEFINED/BASEMENTWALL',True)])
 def test_categories_layers_export_and_identity(plugin, category, layer, predefined, external):
     s=Session(plugin);wall=make_wall(s,wall_category='fachada');old=s.meta(wall)

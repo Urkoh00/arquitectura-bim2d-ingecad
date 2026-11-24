@@ -74,7 +74,7 @@ def test_external_parked_double_slider_requires_category(plugin,explicit,angle):
 
 def test_canonical_roles_manual_stairs_and_cabinet_remain_visible(plugin):
     s=Session(plugin);P=module(s,'conversion_plan');d=s.document.doc
-    names={'ARQ-MUROS':'muros','ARQ-TABIQUES':'tabiques','ARQ-PUERTAS':'puertas','ARQ-VENTANAS':'ventanas','ARQ-PILARES':'pilares','ARQ-ARMARIOS':'armarios','ARQ-ESCALERAS':'escaleras'}
+    names={'ARQ-MUROS':'muros','ARQ-TABIQUES':'particiones','ARQ-PUERTAS':'puertas','ARQ-VENTANAS':'ventanas','ARQ-PILARES':'pilares','ARQ-ARMARIOS':'armarios','ARQ-ESCALERAS':'escaleras'}
     assert P.guess_roles(names)==names
     for n in names:
         if n not in d.layers:d.layers.new(n)

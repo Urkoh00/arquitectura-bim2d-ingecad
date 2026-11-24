@@ -70,7 +70,7 @@ def recover(curved, leaves):
     from .geom.junctions import Wall
     from . import convert_tools as C, openings as OP
     from .vendor import walldetect as WD
-    wall_arcs=[arc for entity,role in leaves if role in {'muros','medianeras','tabiques'}
+    wall_arcs=[arc for entity,role in leaves if role in {'muros','medianeras','particiones'}
                for arc in C._pieces(entity)[1]]
     groups = []
     for row in curved:

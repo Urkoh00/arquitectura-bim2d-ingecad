@@ -72,7 +72,7 @@ class ConversionTexto(PreguntasTexto, LineasAMuroTool):
         for categoria, inicial in [
             ("muros", (0.07, 0.50)),
             ("medianeras", (0.07, 0.50)),
-            ("tabiques", (0.05, 0.15)),
+            ("particiones", (0.05, 0.15)),
         ]:
             for extremo, valor in zip(
                 ("minimo", "maximo"), actual.thickness_ranges.get(categoria, inicial)
@@ -115,7 +115,7 @@ class ConversionTexto(PreguntasTexto, LineasAMuroTool):
             raise ValueError("El espesor mínimo supera al máximo")
         rangos = {}
         if datos["rangos"]:
-            for categoria in ("muros", "medianeras", "tabiques"):
+            for categoria in ("muros", "medianeras", "particiones"):
                 limites = datos[categoria + ".minimo"], datos[categoria + ".maximo"]
                 if limites[0] > limites[1]:
                     raise ValueError(categoria + ": el mínimo supera al máximo")

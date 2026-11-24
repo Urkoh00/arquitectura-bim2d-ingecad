@@ -40,8 +40,8 @@ def _xdata(msp, entity, obj):
     parts = [payload[i:i+200] for i in range(0, len(payload), 200)]
     entity.set_xdata(APPID, [(1000, part) for part in parts])
     if obj.get('kind')=='wall' and obj.get('wall_category'):
-        from .wall_categories import category,LAYERS
-        target=LAYERS[category(obj)]
+        from .wall_categories import category,layer_name
+        target=layer_name(category(obj),doc.layers)
         from .levels import load
         if load(doc).get('layer_managed') and obj.get('level_id'):
             from .level_layers import suffix

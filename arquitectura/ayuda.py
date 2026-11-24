@@ -90,7 +90,7 @@ _SECCIONES_BASE = (
             "También las dibujadas con versiones 0.7",)),
     )),
     ("Puertas, ventanas y armarios", (
-        (("CARPINTERIA",), "Puertas, ventanas y huecos en muros y tabiques", (
+        (("CARPINTERIA",), "Puertas, ventanas y huecos en muros y particiones", (
             "Clic en la cara hacia la que abre",
             "P/V/H tipo; un número o N = ancho de hoja (puerta; 62/72/82/92 = hojas "
             "normalizadas) o de hueco",
@@ -166,6 +166,12 @@ _SECCIONES_BASE = (
             "(no se distribuye con el plugin)",
             "buscar texto: materiales que lo contienen",
             "u Composición [/ techo|suelo]: transmitancia U (DA DB-HE/1)")),
+        (("CATALOGOEC",), "Catálogo de elementos constructivos del usuario", (
+            "importar ruta…: los IFC exportados desde la aplicación del catálogo "
+            "(no se distribuye con el plugin)",
+            "buscar texto · ver CÓDIGO: capas, prestaciones y contraste con la biblioteca "
+            "térmica del Ministerio, que prevalece",
+            "tipo CÓDIGO [nombre]: tipo de muro desde una fachada (FC) o partición (PT)")),
     )),
     ("Memoria de carpintería", (
         (("MEMORIACARP",), "Plano derivado de puertas, ventanas, huecos y frentes de armario", (
