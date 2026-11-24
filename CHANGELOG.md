@@ -2,6 +2,20 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.48.16-dev — 2026-11-24
+
+Integración del parcial 03 de R29 (Codex, revisado por Claude): los puntos D1 encargados, con un commit y pruebas
+por corrección.
+
+- Los pilares y particiones que llegan desde una planta inferior se pueden designar en la activa aunque aún no
+  exista su capa de categoría en ella.
+- Ficha de carpintería: el cambio de referencia usa el ancho real de hojas y cerco, y la cara elegida.
+- COTAMUROS crea las cotas con el constructor público `AddDimensionCommand` de IngeCAD, sin tocar atributos
+  internos.
+- Doble clic sobre un forjado o un armario: abre su ficha propia.
+- ACTUALIZAEJES conserva el centro de un pilar movido con las órdenes de IngeCAD, con su vínculo a los ejes.
+- R29 sigue pendiente: integración de E (con el criterio de cara exterior acordado), F y H–K.
+
 ## 1.48.15-dev — 2026-11-24
 
 Dos listas más de una revisión externa (24-11), de unos 90 puntos sobre el plugin y la extensión de IngeTrazo.
