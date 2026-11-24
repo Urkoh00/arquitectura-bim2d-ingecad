@@ -732,3 +732,11 @@ reutiliza esta función: lee el modelo completo con `slabs.read`, conserva
 contorno, huecos e identidad y aplica `slab_tools.edit_change`. Cancelar
 no crea una orden de dibujo. El ensayo abre la ficha real y comprueba su
 edición y Deshacer/Rehacer, sin duplicar validadores ni regeneradores.
+
+El doble clic distingue también los armarios de las otras carpinterías.
+Abre `cabinets.form` con el modelo completo mediante la misma función, sin
+convertirlo en una puerta ni iniciar CARPINTERIA. Las pruebas cubren cuerpo
+y símbolo, modos adosado y nicho, cancelación, conservación de todos los
+campos existentes y Deshacer/Rehacer. La ficha podrá incorporar «Frente en
+partición» sin añadir otro recorrido de edición; esa función la integra
+Claude y no se implementa en este cambio.
