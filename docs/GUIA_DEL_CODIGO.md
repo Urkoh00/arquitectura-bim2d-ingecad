@@ -1,5 +1,17 @@
 # Guía del código del plugin Arquitectura
 
+### R29-E: reglas del recubrimiento de pilares
+
+`recubrimientos_pilar.py` separa el espesor del tabique (`cover`) del aislamiento
+resuelto. Reutiliza las huellas de `sections.py`, las franjas verticales de los
+muros y la tolerancia común. No modifica las entradas. Los tipos se leen desde
+su primera cara: un aislante precedido solo de acabados es superficial; entre
+capas constructivas, es de cámara. Los proveedores incompatibles y los muros
+sin capas se notifican, sin elegir un aislamiento arbitrario. El modo manual
+permite indicar material y espesor. Pruebas: `test_r29_recubrimientos_pilar.py`.
+La integración con la ficha, la regeneración y las piezas de exportación es una
+etapa posterior; este módulo por sí solo todavía no cambia el dibujo.
+
 ### R29-G: precisión de la carpintería curva
 
 La ficha desactiva `facet_sagitta` cuando la geometría es plana y explica su
