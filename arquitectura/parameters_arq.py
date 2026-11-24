@@ -65,8 +65,15 @@ DEFAULTS = {
     #     una división interior fija (vivienda protegida de Madrid, tasación).
     #     Solo cambia la superficie útil del recinto: el IfcSpace llega siempre
     #     a las caras de los muros, como piden los programas de cálculo (v1.37).
+    #   vista_relleno, vista_color, grosor_*: aspecto de SECCIONARQ y
+    #     ALZADOARQ (v1.48.3): lo cortado se rellena de un gris de la gama
+    #     (por defecto claro: el negro es duro) o se raya en diagonal o
+    #     cruzado; grosores en mm de lo cortado, de la línea de tierra y de lo
+    #     visto (los niveles van siempre a 0,13).
     'general': {'escala': 50, 'usar_usos': False, 'cota_minima': 0.0, 'norte': 0.0,
                 'armarios_superficie_util': 'computan',
+                'vista_relleno': 'color', 'vista_color': 9,
+                'grosor_corte': 0.50, 'grosor_tierra': 0.70, 'grosor_visto': 0.18,
                 'lineas': {'muros': [], 'pilares': [], 'carpinteria': [], 'paralelismo': 0.005}},
     # Wall types (IfcWallType). Each one is a list of layers, from the
     # DRAWN face (the reference line) toward the body of the wall; its
@@ -175,6 +182,15 @@ def validate_defaults(values):
         raise ValueError('general.norte: ángulo en grados')
     if g.get('armarios_superficie_util', 'computan') not in ('descuentan', 'computan'):
         raise ValueError('general.armarios_superficie_util: «descuentan» o «computan»')
+    from .vistas_arq import RELLENOS, GAMA, GROSORES
+    if g.get('vista_relleno', 'color') not in RELLENOS:
+        raise ValueError('general.vista_relleno: ' + ', '.join(RELLENOS))
+    if g.get('vista_color', 9) not in [c for _n, c in GAMA]:
+        raise ValueError('general.vista_color: un gris de la gama')
+    for clave in ('grosor_corte', 'grosor_tierra', 'grosor_visto'):
+        v = g.get(clave, 0.5)
+        if isinstance(v, bool) or not any(abs(v - x) < 1e-9 for x in GROSORES):
+            raise ValueError(f'general.{clave}: uno de ' + ', '.join(f'{x:g}' for x in GROSORES) + ' mm')
     ln = g.get('lineas', {})
     if not isinstance(ln, dict) or any(not isinstance(ln.get(k, []), list) or
                                        not all(isinstance(x, str) for x in ln.get(k, []))

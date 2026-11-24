@@ -738,6 +738,21 @@ def architectural_defaults_dialog(ctx, current):
     escala = _choice([('1:20', 20), ('1:25', 25), ('1:50', 50)], data.get('general', {}).get('escala', 50))
     gform.addRow('Escala de documentación', escala)
     editors[('general', 'escala')] = escala
+    # secciones y alzados (v1.48.3)
+    from .vistas_arq import RELLENOS, GAMA, GROSORES
+    gd = data.get('general', {})
+    relleno = _choice([(n, v) for v, n in RELLENOS.items()], gd.get('vista_relleno', 'color'))
+    color = _choice(list(GAMA), gd.get('vista_color', 9))
+    gform.addRow('Relleno de lo cortado (secciones)', relleno)
+    gform.addRow('Gris del relleno', color)
+    editors[('general', 'vista_relleno')] = relleno
+    editors[('general', 'vista_color')] = color
+    for clave, titulo, defecto in (('grosor_corte', 'Grosor de lo cortado (mm)', 0.50),
+                                   ('grosor_tierra', 'Grosor de la línea de tierra (mm)', 0.70),
+                                   ('grosor_visto', 'Grosor de lo visto (mm)', 0.18)):
+        control = _choice([(f"{x:g}".replace('.', ','), x) for x in GROSORES], gd.get(clave, defecto))
+        gform.addRow(titulo, control)
+        editors[('general', clave)] = control
     tabs.insertTab(0,general,'General');tabs.setCurrentIndex(0)
     editors[('general','usar_usos')]=usos;editors[('general','cota_minima')]=minimo
     editors[('general','norte')]=norte
@@ -757,7 +772,8 @@ def read_defaults_dialog(data,editors,numeric=('thickness','height','base','widt
         if key=='usar_usos': data[kind][key]=editor.isChecked()
         elif key in ('cota_minima','norte'): data[kind][key]=editor.value()
         elif key in numeric: data[kind][key]=editor.value()
-        elif key in ('reference','shape','armarios_superficie_util','escala'):data[kind][key]=editor.currentData()
+        elif key in ('reference','shape','armarios_superficie_util','escala','vista_relleno',
+                     'vista_color','grosor_corte','grosor_tierra','grosor_visto'):data[kind][key]=editor.currentData()
         else:data[kind][key]=editor.text().strip()
     from .parameters_arq import validate_defaults
     return validate_defaults(data)

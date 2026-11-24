@@ -2,7 +2,7 @@
 
 Esta guía es para quien vaya a **leer, estudiar o mantener** el código. No sustituye al manual de uso (`docs/MANUAL.md`). Explica cómo está organizado el plugin, qué recorrido hace un elemento desde el clic hasta el IFC y dónde buscar cada cosa.
 
-Versión de referencia: **1.48.2-dev**, con 86 módulos y unas 26 000 líneas en `arquitectura/`, más la extensión de IngeTrazo en `ingetrazo_ext/`.
+Versión de referencia: **1.48.3-dev**, con 86 módulos y unas 26 000 líneas en `arquitectura/`, más la extensión de IngeTrazo en `ingetrazo_ext/`.
 
 ---
 
@@ -343,6 +343,14 @@ al IFC, de modo que planta, 3D y vistas no pueden contradecirse.
   Las piezas de una carpintería sí marcan sus líneas.
 - `_sin_duplicados`: une los tramos colineales solapados, agrupando rectas por
   ángulo y distancia con la soldadura, sin redondear.
+
+Aspecto (v1.48.3): las opciones generales `vista_relleno` (color, rayado
+diagonal o cruzado), `vista_color` (gama de grises, `GAMA`) y `grosor_corte`,
+`grosor_tierra` y `grosor_visto` (`GROSORES`, en mm) se aplican a las capas
+`ARQ-VISTA-*` al generar cada vista. Lo que cambia en capas ya existentes se
+guarda en `capas_cambiadas`, y el Deshacer lo restituye. La línea de tierra es
+la cota ±0,00 en `ARQ-VISTA-TIERRA`. Los petos y barandillas de cubierta
+(defensas) salen sin código propio, porque son elementos del contrato.
 
 `VistaArq` (Command) sigue el patrón del plano de carpintería: ancla con los
 datos, detalles etiquetados con `view_id`, grupo y capas `ARQ-VISTA-*`.

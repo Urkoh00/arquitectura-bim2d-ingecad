@@ -19,10 +19,15 @@ Regenerar sustituye todos los detalles de la vista en un solo Deshacer. La
 vista no es asociativa: lo que el usuario dibuje encima no se conserva al
 actualizar (las cotas de nivel se generan con la vista).
 
-Capas (grosores propuestos en el estudio de vistas, editables en el dibujo):
-``ARQ-VISTA-CORTE`` 0,50 mm, ``ARQ-VISTA-RELLENO``, ``ARQ-VISTA-VISTO``
-0,25 mm, ``ARQ-VISTA-NIVELES`` 0,18 mm, ``ARQ-VISTA-TEXTOS`` y
-``ARQ-VISTA-MARCAS`` (la línea de corte en planta).
+Aspecto (PARAMETROSARQ > General, v1.48.3): lo cortado se rellena con un gris
+de la gama (por defecto, claro) o se raya en diagonal o cruzado; tres grosores
+distinguen lo cortado (0,50 mm), la línea de tierra (0,70 mm) y lo visto
+(0,18 mm). Cada vista aplica esas opciones a sus capas al generarse, y el
+Deshacer devuelve las capas como estaban.
+
+Capas: ``ARQ-VISTA-CORTE``, ``ARQ-VISTA-RELLENO``, ``ARQ-VISTA-VISTO``,
+``ARQ-VISTA-TIERRA`` (la cota ±0,00), ``ARQ-VISTA-NIVELES`` (0,13 mm),
+``ARQ-VISTA-TEXTOS`` y ``ARQ-VISTA-MARCAS`` (la línea de corte en planta).
 """
 from __future__ import annotations
 
@@ -39,15 +44,32 @@ DETALLE = "arq_view_detail"
 VERSION = 1
 CAPAS = {
     "ARQ-VISTA-CORTE": (7, 50),
-    "ARQ-VISTA-RELLENO": (8, 0),
-    "ARQ-VISTA-VISTO": (7, 25),
-    "ARQ-VISTA-NIVELES": (3, 18),
+    "ARQ-VISTA-RELLENO": (9, 13),
+    "ARQ-VISTA-VISTO": (7, 18),
+    "ARQ-VISTA-TIERRA": (7, 70),
+    "ARQ-VISTA-NIVELES": (3, 13),
     "ARQ-VISTA-TEXTOS": (7, 18),
     "ARQ-VISTA-MARCAS": (1, 50),
 }
+#: relleno de lo cortado (opción general «vista_relleno»)
+RELLENOS = {"color": "Color completo", "diagonal": "Rayado diagonal",
+            "cruzado": "Rayado cruzado"}
+PATRONES = {"diagonal": "ANSI31", "cruzado": "ANSI37"}
+#: gama de grises del relleno: (nombre, color ACI)
+GAMA = (("Gris muy claro", 254), ("Gris claro", 9), ("Gris medio", 8),
+        ("Gris oscuro", 251), ("Casi negro", 250))
+#: grosores normalizados de línea, en mm
+GROSORES = (0.13, 0.18, 0.25, 0.35, 0.50, 0.70, 1.00)
+#: separación de los trazos del rayado en el papel, en mm
+RAYADO_MM = 2.0
 #: altura de los textos de la vista, en metros de dibujo (≈ 2,5 mm a 1:50)
 TEXTO = 0.125
 TIPOS = {"seccion": "SECCIÓN", "alzado": "ALZADO"}
+
+
+def centesimas(mm):
+    """Grosor DXF (centésimas de mm) de un grosor en mm de la tabla."""
+    return int(next(x for x in GROSORES if abs(x - mm) < 1e-9) * 100 + 0.5)
 
 
 def vistas(dibujo):
@@ -96,13 +118,27 @@ class VistaArq(Command):
         self.resumen = {}
 
     # ------------------------------------------------------------ dibujo
-    def _capas(self, dibujo):
-        for nombre, (color, grosor) in CAPAS.items():
+    def _capas(self, dibujo, opciones):
+        """Crea las capas que faltan y les aplica las opciones generales;
+        guarda cómo estaban las existentes para el Deshacer."""
+        deseado = dict(CAPAS)
+        deseado["ARQ-VISTA-CORTE"] = (7, centesimas(opciones["grosor_corte"]))
+        deseado["ARQ-VISTA-TIERRA"] = (7, centesimas(opciones["grosor_tierra"]))
+        deseado["ARQ-VISTA-VISTO"] = (7, centesimas(opciones["grosor_visto"]))
+        deseado["ARQ-VISTA-RELLENO"] = (int(opciones["vista_color"]), 13)
+        for nombre, (color, grosor) in deseado.items():
             if nombre not in dibujo.layers:
                 capa = dibujo.layers.new(nombre, dxfattribs={"color": color})
-                if grosor:
-                    capa.dxf.lineweight = grosor
+                capa.dxf.lineweight = grosor
                 self.capas_creadas.append(nombre)
+                continue
+            capa = dibujo.layers.get(nombre)
+            antes = (capa.dxf.color, capa.dxf.get("lineweight", -3))
+            if nombre in ("ARQ-VISTA-CORTE", "ARQ-VISTA-TIERRA", "ARQ-VISTA-VISTO",
+                          "ARQ-VISTA-RELLENO") and antes != (color, grosor):
+                self.capas_cambiadas.setdefault(nombre, antes)
+                capa.dxf.color = color
+                capa.dxf.lineweight = grosor
 
     def _detalle(self, espacio, entidad, papel):
         _xdata(espacio, entidad, {"kind": DETALLE, "schema": 1,
@@ -117,6 +153,7 @@ class VistaArq(Command):
         dibujo = documento.doc
         espacio = dibujo.modelspace()
         d = self.datos
+        opciones = self.opciones
         modelo = build(dibujo)
         cam = G.Camara(d["p"], d["q"], d["lado"], seccion=d["tipo"] == "seccion",
                        profundidad=d.get("profundidad"))
@@ -128,7 +165,14 @@ class VistaArq(Command):
 
         for corte in resultado["cortes"]:
             relleno = espacio.add_hatch(color=256, dxfattribs={"layer": "ARQ-VISTA-RELLENO"})
-            relleno.set_solid_fill(color=256)
+            if opciones["vista_relleno"] == "color":
+                relleno.set_solid_fill(color=256)
+            else:
+                # ANSI31/37 separan sus trazos 3,175 unidades: se escalan
+                # para que en el papel queden a RAYADO_MM a la escala elegida
+                escala = RAYADO_MM / 1000.0 * opciones["escala"] / 3.175
+                relleno.set_pattern_fill(PATRONES[opciones["vista_relleno"]],
+                                         color=256, scale=escala)
             for anillo in corte["anillos"]:
                 relleno.paths.add_polyline_path([xy(*v) for v in anillo], is_closed=True)
             self._detalle(espacio, relleno, "relleno")
@@ -142,14 +186,19 @@ class VistaArq(Command):
         zmin, zmax = resultado["cotas"]
         catalogo = niveles(dibujo)
         n_niveles = 0
+        # línea de tierra: la cota ±0,00, más ancha que la vista
+        self._detalle(espacio, espacio.add_line(
+            xy(-1.0, 0.0), xy(cam.largo + 1.0, 0.0),
+            dxfattribs={"layer": "ARQ-VISTA-TIERRA"}), "tierra")
         for nivel in catalogo.get("levels", []):
             z = float(nivel.get("elevation", 0.0))
             if resultado["vistos"] or resultado["cortes"]:
                 if not (zmin - 1e-6 <= z <= zmax + 1e-6):
                     continue
-            self._detalle(espacio, espacio.add_line(
-                xy(-0.5, z), xy(cam.largo + 0.5, z),
-                dxfattribs={"layer": "ARQ-VISTA-NIVELES"}), "nivel")
+            if abs(z) > 1e-9:
+                self._detalle(espacio, espacio.add_line(
+                    xy(-0.5, z), xy(cam.largo + 0.5, z),
+                    dxfattribs={"layer": "ARQ-VISTA-NIVELES"}), "nivel")
             self._detalle(espacio, espacio.add_text(
                 f"{_num(z)} {nivel.get('name', '')}".strip(),
                 dxfattribs={"layer": "ARQ-VISTA-TEXTOS", "height": TEXTO,
@@ -201,7 +250,11 @@ class VistaArq(Command):
         dibujo = documento.doc
         espacio = dibujo.modelspace()
         self.capas_creadas = []
+        self.capas_cambiadas = {}
         inicial = self.nuevos is None
+        if inicial:
+            from .parameters_arq import general_options
+            self.opciones = general_options(documento)
         if inicial:
             self.anteriores = [e for e in espacio
                                if (metadata(e) or {}).get("view_id") == self.datos["id"]]
@@ -210,7 +263,7 @@ class VistaArq(Command):
             self.nuevos = []
         originales = {e.dxf.handle for e in espacio}
         try:
-            self._capas(dibujo)
+            self._capas(dibujo, self.opciones)
             if self.grupo in dibujo.groups:
                 dibujo.groups.get(self.grupo).clear()
             for e in self.anteriores:
@@ -269,6 +322,11 @@ class VistaArq(Command):
         for nombre in reversed(self.capas_creadas):
             if nombre in dibujo.layers:
                 dibujo.layers.remove(nombre)
+        for nombre, (color, grosor) in self.capas_cambiadas.items():
+            if nombre in dibujo.layers:
+                capa = dibujo.layers.get(nombre)
+                capa.dxf.color = color
+                capa.dxf.lineweight = grosor
         self.aplicado = False
         documento.dirty = True
 

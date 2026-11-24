@@ -154,10 +154,61 @@ def test_dibujo_de_prueba(plugin, tmp_path):  # noqa: F811
     destino = os.environ.get('ARQ_VISTAS_DXF')
     if not destino:
         pytest.skip('sin ARQ_VISTAS_DXF')
-    s = casa(plugin)
+    s = _con_peto(plugin)
     _seccion(s, (1.45, -2), (1.45, 6), (3, 0), (10, 0))
     t = s.tool('ALZADOARQ')
     for punto in ((-1, -3), (7, -3), (3, 0), (0, -8)):
         t.on_point(punto)
     _seccion(s, (-1, 2), (7, 2), (3, 0), (10, -8), opciones=('Nombre', 'B'))
     s.document.doc.saveas(destino)
+
+
+def _con_peto(plugin):  # noqa: F811
+    """La casa con un antepecho de 1 m sobre el forjado de cubierta."""
+    s = casa(plugin)
+    v10 = modulo(plugin, 'architectural_v10')
+    for a, b in (((-0.075, -0.075), (6.075, -0.075)), ((6.075, -0.075), (6.075, 4.075)),
+                 ((6.075, 4.075), (-0.075, 4.075)), ((-0.075, 4.075), (-0.075, -0.075))):
+        s.history.execute(v10.create_wall(a, b, thickness=0.15, height=1.0, base=3.3,
+                                          wall_category='defensa', defense_type='antepecho'))
+    return s
+
+
+def test_el_peto_de_la_cubierta_aparece_en_la_seccion_y_el_alzado(plugin):  # noqa: F811
+    s = _con_peto(plugin)
+    _seccion(s, (3, -2), (3, 6), (4, 0), (20, 0))
+    t = s.tool('ALZADOARQ')
+    for punto in ((-1, -3), (7, -3), (3, 0), (0, -20)):
+        t.on_point(punto)
+    (_a, seccion), (_b, alzado) = sorted(_anclas(s), key=lambda x: x[1]['tipo'], reverse=True)
+    zs = [p[1] for e in _detalles(s, seccion['id'], 'corte') for p in e.get_points('xy')]
+    assert max(zs) == pytest.approx(4.3)                   # el peto, cortado, hasta 3,3 + 1
+    lineas = _detalles(s, alzado['id'], 'visto')
+    assert max(max(e.dxf.start.y, e.dxf.end.y) for e in lineas) == pytest.approx(-20 + 4.3)
+
+
+def test_opciones_de_relleno_y_grosores(plugin):  # noqa: F811
+    s = casa(plugin)
+    pa = modulo(plugin, 'parameters_arq')
+    valores = pa.load_defaults(s.document)
+    assert valores['general']['vista_relleno'] == 'color' and valores['general']['vista_color'] == 9
+    valores['general'].update(vista_relleno='diagonal', grosor_corte=0.70, grosor_visto=0.13)
+    s.history.execute(pa.SetArchitecturalDefaults(valores))
+    capas = s.document.doc.layers
+    capas.new('ARQ-VISTA-CORTE', dxfattribs={'color': 3})      # una capa ya existente
+    _seccion(s, (3, -2), (3, 6), (4, 0), (20, 0))
+    (_a, datos), = _anclas(s)
+    relleno = _detalles(s, datos['id'], 'relleno')[0]
+    assert relleno.dxf.solid_fill == 0 and relleno.dxf.pattern_name == 'ANSI31'
+    assert capas.get('ARQ-VISTA-CORTE').dxf.lineweight == 70
+    assert capas.get('ARQ-VISTA-CORTE').dxf.color == 7
+    assert capas.get('ARQ-VISTA-VISTO').dxf.lineweight == 13
+    assert capas.get('ARQ-VISTA-TIERRA').dxf.lineweight == 70
+    assert capas.get('ARQ-VISTA-RELLENO').dxf.color == 9
+    tierra = _detalles(s, datos['id'], 'tierra')
+    assert len(tierra) == 1 and tierra[0].dxf.start.y == pytest.approx(0.0)
+    s.history.undo()
+    assert capas.get('ARQ-VISTA-CORTE').dxf.color == 3      # la capa vuelve a como estaba
+    with pytest.raises(ValueError):
+        valores['general']['vista_color'] = 1
+        pa.validate_defaults(valores)

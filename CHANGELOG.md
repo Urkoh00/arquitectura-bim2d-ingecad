@@ -2,6 +2,20 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.48.3-dev — 2026-11-24
+
+Aspecto de secciones y alzados (observaciones del propietario a la 1.48.2).
+
+- **Relleno de lo cortado configurable** en PARAMETROSARQ > General (ficha y -PARAMETROSARQ): color completo
+  en una gama de grises (muy claro, claro —por defecto—, medio, oscuro y casi negro) o rayado diagonal o
+  cruzado. El rayado se escala para quedar a 2 mm en el papel a la escala de documentación.
+- **Tres grosores**, también configurables: lo cortado (0,50 mm), la **línea de tierra** (0,70 mm, nueva
+  capa ARQ-VISTA-TIERRA en la cota ±0,00, más ancha que la vista) y lo visto (0,18 mm, antes 0,25). Las
+  líneas de nivel pasan a 0,13 mm. Si las capas ya existían, el Deshacer las devuelve como estaban.
+- **Petos y barandillas de cubierta:** prueba nueva que confirma que salen, cortados y vistos. Ya salían
+  porque son defensas del modelo; la casa de ejemplo de la 1.48.2 no tenía ninguno.
+- Pruebas: dos nuevas en `test_vistas_arq.py`.
+
 ## 1.48.2-dev — 2026-11-24
 
 Secciones y alzados (plan de la 1.0.0).

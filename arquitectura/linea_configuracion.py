@@ -74,7 +74,9 @@ def campos_parametros(valores):
             else:
                 campos.append(texto(ruta, etiqueta))
     general = valores["general"]
-    for clave in ("escala", "usar_usos", "cota_minima", "norte", "armarios_superficie_util"):
+    from .vistas_arq import RELLENOS, GAMA, GROSORES
+    for clave in ("escala", "usar_usos", "cota_minima", "norte", "armarios_superficie_util",
+                  "vista_relleno", "vista_color", "grosor_corte", "grosor_tierra", "grosor_visto"):
         planos["general." + clave] = general[clave]
     campos.extend(
         [
@@ -93,6 +95,15 @@ def campos_parametros(valores):
                 "Armarios en superficie útil",
                 [("Computan", "computan"), ("Descuentan", "descuentan")],
             ),
+            opcion("general.vista_relleno", "Relleno de lo cortado en secciones",
+                   [(n, v) for v, n in RELLENOS.items()]),
+            opcion("general.vista_color", "Gris del relleno", list(GAMA)),
+            opcion("general.grosor_corte", "Grosor de lo cortado (mm)",
+                   [(f"{x:g}".replace(".", ","), x) for x in GROSORES]),
+            opcion("general.grosor_tierra", "Grosor de la línea de tierra (mm)",
+                   [(f"{x:g}".replace(".", ","), x) for x in GROSORES]),
+            opcion("general.grosor_visto", "Grosor de lo visto (mm)",
+                   [(f"{x:g}".replace(".", ","), x) for x in GROSORES]),
         ]
     )
     return campos, planos
