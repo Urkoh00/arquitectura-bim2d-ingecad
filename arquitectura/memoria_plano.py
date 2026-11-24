@@ -11,7 +11,7 @@ from . import memoria_modelo
 from .memoria_dibujo import CAPA_PLANO, CAPA_COTAS, DISCONTINUA
 
 CAPA_ROTULOS = "ARQ-CARPINTERIA-MARCAS"
-VERSION = 1
+VERSION = 2
 
 
 def planos(dibujo):
@@ -75,7 +75,8 @@ def avisos(dibujo):
         cantidad = sum(
             (metadata(entidad) or {}).get("schedule_id") == identificador for entidad in entidades
         )
-        if datos.get("source_hash") != fuente or datos.get("thermal_hash") != termica:
+        if (datos.get("version") != VERSION or datos.get("source_hash") != fuente
+                or datos.get("thermal_hash") != termica):
             resultado.append(
                 "Memoria de carpintería desactualizada: ejecute MEMORIACARP Actualizar"
             )
