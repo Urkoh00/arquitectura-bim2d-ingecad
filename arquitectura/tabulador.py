@@ -94,8 +94,10 @@ def install(ctx):
                 try:
                     press(tool, text, backwards)
                 except Exception as exc:  # noqa: BLE001
+                    # el texto tecleado se conserva para corregirlo
                     if line is not None:
                         line.echo(f"Tab: {type(exc).__name__}: {exc}")
+                    return True
                 if edit is not None:
                     edit.clear()
                 for name in ("_preview_now",):

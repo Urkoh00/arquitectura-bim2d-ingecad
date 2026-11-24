@@ -32,6 +32,10 @@ from .wall_tools import _document, line_of
 def _line_dir(line):
     (x0, y0), (x1, y1) = line
     L = math.hypot(x1 - x0, y1 - y0)
+    if not L > 1e-12:
+        # un paramento de longitud nula no tiene dirección: error claro que
+        # la orden ya atiende (antes, ZeroDivisionError al confirmar)
+        raise ValueError("El paramento elegido tiene longitud nula")
     return (x1 - x0) / L, (y1 - y0) / L
 
 

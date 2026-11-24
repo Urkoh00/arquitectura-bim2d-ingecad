@@ -180,3 +180,19 @@ def test_misaligned_circular_jambs_remain_manual(plugin):
     arc.dxf.end_angle=42
     p=P.analyse(s.document.doc,(-8,-8),(8,8),c)
     assert not p.curved_openings and any('desalineadas' in w for w in p.warnings)
+
+
+def test_tras_rehacer_los_huecos_apuntan_a_muros_vivos(plugin):
+    """Revisión del 24-11: se afirmaba que, al rehacer, los huecos quedan
+    enlazados a muros que ya no existen. AddEntityCommand devuelve en el redo
+    la MISMA entidad (mismo identificador), así que no ocurre; queda fijado."""
+    from tests.test_lineas_carpinteria_una_capa import capas, planta
+    s = Session(plugin); d = s.document.doc; capas(d); planta(d.modelspace())
+    P = module(s, 'conversion_plan')
+    p = P.analyse(d, (-1, -1), (7, 3), P.Classification({'Gpared': 'muros', 'Fcarp': 'carpinteria'}))
+    P.commit(s.tool('LINEASAMURO').ctx, p)
+    for _ in range(2):
+        s.history.undo(); s.history.redo()
+        muros = {s.meta(e)['id'] for e in d.modelspace() if (s.meta(e) or {}).get('kind') == 'wall'}
+        huecos = [s.meta(e) for e in d.modelspace() if (s.meta(e) or {}).get('kind') == 'opening']
+        assert huecos and all(h['wall_id'] in muros for h in huecos)

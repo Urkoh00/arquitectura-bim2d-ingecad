@@ -2,6 +2,30 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.48.10-dev — 2026-11-24
+
+Cuarto lote de la revisión automática de código (24-11): 19 avisos comprobados, 5 reales.
+
+- **PILAR en esquina con un paramento de longitud nula:** daba ZeroDivisionError al confirmar, que la orden no
+  atendía. Ahora es un error claro y la orden sigue.
+- **Cota de nivel no numérica** (una lista, un texto vacío): el catálogo de niveles daba TypeError; ahora
+  ValueError con su mensaje, como el resto de errores del catálogo.
+- **Capas bloqueadas:** con alguna capa bloqueada, una orden de muchas entidades leía el dibujo entero una vez
+  por entidad. Ahora se lee una vez por orden.
+- **Reactor en un dibujo aún sin elementos BIM:** IngeCAD no llamaba al reactor, así que lo que trajera la orden
+  (pegar desde otro dibujo) quedaba sin sincronizar hasta la siguiente orden del plugin.
+- **Tab rechazado** (sin Tab propio en IngeCAD): borraba lo escrito aunque la orden lo rechazara. Ahora se
+  conserva para corregirlo.
+- Avisos comprobados y descartados, con prueba cuando aporta: huecos tras rehacer en la conversión (ya apuntan a
+  muros vivos), claves e índices de `recognition`, longitud de `opening_ids`, registros POINT sin eje en
+  ARQMIGRAR, firma de `region()`, catálogo de niveles en `integrity.py` (ya se lee una vez), `next()` sin
+  valor por defecto (el nivel activo está validado), PILAR registrado dos veces (solo se registra uno),
+  segunda intersección de PILAR (las rectas ya se sabe que no son paralelas), superficie de recintos tras
+  transformar (no se guarda: se recalcula), errores silenciados al deshacer capas (a propósito, para no tapar
+  el error original), huecos sin anchura (todo registro la tiene).
+- Pruebas nuevas en `test_revision_24_11_lote4.py` y `test_r14_conversion.py`; las de este lote fallan sin la
+  corrección.
+
 ## 1.48.9-dev — 2026-11-24
 
 Revisión de código de `frame.py` y `convert_tools.py` (24-11), comprobada punto por punto.

@@ -47,9 +47,12 @@ def _any_locked(document):
     return any(ly.is_locked() for ly in document.doc.layers)
 
 
-def require_unlocked(document, entity):
+def require_unlocked(document, entity, snapshot=None):
+    """``snapshot``: the locked_snapshot already taken by the caller, so a
+    command with many entities scans the drawing once, not once per entity."""
     if not _any_locked(document):return
-    if (entity.dxf.layer in document.doc.layers and document.doc.layers.get(entity.dxf.layer).is_locked())or entity.dxf.handle in locked_snapshot(document):
+    if snapshot is None:snapshot=locked_snapshot(document)
+    if (entity.dxf.layer in document.doc.layers and document.doc.layers.get(entity.dxf.layer).is_locked())or entity.dxf.handle in snapshot:
         raise ValueError('El elemento pertenece a una capa o nivel bloqueado')
 
 
@@ -225,19 +228,21 @@ def tagged(command,record):
     return command
 
 
-def preflight(document,command):
-    """Reject known locked edits before a derived command can touch groups."""
+def preflight(document,command,_snapshot=None):
+    """Reject known locked edits before a derived command can touch groups.
+    The locked snapshot is taken once for the whole command tree."""
+    if _snapshot is None:_snapshot=locked_snapshot(document)
     if hasattr(command,'arq_record'):require_new(document.doc,command.arq_record)
     entity=getattr(command,'entity',None)
     if entity is not None and getattr(entity,'is_alive',False):
-        require_unlocked(document,entity)
+        require_unlocked(document,entity,_snapshot)
         before=getattr(command,'old_record',getattr(command,'before',{}))
         after=getattr(command,'new_record',getattr(command,'after',{}))
         if isinstance(before,dict)and isinstance(after,dict)and(before.get('level_id')!=after.get('level_id')or before.get('wall_category')!=after.get('wall_category')):
             require_new(document.doc,after)
     for entity in getattr(command,'entities',[]):
-        if getattr(entity,'is_alive',False):require_unlocked(document,entity)
-    for child in getattr(command,'commands',[]):preflight(document,child)
+        if getattr(entity,'is_alive',False):require_unlocked(document,entity,_snapshot)
+    for child in getattr(command,'commands',[]):preflight(document,child,_snapshot)
 
 
 def target_available(drawing,record):

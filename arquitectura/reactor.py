@@ -77,8 +77,9 @@ class ArquitecturaReactor:
     def before(self, document):
         if getattr(document, "_arq_reacting", False):
             return None
-        snap = _snapshot(document.doc)
-        return snap or None
+        # un dibujo aún sin elementos BIM devuelve {} (no None): si la orden
+        # los trae (pegar, insertar), react los ve y sincroniza
+        return _snapshot(document.doc)
 
     def react(self, document, state):
         if getattr(document, "_arq_reacting", False):

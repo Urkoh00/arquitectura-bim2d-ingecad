@@ -24,7 +24,9 @@ def validate(data):
     ids=set();names=set()
     for v in data['levels']:
         if not isinstance(v,dict)or not isinstance(v.get('name'),str):raise ValueError('Registro de nivel no válido')
-        ident=v.get('id');name=str(v.get('name','')).strip();z=float(v.get('elevation',float('nan')))
+        ident=v.get('id');name=str(v.get('name','')).strip()
+        try:z=float(v.get('elevation',float('nan')))
+        except (TypeError,ValueError):raise ValueError('Cota de nivel no numérica') from None
         if not isinstance(ident,str)or not ident or ident in ids or not name or name.casefold()in names or not math.isfinite(z):raise ValueError('Nivel duplicado, sin nombre/ID o cota no finita')
         ids.add(ident);names.add(name.casefold());v.update(name=name,elevation=z)
     if data.get('active')not in ids:raise ValueError('Nivel activo inexistente')
