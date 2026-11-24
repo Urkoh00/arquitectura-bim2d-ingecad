@@ -2,6 +2,18 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.48.4-dev — 2026-11-24
+
+Correcciones de las defensas (revisión de código recibida el 24-11, comprobada punto por punto).
+
+- **Montantes de barandilla:** solo se comprobaba el centro de su sección, de modo que junto a un muro (recorte
+  recto o a inglete) el montante podía sobresalir de la huella y solapar al muro. Ahora se comprueban las
+  cuatro esquinas. El primero y el último, si no caben, se deslizan hacia dentro hasta medio paso en vez de
+  desaparecer.
+- **Proporción de huecos no numérica:** un texto daba un error poco claro y una lista, un `TypeError` que las
+  órdenes no esperan. Ahora las dos dan un `ValueError` con un mensaje claro.
+- Pruebas: `test_defensas_montantes_huella.py` (6). Las de los montantes fallan sin la corrección.
+
 ## 1.48.3-dev — 2026-11-24
 
 Aspecto de secciones y alzados (observaciones del propietario a la 1.48.2).

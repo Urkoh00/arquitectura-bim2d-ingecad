@@ -50,6 +50,7 @@ MAX_VOID = 0.95
 # mide y se exporta es la huella, la altura y la proporción de huecos.
 RAIL_HEIGHT = 0.05             # canto del pasamanos
 POST_MIN_GAP = 0.01            # luz mínima entre montantes
+FIT_TOL = 1e-6                 # m: holgura al comprobar que un montante cabe en la huella
 
 
 def defense_type(record):
@@ -66,7 +67,15 @@ def void_ratio(record):
     if kind == "antepecho":
         return 0.0
     value = record.get("void_ratio")
-    value = TYPES[kind][4] if value is None else float(value)
+    if value is None:
+        value = TYPES[kind][4]
+    else:
+        try:
+            value = float(value)
+        except (TypeError, ValueError):
+            # un dato que no es un número (texto o lista) llega como
+            # ValueError, el error que esperan las órdenes que lo validan
+            raise ValueError(f"Proporción de huecos de la defensa no numérica: {value!r}") from None
     if not (math.isfinite(value) and 0.0 <= value <= MAX_VOID):
         raise ValueError(f"Proporción de huecos de la defensa fuera de 0–{MAX_VOID:g}: {value}")
     return value
@@ -127,6 +136,17 @@ def psets(record, is_external):
 
 
 # --- Volumen en 3D -----------------------------------------------------------------
+def _inside_convex(pt, poly, tol=1e-9):
+    """``pt`` dentro (o sobre el borde) del polígono convexo antihorario ``poly``."""
+    x, y = pt
+    n = len(poly)
+    for i in range(n):
+        a, b = poly[i], poly[(i + 1) % n]
+        if (b[0] - a[0]) * (y - a[1]) - (b[1] - a[1]) * (x - a[0]) < -tol:
+            return False
+    return True
+
+
 def railing_solid(geometry, spec, base, height, voids):
     """Caras y volumen de una barandilla o balaustrada recta.
 
@@ -136,7 +156,8 @@ def railing_solid(geometry, spec, base, height, voids):
       - el pasamanos: la huella entera en la franja superior (RAIL_HEIGHT);
       - los montantes: secciones cuadradas del espesor de la defensa, a una
         separación tal que la proporción de huecos del alzado sea ``voids``.
-    Un montante solo se coloca si su sección cae entera dentro de la huella.
+    Un montante solo se coloca si su sección cae entera dentro de la huella;
+    el primero y el último, si no caben por un recorte, se deslizan hacia dentro.
 
     Devuelve (caras, volumen) como geom.solids.prism_solid. Una defensa curva
     o sin montantes que quepan se construye maciza (lo dice el aviso)."""
@@ -157,14 +178,35 @@ def railing_solid(geometry, spec, base, height, voids):
     mid = (spec.lo + spec.hi) / 2.0
     count = max(int(math.floor(spec.length / spacing)) + 1, 2)
     step = spec.length / (count - 1)
+    pieces = [P.ccw(list(pc)) for pc in geometry["pieces"]]
+
+    def square(s):
+        return [spec.point(s - t / 2, mid - t / 2), spec.point(s + t / 2, mid - t / 2),
+                spec.point(s + t / 2, mid + t / 2), spec.point(s - t / 2, mid + t / 2)]
+
+    def fits(s):
+        # la sección entera, no solo su centro: cada esquina (retranqueada
+        # FIT_TOL, porque el montante ocupa todo el espesor y sus esquinas
+        # caen sobre las caras) dentro de alguna pieza de la huella
+        e = t / 2 - FIT_TOL
+        corners = [spec.point(s + a * e, mid + b * e) for a, b in ((-1, -1), (1, -1), (1, 1), (-1, 1))]
+        return all(any(_inside_convex(c, pc) for pc in pieces) for c in corners)
+
     for k in range(count):
         s = min(max(k * step, t / 2.0), spec.length - t / 2.0)
-        square = [spec.point(s - t / 2, mid - t / 2), spec.point(s + t / 2, mid - t / 2),
-                  spec.point(s + t / 2, mid + t / 2), spec.point(s - t / 2, mid + t / 2)]
-        centre = spec.point(s, mid)
-        if not any(P.point_in_polygon(centre, pc) for pc in geometry["pieces"]):
-            continue                      # cae fuera de la huella (recortada por un muro)
-        cells.append((P.ccw(square), (base, base + post_h)))
+        if not fits(s):
+            # un extremo recortado por un muro (recto o a inglete): el primer
+            # y el último montante se deslizan hacia dentro hasta caber, sin
+            # pasar de medio paso; los demás que no quepan no se colocan
+            if k not in (0, count - 1):
+                continue
+            hacia = 1.0 if k == 0 else -1.0
+            paso = t / 8.0
+            s = next((s + hacia * paso * i for i in range(1, int(step / 2 / paso) + 1)
+                      if fits(s + hacia * paso * i)), None)
+            if s is None:
+                continue
+        cells.append((P.ccw(square(s)), (base, base + post_h)))
     cells = S._snap(cells)
     faces = S.boundary(cells)
     volume = math.fsum(P.area(poly) * (z1 - z0) for poly, (z0, z1) in cells)
