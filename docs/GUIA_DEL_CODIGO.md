@@ -702,3 +702,8 @@ el mismo cálculo de hojas y cerco que usa `normalizar_carpinteria`.
 contiene el modo nuevo cuando se ejecuta. Para una carpintería curva o una
 ventana utiliza el campo de ancho. La conversión sigue delegada en
 `span_of` y `measure_of`, sin duplicar geometría.
+
+La conversión también utiliza la cara seleccionada en la ficha de edición;
+cuando no hay control de posición, conserva la cara del registro.
+`test_d1_cara_carpinteria.py` cambia ambas caras sobre arcos de los dos
+sentidos y verifica la medida sobre el radio de la referencia elegida.

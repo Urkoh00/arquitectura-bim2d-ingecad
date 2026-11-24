@@ -1259,8 +1259,10 @@ def carpentry_form(ctx, record, *, editing=False):
                 ancho_actual = OP.door_width(
                     leaf.value(), leaves.value(), leaf2.value(), frame_w.value()
                 )
-            ancho_eje = OP.span_of(spec, ancho_actual, ref_state, int(d.get('side', 1)))
-            ancho_convertido = OP.measure_of(spec, ancho_eje, now, int(d.get('side', 1)))
+            # En edición manda la cara elegida ahora, no la guardada al abrir.
+            cara_actual = side.currentData() if place is not None else int(d.get('side', 1))
+            ancho_eje = OP.span_of(spec, ancho_actual, ref_state, cara_actual)
+            ancho_convertido = OP.measure_of(spec, ancho_eje, now, cara_actual)
             bloqueado = width.blockSignals(True)
             width.setValue(ancho_convertido)
             width.blockSignals(bloqueado)
