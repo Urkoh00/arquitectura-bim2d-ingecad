@@ -53,12 +53,21 @@ El ejemplo de carpinterías ha comprobado lo siguiente en el escritor oficial:
   Acero a la manilla ni los demás materiales a sus piezas. El IGZ sí conserva
   esa información. Por ello, el requisito de R29-C de material de la manilla
   **no está resuelto en el IFC final por el escritor actual**.
+- Las áreas IFC no coinciden con las del contrato: puerta de 1,20 × 2,10 m,
+  2,52 m² en el contrato frente a 0,1659 m² en Qto_DoorBaseQuantities; ventana
+  de 1,20 × 1,20 m, 1,44 m² frente a 0,23 m² en Qto_WindowBaseQuantities.
+  Anchura y altura sí coinciden en este caso. El escritor toma el área neta
+  de una cara del modelo en vez del valor canónico etiquetado por la extensión.
 
 Los dos primeros límites se corresponden con las aportaciones anteriores
 P1–P4; no se declaran resueltos por las novedades de georreferencia o IFC4.3.
 La asociación de materiales de cada pieza queda anotada para revisión como
 **identificador pendiente**, con este caso sintético reproducible. No se abre
 una incidencia, no se modifica IngeTrazo y no se crea otro escritor IFC.
+La discrepancia de áreas queda también con **identificador pendiente** para
+contrastar sus antecedentes. Propuesta: que el escritor consuma las cantidades
+canónicas ya etiquetadas, con su validación, en vez de inferirlas de una pieza
+del conjunto. Los dos casos y sus Psets completos están en el resultado JSON.
 
 Un IFC sin errores EXPRESS puede seguir siendo semánticamente incompleto.
 La validación anterior comprueba sintaxis, geometría y casos indicados; no
