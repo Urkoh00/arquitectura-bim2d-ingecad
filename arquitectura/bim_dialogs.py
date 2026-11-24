@@ -1022,7 +1022,8 @@ def carpentry_form(ctx, record, *, editing=False):
     cantidad_manillas.setToolTip('Manillas en la cara interior de la hoja principal de la ventana.')
     altura_manilla = _spin(d['handle_height'])
     altura_manilla.setRange(0.0, 1000.0)
-    altura_manilla.setToolTip('Desde el suelo del nivel; 0 = 1,05 m en puertas y centro de la hoja en ventanas.')
+    altura_manilla.setToolTip('Desde el suelo del nivel; 0 = 1,05 m en puertas y centro de la hoja en ventanas. '
+                             'Con dos manillas indica el centro de la pareja, repartida en vertical.')
     setback = _spin(d.get("setback", 0.0)); setback.setRange(0., 1000.); setback.setSuffix(" m")
     setback_from = _choice([("Cara hacia la que abre", "interior"), ("Cara opuesta", "exterior")], d.get("setback_from", "exterior"))
     frame_w = _spin(d.get("frame_width") or 0.0)

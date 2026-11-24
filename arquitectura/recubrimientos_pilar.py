@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Resumen: resuelve el tabique y el aislamiento del pilar a partir de sus muros de contacto.
+# Resumen: resuelve el partición y el aislamiento del pilar a partir de sus muros de contacto.
 """Reglas del recubrimiento sin dependencias de los anfitriones CAD."""
 from copy import deepcopy
 import math
@@ -18,11 +18,11 @@ CAMPOS = (
 
 
 def normalizar(datos):
-    """Conserva cover como espesor del tabique; separa el aislamiento añadido."""
+    """Conserva cover como espesor del partición; separa el aislamiento añadido."""
     salida = deepcopy(datos)
     salida.setdefault("cover", 0.0)
     salida.setdefault("cover_type", "")
-    salida.setdefault("cover_material", "Tabique de recubrimiento")
+    salida.setdefault("cover_material", "Partición de recubrimiento")
     salida.setdefault("insulation_mode", "auto")
     salida.setdefault("insulation_thickness", 0.05)
     salida.setdefault("insulation_material", "Aislamiento")
@@ -42,7 +42,7 @@ def normalizar(datos):
 
 
 def espesor_total(datos):
-    """Espesor geométrico: tabique más aislamiento resuelto, en metros."""
+    """Espesor geométrico: partición más aislamiento resuelto, en metros."""
     return float(datos.get("cover") or 0) + float(datos.get("insulation_resolved_thickness") or 0)
 
 

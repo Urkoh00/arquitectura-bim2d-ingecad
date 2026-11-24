@@ -511,4 +511,3 @@ def dibujar(documento, filas, insercion, configuracion, identificador):
     if configuracion["modo"] in ("todo", "tabla"):
         dibujante.marca = ""
         dibujante.tabla(filas, (x, y))
-

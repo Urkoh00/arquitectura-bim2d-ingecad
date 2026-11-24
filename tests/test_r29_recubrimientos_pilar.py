@@ -62,9 +62,9 @@ def test_el_aislamiento_exterior_no_se_repite_en_el_pilar(plugin, capas):
 @pytest.mark.parametrize("cambios", [
     {"base": 4.0, "level_id": "alta"},
     {"a": [-3, 5], "b": [3, 5]},
-    {"wall_category": "tabique"},
+    {"wall_category": "particion"},
 ])
-def test_otro_nivel_un_muro_lejano_y_un_tabique_no_activan_aislamiento(plugin, cambios):
+def test_otro_nivel_un_muro_lejano_y_un_particion_no_activan_aislamiento(plugin, cambios):
     datos, avisos = resolver(plugin, muros=[muro(**cambios)])
     assert datos["insulation_resolved_thickness"] == 0
     assert not avisos
