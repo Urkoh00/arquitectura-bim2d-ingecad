@@ -636,7 +636,7 @@ los dibujos que guardaban otro valor lo conservan.
 
 Las cotas temporales reciben el documento desde MURO, CARPINTERIA y MOVERCARP;
 las fichas y la tabla de memoria usan el mismo formateador. Las áreas siguen
-con dos decimales. COTAMUROS conserva el creador nativo de DIMENSION y aplica
+con dos decimales. COTAMUROS conserva la orden nativa de DIMENSION y aplica
 las anulaciones antes de su único renderizado; su eliminación de tramos cortos
 mantiene los extremos y la suma real de la cadena. SUPERFICIES usa la precisión
 solo para las longitudes de las notas, no para calcular áreas o decidir usos.
@@ -707,3 +707,19 @@ La conversión también utiliza la cara seleccionada en la ficha de edición;
 cuando no hay control de posición, conserva la cara del registro.
 `test_d1_cara_carpinteria.py` cambia ambas caras sobre arcos de los dos
 sentidos y verifica la medida sobre el radio de la referencia elegida.
+
+### Cotas: constructor público de la orden nativa
+
+`cotas.dimension_commands` usa `core.actions.AddDimensionCommand(factory)`,
+el constructor público documentado de la orden de IngeCAD 0.8.0. La
+fábrica entrega la cota de ezdxf con sus anulaciones antes del renderizado.
+No se lee ni se sustituye `_factory` ni otro atributo interno del anfitrión.
+La distancia firmada se obtiene proyectando el punto de posición sobre la
+normal del segmento; no se redondean sus puntos.
+
+La orden nativa conserva la capa, el bloque gráfico y Deshacer/Rehacer;
+solo se crea un bloque de cota por ejecución y no se cambia el estilo
+compartido. `test_cotas_api_publica.py` prueba la misma operación con una
+orden que solo expone el contrato público, en dos orientaciones y con las
+dos precisiones. No hace falta proponer ni modificar una API de IngeCAD
+para este caso.

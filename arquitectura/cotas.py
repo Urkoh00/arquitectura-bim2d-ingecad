@@ -6,7 +6,7 @@
 Two clicks draw a line through the plan; every wall face, column outline
 and jamb it crosses is dimensioned (a line drawn outside, along a façade,
 dimensions that façade's corners and openings instead), in one chain of IngeCAD aligned
-dimensions (``core.actions.dim_aligned``) plus an optional overall
+dimensions (``core.actions.AddDimensionCommand``) plus an optional overall
 dimension.  The points come from the same derived outline the 3D model
 uses (``junction_edge`` entities), so the dimensions are the real faces.
 
@@ -242,20 +242,24 @@ def dimension_commands(spans, documento=None):
 
     anulaciones = anulaciones_cota(documento)
     cmds = []
-    for a, b, loc in spans:
-        c = actions.dim_aligned(a, b, loc, dimstyle=DIM_STYLE)
-        fabrica_nativa = c._factory
+    for inicio, fin, ubicacion in spans:
+        dx = fin[0] - inicio[0]
+        dy = fin[1] - inicio[1]
+        longitud = math.hypot(dx, dy) or 1.0
+        distancia = ((ubicacion[0] - inicio[0]) * -dy
+                     + (ubicacion[1] - inicio[1]) * dx) / longitud
 
-        def crear(espacio, documento, fabrica=fabrica_nativa):
-            # Se anula antes del único renderizado nativo, para no crear
-            # otro bloque gráfico ni cambiar el estilo compartido del dibujo.
-            dimension = fabrica(espacio, documento)
-            dimension.update(anulaciones)
-            return dimension
+        def crear(espacio, documento, inicio=inicio, fin=fin, distancia=distancia):
+            # El constructor público acepta esta fábrica. La orden nativa sigue
+            # encargándose del renderizado, la capa, las asociaciones y Deshacer.
+            return espacio.add_aligned_dim(
+                p1=inicio, p2=fin, distance=distancia, dimstyle=DIM_STYLE,
+                override=dict(anulaciones),
+            )
 
-        c._factory = crear
-        c.layer = DIM_LAYER
-        cmds.append(c)
+        comando = actions.AddDimensionCommand(crear)
+        comando.layer = DIM_LAYER
+        cmds.append(comando)
     return cmds
 
 
