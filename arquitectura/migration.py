@@ -22,18 +22,20 @@ class MigrateLegacyWalls(Command):
         msp=document.doc.modelspace()
         legacy=[e for e in msp if (metadata(e) or {}).get('kind')=='wall' and
                 (e.dxftype()=='POINT' or (e.dxftype()=='LWPOLYLINE' and e.closed))]
-        # Store DXF geometry and metadata for exact architectural restoration.
-        self.before=[{'type':e.dxftype(),'closed':bool(e.closed) if e.dxftype()=='LWPOLYLINE' else False,
-                      'points':list(e.get_points('xy')) if e.dxftype()=='LWPOLYLINE' else None,
-                      'position':tuple(e.dxf.location) if e.dxftype()=='POINT' else None,
-                      'layer':e.dxf.layer,'metadata':metadata(e)} for e in legacy]
+        # Las entidades originales se retiran del espacio (no se borran) y el
+        # Deshacer las devuelve tal cual: mismo identificador, curvas (bulge),
+        # capa, color y demás atributos. Antes se recreaban con sus puntos
+        # (x, y) y un contorno curvo volvía recto (revisión del 24-11).
+        self.before=legacy
+        from .architectural_v10 import axis_points
         self.new_handles=[]
         for e in legacy:
             rec=metadata(e)
-            axis=msp.add_lwpolyline([rec['a'],rec['b']],dxfattribs={'layer':WALL_LAYER})
+            # el eje conserva la curva del muro (su bulge), como al dibujarlo
+            axis=msp.add_lwpolyline(axis_points(rec),format='xyb',dxfattribs={'layer':WALL_LAYER})
             _xdata(msp,axis,rec)
             self.new_handles.append(axis.dxf.handle)
-            msp.delete_entity(e)
+            msp.unlink_entity(e)
         self.count=len(legacy)
         document.dirty=True
     def undo(self,document):
@@ -41,12 +43,8 @@ class MigrateLegacyWalls(Command):
         for h in self.new_handles:
             e=document.doc.entitydb.get(h)
             if e is not None and e.is_alive:msp.delete_entity(e)
-        for rec in self.before or []:
-            if rec['type']=='POINT':
-                e=msp.add_point(rec['position'],dxfattribs={'layer':rec['layer']})
-            else:
-                e=msp.add_lwpolyline(rec['points'],close=rec['closed'],dxfattribs={'layer':rec['layer']})
-            _xdata(msp,e,rec['metadata'])
+        for e in self.before or []:
+            msp.add_entity(e)
         document.dirty=True
 
 

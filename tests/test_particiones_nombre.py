@@ -90,3 +90,28 @@ def test_muro_acepta_particion_y_la_palabra_anterior(plugin, palabra):  # noqa: 
     t = s.tool('MURO')
     t.on_option(palabra)
     assert t.bim['wall_category'] == 'particion'
+
+
+def test_arqmigrar_conserva_la_curva_del_muro_y_el_deshacer_lo_devuelve_tal_cual(plugin):  # noqa: F811
+    # revisión del 24-11: un contorno antiguo curvo volvía recto al deshacer,
+    # y el eje migrado perdía la curva
+    s = Session(plugin)
+    arch = import_module(plugin.tools['PILAR'].__module__.rsplit('.', 1)[0] + '.architectural')
+    msp = s.document.doc.modelspace()
+    contorno = msp.add_lwpolyline([(0, 0, 0.4), (4, 0, 0.0), (4, 0.3, -0.4), (0, 0.3, 0.0)],
+                                  format='xyb', close=True,
+                                  dxfattribs={'layer': 'ARQ-MUROS', 'color': 3})
+    arch._xdata(msp, contorno, {'kind': 'wall', 'schema': 1, 'id': 'viejo', 'a': [0, 0.15],
+                                'b': [4, 0.15], 'bulge': 0.4, 'thickness': 0.3,
+                                'height': 3.0, 'base': 0.0, 'reference': 'eje'})
+    antes = list(contorno.get_points('xyb'))
+    asa = contorno.dxf.handle
+    plugin.commands['ARQMIGRAR'](_cmd_ctx(s))
+    ejes = [e for e in msp if (arch.metadata(e) or {}).get('id') == 'viejo']
+    assert len(ejes) == 1 and ejes[0].dxf.handle != asa
+    assert ejes[0].get_points('xyb')[0][2] == pytest.approx(0.4)
+    s.history.undo()
+    vuelta = [e for e in msp if (arch.metadata(e) or {}).get('id') == 'viejo']
+    assert len(vuelta) == 1 and vuelta[0].dxf.handle == asa
+    assert list(vuelta[0].get_points('xyb')) == antes
+    assert vuelta[0].dxf.color == 3 and vuelta[0].closed

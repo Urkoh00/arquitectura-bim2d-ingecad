@@ -2,6 +2,17 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.48.5-dev — 2026-11-24
+
+- **ARQMIGRAR, Deshacer exacto** (revisión de código del 24-11): al deshacer, los contornos antiguos se recreaban
+  con sus puntos (x, y), así que uno curvo volvía recto y perdía su identificador, su color y demás atributos.
+  Ahora las entidades originales se retiran sin borrarlas y el Deshacer las devuelve tal cual. La corrección
+  propuesta en la revisión (`format='xyb'` solo al recrear) no bastaba, porque los puntos ya se guardaban sin
+  la curva.
+- El eje que crea ARQMIGRAR lleva desde el principio la curva del muro, igual que al dibujarlo. Antes la ponía
+  la regeneración posterior.
+- Prueba nueva en `test_particiones_nombre.py`; falla sin la corrección.
+
 ## 1.48.4-dev — 2026-11-24
 
 Correcciones de las defensas (revisión de código recibida el 24-11, comprobada punto por punto).
