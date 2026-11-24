@@ -2,6 +2,36 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.48.14-dev — 2026-11-24
+
+Dos listas más de una revisión externa (24-11), de unos 60 puntos; la mayoría los descarta el propio revisor
+o son falsos. Cuatro reales, menores:
+
+- Escala uniforme (`frame.Affine.uniform`): la tolerancia no era relativa, así que una escala muy pequeña y
+  desigual pasaba por uniforme.
+- PlanoMemoria: deshacer tras un `do()` que falló pronto daba AttributeError, que tapaba el error original.
+- Dibujante (MEMORIACARP): `seccion` tiene valor por defecto.
+- La vista previa de las fichas auxiliares atrapa cualquier error en vez de romper el repintado. La huella de
+  fuentes de MEMORIACARP tolera un registro sin identificador.
+- Descartados con razón:
+  - `openings.py` y `grids.py` no están truncados (sí lo estaban las copias revisadas);
+  - `crear_rotulos` se ejecuta dentro de la regeneración, que se deshace entera;
+  - `ContextoLinea` delega en el contexto;
+  - `document.revision` existe en IngeCAD;
+  - MOVERCARP ya atrapa los errores de `_state`;
+  - las capas de ezdxf no distinguen mayúsculas (ARQMIGRAR renombra bien `arq-pilares`);
+  - `SafeArchitecturalCommand` revierte solo;
+  - las carpinterías huérfanas ya las omite `read_model` (se fija con una prueba);
+  - `apply_spacing` y `apply_axis` están bajo `_entrada_segura`;
+  - Ángulo antes del origen no llega a insertar;
+  - el índice de `huecos_curvos` sí es de curva;
+  - un armario adosado no es parte de la envolvente (`IsExternal` falso es correcto);
+  - la flecha de facetado es una tolerancia, no una medida que deba escalar;
+  - el bloqueo de exportación con vínculos de rejilla rotos es intencionado.
+- Encargados a Codex (D1):
+  - pilar movido con las órdenes de IngeCAD y su vínculo a la rejilla (`RegenerateGrid.build`);
+  - longitudes de huecos y detalles en `filtrar_huecos` (con R30).
+
 ## 1.48.13-dev — 2026-11-24
 
 Integración del parcial 02 de R29 (Codex, revisado por Claude), sobre la 1.48.12-dev. R29 no está terminado.

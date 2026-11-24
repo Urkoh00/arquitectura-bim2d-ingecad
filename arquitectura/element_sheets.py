@@ -66,7 +66,7 @@ def _preview(kind, read):
                         xx=x+k*v['spacing']*scale;p.drawLine(int(xx),int(y),int(xx),int(y+h))
                 p.drawText(12,self.height()-30,f'{width:g} × {height:g} m')
                 p.drawText(12,self.height()-12,'Esquema de parámetros; no es una validación 3D')
-            except (ValueError,TypeError,KeyError) as exc:
+            except Exception as exc:  # noqa: BLE001 - la vista previa nunca rompe el repintado
                 p.drawText(self.rect(),Qt.AlignCenter,str(exc))
             finally:p.end()
     return Preview()

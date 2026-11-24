@@ -40,6 +40,7 @@ class Dibujante:
         self.altura = 0.0025 * escala
         self.escala = escala
         self.marca = ""
+        self.seccion = False            # dibujar() lo fija con la configuración
 
     def longitud(self, valor):
         from .presentacion import longitud

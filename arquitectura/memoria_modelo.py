@@ -74,7 +74,7 @@ def estado_fuentes(dibujo):
     generales = general_options(dibujo)
     texto = json.dumps(
         {
-            "fuentes": sorted(datos, key=lambda r: (r["kind"], r["id"])),
+            "fuentes": sorted(datos, key=lambda r: (r["kind"], str(r.get("id", "")))),
             "presentacion": {"precision_medidas": generales.get("precision_medidas", "cm")},
         },
         sort_keys=True,

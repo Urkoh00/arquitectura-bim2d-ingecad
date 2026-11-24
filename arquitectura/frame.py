@@ -120,7 +120,10 @@ class Affine:
     def uniform(self):
         sx, sy = math.hypot(*self.ex[:2]), math.hypot(*self.ey[:2])
         dot = self.ex[0] * self.ey[0] + self.ex[1] * self.ey[1]
-        return abs(sx - sy) <= 1e-9 * max(sx, sy, 1.0) and abs(dot) <= 1e-9 * max(sx * sy, 1.0)
+        # tolerancia relativa a la escala: con max(..., 1) una escala muy pequeña
+        # y desigual pasaba por uniforme (revisión del 24-11)
+        escala = max(sx, sy)
+        return escala > 0 and abs(sx - sy) <= 1e-9 * escala and abs(dot) <= 1e-9 * sx * sy
 
     @property
     def scale(self):

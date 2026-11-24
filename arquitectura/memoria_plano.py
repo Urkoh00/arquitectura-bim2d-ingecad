@@ -116,6 +116,10 @@ class PlanoMemoria(Command):
         self.nuevos = None
         self.bloques = {}
         self.aplicado = False
+        # deshacer tras un do() que falló pronto no debe dar AttributeError
+        self.capas_creadas = []
+        self.crea_discontinua = False
+        self.anteriores = []
 
     def _capas(self, dibujo):
         for nombre, color in ((CAPA_PLANO, 7), (CAPA_COTAS, 2), (CAPA_ROTULOS, 6)):
