@@ -43,8 +43,9 @@ class MigrateLegacyWalls(Command):
         for h in self.new_handles:
             e=document.doc.entitydb.get(h)
             if e is not None and e.is_alive:msp.delete_entity(e)
+        from .architectural import reenlazar
         for e in self.before or []:
-            msp.add_entity(e)
+            reenlazar(msp, e)
         document.dirty=True
 
 

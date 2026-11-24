@@ -212,3 +212,24 @@ def test_opciones_de_relleno_y_grosores(plugin):  # noqa: F811
     with pytest.raises(ValueError):
         valores['general']['vista_color'] = 1
         pa.validate_defaults(valores)
+
+
+def test_un_fallo_al_actualizar_antes_de_retirar_la_vista_no_la_duplica(plugin, monkeypatch):  # noqa: F811
+    s = casa(plugin)
+    _seccion(s, (3, -2), (3, 6), (4, 0), (20, 0))
+    espacio = s.document.doc.modelspace()
+    antes = sorted(e.dxf.handle for e in espacio)
+    va = modulo(plugin, 'vistas_arq')
+
+    def fallar(self, dibujo, opciones):
+        raise ValueError('Fallo de prueba en capas')
+
+    monkeypatch.setattr(va.VistaArq, '_capas', fallar)
+    t = s.tool('SECCIONARQ')
+    try:
+        t.on_option('Actualizar')
+    except ValueError:
+        pass
+    despues = [e.dxf.handle for e in espacio]
+    assert len(despues) == len(set(despues)), 'entidades duplicadas en el espacio'
+    assert sorted(despues) == antes

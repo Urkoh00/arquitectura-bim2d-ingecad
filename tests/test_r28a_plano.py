@@ -372,3 +372,25 @@ def test_actualizar_respeta_el_plano_desplazado_por_el_usuario(plugin):
     assert abs(x1 - (x0 - 25.0)) < 1e-6 and abs(y1 - (y0 + 14.0)) < 1e-6
     _, nuevos = plano.planos(dibujo)[0]
     assert nuevos["insert"] == [datos["insert"][0] - 25.0, datos["insert"][1] + 14.0]
+
+
+def test_un_fallo_antes_de_retirar_el_plano_anterior_no_lo_duplica(plugin, monkeypatch):
+    """Revisión del 24-11: si Actualizar falla antes de retirar el plano
+    anterior (al preparar las capas), el Deshacer interno volvía a añadir esas
+    entidades, que seguían en el dibujo, y quedaban duplicadas."""
+    sesion, _, _ = modelo(plugin)
+    plano = generar(sesion, plugin)
+    espacio = sesion.document.doc.modelspace()
+    antes = sorted(e.dxf.handle for e in espacio)
+    preparar = plano.PlanoMemoria._capas
+
+    def fallar(self, dibujo):
+        preparar(self, dibujo)
+        raise ValueError("Fallo de prueba en recursos")
+
+    monkeypatch.setattr(plano.PlanoMemoria, "_capas", fallar)
+    with pytest.raises(ValueError, match="recursos"):
+        plano.actualizar(sesion.tool("MURO").ctx)
+    despues = [e.dxf.handle for e in espacio]
+    assert len(despues) == len(set(despues)), "entidades duplicadas en el espacio"
+    assert sorted(despues) == antes

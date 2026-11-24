@@ -2,6 +2,15 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.48.7-dev — 2026-11-24
+
+- **Entidades duplicadas tras un fallo** (revisión de código del 24-11, confirmada): si MEMORIACARP Actualizar
+  fallaba antes de retirar el plano anterior (por ejemplo, al preparar las capas), el Deshacer interno volvía a
+  añadir entidades que seguían en el dibujo. ezdxf las añade dos veces sin avisar. Les pasaba lo mismo a
+  SECCIONARQ/ALZADOARQ Actualizar, que copian ese esquema. Nueva función `architectural.reenlazar`, que solo
+  devuelve una entidad si está retirada; la usan los Deshacer de MEMORIACARP, de las vistas y de ARQMIGRAR.
+- Pruebas nuevas en `test_r28a_plano.py` y `test_vistas_arq.py`; fallan sin la corrección.
+
 ## 1.48.6-dev — 2026-11-24
 
 - **Montantes de barandilla:** por un error de coma flotante (1 − 0,80 = 0,19999…), una barandilla de 2 m con un

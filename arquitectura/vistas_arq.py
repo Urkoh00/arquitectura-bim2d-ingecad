@@ -37,7 +37,7 @@ from copy import deepcopy
 
 from core.commands import Command
 
-from .architectural import _xdata, metadata
+from .architectural import _xdata, metadata, reenlazar
 
 KIND = "arq_view"
 DETALLE = "arq_view_detail"
@@ -283,9 +283,9 @@ class VistaArq(Command):
                         dxfattribs={"layer": "ARQ-VISTA-TEXTOS", "invisible": 1})
             else:
                 for e in self.nuevos:
-                    espacio.add_entity(e)
+                    reenlazar(espacio, e)
                 if self.datos_anteriores is None:
-                    espacio.add_entity(self.ancla)
+                    reenlazar(espacio, self.ancla)
             _xdata(espacio, self.ancla, self.datos_nuevos)
             self._grupo(dibujo, [self.ancla, *self.nuevos])
             self.aplicado = True
@@ -316,7 +316,7 @@ class VistaArq(Command):
         else:
             _xdata(espacio, self.ancla, self.datos_anteriores)
         for e in self.anteriores:
-            espacio.add_entity(e)
+            reenlazar(espacio, e)
         if self.grupo_anterior:
             self._grupo(dibujo, [self.ancla, *self.anteriores])
         for nombre in reversed(self.capas_creadas):

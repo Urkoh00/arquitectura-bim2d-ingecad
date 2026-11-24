@@ -6,7 +6,7 @@ import json
 import uuid
 
 from core.commands import Command
-from .architectural import metadata, _xdata
+from .architectural import metadata, _xdata, reenlazar
 from . import memoria_modelo
 from .memoria_dibujo import CAPA_PLANO, CAPA_COTAS, DISCONTINUA
 
@@ -205,9 +205,9 @@ class PlanoMemoria(Command):
                         for pieza in piezas:
                             bloque.add_entity(pieza.copy())
                 for entidad in self.nuevos:
-                    espacio.add_entity(entidad)
+                    reenlazar(espacio, entidad)
                 if self.datos_anteriores is None:
-                    espacio.add_entity(self.entidad)
+                    reenlazar(espacio, self.entidad)
             _xdata(espacio, self.entidad, self.datos_nuevos)
             self._grupo(dibujo, [self.entidad, *self.nuevos])
             self.aplicado = True
@@ -245,7 +245,7 @@ class PlanoMemoria(Command):
         else:
             _xdata(espacio, self.entidad, self.datos_anteriores)
         for entidad in self.anteriores:
-            espacio.add_entity(entidad)
+            reenlazar(espacio, entidad)
         if self.grupo_anterior:
             self._grupo(dibujo, [self.entidad, *self.anteriores])
         for nombre in self.bloques:

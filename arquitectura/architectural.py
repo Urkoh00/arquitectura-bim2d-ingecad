@@ -27,6 +27,14 @@ def finite(value, positive=False):
     return n
 
 
+def reenlazar(espacio, entidad):
+    """Devuelve al espacio una entidad retirada con ``unlink_entity``. Si
+    sigue enlazada (una transacción falló antes de retirarla), no hace nada:
+    ezdxf la añadiría dos veces sin avisar (revisión del 24-11)."""
+    if entidad is not None and entidad.is_alive and entidad.dxf.owner is None:
+        espacio.add_entity(entidad)
+
+
 def _xdata(msp, entity, obj):
     doc = msp.doc
     if not entity.has_xdata(APPID):
