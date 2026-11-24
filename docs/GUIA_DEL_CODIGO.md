@@ -575,3 +575,20 @@ mantiene los extremos y la suma real de la cadena. SUPERFICIES usa la precisión
 solo para las longitudes de las notas, no para calcular áreas o decidir usos.
 Cambiar la precisión invalida la presentación guardada de MEMORIACARP; Actualizar
 la rehace en su posición, sin modificar las fuentes BIM.
+
+### Hoja principal en carpinterías dobles (R29-C)
+
+`openings.normalise` añade `main_leaf` sin cambiar el esquema 3: izquierda o
+derecha vistas desde el exterior. Si falta, la deduce de la bisagra y la cara
+guardadas. `indice_hoja_principal` traduce esa elección al índice a lo largo del
+muro; planta y alzado lo comparten para limitar la basculación a una hoja.
+Las dos hojas mantienen su apertura lateral. Los anchos `leaf` y `leaf2`
+siguen describiendo las hojas desde el inicio del muro, para conservar las
+dimensiones y posiciones existentes; la ficha aclara ese significado.
+
+Ficha, variantes textuales y catálogo comparten `main_leaf`. Solo separa tipos
+de memoria cuando hay dos hojas; la mano continúa excluida. Un catálogo de
+v1.47 sin ese campo conserva su marca en la primera agrupación compatible;
+si ahora se divide en dos principales distintas, la otra recibe una marca
+nueva. Una vez escrito el catálogo nuevo, las comparaciones son estrictas.
+La ficha y la tabla de memoria muestran la principal y el contrato la conserva.

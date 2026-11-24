@@ -120,6 +120,8 @@ def definir(muro, registro):
             },
         }
     )
+    if registro["leaves"] == 2:
+        definicion["main_leaf"] = registro["main_leaf"]
     if registro["curve_mode"] == "curva":
         # Dos arcos de igual desarrollo y distinto radio no son la misma pieza.
         definicion["radio"] = muro.r
@@ -154,6 +156,14 @@ def unidades(muro, registro):
             "marca_solicitada": registro.get("mark", ""),
             "solicitud_manual": registro.get("mark_manual", False),
         }
+
+
+def coincide_tipo_anterior(anterior, actual):
+    # En v1.47 no se distinguía la hoja activa: la primera de las nuevas
+    # agrupaciones conserva la marca, y las demás reciben números nuevos.
+    if "main_leaf" not in anterior and "main_leaf" in actual:
+        actual = {clave: valor for clave, valor in actual.items() if clave != "main_leaf"}
+    return iguales(anterior, actual)
 
 
 def asignar_marcas(piezas, catalogo=None):
@@ -195,7 +205,7 @@ def asignar_marcas(piezas, catalogo=None):
             marca = solicitudes.pop()
             antiguo = next((t for t in anteriores if t["marca"] == marca), None)
             if marca in usadas or (
-                antiguo is not None and not iguales(antiguo["definicion"], grupo["definicion"])
+                antiguo is not None and not coincide_tipo_anterior(antiguo["definicion"], grupo["definicion"])
             ):
                 raise ValueError("La marca solicitada ya identifica otra pieza")
             grupo["marca"] = marca
@@ -211,7 +221,7 @@ def asignar_marcas(piezas, catalogo=None):
                 for tipo in anteriores
                 if tipo["marca"] not in usadas
                 and all(
-                    iguales(tipo["definicion"], pieza["definicion"]) for pieza in grupo["piezas"]
+                    coincide_tipo_anterior(tipo["definicion"], pieza["definicion"]) for pieza in grupo["piezas"]
                 )
             ),
             None,

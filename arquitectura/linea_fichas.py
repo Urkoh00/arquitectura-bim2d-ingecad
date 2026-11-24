@@ -289,7 +289,9 @@ def campos_carpinteria(ctx, datos, editar=False):
             lambda v: not editar and ventana(v) and v["operation"] == "TILTANDTURN",
         ),
         Campo("leaves", "Número de hojas", "entero", minimo=1, maximo=6, cuando=con_marco),
-        medida("leaf", "Hoja principal (m)", cuando=puerta),
+        opcion("main_leaf", "Hoja principal vista desde el exterior", [("Izquierda", "left"), ("Derecha", "right")],
+               lambda v: con_marco(v) and v["leaves"] == 2),
+        medida("leaf", "Primera hoja desde el inicio del muro (m)", cuando=puerta),
         medida(
             "leaf2",
             "Segunda hoja, 0 = igual (m)",
@@ -352,6 +354,7 @@ def campos_carpinteria(ctx, datos, editar=False):
                 "height",
                 "sill",
                 "leaves",
+                "main_leaf",
                 "leaf",
                 "leaf2",
                 "width",

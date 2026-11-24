@@ -42,7 +42,7 @@ SYMBOL_LAYER = "ARQ-CARPINTERIA"
 V3_KEYS = ("leaves", "leaf", "leaf2", "frame_width", "frame_depth", "side", "hinge",
            "angle", "face", "setback", "setback_from", "sill_kind", "operation", "leaf_thickness",
            "frame_material", "leaf_material", "glass_material", "sill_material",
-           "curve_mode", "facet_sagitta", "width_reference", "cabinet", "niche_depth", "cabinet_mode", "body_material", "mark", "mark_manual")
+           "curve_mode", "facet_sagitta", "width_reference", "cabinet", "niche_depth", "cabinet_mode", "body_material", "mark", "mark_manual", "main_leaf")
 # opening type (IFC names, as in the properties dialog)
 OPERATIONS = {
     "door": ("SWINGING", "SLIDING"),
@@ -135,6 +135,9 @@ def normalise(rec):
     out["leaves"] = int(out.get("leaves") or 0)
     out["side"] = 1 if float(out.get("side") or 1) >= 0 else -1
     out["hinge"] = 1 if int(out.get("hinge") or 0) else 0
+    out.setdefault("main_leaf", "left" if (out["hinge"] == 0) == (out["side"] > 0) else "right")
+    if out["main_leaf"] not in ("left", "right"):
+        raise ValueError("Hoja principal: izquierda o derecha vistas desde el exterior")
     if out["face"] not in FACES:
         out["face"] = "centrada"
     if out.get("operation") == "TILTANDTURN" and typ != "window":
@@ -481,8 +484,9 @@ def plan_symbol(spec, rec):
             extremo = pt(apoyo + direccion[0] * paso, cara + direccion[1] * paso)
             out.append(("line", pt(apoyo, cara), extremo))
             out.append(_arc(spec, pt(apoyo, cara), paso, (sentido, 0.0), direccion))
-            out.append(("poly", [pt(inicio, cara), pt((inicio + final) / 2, cara + sg * paso * 0.18),
-                                  pt(final, cara)], False))
+            if indice == indice_hoja_principal(rec):
+                out.append(("poly", [pt(inicio, cara), pt((inicio + final) / 2, cara + sg * paso * 0.18),
+                                      pt(final, cara)], False))
     proj = SILL_PROJECTION.get(rec.get("sill_kind"), 0.0)
     if proj > 0:
         ext, e = (spec.lo, -1) if sg > 0 else (spec.hi, 1)
@@ -490,6 +494,13 @@ def plan_symbol(spec, rec):
         out.append(("poly", [pt(a, ext), pt(a, ext + e * proj), pt(b, ext + e * proj),
                              pt(b, ext)], True))
     return out
+
+
+def indice_hoja_principal(rec):
+    """Índice desde el inicio del muro; la elección se expresa desde el exterior."""
+    numero = max(1, int(rec["leaves"]))
+    izquierda_en_eje = (rec["main_leaf"] == "left") == (rec["side"] > 0)
+    return 0 if izquierda_en_eje else numero - 1
 
 
 def simbolos_apertura_alzado(rec):
@@ -527,10 +538,10 @@ def simbolos_apertura_alzado(rec):
         hojas = [(inicio + indice * paso, inicio + (indice + 1) * paso,
                   (rec["hinge"] + indice) % 2) for indice in range(numero)]
     trazos = []
-    for izquierda, derecha, bisagra in hojas:
+    for indice, (izquierda, derecha, bisagra) in enumerate(hojas):
         apoyo, libre = (izquierda, derecha) if bisagra == 0 else (derecha, izquierda)
         trazos.append([(libre, superior), (apoyo, (inferior + superior) / 2), (libre, inferior)])
-        if rec["operation"] == "TILTANDTURN":
+        if rec["operation"] == "TILTANDTURN" and indice == indice_hoja_principal(rec):
             # El vértice inferior representa el eje horizontal de basculación.
             trazos.append([(izquierda, superior), ((izquierda + derecha) / 2, inferior),
                            (derecha, superior)])

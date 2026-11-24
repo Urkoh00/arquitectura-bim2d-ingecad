@@ -25,6 +25,13 @@ def localizacion(fila):
     )
 
 
+def principal(fila):
+    registro = fila["medidas"]["registro"]
+    if registro["leaves"] != 2:
+        return "—"
+    return "izquierda" if registro["main_leaf"] == "left" else "derecha"
+
+
 class Dibujante:
     def __init__(self, documento, identificador, escala):
         self.documento = documento
@@ -262,6 +269,8 @@ class Dibujante:
         ]
         if registro["type"] == "gap":
             textos[2:4] = ["Sin cerco, hojas ni vidrio"]
+        if registro["leaves"] == 2:
+            textos.insert(1, "Hoja principal: " + principal(fila))
         cuerpo = self.texto(
             (x + self.altura, siguiente), "\n".join(textos), ancho_tarjeta - 2 * self.altura
         )
@@ -373,6 +382,7 @@ class Dibujante:
             "Hojas (nº · m)",
             "Apertura",
             "Mano",
+            "Principal",
             "Materiales",
             "m²/ud",
             "m² total",
@@ -405,6 +415,7 @@ class Dibujante:
                     ),
                     openings.OPERATION_NAMES.get(definicion["operation"]) or "sin carpintería",
                     manos(fila),
+                    principal(fila),
                     (
                         "sin carpintería"
                         if definicion["type"] == "gap"

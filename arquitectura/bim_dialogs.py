@@ -1009,6 +1009,7 @@ def carpentry_form(ctx, record, *, editing=False):
     width_reference=_choice([('Cuerda (registros antiguos)','cuerda'),('Arco del eje','eje'),
                              ('Arco de cara interior','interior'),('Arco de cara exterior','exterior')],d['width_reference'])
     facet=_spin(d['facet_sagitta']);facet.setRange(.0001,.02);facet.setDecimals(4)
+    principal = _choice([('Izquierda', 'left'), ('Derecha', 'right')], d['main_leaf'])
     setback = _spin(d.get("setback", 0.0)); setback.setRange(0., 1000.); setback.setSuffix(" m")
     setback_from = _choice([("Cara hacia la que abre", "interior"), ("Cara opuesta", "exterior")], d.get("setback_from", "exterior"))
     frame_w = _spin(d.get("frame_width") or 0.0)
@@ -1017,7 +1018,7 @@ def carpentry_form(ctx, record, *, editing=False):
                         d.get("sill_kind") or "alfeizar")
     hole = QLabel("")
     rows = [("Tipo:", typ),("Geometría curva:",curve_mode),("Referencia del ancho:",width_reference),("Flecha máxima:",facet), ("Apertura:", operation), ("Hojas:", leaves), ("Hoja normalizada:", preset),
-            ("Hoja principal:", leaf), ("Segunda hoja (0 = igual):", leaf2), ("Ancho del hueco:", width),
+            ("Hoja principal (exterior):", principal), ("Primera hoja desde el inicio (m):", leaf), ("Segunda hoja (0 = igual):", leaf2), ("Ancho del hueco:", width),
             ("Hueco resultante:", hole), ("Altura:", height), ("Antepecho:", sill)]
     for label, w in rows:
         f.addRow(label, w)
@@ -1121,6 +1122,7 @@ def carpentry_form(ctx, record, *, editing=False):
         if not editing:
             show(hinge, window and operation.currentData() == "TILTANDTURN")
         show(leaves, kind != "gap")
+        principal.setEnabled(kind != "gap" and leaves.value() == 2)
         leaves.setMaximum(2 if door else 6)
         for w in (preset, leaf, leaf2):
             show(w, door)
@@ -1189,7 +1191,7 @@ def carpentry_form(ctx, record, *, editing=False):
                       setback_from=setback_from.currentData(), frame_width=frame_w.value(),
                       frame_depth=frame_d.value(), name=name.text().strip(), mark=mark.text().strip(),
                       type_name=type_name.text().strip(), material=material.text().strip(),
-                      leaves=leaves.value(), leaf=leaf.value(), leaf2=leaf2.value(), width=width.value(),
+                      leaves=leaves.value(), main_leaf=principal.currentData(), leaf=leaf.value(), leaf2=leaf2.value(), width=width.value(),
                       sill_kind=sill_kind.currentData(), frame_material=m_frame.currentText().strip(),
                       leaf_material=m_leaf.currentText().strip(), glass_material=m_glass.currentText().strip(),
                       sill_material=m_sill.currentText().strip())
@@ -1228,7 +1230,7 @@ def carpentry_form(ctx, record, *, editing=False):
         ref_state.update(now)
     curve_mode.currentIndexChanged.connect(reference_changed)
     width_reference.currentIndexChanged.connect(reference_changed)
-    for w in (operation, hinge, face, sill_kind, setback_from,curve_mode,width_reference):
+    for w in (operation, hinge, principal, face, sill_kind, setback_from,curve_mode,width_reference):
         w.currentIndexChanged.connect(refresh)
     facet.valueChanged.connect(refresh)
     preset.currentIndexChanged.connect(on_preset)
@@ -1247,13 +1249,13 @@ def carpentry_form(ctx, record, *, editing=False):
         v=item['values'];typ.setCurrentIndex(typ.findData(item['type']))
         for key,control in [('height',height),('sill',sill),('leaves',leaves),('leaf',leaf),('leaf2',leaf2),('width',width),('frame_width',frame_w),('frame_depth',frame_d),('setback',setback)]:
             if key in v:control.setValue(v[key])
-        for key,control in [('operation',operation),('face',face),('sill_kind',sill_kind),('setback_from',setback_from),('curve_mode',curve_mode),('width_reference',width_reference)]:
+        for key,control in [('operation',operation),('main_leaf',principal),('face',face),('sill_kind',sill_kind),('setback_from',setback_from),('curve_mode',curve_mode),('width_reference',width_reference)]:
             if key in v:control.setCurrentIndex(control.findData(v[key]))
         for key,control in [('frame_material',m_frame),('leaf_material',m_leaf),('glass_material',m_glass),('sill_material',m_sill)]:
             if key in v:control.setCurrentText(v[key])
         type_name.setText(item['name']);material.setText(v.get('material',''));refresh()
     catalog_choice.currentIndexChanged.connect(select_catalog)
-    dlg._arq = dict(catalog_choice=catalog_choice,typ=typ, operation=operation, hinge=hinge, leaves=leaves, preset=preset, leaf=leaf, leaf2=leaf2,
+    dlg._arq = dict(catalog_choice=catalog_choice,typ=typ, operation=operation, hinge=hinge, main_leaf=principal, leaves=leaves, preset=preset, leaf=leaf, leaf2=leaf2,
                     width=width, height=height, sill=sill, face=face, sill_kind=sill_kind, name=name, mark=mark,
                     clear=status, status=status, ifc=ifc, preview=preview, frame_width=frame_w,
                     curve_mode=curve_mode,width_reference=width_reference,facet_sagitta=facet,

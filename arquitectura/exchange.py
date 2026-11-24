@@ -619,6 +619,7 @@ def _filling(o, spec, wall_meta, level, void_guid, wall_id):
             start += part.pop("faces")
         el["parts"] = parts
     el["params"].update({k:o.get(k) for k in ("curve_mode","facet_sagitta","width_reference")})
+    el["params"]["main_leaf"] = OP.normalise(o)["main_leaf"]
     el["fills"] = void_guid
     el["enums"] = _door_enums(o)
     if o.get('cabinet'):
