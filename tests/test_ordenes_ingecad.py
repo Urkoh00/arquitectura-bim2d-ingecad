@@ -244,3 +244,28 @@ def test_doble_clic_arranca_la_orden_con_sus_propiedades(plugin):
     assert t2.v['type'] == 'door'
     other = s.document.doc.modelspace().add_line((50, 50), (51, 50))
     assert not dc.on_double_click(ctx, other)             # IngeCAD's own double-click
+
+
+def test_simetria_perpendicular_al_muro_lleva_la_puerta_a_su_imagen():
+    """Revisión del 24-11: se afirmaba que una simetría perpendicular al muro
+    invierte su sentido y deja la puerta en el sitio equivocado si no se
+    cambia su offset por L − offset − ancho. Una simetría es una isometría:
+    el punto a distancia d de «a» va al punto a distancia d de la imagen de
+    «a», así que el offset no cambia. Esta prueba lo fija con la puerta real
+    del modelo: su hueco 3D acaba en la imagen especular del original."""
+    d, h = document()
+    w = wall(h)                                    # de (0, 0) a (5, 0)
+    door(d, w)                                     # offset 1,0, ancho 0,9
+    h.execute(RegenerateContoursCommand())
+
+    def hueco_x():
+        el = next(x for x in E.build(d.doc)['elements'] if x['ifc_class'] == 'IfcDoor')
+        xs = [p[0] for f in el['faces'] for p in f['outer']]
+        return min(xs), max(xs)
+
+    x0, x1 = hueco_x()
+    assert (x0, x1) == pytest.approx((1.0, 1.9))
+    # simetría respecto a x = 10 (eje vertical, perpendicular al muro)
+    h.execute(actions.mirror_entities(bim(d), (10, -1), (10, 1), False))
+    h.execute(RegenerateContoursCommand())
+    assert hueco_x() == pytest.approx((20 - x1, 20 - x0))
