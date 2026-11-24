@@ -113,11 +113,12 @@ def dimension_problems(rec):
             continue
         if not math.isfinite(v) or v < 0:
             out.append(f"{name} negativo o no válido ({rec[key]})")
-    if not out and rec.get("handle_height"):
+    if (not out and rec.get("handle_height") and rec.get("type") != "gap"
+            and rec.get("operation") != "FIXED"):
         altura = float(rec["handle_height"])
-        inferior = float(rec.get("sill", 0))
-        if not inferior < altura < inferior + float(rec["height"]):
-            out.append("altura de manilla fuera de la carpintería")
+        inferior, superior = limites_verticales_hoja(rec)
+        if not inferior < altura < superior:
+            out.append("altura de manilla fuera de la hoja libre del marco")
     return out
 
 
@@ -602,6 +603,21 @@ def part_material(rec, role):
     return str(rec.get(key) or MATERIALS.get(rec.get("type"), {}).get(role) or "")
 
 
+def limites_verticales_hoja(registro, base=0.0):
+    """Mismos límites para construir la hoja y validar la altura de su manilla."""
+    suelo = base + float(registro.get("sill", 0))
+    alto = float(registro["height"])
+    marco = float(registro.get("frame_width", 0.05 if registro["type"] == "window" else 0.03))
+    puerta = registro["type"] == "door"
+    con_marco = 0 < 2 * marco < float(registro["width"]) and 2 * marco < alto
+    inferior = suelo + (DOOR_FLOOR_GAP if puerta else (marco if con_marco else 0))
+    superior = suelo + alto
+    if con_marco:
+        inferior += PART_GAP
+        superior -= marco + PART_GAP
+    return inferior, superior
+
+
 def _con_manilla(piezas, registro, base):
     """Una palanca cerrada propia de la hoja activa, sin otra entidad BIM."""
     if registro["type"] == "gap" or registro["operation"] == "FIXED":
@@ -620,7 +636,6 @@ def _con_manilla(piezas, registro, base):
         return piezas
     indice = indice_hoja_principal(registro)
     a, b, p, q, inferior, superior = ordenadas[indice]
-    alto = superior - inferior
     pedido = float(registro.get("handle_height") or 0)
     altura = base + pedido if pedido else (
         base + 1.05 if registro["type"] == "door" else (inferior + superior) / 2
@@ -687,11 +702,9 @@ def carpentry_parts(spec, rec, base):
         out.append({"name": PART_NAMES["frame"], "role": "frame",
                     "material": part_material(rec, "frame"), "prism": ring + (f0, f1)})
         c0, c1 = s0 + fw + g, s1 - fw - g
-        zt = z1 - fw - g
-        zb = bottom + g
     else:
-        c0, c1, zt = s0, s1, z1
-        zb = z0 + DOOR_FLOOR_GAP if door else z0
+        c0, c1 = s0, s1
+    zb, zt = limites_verticales_hoja(rec, base)
     if door:
         lt = min(float(rec.get("leaf_thickness") or LEAF_THICKNESS), f1 - f0)
         h = f1 if sg > 0 else f0

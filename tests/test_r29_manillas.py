@@ -130,6 +130,19 @@ def test_la_vista_previa_conserva_la_cara_del_elemento_editado(plugin, qapp):
     vista.close()
 
 
+def test_una_manilla_dentro_del_hueco_pero_sobre_el_marco_se_rechaza(plugin, qapp):
+    aberturas = modulo(plugin, "openings")
+    datos = ventana(handle_height=0.92)
+    assert aberturas.dimension_problems(datos)
+    sesion = Session(plugin)
+    herramienta = sesion.tool("VENTANAARQ")
+    ficha, leer = modulo(plugin, "bim_dialogs").carpentry_form(herramienta.ctx, {**herramienta.v, **herramienta.bim})
+    control = ficha._arq["handle_height"]
+    control.setValue(0.92)
+    assert ficha._arq["problems"](leer())
+    ficha.close()
+
+
 def test_la_manilla_curva_llega_como_solido_cerrado_y_la_edicion_se_deshace(plugin, tmp_path):
     from core.document import Document
     from ingetrazo_ext.arquitectura_bim import validate_contract
