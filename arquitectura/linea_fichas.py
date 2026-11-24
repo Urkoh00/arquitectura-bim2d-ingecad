@@ -275,7 +275,10 @@ def campos_carpinteria(ctx, datos, editar=False):
                 ("Exterior", "exterior"),
             ],
         ),
-        medida("facet_sagitta", "Flecha máxima (m)", 0.0001, 0.02),
+        medida(
+            "facet_sagitta", "Precisión de la curva (flecha máxima, m)", 0.0001, 0.02,
+            cuando=lambda valores: valores["curve_mode"] == "curva",
+        ),
         opcion(
             "operation",
             "Apertura",

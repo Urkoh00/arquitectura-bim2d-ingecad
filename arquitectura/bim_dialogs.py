@@ -1011,6 +1011,8 @@ def carpentry_form(ctx, record, *, editing=False):
     width_reference=_choice([('Cuerda (registros antiguos)','cuerda'),('Arco del eje','eje'),
                              ('Arco de cara interior','interior'),('Arco de cara exterior','exterior')],d['width_reference'])
     facet=_spin(d['facet_sagitta']);facet.setRange(.0001,.02);facet.setDecimals(4)
+    facet.setToolTip('Separación máxima entre el arco y los tramos rectos que lo representan. '
+                     'Solo interviene cuando la geometría de la carpintería es curva.')
     principal = _choice([('Izquierda', 'left'), ('Derecha', 'right')], d['main_leaf'])
     altura_manilla = _spin(d['handle_height'])
     altura_manilla.setRange(0.0, 1000.0)
@@ -1022,7 +1024,7 @@ def carpentry_form(ctx, record, *, editing=False):
     sill_kind = _choice([("Alféizar", "alfeizar"), ("Vierteaguas", "vierteaguas"), ("Ventanal", "ventanal")],
                         d.get("sill_kind") or "alfeizar")
     hole = QLabel("")
-    rows = [("Tipo:", typ),("Geometría curva:",curve_mode),("Referencia del ancho:",width_reference),("Flecha máxima:",facet), ("Apertura:", operation), ("Hojas:", leaves), ("Hoja normalizada:", preset),
+    rows = [("Tipo:", typ),("Geometría curva:",curve_mode),("Referencia del ancho:",width_reference),("Precisión de la curva (flecha máxima):",facet), ("Apertura:", operation), ("Hojas:", leaves), ("Hoja normalizada:", preset),
             ("Hoja principal (exterior):", principal), ("Primera hoja desde el inicio (m):", leaf), ("Segunda hoja (0 = igual):", leaf2), ("Ancho del hueco:", width),
             ("Hueco resultante:", hole), ("Altura:", height), ("Antepecho:", sill), ("Altura de manilla (m; 0 = automática):", altura_manilla)]
     for label, w in rows:
@@ -1124,6 +1126,8 @@ def carpentry_form(ctx, record, *, editing=False):
     def refresh(*_):
         kind = typ.currentData()
         door, window = kind == "door", kind == "window"
+        # En una geometría plana este dato se conserva, pero no interviene.
+        facet.setEnabled(curve_mode.currentData() == 'curva')
         show(operation, kind != "gap")
         if not editing:
             show(hinge, window and operation.currentData() == "TILTANDTURN")

@@ -1,5 +1,13 @@
 # Guía del código del plugin Arquitectura
 
+### R29-G: precisión de la carpintería curva
+
+La ficha desactiva `facet_sagitta` cuando la geometría es plana y explica su
+significado con una ayuda emergente. La variante por texto solo lo pregunta
+al elegir geometría curva. Ambas conservan el mismo valor para reutilizarlo
+si se cambia de geometría; la validación y el facetado siguen en
+`curved_carpentry.py`. Pruebas: `tests/test_r29_precision_curva.py`.
+
 Esta guía es para quien vaya a **leer, estudiar o mantener** el código. No sustituye al manual de uso (`docs/MANUAL.md`). Explica cómo está organizado el plugin, qué recorrido hace un elemento desde el clic hasta el IFC y dónde buscar cada cosa.
 
 Versión de referencia: **1.48.12-dev**, con 86 módulos y unas 26 000 líneas en `arquitectura/`, más la extensión de IngeTrazo en `ingetrazo_ext/`.
