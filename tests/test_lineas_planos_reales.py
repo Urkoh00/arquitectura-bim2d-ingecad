@@ -87,3 +87,15 @@ def test_la_orden_crea_muros_pilar_y_puerta_y_guarda_las_capas(plugin):
     assert general_options(s.document)['lineas']['paralelismo'] == pytest.approx(0.02)
     stairs = [e for e in s.document.doc.modelspace() if e.dxf.layer == 'Fescalera']
     assert len(stairs) == 6                              # the stair stays where it was
+
+
+
+def test_capas_de_muro_elegidas_y_ausentes_no_convierten_todo():
+    """Revisión del 24-11: si el operador elige capas de muro y ninguna está
+    en la ventana, no se toman todas las capas como muros (muebles y cotas
+    se convertían en muros sin aviso)."""
+    from importlib import import_module
+    CT = import_module('arquitectura.convert_tools')
+    present = {'MOBILIARIO': 5, 'COTAS': 3}
+    assert CT.choose_layers(present, walls=['GPARED'])[0] == set()
+    assert CT.choose_layers(present)[0] is None          # sin elección ni nombres: como antes

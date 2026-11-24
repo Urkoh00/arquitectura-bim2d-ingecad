@@ -269,3 +269,17 @@ def test_simetria_perpendicular_al_muro_lleva_la_puerta_a_su_imagen():
     h.execute(actions.mirror_entities(bim(d), (10, -1), (10, 1), False))
     h.execute(RegenerateContoursCommand())
     assert hueco_x() == pytest.approx((20 - x1, 20 - x0))
+
+
+def test_la_simetria_invierte_la_curva_tambien_en_el_registro():
+    """Revisión del 24-11: transform_record conservaba el signo del bulge en
+    una simetría. La regeneración lo corregía después leyendo la polilínea,
+    pero quien usa el registro transformado antes (asignar nivel, catálogo
+    de niveles) recibía el arco combado al otro lado."""
+    m = {'kind': 'wall', 'id': 'c', 'a': [0, 0], 'b': [4, 0], 'bulge': 0.4,
+         'thickness': 0.2, 'height': 3, 'base': 0}
+    espejo = FR.Affine(((0, 0, 0), (-1, 0, 0), (0, 1, 0), (0, 0, 1)))   # x -> -x
+    nuevo, _ = FR.transform_record(m, espejo)
+    assert nuevo['bulge'] == pytest.approx(-0.4)
+    traslado = FR.Affine(((5, 0, 0), (1, 0, 0), (0, 1, 0), (0, 0, 1)))
+    assert FR.transform_record(m, traslado)[0]['bulge'] == pytest.approx(0.4)

@@ -151,12 +151,20 @@ def transform_record(m, aff, entity=None, hosts=None):
     if kind == "wall":
         a, b = m.get("a"), m.get("b")
         if a and b:
+            bulge = float(m.get("bulge") or 0.0)
             if entity is not None and entity.dxftype() == "LWPOLYLINE" and len(entity) == 2:
-                pts = [tuple(map(float, p)) for p in entity.get_points("xy")]
-                na, nb = list(pts[0]), list(pts[1])
+                pts = [tuple(map(float, p)) for p in entity.get_points("xyb")]
+                na, nb = list(pts[0][:2]), list(pts[1][:2])
+                bulge = pts[0][2]                 # the drawing is the authority
             else:
                 na, nb = aff.point(a), aff.point(b)
+                if aff.mirrored:
+                    bulge = -bulge                # a mirror bows the arc the other way
             new["a"], new["b"] = na, nb
+            if abs(bulge) > 1e-12:
+                new["bulge"] = bulge
+            else:
+                new.pop("bulge", None)
             u = (b[0] - a[0], b[1] - a[1])
             lu = math.hypot(*u) or 1.0
             n = (-u[1] / lu, u[0] / lu)                    # left normal before

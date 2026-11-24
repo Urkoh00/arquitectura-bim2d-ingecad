@@ -2,6 +2,20 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.48.9-dev — 2026-11-24
+
+Revisión de código de `frame.py` y `convert_tools.py` (24-11), comprobada punto por punto.
+
+- **Simetría de un muro curvo:** `transform_record` conservaba el signo de la curva (bulge) en una simetría. La
+  regeneración lo corregía después, leyendo la polilínea, pero quien usaba antes el registro transformado
+  (asignar nivel, catálogo de niveles) recibía el arco combado hacia el otro lado. Ahora la curva se toma de la
+  polilínea si la hay y, si no, se invierte en una simetría.
+- **LINEASAMURO, capas elegidas que no están en la ventana:** se tomaban todas las capas como caras de muro, así
+  que muebles o cotas podían convertirse en muros sin aviso. Ahora no se convierte nada y se explica por qué.
+- Los segmentos sin pareja de LINEASAMURO se identifican soldando sus extremos con tolerancia, no redondeando.
+  Quedan otros `round()` de identificación en el código de conversión: se encargan a R30.
+- Pruebas nuevas en `test_ordenes_ingecad.py` y `test_lineas_planos_reales.py`; fallan sin la corrección.
+
 ## 1.48.8-dev — 2026-11-24
 
 Revisión de código de `reactor.py` y `sync.py` (24-11), comprobada punto por punto.

@@ -158,13 +158,18 @@ def layers_in(drawing, lo, hi):
 def choose_layers(present, walls=None, columns=None, carpentry=None):
     """(wall, column, carpentry) layer sets for the window: the ones chosen
     by the operator, else the ones whose names say so, else (walls only)
-    every layer -None-, as LINEASAMURO always did."""
+    every layer -None-, as LINEASAMURO always did.  When the operator chose
+    wall layers and none is in the window, walls are an EMPTY set, never
+    «every layer»: furniture or dimensions must not become walls (review of
+    24-11); the order says so and converts nothing."""
     def pick(chosen, hints):
         if chosen:
             return {c for c in present if c.lower() in {x.lower() for x in chosen}}
         found = {c for c in present if _hint(c, hints)}
         return found
-    w = pick(walls, WALL_HINTS) or None
+    w = pick(walls, WALL_HINTS)
+    if not w and not walls:
+        w = None                          # nothing chosen and no name says so
     c = pick(columns, COLUMN_HINTS)
     k = pick(carpentry, CARPENTRY_HINTS)
     if w is not None:
@@ -820,6 +825,11 @@ class LineasAMuroTool(Tool):
         present = layers_in(doc.doc, lo, hi)
         wl, cl, kl = choose_layers(present, self.lineas["muros"], self.lineas["pilares"],
                                    self.lineas["carpinteria"])
+        if wl is not None and not wl:
+            self.ctx.echo("LINEASAMURO: ninguna de las capas elegidas como caras de muro ("
+                          + ", ".join(sorted(self.lineas["muros"])) + ") está en la ventana; "
+                          "no se convierte nada (opción K para cambiarlas).")
+            return
         if wl is not None:
             self.ctx.echo("LINEASAMURO: caras de muro en " + ", ".join(sorted(wl))
                           + (("; pilares en " + ", ".join(sorted(cl))) if cl else "")
@@ -832,11 +842,19 @@ class LineasAMuroTool(Tool):
         # face drawn, a wall too thin or too thick): kept visible and selected
         # (only with known wall layers, and longer than a wall is thick: the
         # short lines closing a wall's end or a jamb never have a partner)
-        loose = {tuple(round(v, 6) for v in f[:4]) for f in unpaired
+        # segments identified by welding their ends with a tolerance (never
+        # by rounding coordinates)
+        from .geom.soldadura import Soldador
+        welder = Soldador(1e-6)
+
+        def seg_key(s):
+            return (welder.indice((float(s[0]), float(s[1]), 0.0)),
+                    welder.indice((float(s[2]), float(s[3]), 0.0)))
+        loose = {seg_key(f) for f in unpaired
                  if math.dist(f[:2], f[2:4]) > self.tmax + 0.05}
         doubtful = [e for e in sources
                     if wl is not None and e.dxf.layer in wl and e.dxftype() != "CIRCLE"
-                    and any(tuple(round(v, 6) for v in s) in loose for s in _pieces(e)[0])]
+                    and any(seg_key(s) in loose for s in _pieces(e)[0])]
         sources = [e for e in sources if e not in doubtful]
         if not walls and not curved and not columns:
             self.ctx.echo("LINEASAMURO: no se han encontrado pares de líneas paralelas con un espesor "
