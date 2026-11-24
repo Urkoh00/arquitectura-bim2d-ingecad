@@ -30,3 +30,18 @@ def test_escala_pequena_y_desigual_no_es_uniforme():
     assert not a.uniform
     b = Affine(((0, 0, 0), (1e-6, 0, 0), (0, 1e-6, 0), (0, 0, 1)))
     assert b.uniform
+
+
+def test_cuadro_de_superficies_sigue_con_un_recinto_danado(plugin, monkeypatch):  # noqa: F811
+    from arquitectura import space_envelope as SE
+    from arquitectura import superficies as SU
+    from tests.test_wall_tools import _room
+    s = Session(plugin)
+    _room(s)
+    s.tool('RECINTO').on_point((2, 2))
+
+    def roto(*_a, **_k):
+        raise ValueError('El recinto por polilínea necesita un contorno cerrado')
+    monkeypatch.setattr(SE, 'outline', roto)
+    filas = SU.table(s.document.doc)[0]
+    assert filas and 'contorno cerrado' in filas[0]['error']

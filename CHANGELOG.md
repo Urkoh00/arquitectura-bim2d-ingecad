@@ -2,6 +2,24 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.48.15-dev — 2026-11-24
+
+Dos listas más de una revisión externa (24-11), de unos 90 puntos sobre el plugin y la extensión de IngeTrazo.
+Un error real:
+
+- **Cuadro de superficies:** un recinto por polilínea con su entidad dañada hacía fallar el cuadro entero.
+  Ahora esa fila lleva el error y el resto sigue.
+- **Descartados con razón:**
+  - `wall_network.py` y `arquitectura_bim.py` no están truncados (sí lo estaban las copias revisadas);
+  - las cotas temporales no se registran en la base de entidades (`Line.new(doc=...)` no las añade);
+  - no hay capas duplicadas: la capa de ejes de muro no es de categoría;
+  - el cuadro ya regenera, porque va dentro de una orden que lo pide;
+  - deshacer una vista que no llegó a hacerse ya está protegido;
+  - el giro de un perfil metálico lo resuelve el marco de transformación;
+  - el filtro de Tab no puede quedar instalado de una versión anterior de IngeCAD;
+  - los nichos solo llegan a `wall_solid` con su muro;
+  - la extensión de IngeTrazo crea ella misma los grupos que luego lee, siempre con sus datos.
+
 ## 1.48.14-dev — 2026-11-24
 
 Dos listas más de una revisión externa (24-11), de unos 60 puntos; la mayoría los descarta el propio revisor

@@ -1,12 +1,12 @@
-# Manual de Arquitectura para IngeCAD — versión 1.48.14-dev
+# Manual de Arquitectura para IngeCAD — versión 1.48.15-dev
 
-Versión 1.48.14-dev · 24-11-2026
+Versión 1.48.15-dev · 24-11-2026
 
 > Copia del manual publicado como documento en claude.ai; se regenera con cada versión.
 
 ## Qué es
 
-Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.48.14-dev** y se actualiza con cada versión.
+Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.48.15-dev** y se actualiza con cada versión.
 
 Cada elemento guarda su identidad persistente, su clase IFC, su geometría editable en planta, sus parámetros 3D (altura, espesor, cota), sus propiedades constructivas (tipo, material, capas) y su nivel. Las carpinterías conocen su muro y los recintos siguen a los muros que los cierran.
 
@@ -27,7 +27,7 @@ El plugin se instala copiando una carpeta en IngeCAD, y la extensión copiando t
 
 **En IngeCAD**
 
-1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.48.14-dev.zip`.
+1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.48.15-dev.zip`.
 2. Copie la carpeta `arquitectura` en la carpeta de plugins de IngeCAD.
 3. Reinicie IngeCAD. Aparece el menú *Arquitectura* y su barra de herramientas.
 4. Escriba `ARQDIAG` en la línea de órdenes para comprobar que la versión cargada es la que acaba de copiar.
@@ -613,7 +613,7 @@ Con niveles o forjados, el intercambio usa `.arqbim` v3 y necesita la extensión
 
 ## Limitaciones conocidas
 
-Estas son las limitaciones conocidas de la versión 1.48.14-dev; cada versión actualiza esta lista.
+Estas son las limitaciones conocidas de la versión 1.48.15-dev; cada versión actualiza esta lista.
 
 - **Plataforma:** las pruebas automáticas se ejecutan en Linux con la última versión oficial de IngeCAD y de IngeTrazo, pero sin pantalla. Solo se prueba con la última versión de cada programa, porque ambos publican casi cada semana.
 - **Muros curvos:** cada muro llega como mucho a 350° (un muro redondo son dos o más). La elección automática de cara de MURO y ESTIRAMURO hasta una cara curva solo conocen muros rectos: con un muro curvo, elija la cara a mano. DIVIDEMURO divide el arco entre los dos puntos designados; para dividir un arco entero, designe sus dos extremos.
@@ -627,6 +627,7 @@ Estas son las limitaciones conocidas de la versión 1.48.14-dev; cada versión a
 
 | Fecha | Versión | Novedades |
 | --- | --- | --- |
+| 1.48.15-dev | 24-11-2026 | Un recinto dañado ya no impide generar el cuadro de superficies: su fila indica el error. |
 | 1.48.14-dev | 24-11-2026 | Correcciones internas de robustez (plano de carpintería, vistas previas de fichas, detección de escalas); sin cambios de uso. |
 | 1.48.13-dev | 24-11-2026 | Manillas en puertas (por las dos caras; una o las dos hojas) y en ventanas (una o dos), también en secciones, alzados, 3D y MEMORIACARP; la precisión de la curva solo en carpinterías curvas. |
 | 1.48.12-dev | 24-11-2026 | UNIRMURO de muros opuestos conserva las carpinterías en su sitio; particiones virtuales con la altura hasta el nivel siguiente; DEFENSA no se convierte en muro; doble clic en defensas y recintos; el número y el uso de un recinto se pueden vaciar; varias órdenes ya no se interrumpen con datos vacíos o imposibles. |

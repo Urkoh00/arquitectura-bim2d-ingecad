@@ -186,7 +186,13 @@ def table(drawing, crit=None):
     from . import cabinets as C
     cabinet_items=C.placed(drawing)
     for _ident, m, _e in read_spaces(drawing):
-        room, _why = SE.outline(m, result, _e)
+        try:
+            room, _why = SE.outline(m, result, _e)
+        except ValueError as exc:
+            # recinto por polilínea con una entidad dañada: fila con error,
+            # el resto del cuadro sigue (revisión del 24-11)
+            rows.append({"name": m.get("name") or "Recinto", "error": str(exc)})
+            continue
         if room is None:
             rows.append({"name": m.get("name") or "Recinto", "error": "no está cerrado"})
             continue
