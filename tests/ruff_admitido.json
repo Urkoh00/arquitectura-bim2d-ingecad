@@ -1,0 +1,247 @@
+{
+  "ruff": "0.17.6",
+  "rules": "F,B023,B006,B008,E722",
+  "reviewed_on": "2026-11-24",
+  "warnings": [
+    {
+      "code": "F401",
+      "file": "arquitectura/__init__.py",
+      "message": "`collections.defaultdict` imported but unused",
+      "reason": "Importación o reimportación sin efecto funcional demostrado. Se conserva según el criterio de no corregir estilo."
+    },
+    {
+      "code": "F401",
+      "file": "arquitectura/__init__.py",
+      "message": "`pathlib.Path` imported but unused",
+      "reason": "Importación o reimportación sin efecto funcional demostrado. Se conserva según el criterio de no corregir estilo."
+    },
+    {
+      "code": "F401",
+      "file": "arquitectura/__init__.py",
+      "message": "`.tools_v10.MuroTool` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "reason": "Importación o reimportación sin efecto funcional demostrado. Se conserva según el criterio de no corregir estilo."
+    },
+    {
+      "code": "F401",
+      "file": "arquitectura/__init__.py",
+      "message": "`.tools_v10.CarpinteriaTool` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "reason": "Importación o reimportación sin efecto funcional demostrado. Se conserva según el criterio de no corregir estilo."
+    },
+    {
+      "code": "F401",
+      "file": "arquitectura/__init__.py",
+      "message": "`.tools_v10.VentanaArqTool` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "reason": "Importación o reimportación sin efecto funcional demostrado. Se conserva según el criterio de no corregir estilo."
+    },
+    {
+      "code": "F401",
+      "file": "arquitectura/__init__.py",
+      "message": "`.columns.PilarBimTool` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "reason": "Importación o reimportación sin efecto funcional demostrado. Se conserva según el criterio de no corregir estilo."
+    },
+    {
+      "code": "F811",
+      "file": "arquitectura/__init__.py",
+      "message": "Redefinition of unused `Path` from line 38: `Path` redefined here",
+      "reason": "Importación o reimportación sin efecto funcional demostrado. Se conserva según el criterio de no corregir estilo."
+    },
+    {
+      "code": "F401",
+      "file": "arquitectura/architectural.py",
+      "message": "`uuid` imported but unused",
+      "reason": "Importación o reimportación sin efecto funcional demostrado. Se conserva según el criterio de no corregir estilo."
+    },
+    {
+      "code": "F401",
+      "file": "arquitectura/architectural.py",
+      "message": "`pathlib.Path` imported but unused",
+      "reason": "Importación o reimportación sin efecto funcional demostrado. Se conserva según el criterio de no corregir estilo."
+    },
+    {
+      "code": "F401",
+      "file": "arquitectura/architectural_v10.py",
+      "message": "`.architectural.APPID` imported but unused",
+      "reason": "Importación o reimportación sin efecto funcional demostrado. Se conserva según el criterio de no corregir estilo."
+    },
+    {
+      "code": "F401",
+      "file": "arquitectura/architectural_v10.py",
+      "message": "`.architectural.WALL_LAYER` imported but unused",
+      "reason": "Importación o reimportación sin efecto funcional demostrado. Se conserva según el criterio de no corregir estilo."
+    },
+    {
+      "code": "F841",
+      "file": "arquitectura/architectural_v10.py",
+      "message": "Local variable `corners` is assigned to but never used",
+      "reason": "La llamada a wall_corners valida la geometría aunque se descarte el contorno."
+    },
+    {
+      "code": "B023",
+      "file": "arquitectura/cabinets.py",
+      "message": "Function definition does not bind loop variable `shift`",
+      "reason": "La función se consume en la misma iteración; no se guarda ni difiere su ejecución."
+    },
+    {
+      "code": "B023",
+      "file": "arquitectura/cabinets.py",
+      "message": "Function definition does not bind loop variable `shift`",
+      "reason": "La función se consume en la misma iteración; no se guarda ni difiere su ejecución."
+    },
+    {
+      "code": "F401",
+      "file": "arquitectura/cabinets.py",
+      "message": "`PySide6.QtWidgets.QMessageBox` imported but unused",
+      "reason": "Importación o reimportación sin efecto funcional demostrado. Se conserva según el criterio de no corregir estilo."
+    },
+    {
+      "code": "F401",
+      "file": "arquitectura/columns.py",
+      "message": "`.architectural.ensure_arch_layers` imported but unused",
+      "reason": "Importación o reimportación sin efecto funcional demostrado. Se conserva según el criterio de no corregir estilo."
+    },
+    {
+      "code": "F401",
+      "file": "arquitectura/columns.py",
+      "message": "`.architectural.APPID` imported but unused",
+      "reason": "Importación o reimportación sin efecto funcional demostrado. Se conserva según el criterio de no corregir estilo."
+    },
+    {
+      "code": "F841",
+      "file": "arquitectura/conversion_evidence.py",
+      "message": "Local variable `length` is assigned to but never used",
+      "reason": "La dirección y las pruebas usan las expresiones actuales; no se perdió una comprobación dependiente de esta variable."
+    },
+    {
+      "code": "F841",
+      "file": "arquitectura/conversion_evidence.py",
+      "message": "Local variable `n` is assigned to but never used",
+      "reason": "La dirección y las pruebas usan las expresiones actuales; no se perdió una comprobación dependiente de esta variable."
+    },
+    {
+      "code": "F401",
+      "file": "arquitectura/conversion_plan.py",
+      "message": "`copy` imported but unused",
+      "reason": "Importación o reimportación sin efecto funcional demostrado. Se conserva según el criterio de no corregir estilo."
+    },
+    {
+      "code": "B023",
+      "file": "arquitectura/conversion_plan.py",
+      "message": "Function definition does not bind loop variable `role`",
+      "reason": "La función se consume en la misma iteración; no se guarda ni difiere su ejecución."
+    },
+    {
+      "code": "B023",
+      "file": "arquitectura/conversion_ranges.py",
+      "message": "Function definition does not bind loop variable `role`",
+      "reason": "La función se consume en la misma iteración; no se guarda ni difiere su ejecución."
+    },
+    {
+      "code": "F401",
+      "file": "arquitectura/convert_tools.py",
+      "message": "`.bim_dialogs` imported but unused",
+      "reason": "Importación o reimportación sin efecto funcional demostrado. Se conserva según el criterio de no corregir estilo."
+    },
+    {
+      "code": "F401",
+      "file": "arquitectura/convert_tools.py",
+      "message": "`.compat.require_document` imported but unused",
+      "reason": "Importación o reimportación sin efecto funcional demostrado. Se conserva según el criterio de no corregir estilo."
+    },
+    {
+      "code": "F401",
+      "file": "arquitectura/convert_tools.py",
+      "message": "`.bim_dialogs` imported but unused",
+      "reason": "Importación o reimportación sin efecto funcional demostrado. Se conserva según el criterio de no corregir estilo."
+    },
+    {
+      "code": "F401",
+      "file": "arquitectura/curve_tools.py",
+      "message": "`core.commands.CompositeCommand` imported but unused",
+      "reason": "Importación o reimportación sin efecto funcional demostrado. Se conserva según el criterio de no corregir estilo."
+    },
+    {
+      "code": "F401",
+      "file": "arquitectura/curve_tools.py",
+      "message": "`.architectural_v10._find_openings` imported but unused",
+      "reason": "Importación o reimportación sin efecto funcional demostrado. Se conserva según el criterio de no corregir estilo."
+    },
+    {
+      "code": "F841",
+      "file": "arquitectura/geom/vistas.py",
+      "message": "Local variable `previo` is assigned to but never used",
+      "reason": "El paseo del anillo usa actual y las aristas usadas; previo no decide el siguiente vértice."
+    },
+    {
+      "code": "F841",
+      "file": "arquitectura/memoria_dibujo.py",
+      "message": "Local variable `cuerpo` is assigned to but never used",
+      "reason": "El texto se añade al espacio y participa en bbox.extents; no se necesita su valor devuelto."
+    },
+    {
+      "code": "F401",
+      "file": "arquitectura/quality.py",
+      "message": "`collections.Counter` imported but unused",
+      "reason": "Importación o reimportación sin efecto funcional demostrado. Se conserva según el criterio de no corregir estilo."
+    },
+    {
+      "code": "F401",
+      "file": "arquitectura/quality.py",
+      "message": "`.geom.junctions` imported but unused",
+      "reason": "Importación o reimportación sin efecto funcional demostrado. Se conserva según el criterio de no corregir estilo."
+    },
+    {
+      "code": "F401",
+      "file": "arquitectura/quality.py",
+      "message": "`.geom.bands.column_inputs` imported but unused",
+      "reason": "Importación o reimportación sin efecto funcional demostrado. Se conserva según el criterio de no corregir estilo."
+    },
+    {
+      "code": "F401",
+      "file": "arquitectura/roundtrip.py",
+      "message": "`copy` imported but unused",
+      "reason": "Importación o reimportación sin efecto funcional demostrado. Se conserva según el criterio de no corregir estilo."
+    },
+    {
+      "code": "F401",
+      "file": "arquitectura/roundtrip.py",
+      "message": "`.architectural_v10.edit_wall` imported but unused",
+      "reason": "Importación o reimportación sin efecto funcional demostrado. Se conserva según el criterio de no corregir estilo."
+    },
+    {
+      "code": "F401",
+      "file": "arquitectura/roundtrip.py",
+      "message": "`.architectural_v10.edit_opening` imported but unused",
+      "reason": "Importación o reimportación sin efecto funcional demostrado. Se conserva según el criterio de no corregir estilo."
+    },
+    {
+      "code": "F401",
+      "file": "arquitectura/roundtrip.py",
+      "message": "`pathlib.Path` imported but unused",
+      "reason": "Importación o reimportación sin efecto funcional demostrado. Se conserva según el criterio de no corregir estilo."
+    },
+    {
+      "code": "F401",
+      "file": "arquitectura/superficies.py",
+      "message": "`.geom.spaces` imported but unused",
+      "reason": "Importación o reimportación sin efecto funcional demostrado. Se conserva según el criterio de no corregir estilo."
+    },
+    {
+      "code": "F401",
+      "file": "arquitectura/tools_v10.py",
+      "message": "`.architectural_v10.WALL_LAYER` imported but unused",
+      "reason": "Importación o reimportación sin efecto funcional demostrado. Se conserva según el criterio de no corregir estilo."
+    },
+    {
+      "code": "F401",
+      "file": "arquitectura/tools_v10.py",
+      "message": "`.architectural_v10.OPENING_LAYER` imported but unused",
+      "reason": "Importación o reimportación sin efecto funcional demostrado. Se conserva según el criterio de no corregir estilo."
+    },
+    {
+      "code": "F401",
+      "file": "arquitectura/tools_v10.py",
+      "message": "`.architectural.ensure_arch_layers` imported but unused",
+      "reason": "Importación o reimportación sin efecto funcional demostrado. Se conserva según el criterio de no corregir estilo."
+    }
+  ]
+}

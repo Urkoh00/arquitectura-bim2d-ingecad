@@ -1,5 +1,19 @@
 # Guía del código del plugin Arquitectura
 
+### Depuración D1: avisos nuevos y cierres de bucles
+
+`tests/test_depuracion_estatica.py` ejecuta las reglas F, B023, B006, B008 y
+E722 de Ruff. Compara cada aviso, con su multiplicidad, con el registro
+`tests/ruff_admitido.json`; no se ignoran reglas ni ficheros enteros. Cambiar
+la versión fijada de Ruff exige repetir el triaje. Las importaciones y
+variables revisadas se conservan cuando no ocultan un fallo funcional.
+
+`test_depuracion_cierres.py` comprueba los carriles alternos de los armarios,
+la separación de categorías al convertir y la validación que ejecuta el
+contorno de muro aunque se descarte su retorno. Los cierres señalados se
+consumen antes de pasar a la siguiente iteración. No se aplican correcciones
+sugeridas a esos cierres porque estas pruebas no reproducen el fallo.
+
 ### R29: adenda de manillas y memoria v3
 
 `openings.alturas_manillas` comparte la validación de altura con la generación
@@ -22,7 +36,7 @@ Pruebas: `test_r29_adenda_manillas.py`, `test_r29_manillas.py` y
 
 ### R29-E: reglas del recubrimiento de pilares
 
-`recubrimientos_pilar.py` separa el espesor del tabique (`cover`) del aislamiento
+`recubrimientos_pilar.py` separa el espesor del partición (`cover`) del aislamiento
 resuelto. Reutiliza las huellas de `sections.py`, las franjas verticales de los
 muros y la tolerancia común. No modifica las entradas. Los tipos se leen desde
 su primera cara: un aislante precedido solo de acabados es superficial; entre

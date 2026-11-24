@@ -5,3 +5,5 @@ shapely>=2.0      # solo como oráculo independiente en las pruebas
 ifcopenshell      # opcional: tests/validate_ifc.py
 
 jsonschema>=4.23,<5  # solo valida el esquema propuesto de cubiertas en B0
+ruff==0.17.6  # avisos revisados en tests/ruff_admitido.json; al cambiarlo, repetir el triaje
+pytest-cov>=7.1  # informe de cobertura de la depuración

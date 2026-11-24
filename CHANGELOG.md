@@ -2,6 +2,22 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## R29 — propuesta en curso, sin publicar — 2026-11-24
+
+- Rebase de A, B y C sobre v1.48.10-dev, conservando los ajustes de secciones
+  y alzados y las correcciones de la depuración.
+- Manillas por ambas caras de las puertas abatibles: solo en la activa o en
+  las dos hojas; una o dos interiores en ventanas. Catálogo, fichas, variantes
+  por texto y memoria comparten los datos. Representación de memoria v3.
+- La precisión de facetado solo se ofrece en carpinterías de geometría curva.
+- Pruebas de la aparición de manillas en sección y alzado; recorrido con
+  fichas y variantes por texto, Deshacer/Rehacer y persistencia DXF/DWG.
+- Primer núcleo de E: reglas puras de aislamiento de pilares. La ficha, la
+  regeneración y la separación de sus piezas todavía están pendientes.
+- Depuración D1: registro de los avisos estáticos revisados y control contra
+  avisos nuevos, sin aplicar limpiezas automáticas por motivos de estilo.
+- R29 no está terminado. D queda sustituido por R31; quedan E (integración),
+  F, H, I, J y K. No se cambia la versión del plugin en esta propuesta.
 ## 1.48.12-dev — 2026-11-24
 
 Segunda lista de una revisión externa (24-11): unos 35 puntos comprobados; 22 reales, todos corregidos.
