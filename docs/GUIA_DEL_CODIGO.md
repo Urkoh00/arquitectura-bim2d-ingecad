@@ -693,3 +693,12 @@ una inutilización o un bloqueo comunes imponen ese estado a la categoría
 nueva. Sin capas de la planta, se heredan los de la categoría base si existe.
 `test_d1_designacion_niveles.py` comprueba pilares y particiones que nacen
 más abajo, los límites verticales y las restricciones nativas de capa.
+
+### D1: ancho visible al convertir una referencia de puerta
+
+La ficha obtiene el ancho de una puerta plana de `openings.door_width`,
+el mismo cálculo de hojas y cerco que usa `normalizar_carpinteria`.
+`reference_changed` consulta el modo anterior a la señal: el selector ya
+contiene el modo nuevo cuando se ejecuta. Para una carpintería curva o una
+ventana utiliza el campo de ancho. La conversión sigue delegada en
+`span_of` y `measure_of`, sin duplicar geometría.

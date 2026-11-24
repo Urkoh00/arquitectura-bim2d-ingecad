@@ -1252,8 +1252,18 @@ def carpentry_form(ctx, record, *, editing=False):
         spec=record.get('_wall_spec')
         now={'curve_mode':curve_mode.currentData(),'width_reference':width_reference.currentData()}
         if spec is not None:
-            canonical=OP.span_of(spec,width.value(),ref_state,int(d.get('side',1)))
-            width.blockSignals(True);width.setValue(OP.measure_of(spec,canonical,now,int(d.get('side',1))));width.blockSignals(False)
+            ancho_actual = width.value()
+            if typ.currentData() == 'door' and ref_state['curve_mode'] != 'curva':
+                # La puerta plana se mide por sus hojas y cerco; el ancho oculto
+                # conserva el valor inicial aunque el usuario haya editado las hojas.
+                ancho_actual = OP.door_width(
+                    leaf.value(), leaves.value(), leaf2.value(), frame_w.value()
+                )
+            ancho_eje = OP.span_of(spec, ancho_actual, ref_state, int(d.get('side', 1)))
+            ancho_convertido = OP.measure_of(spec, ancho_eje, now, int(d.get('side', 1)))
+            bloqueado = width.blockSignals(True)
+            width.setValue(ancho_convertido)
+            width.blockSignals(bloqueado)
         ref_state.update(now)
     curve_mode.currentIndexChanged.connect(reference_changed)
     width_reference.currentIndexChanged.connect(reference_changed)
