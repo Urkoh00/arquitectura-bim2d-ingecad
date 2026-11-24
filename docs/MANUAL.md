@@ -1,12 +1,12 @@
-# Manual de Arquitectura para IngeCAD — versión 1.48.1-dev
+# Manual de Arquitectura para IngeCAD — versión 1.48.2-dev
 
-Versión 1.48.1-dev · 24-11-2026
+Versión 1.48.2-dev · 24-11-2026
 
 > Copia del manual publicado como documento en claude.ai; se regenera con cada versión.
 
 ## Qué es
 
-Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.48.1-dev** y se actualiza con cada versión.
+Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.48.2-dev** y se actualiza con cada versión.
 
 Cada elemento guarda su identidad persistente, su clase IFC, su geometría editable en planta, sus parámetros 3D (altura, espesor, cota), sus propiedades constructivas (tipo, material, capas) y su nivel. Las carpinterías conocen su muro y los recintos siguen a los muros que los cierran.
 
@@ -27,7 +27,7 @@ El plugin se instala copiando una carpeta en IngeCAD, y la extensión copiando t
 
 **En IngeCAD**
 
-1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.48.1-dev.zip`.
+1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.48.2-dev.zip`.
 2. Copie la carpeta `arquitectura` en la carpeta de plugins de IngeCAD.
 3. Reinicie IngeCAD. Aparece el menú *Arquitectura* y su barra de herramientas.
 4. Escriba `ARQDIAG` en la línea de órdenes para comprobar que la versión cargada es la que acaba de copiar.
@@ -369,6 +369,24 @@ Cada pilar es un solo paso de `Deshacer`, con los muros y recintos ya actualizad
 
 En planta, el símbolo (hoja y giro, cerco, vidrio, alféizar) se dibuja en la capa ARQ-CARPINTERIA y se agrupa con la carpintería.
 
+## Secciones y alzados: SECCIONARQ y ALZADOARQ
+
+`SECCIONARQ` y `ALZADOARQ` (menú Arquitectura > Documentación) dibujan en el propio dibujo una sección o un alzado del edificio. No se dibujan a mano ni se reconstruyen: proyectan **los mismos sólidos que se exportan a IngeTrazo y al IFC**, de modo que la vista, la planta y el modelo 3D siempre coinciden.
+
+**Cómo se hace.** Indique dos puntos de la línea de corte (o de la línea del alzado), después un punto del lado hacia el que se mira y, por último, el punto donde se coloca la vista. La línea fija también el ancho de la vista: solo se ve lo que queda entre sus dos extremos.
+
+- **Sección:** corta por la línea. Lo cortado (muros, pilares, forjados, carpinterías) se rellena y se contornea con trazo grueso; lo que queda detrás se dibuja con trazo fino y **sin líneas ocultas**. En planta aparece la marca del corte con su letra y las flechas hacia donde se mira.
+- **Alzado:** no corta; dibuja todo lo que se ve desde la línea, con las carpinterías y sus piezas.
+- En las dos vistas se dibujan las líneas de los niveles con su cota y su nombre, y el título («SECCIÓN A-A'», «ALZADO 1»).
+
+**Opciones.** `Nombre` cambia la letra o el número que se propone. `Profundidad` limita lo que se ve detrás de la línea, en metros (`Todo`, por defecto, lo ve todo).
+
+**Actualizar.** La vista no cambia sola al editar el edificio. La opción `Actualizar` de cualquiera de las dos órdenes regenera **todas** las secciones y alzados desde el modelo, en su sitio (también si los ha movido) y en un solo `Deshacer`. Lo que se dibuje a mano encima de una vista no se conserva al actualizar: dibújelo en otra capa.
+
+**Capas.** `ARQ-VISTA-CORTE` (0,50 mm), `ARQ-VISTA-RELLENO`, `ARQ-VISTA-VISTO` (0,25 mm), `ARQ-VISTA-NIVELES`, `ARQ-VISTA-TEXTOS` y `ARQ-VISTA-MARCAS`. Los grosores y colores se pueden cambiar en las capas sin regenerar la vista.
+
+**Límites de esta versión.** Los muros curvos se ven en proyección, no desarrollados. Entre dos muros o forjados que forman un mismo paramento no se dibuja la junta. Las cubiertas inclinadas y las escaleras llegarán a las vistas cuando existan en el modelo.
+
 ## Plano de carpintería: MEMORIACARP
 
 `MEMORIACARP` (menú Arquitectura > Documentación) dibuja el plano de carpintería a partir de las puertas, ventanas, huecos y frentes de armario BIM del dibujo. No hay que preparar nada: lee las mismas piezas con las que se construye el 3D, de modo que las medidas del plano y las del modelo son siempre las mismas.
@@ -579,13 +597,15 @@ Con niveles o forjados, el intercambio usa `.arqbim` v3 y necesita la extensión
 | `ARQMIGRAR` | Convertir dibujos de versiones anteriores | No |
 | `EXPORTARBIM` | Exportar a IngeTrazo (.arqbim) | Sí |
 | `MEMORIACARP` | Plano de carpintería: fichas acotadas, tabla y marcas | No |
+| `SECCIONARQ` | Sección desde el modelo: corte relleno, lo visto sin líneas ocultas, niveles y marca en planta; Actualizar | No |
+| `ALZADOARQ` | Alzado desde el modelo, sin cortar; Actualizar | No |
 | `ARQDIAG` / `AYUDAARQ` | Diagnóstico y ayuda | No |
 
 **Órdenes heredadas.** El submenú «Herramientas antiguas (sin datos BIM)» reúne utilidades de versiones antiguas que dibujan geometría sin datos BIM y no se exportan al modelo: PUERTA, VENTANA, ARMARIO, CAMARA, ESCALERA, SUPERFICIE, BLOQUE, TRAMA, VERTPOLY, LISTATEXTOS, SELATRIB, ELEMENTOS, HIPERVINCULO, CURVAS3D. Para el modelo BIM use las órdenes de la tabla.
 
 ## Limitaciones conocidas
 
-Estas son las limitaciones conocidas de la versión 1.48.1-dev; cada versión actualiza esta lista.
+Estas son las limitaciones conocidas de la versión 1.48.2-dev; cada versión actualiza esta lista.
 
 - **Plataforma:** las pruebas automáticas se ejecutan en Linux con la última versión oficial de IngeCAD y de IngeTrazo, pero sin pantalla. Solo se prueba con la última versión de cada programa, porque ambos publican casi cada semana.
 - **Muros curvos:** cada muro llega como mucho a 350° (un muro redondo son dos o más). La elección automática de cara de MURO y ESTIRAMURO hasta una cara curva solo conocen muros rectos: con un muro curvo, elija la cara a mano. DIVIDEMURO divide el arco entre los dos puntos designados; para dividir un arco entero, designe sus dos extremos.
@@ -599,6 +619,7 @@ Estas son las limitaciones conocidas de la versión 1.48.1-dev; cada versión ac
 
 | Fecha | Versión | Novedades |
 | --- | --- | --- |
+| 24-11-2026 | 1.48.2-dev | Nuevas órdenes SECCIONARQ y ALZADOARQ: secciones y alzados desde los mismos sólidos del modelo, sin líneas ocultas, con niveles, marca en planta y Actualizar. Un dibujo sin migrar ya no recibe la capa ARQ-PARTICIONES al editar muros |
 | 24-11-2026 | 1.48.1-dev | Nueva orden CATALOGOEC: catálogo de elementos constructivos del usuario (IFC importados, no se distribuye), contrastado con la biblioteca del Ministerio, que prevalece, y tipos de muro desde fachadas y particiones. «Tabique» pasa a llamarse «Partición» (capa ARQ-PARTICIONES); ARQMIGRAR renombra la capa anterior |
 | 23-11-2026 | 1.48.0-dev | Muros curvos de hasta 350°; MUROPARALELO sobre muros curvos, arcos y círculos; DIVIDEMURO radial; esquina en L contra un muro curvo. LINEASAMURO conserva los huecos de los anillos y elige mejor el espesor de las medianeras |
 | 23-11-2026 | 1.47.2-dev | IFC con IngeTrazo 0.6.3: muros, forjados, puertas y ventanas salen con su tipo, material, marca y propiedades comunes (fachada EXTERNALWALL, medianera PARTYWALL, solera, cubierta…), con 0 errores en el validador |

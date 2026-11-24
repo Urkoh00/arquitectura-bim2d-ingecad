@@ -54,6 +54,17 @@ def layer_name(cat, layers=None):
     return name
 
 
+def layers_to_create(layers):
+    """Capas de categoría que faltan en el dibujo, sin crear ARQ-PARTICIONES
+    donde todavía está la anterior ARQ-TABIQUES (dibujo sin migrar)."""
+    out = []
+    for cat, name in LAYERS.items():
+        old = LEGACY_LAYERS.get(cat)
+        if name not in layers and not (old and old in layers):
+            out.append(name)
+    return out
+
+
 def category_of_layer(layer):
     """Categoría de una capa ARQ (con o sin sufijo de nivel), o None."""
     base = str(layer).split('@')[0]

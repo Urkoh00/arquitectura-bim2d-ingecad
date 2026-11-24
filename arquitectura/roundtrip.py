@@ -92,8 +92,8 @@ def accept(ctx,data,decisions=None):
     index={r['id']:e for e in document.doc.modelspace() if(r:=metadata(e)or{}).get('id')}
     commands=[]
     from core.layers import NewLayerCommand
-    from .wall_categories import LAYERS,category
-    needed={LAYERS[category(command.new_record)]for command in staged if getattr(command,'new_record',{}).get('kind')=='wall'}
+    from .wall_categories import layer_name,category
+    needed={layer_name(category(command.new_record),document.doc.layers)for command in staged if getattr(command,'new_record',{}).get('kind')=='wall'}
     commands.extend(NewLayerCommand(name,color=8)for name in sorted(needed)if name not in document.doc.layers)
     from .architectural_v10 import edit_wall,edit_opening
     # Commands are planned in the same order on a scratch drawing, then their

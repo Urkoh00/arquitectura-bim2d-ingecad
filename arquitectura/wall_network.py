@@ -263,11 +263,11 @@ class RegenerateContoursCommand(Command):
         from .architectural import _xdata
         made=[]
         from .architectural import metadata
-        from .wall_categories import category,LAYERS
+        from .wall_categories import category,layer_name
         records={m['id']:m for e in msp if (m:=metadata(e)or{}).get('kind')=='wall'}
         for item in segments:
             ids=item[5] if item[0]=='arc' else item[3]
-            layers=sorted({LAYERS[category(records.get(i,{}))] for i in ids}) or ['ARQ-MUROS']
+            layers=sorted({layer_name(category(records.get(i,{})),msp.doc.layers) for i in ids}) or ['ARQ-MUROS']
             for layer in layers:
                 if layer not in msp.doc.layers:msp.doc.layers.add(layer,color=8)
             layer=layers[0]

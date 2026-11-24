@@ -180,6 +180,15 @@ _SECCIONES_BASE = (
         (("-MEMORIACARP",), "El mismo plano por texto, sin cuadros ni selectores", (
             "Acción Actualizar: no pide opciones ni punto; Generar reutiliza la ficha por texto",)),
     )),
+    ("Secciones y alzados", (
+        (("SECCIONARQ",), "Sección del edificio desde el modelo BIM", (
+            "Dos puntos de la línea de corte, el lado hacia el que se mira y el punto de inserción",
+            "Rellena lo cortado, dibuja lo que se ve detrás sin líneas ocultas, los niveles "
+            "y la marca en planta",
+            "Nombre, Profundidad (lo que se ve detrás) · Actualizar: regenera todas las vistas")),
+        (("ALZADOARQ",), "Alzado desde el modelo BIM, sin cortar", (
+            "Línea del alzado, lado hacia el que se mira e inserción; mismas opciones",)),
+    )),
     ("Configuración y ayuda", (
         (("PARAMETROSARQ",), "Opciones generales y valores de partida", (
             "General: usos de recinto, cota mínima de COTAMUROS, norte del proyecto, "

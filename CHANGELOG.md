@@ -2,6 +2,25 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.48.2-dev — 2026-11-24
+
+Secciones y alzados (plan de la 1.0.0).
+
+- **SECCIONARQ:** dos puntos de la línea de corte, el lado hacia el que se mira y el punto de inserción.
+  Rellena y contornea lo cortado, dibuja lo que se ve detrás sin líneas ocultas, las líneas y cotas de los
+  niveles, el título y la marca del corte en planta. Opciones Nombre y Profundidad.
+- **ALZADOARQ:** la misma vista sin cortar.
+- **Actualizar** (en las dos órdenes) regenera todas las vistas desde el modelo, en su sitio y en un solo
+  Deshacer.
+- La geometría (`geom/vistas.py`) proyecta los mismos sólidos que se exportan a IngeTrazo e IFC. La
+  eliminación de líneas ocultas es exacta, y las juntas coplanarias entre muros y forjados no se dibujan.
+- **Catálogo de complementos de IngeCAD:** `PLUGIN = PluginSpec(id="arquitectura", name=...)` va literal,
+  como exige su revisión automática (que ya no encuentra problemas); nueva prueba `test_catalogo_ingecad.py`.
+- **Corrección de la 1.48.1:** en un dibujo sin migrar, cualquier cambio de muros creaba la capa
+  ARQ-PARTICIONES, y los contornos regenerados iban a ella. Ahora todo sigue en ARQ-TABIQUES hasta ARQMIGRAR.
+- Pruebas: `test_vistas_geometria.py` (12), `test_vistas_arq.py` (7) y una más en
+  `test_particiones_nombre.py`.
+
 ## 1.48.1-dev — 2026-11-24
 
 Catálogo de elementos constructivos y particiones.

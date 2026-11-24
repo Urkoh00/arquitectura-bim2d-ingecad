@@ -2,7 +2,7 @@
 
 Esta guía es para quien vaya a **leer, estudiar o mantener** el código. No sustituye al manual de uso (`docs/MANUAL.md`). Explica cómo está organizado el plugin, qué recorrido hace un elemento desde el clic hasta el IFC y dónde buscar cada cosa.
 
-Versión de referencia: **1.48.1-dev**, con 84 módulos y unas 26 000 líneas en `arquitectura/`, más la extensión de IngeTrazo en `ingetrazo_ext/`.
+Versión de referencia: **1.48.2-dev**, con 86 módulos y unas 26 000 líneas en `arquitectura/`, más la extensión de IngeTrazo en `ingetrazo_ext/`.
 
 ---
 
@@ -76,6 +76,8 @@ Se puede probar sin IngeCAD. Es la parte más delicada y la mejor probada.
 | `architectural.py` | Lectura y escritura de los datos BIM en XDATA (`metadata`, `_xdata`) y la comprobación de un muro con sus huecos (`validate_wall`). |
 | `architectural_v10.py` | **Crear y editar** muros y carpinterías (`create_wall`, `edit_wall`, `create_opening`, `edit_opening`). Es el núcleo actual, aunque su nombre diga «v10». |
 | `wall_categories.py` | Categorías de muro (fachada, partición, medianera, sótano, defensa) y sus capas; `layer_name` conserva ARQ-TABIQUES en dibujos sin migrar. |
+| `vistas_arq.py` | SECCIONARQ y ALZADOARQ: dibujan y regeneran (Actualizar) las vistas derivadas, con su ancla, sus detalles y la marca en planta. |
+| `geom/vistas.py` | Corte y proyección de los sólidos del contrato con una cámara horizontal y eliminación exacta de líneas ocultas (Python puro). |
 | `catalogo_constructivo.py` | CATALOGOEC: catálogo de elementos constructivos del usuario (IFC importados), contraste con la biblioteca térmica del Ministerio y tipos de muro. |
 | `wall_constraints.py` | Altura del muro de nivel a nivel (restricción superior). |
 | `defensas.py` | Barandillas, balaustradas y antepechos: un muro con categoría «defensa». |
@@ -319,6 +321,35 @@ calcula la U con el Ministerio cuando todas las capas tienen
 correspondencia. Las referencias al catálogo estatal solo se anotan si el
 fichero las declara. Pruebas: `tests/test_catalogo_constructivo.py` (IFC
 sintéticos; con `ARQ_CEC_PRUEBA` también una carpeta de IFC reales).
+
+### Secciones y alzados (`geom/vistas.py`, `vistas_arq.py`)
+
+v1.48.2. Primera vía de la 1.0: directa en IngeCAD, sin pasar por
+IngeTrazo. La entrada son las caras de `exchange.build`, las mismas que van
+al IFC, de modo que planta, 3D y vistas no pueden contradecirse.
+
+- `Camara(p, q, lado, seccion, profundidad)`: coordenadas (s, z, t). Ese
+  triedro no es directo, así que la normal de cada cara se calcula en el
+  sistema del dibujo y se proyecta (`normal_local`).
+- `cortes`: intersección de cada cara con t = 0, emparejando los cruces a lo
+  largo de la recta (vale para caras cóncavas y con huecos) y encadenando los
+  segmentos con la soldadura por tolerancia.
+- `vistos`: aristas de las caras que miran a la cámara, recortadas a la franja
+  de la línea. Para cada cara que puede taparlas (rejilla de 1 m), los tramos
+  ocultos se calculan exactamente: cruces con sus bordes y el punto donde la
+  arista atraviesa su plano. La superficie cortada tapa como una cara en t = 0.
+- Juntas: una arista colineal con la de otra cara coplanaria situada al otro
+  lado no se dibuja, entre dos masas (`MASIVOS`) o dentro de una misma pieza.
+  Las piezas de una carpintería sí marcan sus líneas.
+- `_sin_duplicados`: une los tramos colineales solapados, agrupando rectas por
+  ángulo y distancia con la soldadura, sin redondear.
+
+`VistaArq` (Command) sigue el patrón del plano de carpintería: ancla con los
+datos, detalles etiquetados con `view_id`, grupo y capas `ARQ-VISTA-*`.
+Actualizar sustituye todos los detalles en un Deshacer. Pruebas:
+`tests/test_vistas_geometria.py` (cajas sintéticas con resultados calculados a
+mano) y `tests/test_vistas_arq.py` (casa en la sesión real; con
+`ARQ_VISTAS_DXF` guarda un DXF para revisarlo a ojo).
 
 ### Particiones (antes «tabiques»)
 

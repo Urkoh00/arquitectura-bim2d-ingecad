@@ -18,6 +18,7 @@ Comandos:
   ELEMENTOS             — activar / desactivar tipos
   BLOQUE                — insertar bloque de mobiliario
   MEMORIACARP           — memoria de carpintería
+  SECCIONARQ / ALZADOARQ — secciones y alzados desde el modelo BIM
   SELATRIB              — selección por atributos (árbol de elementos)
   TRAMA                 — tramas / hatch
   HIPERVINCULO / URL    — hipervínculo a fichero externo
@@ -36,7 +37,7 @@ import os
 from collections import defaultdict
 from pathlib import Path
 
-_VERSION = "1.48.1-dev"
+_VERSION = "1.48.2-dev"
 
 from core.plugins import SEPARATOR, MenuItem, PluginSpec, Submenu, ToolbarItem
 from tools.base import Tool
@@ -842,6 +843,8 @@ class BloqueTool(ArchitectureTool):
 
 
 from .memoria_tools import MemoriaCarpTool, MemoriaCarpTexto
+from .vistas_arq import crear_herramientas as _vistas
+SeccionArqTool, AlzadoArqTool = _vistas(Tool)
 
 
 class SelAtribTool(ArchitectureTool):
@@ -1411,7 +1414,7 @@ class AyudaArqTool(ArchitectureTool):
 TOOL_CLASSES = (
     CapasArqTool, CapasAutoTool, MuroTool, PilarTool, PuertaTool,
     VentanaTool, ArmarioTool, SuperficieTool, CamaraTool, EscaleraTool,
-    ElementosTool, BloqueTool, MemoriaCarpTool, MemoriaCarpTexto, SelAtribTool, TramaTool,
+    ElementosTool, BloqueTool, MemoriaCarpTool, MemoriaCarpTexto, SeccionArqTool, AlzadoArqTool, SelAtribTool, TramaTool,
     HiperVinculoTool, UrlTool, Curvas3DTool, VertPolyTool, VerticesTool,
     ListaTextosTool, AyudaArqTool,
 )
@@ -1488,7 +1491,10 @@ def unionesarq(ctx,*args):
     except Exception as exc:
         ctx.echo(f'UNIONESARQ: {type(exc).__name__}: {exc}')
 
-def plugin_spec() -> PluginSpec:
+def _spec_kwargs() -> dict:
+    """Datos del PluginSpec salvo ``id`` y ``name``, que van literales en
+    ``PLUGIN = PluginSpec(...)``: el catálogo de complementos de IngeCAD los
+    lee del código sin ejecutarlo."""
     from .migration import migrar_arq
     from .parameters_arq import parametros_arq, tipos_muro
     from pathlib import Path
@@ -1517,11 +1523,9 @@ def plugin_spec() -> PluginSpec:
     comandos = {"SINCRONIZARARQ":sincronizar_arq,"NIVELES":niveles,"NIVELASIGNAR":asignar_nivel,"ACTUALIZAEJES":update,"EXPORTARBIM": exportar_bim, "DIAGNOSTICOARQ": diagnostico_arq, "ARQDIAG": arqdiag, "UNIONESARQ": unionesarq, "ARQVALIDAR": validar_arq, "ARQMIGRAR": migrar_arq, "PARAMETROSARQ": parametros_arq, "TIPOSMURO": tipos_muro, "USOSARQ": usos_arq, "BIBLIOTECAHE": biblioteca_he, "CATALOGOEC": catalogo_ec}
     from .linea_ordenes import crear_variantes
     herramientas.update(crear_variantes(herramientas, comandos))
-    return PluginSpec(
+    return dict(
         **extra,
         on_document_open=install_level_toolbar,
-        id="arquitectura",
-        name="Arquitectura",
         version=_VERSION,
         description="Dibujo arquitectónico 2D con objetos BIM (muros, pilares, carpinterías) y exportación a IngeTrazo/IFC",
         tools=herramientas,
@@ -1569,6 +1573,8 @@ def plugin_spec() -> PluginSpec:
             )),
             Submenu("Documentación", (
                 MenuItem("Plano de carpintería (fichas, cotas y tabla)", "MEMORIACARP", icon=glyph / "carpinteria.svg"),
+                MenuItem("Sección desde el modelo", "SECCIONARQ", icon=glyph / "seccionarq.svg"),
+                MenuItem("Alzado desde el modelo", "ALZADOARQ", icon=glyph / "alzadoarq.svg"),
                 MenuItem("Rejilla estructural", "EJES", icon=glyph / "ejes.svg"),
                 MenuItem("Editar o renumerar eje", "EDITAREJE", icon=glyph / "editareje.svg"),
                 MenuItem("Pilares en intersecciones", "PILARESENEJES", icon=glyph / "pilaresenejes.svg"),
@@ -1623,4 +1629,8 @@ def plugin_spec() -> PluginSpec:
     )
 
 
-PLUGIN = plugin_spec()
+def plugin_spec() -> PluginSpec:
+    return PluginSpec(id="arquitectura", name="Arquitectura", **_spec_kwargs())
+
+
+PLUGIN = PluginSpec(id="arquitectura", name="Arquitectura", **_spec_kwargs())

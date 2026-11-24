@@ -72,8 +72,8 @@ class SafeArchitecturalCommand(CompositeCommand):
 def apply_architectural_change(ctx, change, *, kind='wall'):
     """Create/edit source and derived contour as ONE undoable history entry."""
     doc = require_document(ctx)
-    from .wall_categories import LAYERS
-    needed = [(WALL_LAYER, 8), *[(name,8) for name in LAYERS.values()]]
+    from .wall_categories import layers_to_create
+    needed = [(WALL_LAYER, 8), *[(name,8) for name in layers_to_create(doc.doc.layers)]]
     if kind == 'column':
         from .columns import PILLAR_LAYER
         needed.insert(0, (PILLAR_LAYER, 4))

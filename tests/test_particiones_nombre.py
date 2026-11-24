@@ -52,6 +52,22 @@ def test_un_dibujo_sin_migrar_conserva_su_capa_anterior(plugin):  # noqa: F811
     assert wc.layer_name('particion', capas) == 'ARQ-PARTICIONES'
 
 
+def test_un_muro_nuevo_en_un_dibujo_sin_migrar_va_a_la_capa_anterior(plugin):  # noqa: F811
+    s = Session(plugin)
+    capas = s.document.doc.layers
+    capas.new('ARQ-TABIQUES')
+    t = s.tool('MURO')
+    t.on_option('partición')
+    t.thickness = 0.10
+    for p in ((0, 0), (4, 0)):
+        t.on_point(p)
+    t.on_enter()
+    muro = next(iter(s.walls().values()))
+    assert s.meta(muro)['wall_category'] == 'particion'
+    assert muro.dxf.layer == 'ARQ-TABIQUES'
+    assert 'ARQ-PARTICIONES' not in capas
+
+
 def test_arqmigrar_renombra_las_capas_de_tabiques_y_se_deshace(plugin):  # noqa: F811
     s = Session(plugin)
     capas = s.document.doc.layers
