@@ -8,3 +8,5 @@ __pycache__/
 *.dwl2
 # copia generada del código compartido con IngeTrazo (scripts/bundle_roundtrip.py)
 /ingetrazo_ext/arq_shared/
+/.coverage
+/.coverage.*

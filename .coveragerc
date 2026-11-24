@@ -1,0 +1,16 @@
+[run]
+include =
+    */arquitectura/*
+    */arq_shared/*
+omit =
+    */arq_shared/__init__.py
+relative_files = true
+
+[paths]
+arquitectura =
+    arquitectura
+    */arquitectura
+    */arq_shared
+
+[report]
+show_missing = true

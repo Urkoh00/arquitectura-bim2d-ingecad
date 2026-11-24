@@ -16,6 +16,8 @@ Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versió
   regeneración y la separación de sus piezas todavía están pendientes.
 - Depuración D1: registro de los avisos estáticos revisados y control contra
   avisos nuevos, sin aplicar limpiezas automáticas por motivos de estilo.
+- Cobertura de las copias temporales que usa el cargador real, asociada con
+  sus fuentes; prueba que detecta la pérdida de esas ejecuciones al medir.
 - R29 no está terminado. D queda sustituido por R31; quedan E (integración),
   F, H, I, J y K. No se cambia la versión del plugin en esta propuesta.
 ## 1.48.12-dev — 2026-11-24

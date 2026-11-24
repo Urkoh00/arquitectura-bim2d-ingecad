@@ -1,5 +1,18 @@
 # Guía del código del plugin Arquitectura
 
+### Cobertura de las copias cargadas por IngeCAD
+
+Las pruebas de integración cargan una copia temporal del plugin, como el
+cargador real. Medir solo el directorio original excluye esas ejecuciones.
+`.coveragerc` incluye las copias y las fuentes compartidas generadas y las
+asocia con su fichero original al combinar los datos. El `__init__.py`
+generado de `arq_shared` se excluye porque no es copia del del plugin.
+
+Se usa `pytest --cov --cov-config=.coveragerc`; `--cov=arquitectura` vuelve a
+limitar la medición al directorio y no sirve para este cargador. La prueba
+`test_cobertura_copias.py` ejecuta la soldadura desde una copia y comprueba
+que sus líneas se atribuyen a `arquitectura/geom/soldadura.py`.
+
 ### Depuración D1: avisos nuevos y cierres de bucles
 
 `tests/test_depuracion_estatica.py` ejecuta las reglas F, B023, B006, B008 y
