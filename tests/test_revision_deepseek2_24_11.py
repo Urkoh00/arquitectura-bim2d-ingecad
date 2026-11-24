@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Resumen: dos listas más de una revisión externa (24-11): deshacer de un plano que falló pronto y escala uniforme
-#   con tolerancia relativa (fallan sin la corrección); la carpintería huérfana
-#   en MEMORIACARP ya se omitía (se fija).
+# Resumen: dos listas más de una revisión externa (24-11): carpintería huérfana
+#   en MEMORIACARP, deshacer de un plano que falló pronto y escala uniforme
+#   con tolerancia relativa. Fallan sin la corrección.
 from tests.test_ingecad_integration import plugin  # noqa: F401  (fixture)
 from tests.test_wall_tools import Session, draw
 from tests.test_wall_tools_2 import _door
@@ -15,7 +15,7 @@ def test_memoria_ignora_una_carpinteria_sin_muro(plugin):  # noqa: F811
     _door(s, list(s.walls().values())[0], 1.0)
     muro = list(s.walls().values())[0]
     s.document.doc.modelspace().unlink_entity(muro)       # muro borrado sin regenerar
-    MM.leer(s.document.doc)          # read_model(strict) ya la omite: aviso falso, se fija
+    MM.leer(s.document.doc)                                # antes: KeyError
 
 
 def test_deshacer_un_plano_que_no_llego_a_hacerse():

@@ -32,6 +32,8 @@ def leer(dibujo):
     piezas = []
     indice_recintos = _indice_recintos(dibujo)
     for hueco in huecos:
+        if hueco.get("wall_id") not in geometria:
+            continue                    # huérfano (muro borrado o pegado sin él): ARQVALIDAR lo señala
         muro = geometria[hueco["wall_id"]]
         anfitrion = registros[hueco["wall_id"]]
         for pieza in memoria.unidades(muro, hueco):

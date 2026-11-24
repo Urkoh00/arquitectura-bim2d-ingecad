@@ -5,8 +5,10 @@ Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versió
 ## 1.48.14-dev — 2026-11-24
 
 Dos listas más de una revisión externa (24-11), de unos 60 puntos; la mayoría los descarta el propio revisor
-o son falsos. Cuatro reales, menores:
+o son falsos. Cinco reales, menores:
 
+- MEMORIACARP con una carpintería huérfana (muro borrado sin regenerar, o pegada sin él): KeyError. Ahora se
+  omite; ARQVALIDAR la señala.
 - Escala uniforme (`frame.Affine.uniform`): la tolerancia no era relativa, así que una escala muy pequeña y
   desigual pasaba por uniforme.
 - PlanoMemoria: deshacer tras un `do()` que falló pronto daba AttributeError, que tapaba el error original.
@@ -21,7 +23,6 @@ o son falsos. Cuatro reales, menores:
   - MOVERCARP ya atrapa los errores de `_state`;
   - las capas de ezdxf no distinguen mayúsculas (ARQMIGRAR renombra bien `arq-pilares`);
   - `SafeArchitecturalCommand` revierte solo;
-  - las carpinterías huérfanas ya las omite `read_model` (se fija con una prueba);
   - `apply_spacing` y `apply_axis` están bajo `_entrada_segura`;
   - Ángulo antes del origen no llega a insertar;
   - el índice de `huecos_curvos` sí es de curva;
