@@ -34,6 +34,9 @@ def on_double_click(ctx, entity):
         return False
     m = dict(metadata(target) or {})
     kind = m.get("kind")
+    if kind == "slab":
+        from .arq_properties import editar_propiedades
+        return editar_propiedades(ctx, target)
     tool = {"wall": "MURO", "opening": "CARPINTERIA", "column": "PILAR"}.get(kind)
     if kind == "wall" and m.get("wall_category") == "defensa":
         tool = "DEFENSA"                 # una defensa abre DEFENSA, no MURO

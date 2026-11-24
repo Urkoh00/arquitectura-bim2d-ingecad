@@ -111,6 +111,63 @@ def cambio_propiedades(ctx, entity, values):
     return edit_change(ctx, entity, values)
 
 
+def editar_propiedades(contexto, entidad):
+    """Atiende la ficha propia, incluso al cancelar; sin Qt devuelve False."""
+    from . import bim_dialogs
+
+    registro = metadata(entidad)
+    if not bim_dialogs.available(contexto):
+        contexto.echo('Ficha BIM no disponible en este entorno; entidad ' + str(registro.get('id')))
+        return False
+    if registro['kind'] == 'slab':
+        from .slabs import read as leer_forjado
+        from .slab_tools import form
+
+        registro = leer_forjado(entidad)
+        ficha, leer = form(contexto, registro)
+        valores = leer() if ficha.exec() == 1 else None
+    elif registro['kind'] == 'wall':
+        valores = bim_dialogs.wall_properties(contexto, registro)
+    elif registro['kind'] == 'column':
+        valores = bim_dialogs.column_properties(contexto, registro)
+    elif registro['kind'] == 'opening':
+        from . import openings as OP
+        from .geom.junctions import walls_from_records
+
+        anfitrion = next(
+            (metadata(elemento) for elemento in entidad.doc.modelspace()
+             if (metadata(elemento) or {}).get('id') == registro.get('wall_id')),
+            None,
+        )
+        if anfitrion:
+            especificacion = walls_from_records([(anfitrion['id'], anfitrion)])[0]
+            registro = {
+                **registro,
+                '_wall_spec': especificacion,
+                '_wall_thickness': especificacion.thickness,
+                '_display_width': OP.measure_of(
+                    especificacion, registro['width'], registro, int(registro.get('side', 1))
+                ),
+            }
+        if registro.get('cabinet'):
+            from .cabinets import form
+
+            ficha, leer = form(contexto, registro)
+            valores = leer() if ficha.exec() == 1 else None
+        else:
+            valores = bim_dialogs.carpentry_properties(contexto, registro, editing=True)
+    else:
+        valores = bim_dialogs.space_properties(contexto, registro)
+
+    cambio = cambio_propiedades(contexto, entidad, valores) if valores is not None else None
+    if cambio is not None:
+        from .transactions import apply_architectural_change
+
+        apply_architectural_change(contexto, cambio, kind=registro['kind'])
+        contexto.echo('Elemento BIM editado. Identificador conservado: ' + str(registro.get('id')))
+    return True
+
+
 class ArqPropiedadesTool(Tool):
     name='PROPIEDADESARQ'
     entity_picker=True
@@ -127,45 +184,8 @@ class ArqPropiedadesTool(Tool):
             if entity is None:
                 self.ctx.echo('PROPIEDADESARQ: '+error)
                 return
-            data=metadata(entity)
-            from . import bim_dialogs
-            if not bim_dialogs.available(self.ctx):
-                self.ctx.echo('Ficha BIM no disponible en este entorno; entidad '+str(data.get('id')))
-                return
-            if data['kind']=='slab':
-                from .slabs import read as slab_read
-                from .slab_tools import form
-                data=slab_read(entity);dlg,read=form(self.ctx,data)
-                values=read() if dlg.exec()==1 else None
-            elif data['kind']=='wall':
-                values=bim_dialogs.wall_properties(self.ctx,data)
-
-            elif data['kind']=='column':
-                values=bim_dialogs.column_properties(self.ctx,data)
-
-            elif data['kind']=='opening':
-                from . import openings as OP
-                from .geom.junctions import walls_from_records
-                host=next((metadata(e) for e in entity.doc.modelspace() if (metadata(e)or{}).get('id')==data.get('wall_id')),None)
-                if host:
-                    spec=walls_from_records([(host['id'],host)])[0]
-                    data={**data,'_wall_spec':spec,'_wall_thickness':spec.thickness,
-                          '_display_width':OP.measure_of(spec,data['width'],data,int(data.get('side',1)))}
-                if data.get('cabinet'):
-                    from .cabinets import form
-                    dlg,read=form(self.ctx,data)
-                    values=read()if dlg.exec()==1 else None
-                else:values=bim_dialogs.carpentry_properties(self.ctx,data,editing=True)
-
-            else:
-                values=bim_dialogs.space_properties(self.ctx,data)
-
-            command=cambio_propiedades(self.ctx,entity,values) if values is not None else None
-            if command is not None:
-                from .transactions import apply_architectural_change
-                apply_architectural_change(self.ctx, command, kind=data['kind'])
-                self.ctx.echo('Elemento BIM editado. Identificador conservado: '+str(data.get('id')))
-            self.ctx.finish()
+            if editar_propiedades(self.ctx, entity):
+                self.ctx.finish()
         except Exception as exc:
             self.ctx.echo(f'PROPIEDADESARQ: error ({type(exc).__name__}: {exc})')
 

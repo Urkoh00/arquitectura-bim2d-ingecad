@@ -723,3 +723,12 @@ compartido. `test_cotas_api_publica.py` prueba la misma operación con una
 orden que solo expone el contrato público, en dos orientaciones y con las
 dos precisiones. No hace falta proponer ni modificar una API de IngeCAD
 para este caso.
+
+### D1: ficha propia de forjado por doble clic
+
+`arq_properties.editar_propiedades` concentra la elección de ficha y la
+misma transacción que usa PROPIEDADESARQ. El doble clic sobre un forjado
+reutiliza esta función: lee el modelo completo con `slabs.read`, conserva
+contorno, huecos e identidad y aplica `slab_tools.edit_change`. Cancelar
+no crea una orden de dibujo. El ensayo abre la ficha real y comprueba su
+edición y Deshacer/Rehacer, sin duplicar validadores ni regeneradores.
