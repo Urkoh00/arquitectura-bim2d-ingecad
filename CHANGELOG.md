@@ -2,6 +2,19 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.48.8-dev — 2026-11-24
+
+Revisión de código de `reactor.py` y `sync.py` (24-11), comprobada punto por punto.
+
+- **Forjados y reactores:** el reactor de IngeCAD 0.8 solo vigilaba polilíneas y no tenía los forjados (que son
+  sombreados) entre sus clases. Al copiar un forjado con COPIAR, las dos copias compartían identificador hasta
+  la siguiente orden del plugin. Ahora vigila también los sombreados y regenera al momento, como con los muros.
+  Además, la huella de cada entidad se compara con sus coordenadas exactas, sin `round()`.
+- **Nivel inexistente:** un muro restringido a un nivel que no existe (por ejemplo, pegado desde otro dibujo)
+  hacía fallar la regeneración de todo el dibujo. Ahora ese muro conserva su base y su altura, pasa a altura
+  fija y queda un aviso. Los niveles se leen una vez por regeneración, no una vez por muro.
+- Pruebas: `test_reactor_forjados.py` (3); las tres fallan sin la corrección.
+
 ## 1.48.7-dev — 2026-11-24
 
 - **Entidades duplicadas tras un fallo** (revisión de código del 24-11, confirmada): si MEMORIACARP Actualizar

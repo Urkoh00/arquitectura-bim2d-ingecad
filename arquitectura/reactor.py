@@ -22,12 +22,29 @@ from core.commands import Command
 from .architectural import APPID, metadata
 from .frame import FRAME_APPID
 
-KINDS = ("wall", "column", "space", "opening", "virtual_partition")
+KINDS = ("wall", "column", "space", "opening", "virtual_partition", "slab")
+#: entidades que llevan un elemento BIM: los forjados son sombreados (HATCH)
+TIPOS = ("LWPOLYLINE", "HATCH")
+
+
+def _geometria(e):
+    """Coordenadas exactas de la entidad: dos instantáneas solo coinciden si
+    nada se ha movido (sin redondear: un movimiento minúsculo también cuenta)."""
+    if e.dxftype() == "LWPOLYLINE":
+        return tuple(tuple(p) for p in e.get_points("xyb")) + (e.closed,)
+    caminos = []
+    for camino in e.paths:
+        if hasattr(camino, "vertices"):
+            caminos.append(tuple(tuple(v) for v in camino.vertices))
+        else:
+            caminos.append(tuple((tuple(a.start), tuple(a.end)) for a in camino.edges
+                                 if hasattr(a, "start") and hasattr(a, "end")))
+    return tuple(caminos)
 
 
 def _fingerprint(e):
     try:
-        pts = tuple(tuple(round(c, 9) for c in p) for p in e.get_points("xyb")) + (e.closed,)
+        pts = _geometria(e)
     except Exception:  # noqa: BLE001
         return None
     try:
@@ -41,7 +58,7 @@ def _fingerprint(e):
 def _snapshot(drawing):
     out = {}
     for e in drawing.modelspace():
-        if e.dxftype() != "LWPOLYLINE":
+        if e.dxftype() not in TIPOS:
             continue
         try:
             if not e.has_xdata(APPID):

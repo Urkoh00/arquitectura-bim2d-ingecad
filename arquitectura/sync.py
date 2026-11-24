@@ -59,6 +59,7 @@ def sync_changes(drawing, tol=1e-9, notes=None):
     tagged.sort(key=lambda em: _handle_key(em[0]))
     seen = set()
     changes = []
+    catalogo = None                     # los niveles se leen una vez, no por muro
     for e, m in tagged:
         fr = FR.read_frame(e)
         if FR.moved(fr):
@@ -77,7 +78,22 @@ def sync_changes(drawing, tol=1e-9, notes=None):
         if new.get('kind')=='wall' and new.get('height_constraint')=='level':
             from .wall_constraints import resolve
             from .levels import load
-            resolved=resolve(new,load(drawing))
+            if catalogo is None:
+                catalogo = load(drawing)
+            try:
+                resolved=resolve(new,catalogo)
+            except ValueError as error:
+                # p. ej. un muro pegado desde otro dibujo, con niveles que aquí
+                # no existen: no debe impedir regenerar el resto del dibujo.
+                # Conserva su base y su altura actuales y pasa a altura fija,
+                # con aviso (revisión del 24-11).
+                resolved={**new,'height_constraint':'fixed'}
+                for clave in ('top_level_id','top_offset'):
+                    resolved.pop(clave,None)
+                if notes is not None:
+                    nombre=new.get('name') or 'Muro'
+                    notes.append(f'{nombre} {str(new.get("id",""))[:8]}: {error}; '
+                                 'queda con su altura actual, fija')
             if resolved!=new:new=resolved;changed=True
         seen.add(new["id"])
         if e.dxftype() == "LWPOLYLINE":
