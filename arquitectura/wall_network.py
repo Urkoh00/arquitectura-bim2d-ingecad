@@ -221,7 +221,16 @@ class RegenerateContoursCommand(Command):
             if spec is None:
                 continue
             for o in ops:
-                for item in OP.plan_symbol(spec,o):
+                try:
+                    simbolo=OP.plan_symbol(spec,o)
+                except ValueError as exc:
+                    # un registro imposible (editado a mano, importado) no
+                    # puede impedir regenerar todo el dibujo: se avisa y se
+                    # deja sin símbolo; ARQVALIDAR lo señala (revisión 24-11)
+                    self.issues.append(f"{o.get('name') or OP.NAMES.get(o.get('type'),'Carpintería')}: "
+                                       f"sin símbolo en planta ({exc})")
+                    continue
+                for item in simbolo:
                     attribs={'layer':OP.SYMBOL_LAYER}
                     if item[0]=='line':
                         d=msp.add_line(item[1],item[2],dxfattribs=attribs)

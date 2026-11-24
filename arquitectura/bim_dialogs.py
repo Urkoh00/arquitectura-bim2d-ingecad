@@ -682,7 +682,7 @@ def architectural_defaults_dialog(ctx, current):
                                    QFormLayout, QVBoxLayout, QLineEdit, QLabel, QComboBox)
     from copy import deepcopy
     data=deepcopy(current)
-    dlg=QDialog(getattr(ctx,'host',None))
+    dlg=QDialog(_parent(ctx))
     dlg.setWindowTitle('Arquitectura — Parámetros iniciales (PARAMETROSARQ)')
     dlg.resize(450,510)
     main=QVBoxLayout(dlg)

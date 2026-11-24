@@ -2,6 +2,21 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.48.11-dev — 2026-11-24
+
+Lista de posibles errores de una revisión externa (24-11): 20 puntos comprobados, 1 real y 1 menor.
+
+- **Armario con más hojas de las que caben** (registro editado a mano o importado): la regeneración de todo el
+  dibujo fallaba con «Ancho insuficiente para las hojas del armario». Ahora ese armario queda sin símbolo, con
+  aviso, y ARQVALIDAR y EXPORTARBIM lo señalan como problema del hueco.
+- PARAMETROSARQ cuelga su ficha de la ventana igual que las demás fichas (antes, de `ctx.host` sin comprobar).
+- Descartados con razón: `catalogo_constructivo.py` no está truncado (la copia revisada sí); `StandardButton`
+  existe en la instancia de PySide6 y el botón Aceptar sí se desactiva (prueba nueva); `cabinets.create` valida
+  las piezas antes de aplicar la orden, no después; la ficha de muro guarda el tipo elegido (`normalizar_muro`
+  lo aplica); el modo de armario ya se valida en `openings.normalise`; `exchange.build` no modifica la lista
+  de problemas; la vista previa de la ficha ya atrapa los errores al pintar.
+- Pruebas nuevas en `test_revision_deepseek_24_11.py`; las del armario fallan sin la corrección.
+
 ## 1.48.10-dev — 2026-11-24
 
 Cuarto lote de la revisión automática de código (24-11): 19 avisos comprobados, 5 reales.

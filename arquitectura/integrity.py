@@ -191,7 +191,8 @@ def audit(drawing):
             why = "no cabe en la altura del muro"
         if why is None and m.get('cabinet')and host in specs:
             from . import openings as OP
-            try:OP.cut_band(specs[host],m)
+            from . import cabinets as CB
+            try:OP.cut_band(specs[host],m);list(CB.fronts(specs[host],OP.normalise(m)))
             except ValueError as exc:why=str(exc)
         if why:
             problems.append(_problem("hueco", f"{_label(m)}: {why}.", [e, wall_e], [m["id"], host]))
