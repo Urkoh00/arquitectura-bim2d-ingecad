@@ -963,8 +963,14 @@ class MuroParaleloTool(WallTypeChoice, Tool):
     After a wall, a click on empty space (no line) is the side of the next
     parallel, measured from the far face of the wall just made."""
     name = "MUROPARALELO"
-    entity_picker = True
     _last_distance = None
+
+    @property
+    def entity_picker(self):
+        fase = getattr(self, 'stage', 'face')
+        # Elegir la referencia es selección; el lado y el cuerpo necesitan rastreo.
+        return (self.wants_raw_text() or fase == 'thickness'
+                or (fase == 'face' and getattr(self, 'last', None) is None))
 
     def start(self):
         self.name = type(self).name

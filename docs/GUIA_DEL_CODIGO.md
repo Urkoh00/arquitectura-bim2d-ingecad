@@ -925,3 +925,14 @@ presentación de `recubrimientos_pilar`: fuera del perfil térmico se omiten los
 avisos de aislamiento. El interior indeterminado sigue avisándose porque impide
 resolver la partición en Planos 2D. No se filtran los problemas de sincronización
 CAD ni se cambia el contrato o la geometría según el perfil.
+
+### R29-F: seleccionar objetos y colocar puntos
+
+`entity_picker` solo debe inhibir las referencias mientras se designa un objeto.
+En MUROPARALELO, elegir la línea base conserva el cursor libre; elegir el lado,
+el cuerpo o el lado de otra paralela reutiliza el rastreo nativo. No se añaden
+puntos o líneas auxiliares al dibujo ni se sustituye el controlador de IngeCAD.
+La prueba `ventana_otrack_r29.py` pausa el cursor sobre un extremo, pulsa F11,
+muestra la guía y observa el punto que recibe la herramienta mediante un clic.
+Las fichas se aceptan por su botón real y la prueba reactiva la ventana antes
+del atajo, porque el foco puede quedar en la ficha que acaba de cerrarse.
