@@ -127,7 +127,22 @@ elif orden == 'CARPINTERIA':
     escribir('3,0.15')
     assert herramienta.first is not None
 elif orden == 'MOVERCARP':
-    escribir('1.5,0.15')
+    # La hoja libre se puede designar sin coincidir con el contorno del muro.
+    arquitectura = modulo(cargado.spec, 'architectural')
+    segmentos_hoja = []
+    for entidad in ventana.document.doc.modelspace():
+        if entidad.dxftype() != 'LWPOLYLINE':
+            continue
+        if (arquitectura.metadata(entidad) or {}).get('kind') != 'opening_symbol':
+            continue
+        vertices = list(entidad.get_points('xy'))
+        if entidad.closed:
+            vertices.append(vertices[0])
+        segmentos_hoja.extend(zip(vertices, vertices[1:]))
+    inicio, final = max(segmentos_hoja, key=lambda segmento:
+                        sum((a - b) ** 2 for a, b in zip(*segmento)))
+    centro_hoja = [(a + b) / 2 for a, b in zip(inicio, final)]
+    escribir(f'{centro_hoja[0]},{centro_hoja[1]}')
     assert herramienta.entity is not None
 ventana.tools.osnap_on = True
 ventana.tools.osnap_modes = {'END'}

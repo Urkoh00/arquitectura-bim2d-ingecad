@@ -872,7 +872,11 @@ class MoverCarpinteriaTool(Tool):
     its centre) or click on its wall to bring its centre there. Same identity,
     host and model; one Undo per move."""
     name = "MOVERCARP"
-    entity_picker = True
+
+    @property
+    def entity_picker(self):
+        # La carpintería se designa con cursor libre; su destino admite referencias.
+        return getattr(self, 'entity', None) is None
 
     def start(self):
         self.entity = None

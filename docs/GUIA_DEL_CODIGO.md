@@ -945,3 +945,7 @@ CARPINTERIA y ARMARIOBIM colocan una jamba o un frente a partir de un punto,
 aunque ese mismo clic determine el muro. Usan el punto resuelto por IngeCAD,
 como MURO y PILAR; no deben marcar toda su interacción como selección pura.
 La búsqueda del muro, los identificadores y las órdenes de creación se conservan.
+
+MOVERCARP conserva la selección libre de la carpintería y admite referencias
+nativas después de elegirla. El cambio no sustituye el cálculo del desplazamiento,
+la identidad del vano, su muro anfitrión ni la transacción de Deshacer.

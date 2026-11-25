@@ -11,7 +11,7 @@ import pytest
 from tests.conftest import INGECAD
 
 
-@pytest.mark.parametrize('orden', ['MUROPARALELO', 'ESTIRAMURO', 'CARPINTERIA', 'ARMARIOBIM', 'MURO', 'MUROCURVO', 'PILAR', 'RECINTO', 'FORJADO'])
+@pytest.mark.parametrize('orden', ['MUROPARALELO', 'ESTIRAMURO', 'CARPINTERIA', 'ARMARIOBIM', 'MOVERCARP', 'MURO', 'MUROCURVO', 'PILAR', 'RECINTO', 'FORJADO'])
 def test_otrack_entrega_el_punto_alineado(orden, tmp_path):
     pytest.importorskip('PySide6.QtTest')
     entorno = dict(os.environ)
