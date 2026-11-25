@@ -759,3 +759,18 @@ los nuevos tipos de envolvente se ordenan exterior-interior y los tipos
 sin campo de orden conservan su significado con aviso. Los materiales
 se clasifican por catálogo, sin deducir su tipo del nombre. Véase
 docs/REVISION_EXTERNA_D1_2026-11-24.md.
+
+### R29-E: lado exterior geométrico
+
+`geom.spaces.external_walls(..., con_lados=True)` devuelve el lado
+izquierdo o derecho de las caras expuestas. Si ambas están expuestas, el
+resultado es indeterminado. La llamada sin ese argumento conserva el
+conjunto de identificadores. Los componentes interiores aislados no se
+confunden con el contorno del edificio.
+
+Las regiones exteriores declaradas se reciben con `exteriores`: incluyen
+patios y espacios exteriores cubiertos, con sus islas. Las sondas salen
+de las caras reales de los polígonos y usan la normal local del muro,
+también en curvas. Un extremo expuesto no decide por sí solo el lado.
+Los ensayos comprueban ambas referencias de cara y sentidos de dibujo,
+particiones interiores aisladas, patios, porches y muros curvos.

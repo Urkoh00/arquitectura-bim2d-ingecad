@@ -106,20 +106,67 @@ def _space_at(result, seed, comps=None):
             "perimeter": _perimeter(room) + sum(_perimeter(h) for h in holes)}, ""
 
 
-def external_walls(result, outline=None, tol=1e-7):
-    """Ids of the walls that have a face on the OUTER boundary of a
-    component: the building envelope (IsExternal). Holes are rooms or
-    courtyards and do not make a wall external by themselves."""
+def external_walls(result, outline=None, tol=1e-7, *, exteriores=(), con_lados=False):
+    """Muros expuestos; con_lados devuelve su lado, o None si ambos lo están.
+
+    El contorno exterior del edificio incluye sus recintos interiores para
+    no confundir una partición aislada con una fachada. Los patios y porches
+    declarados se reciben como regiones exteriores, con sus posibles islas.
+    Un muro abierto puede tener dos caras expuestas: no se elige una al azar.
+    """
     from .junctions import plan_outline
-    outline = outline if outline is not None else plan_outline(result)
-    rings = [o for o, _hs in components(result)]
-    segs = [(a, b) for r in rings for a, b in zip(r, r[1:] + r[:1])]
-    out = set()
-    for a, b, owners in outline:
-        m = ((a[0] + b[0]) / 2, (a[1] + b[1]) / 2)
-        if any(_on_segment(m, p, q, tol) for p, q in segs):
-            out.update(owners)
-    return out
+    from .soldadura import TOLERANCIA
+
+    contornos = components(result)
+    envolventes = []
+    for anillo, _huecos in contornos:
+        contenido = any(
+            abs(P.area(otro)) > abs(P.area(anillo))
+            and all(_inside(punto, otro) for punto in anillo)
+            for otro, _islas in contornos
+        )
+        if not contenido:
+            envolventes.append(anillo)
+    piezas = _all_pieces(result)
+    paso = max(tol, TOLERANCIA) * 4
+
+    def expuesto(punto):
+        # La sonda debe estar en aire, no dentro del material de otro muro.
+        if any(_inside(punto, pieza) for pieza in piezas):
+            return False
+        if not any(_inside(punto, anillo) for anillo in envolventes):
+            return True
+        return any(
+            _inside(punto, region['outer'])
+            and not any(_inside(punto, isla) for isla in region.get('holes', ()))
+            for region in exteriores
+        )
+
+    lados = {}
+    especificaciones = getattr(result, 'specs', {})
+    segmentos = outline if outline is not None else plan_outline(result)
+    for inicio, fin, propietarios in segmentos:
+        medio = ((inicio[0] + fin[0]) / 2, (inicio[1] + fin[1]) / 2)
+        for identificador in propietarios:
+            muro = especificaciones.get(identificador)
+            if muro is None:
+                continue
+            estacion, desplazamiento = muro.local(medio)
+            estacion_inicial = muro.local(inicio)[0]
+            estacion_final = muro.local(fin)[0]
+            if abs(estacion_final - estacion_inicial) <= tol:
+                continue
+            lado = 'izquierda' if desplazamiento > (muro.lo + muro.hi) / 2 else 'derecha'
+            signo = 1 if lado == 'izquierda' else -1
+            tangente = muro.tangent(estacion)
+            sonda = (medio[0] - signo * tangente[1] * paso,
+                     medio[1] + signo * tangente[0] * paso)
+            if expuesto(sonda):
+                lados.setdefault(identificador, set()).add(lado)
+    if con_lados:
+        return {identificador: next(iter(opciones)) if len(opciones) == 1 else None
+                for identificador, opciones in lados.items()}
+    return set(lados)
 
 
 def _on_segment(m, p, q, tol):
