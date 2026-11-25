@@ -835,3 +835,9 @@ Leer una fórmula de capas no permite saber si pertenece a un tipo nuevo
 o a uno anterior. `parse_type` conserva ese hecho; la acción de crear
 un tipo añade su orden, no el analizador de texto. Así, copiar una fórmula
 no reinterpreta el tipo y la exportación/importación conserva su estado.
+
+La herramienta MURO copia los controles de colocación desde la ficha y
+al retomar un modelo por doble clic mediante `datos_de_colocacion`. No
+copia identidades ni resultados derivados del tramo anterior. La prueba
+de ventana detecta la diferencia entre mostrar la selección en la ficha
+y conservarla realmente en el nuevo registro.

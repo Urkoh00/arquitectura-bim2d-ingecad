@@ -32,6 +32,8 @@ class MuroTool(Tool):
             self.thickness=float(taken['thickness']);self.height=float(taken['height'])
             self.base=float(taken.get('base',0.0));self.reference=taken.get('reference',self.reference)
             self.bim={k:taken.get(k,self.bim.get(k,'')) for k in ('name','type_name','material','level','wall_category')}
+            from .capas_envolvente import datos_de_colocacion
+            self.bim.update(datos_de_colocacion(taken))
             if taken.get('layers'):
                 self.bim['layers']=[list(l) for l in taken['layers']]
             self.ctx.echo('MURO: con las propiedades de '+(taken.get('name') or 'muro')
@@ -53,6 +55,8 @@ class MuroTool(Tool):
                 for key in ('thickness','height','base','reference'):
                     setattr(self,key,values[key])
                 self.bim={k:values[k] for k in self.bim}
+                from .capas_envolvente import datos_de_colocacion
+                self.bim.update(datos_de_colocacion(values))
                 from .wall_constraints import KEYS
                 self.bim.update({k:values[k] for k in KEYS if k in values})
                 if values.get('layers'):

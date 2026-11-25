@@ -13,6 +13,11 @@ CLASES_MATERIAL = ("aislante", "fabrica", "hoja", "revestimiento", "trasdosado",
 ENVOLVENTES = ("fachada", "medianera", "sotano")
 
 
+def datos_de_colocacion(registro):
+    """Solo los controles de origen; no copia resultados calculados ni identidades."""
+    return {campo: registro[campo] for campo in ('orden_capas', 'cara_exterior') if campo in registro}
+
+
 def validar_orden_y_cara(registro):
     """Validación común de las fichas, la creación y el intercambio editable."""
     if registro.get('cara_exterior', 'auto') not in CARAS:

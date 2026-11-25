@@ -80,6 +80,9 @@ def test_muro_espesor_total_primero(plugin, tmp_path):
     t.on_option('T')
     t.on_option('termoarcilla 29')
     assert t.thickness == pytest.approx(0.29)
+    # Un tramo abierto no determina un exterior único; aquí se prueba el tipo,
+    # por lo que se declara su cara para no depender de una envolvente cerrada.
+    t.bim['cara_exterior'] = 'derecha'
     draw(t, (0, 0), (4, 0))                # tras el primer punto, un número es longitud
     m = s.meta(next(iter(s.walls().values())))
     assert m['type_name'] == 'Termoarcilla 29' and m['layers'] == [[0.29, 'Bloque Termoarcilla']]
