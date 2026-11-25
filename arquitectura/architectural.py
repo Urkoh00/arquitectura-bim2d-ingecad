@@ -107,6 +107,8 @@ def collect(document):
 
 
 def validate_wall(w):
+    from .capas_envolvente import validar_orden_y_cara
+    validar_orden_y_cara(w)
     length=math.dist(w['a'],w['b']); prev=0.0
     bulge=float(w.get('bulge') or 0.0)
     if bulge:                       # a curved wall: the length along its arc

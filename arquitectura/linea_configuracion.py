@@ -192,6 +192,7 @@ class ConfiguracionTexto(PreguntasTexto, Tool):
             "nombre": primero["name"],
             "capas": layers_text(primero),
             "categoria": primero["wall_category"],
+            "orden": primero.get("orden_capas"),
             "ruta": str(Path.cwd() / "tipos_muro.csv"),
         }
         editar = lambda v: v["accion"] in ("crear", "editar", "duplicar")
@@ -208,15 +209,22 @@ class ConfiguracionTexto(PreguntasTexto, Tool):
             ),
             opcion("anterior", "Tipo existente", [(t["name"], t["name"]) for t in tipos], elegir),
             texto("nombre", "Nombre del tipo", editar),
-            texto("capas", "Capas desde la cara dibujada (espesor material + ...)", editar),
+            texto("capas", "Capas en el orden del tipo (espesor material + ...)", editar),
             opcion("categoria", "Categoría", CATEGORIES, editar),
+            opcion("orden", "Orden de capas", [
+                ("Anterior sin revisar", None), ("Fuera-dentro", "exterior-interior"),
+                ("Cara dibujada", "cara-dibujada")
+            ], editar),
             texto("ruta", "Ruta del CSV", archivo),
         ]
 
         def cambiar(clave, valor, datos):
+            if clave == "categoria" and datos.get("orden") is not None:
+                datos["orden"] = "cara-dibujada" if valor == "particion" else "exterior-interior"
             if clave == "accion" and valor == "crear":
                 tipo = nuevo_tipo(tipos)
-                datos.update(nombre=tipo["name"], capas=layers_text(tipo), categoria=tipo["wall_category"])
+                datos.update(nombre=tipo["name"], capas=layers_text(tipo), categoria=tipo["wall_category"],
+                             orden=tipo.get("orden_capas"))
             if clave == "anterior":
                 tipo = next((t for t in tipos if t["name"] == valor), None)
                 if tipo is None:
@@ -224,7 +232,8 @@ class ConfiguracionTexto(PreguntasTexto, Tool):
                 if datos["accion"] == "duplicar":
                     tipo = nuevo_tipo(tipos, tipo)
                 datos.update(
-                    nombre=tipo["name"], capas=layers_text(tipo), categoria=tipo["wall_category"]
+                    nombre=tipo["name"], capas=layers_text(tipo), categoria=tipo["wall_category"],
+                    orden=tipo.get("orden_capas")
                 )
 
         self.preguntar(campos, valores, self._guardar_tipos, cambiar)
@@ -249,6 +258,10 @@ class ConfiguracionTexto(PreguntasTexto, Tool):
         else:
             tipo = P.parse_type(valores["nombre"] + " = " + valores["capas"])
             tipo = P.normalise_type({**tipo, "wall_category": valores["categoria"]})
+            if valores.get("orden") is None:
+                tipo.pop("orden_capas", None)
+            else:
+                tipo["orden_capas"] = valores["orden"]
             if accion == "editar":
                 tipos[tipos.index(anterior)] = tipo
             else:

@@ -206,6 +206,10 @@ class WallTypeChoice:
         if t.get("material"):
             self.bim["material"] = t["material"]
         self.bim["layers"] = [list(l) for l in t["layers"]]
+        if "orden_capas" in t:
+            self.bim["orden_capas"] = t["orden_capas"]
+        else:
+            self.bim.pop("orden_capas", None)
 
     def _generic(self, thickness):
         from .parameters_arq import _num
@@ -213,6 +217,7 @@ class WallTypeChoice:
         self.bim["type_name"] = f"Muro {_num(self.thickness)}"
         self.bim["name"] = "Muro"
         self.bim.pop("layers", None)
+        self.bim.pop("orden_capas", None)
 
     def _set_thickness(self, value):
         """True when a choice among several types is pending."""
@@ -711,7 +716,11 @@ class MuroCarasTool(WallTypeChoice, _MuroV10):
                 self.thickness, self.height = float(m["thickness"]), float(m["height"])
                 self.base = float(m.get("base", 0.0))
                 self.reference = m.get("reference", self.reference)
-                self.bim = {k: m.get(k, self.bim.get(k, "")) for k in ("name", "type_name", "material", "level", "wall_category")}
+                self.bim = {k: m.get(k, self.bim.get(k, ""))
+                            for k in ("name", "type_name", "material", "level", "wall_category")}
+                for campo in ("orden_capas", "cara_exterior"):
+                    if campo in m:
+                        self.bim[campo] = m[campo]
                 if m.get("layers"):
                     self.bim["layers"] = [list(l) for l in m["layers"]]
                 self.ctx.echo("MURO: propiedades tomadas de " + (m.get("name") or "muro")
@@ -962,7 +971,7 @@ class MuroParaleloTool(WallTypeChoice, Tool):
         from .parameters_arq import load_defaults
         d = load_defaults(_document(self.ctx))["wall"]
         self.thickness, self.height, self.base = d["thickness"], d["height"], d["base"]
-        self.bim = {k: d[k] for k in ("name", "type_name", "material", "level", "wall_category")}
+        self.bim = {k: d[k] for k in ("name", "type_name", "material", "level", "wall_category", "orden_capas", "cara_exterior") if k in d}
         self.distance = type(self)._last_distance if type(self)._last_distance is not None else 1.0
         self.face = None
         self.side = None
@@ -1371,7 +1380,7 @@ def _wall_frame(m):
 
 
 def _props(m):
-    return {k: m.get(k) for k in ("name", "type_name", "material", "level", "wall_category") if m.get(k) is not None}
+    return {k: m.get(k) for k in ("name", "type_name", "material", "level", "wall_category", "orden_capas", "cara_exterior") if m.get(k) is not None}
 
 
 def _rehost(opening, new_wall_cmd, offset, reversed_=False):
@@ -1656,7 +1665,7 @@ class DivideMuroTool(WallTypeChoice, Tool):
         from .parameters_arq import load_defaults
         d = load_defaults(_document(self.ctx))["wall"]
         self.thickness, self.height, self.base = d["thickness"], d["height"], d["base"]
-        self.bim = {k: d[k] for k in ("name", "type_name", "material", "level", "wall_category")}
+        self.bim = {k: d[k] for k in ("name", "type_name", "material", "level", "wall_category", "orden_capas", "cara_exterior") if k in d}
         self.parts = getattr(type(self), "_last_parts", 2)
         self.length = None
         self.p1 = None

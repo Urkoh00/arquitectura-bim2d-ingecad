@@ -57,7 +57,9 @@ def create_wall(a, b, thickness=0.15, height=3.0, base=0.0, reference='eje', bul
     rec={'kind':'wall','schema':2,'id':uuid.uuid4().hex,'a':list(map(float,a[:2])),
          'b':list(map(float,b[:2])),'thickness':float(thickness),
          'height':height,'base':base,'reference':reference,
-         'ifc_class':'IfcWall',**{k:v for k,v in bim.items() if k in ('name','type_name','material','level','layers','wall_role','wall_category','height_constraint','top_level_id','top_offset','base_offset','level_id','defense_type','void_ratio')}}
+         'ifc_class':'IfcWall',**{k:v for k,v in bim.items() if k in ('name','type_name','material','level','layers','wall_role','wall_category','height_constraint','top_level_id','top_offset','base_offset','level_id','defense_type','void_ratio','orden_capas','cara_exterior')}}
+    from .capas_envolvente import validar_orden_y_cara
+    validar_orden_y_cara(rec)
     from .wall_categories import category
     rec['wall_category']=category(rec)
     rec.setdefault('height_constraint','fixed')
@@ -209,10 +211,16 @@ class EditArchitecturalCommand:
 
 def edit_wall(entity,*,thickness=None,height=None,base=None,reference=None,
               name=None,type_name=None,material=None,level=None,layers=None,wall_category=None,height_constraint=None,top_level_id=None,top_offset=None,base_offset=None,level_id=None,
-              defense_type=None,void_ratio=None):
+              defense_type=None,void_ratio=None,orden_capas=None,cara_exterior=None):
     d=metadata(entity)
     if not d or d.get('kind')!='wall':raise ValueError('Entidad no es un muro ARQ')
     d=copy.deepcopy(d)
+    from .capas_envolvente import validar_orden_y_cara
+    if cara_exterior is not None:
+        d['cara_exterior'] = cara_exterior
+    if orden_capas is not None:
+        d['orden_capas'] = orden_capas
+    validar_orden_y_cara(d)
     for key,value in (('height_constraint',height_constraint),('top_level_id',top_level_id),('top_offset',top_offset),('base_offset',base_offset),('level_id',level_id)):
         if value is not None:d[key]=value
     if height_constraint=='fixed':

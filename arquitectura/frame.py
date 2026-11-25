@@ -183,6 +183,10 @@ def transform_record(m, aff, entity=None, hosts=None):
             if aff.mirrored:
                 ref = m.get("reference", "eje")
                 new["reference"] = {"izquierda": "derecha", "derecha": "izquierda"}.get(ref, ref)
+                cara = new.get('cara_exterior')
+                if cara in ('izquierda', 'derecha'):
+                    # Una reflexión cambia la normal izquierda del sentido del muro.
+                    new['cara_exterior'] = {'izquierda': 'derecha', 'derecha': 'izquierda'}[cara]
             if not aff.uniform:
                 notes.append(f"{label}: escalado desigual; el espesor se toma en la dirección "
                              "perpendicular al eje")

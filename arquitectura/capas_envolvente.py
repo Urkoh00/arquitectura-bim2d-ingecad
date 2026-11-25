@@ -13,6 +13,14 @@ CLASES_MATERIAL = ("aislante", "fabrica", "hoja", "revestimiento", "trasdosado",
 ENVOLVENTES = ("fachada", "medianera", "sotano")
 
 
+def validar_orden_y_cara(registro):
+    """Validación común de las fichas, la creación y el intercambio editable."""
+    if registro.get('cara_exterior', 'auto') not in CARAS:
+        raise ValueError('Cara exterior: auto, izquierda o derecha')
+    if 'orden_capas' in registro and registro['orden_capas'] not in ORDENES:
+        raise ValueError('Orden de capas no válido')
+
+
 def lado_exterior(registro, lados):
     """La anulación explícita prevalece; auto conserva lo indeterminado."""
     cara = registro.get("cara_exterior", "auto")

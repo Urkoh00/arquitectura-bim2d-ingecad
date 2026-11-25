@@ -48,6 +48,7 @@ def campos_muro(ctx, datos):
     niveles = [(nivel["name"], nivel["id"]) for nivel in catalogo["levels"]]
     actual = next((tipo for tipo in tipos if tipo["name"] == datos.get("type_name")), None)
     datos["_tipo_elegido"] = actual["name"] if actual else None
+    datos.setdefault("cara_exterior", "auto")
     datos.setdefault("height_constraint", "fixed")
     datos.setdefault("level_id", catalogo["active"])
     superiores = [
@@ -91,6 +92,9 @@ def campos_muro(ctx, datos):
             "Referencia de dibujo",
             [("Eje", "eje"), ("Izquierda", "izquierda"), ("Derecha", "derecha")],
         ),
+        opcion("cara_exterior", "Cara exterior", [
+            ("Automática", "auto"), ("Izquierda", "izquierda"), ("Derecha", "derecha")
+        ]),
         texto("name", "Nombre"),
         texto("material", "Material principal"),
     ]
@@ -134,6 +138,10 @@ def normalizar_muro(ctx, datos, tipos=None, catalogo=None):
         for clave in ("level_id", "top_level_id", "top_offset", "base_offset"):
             salida.pop(clave, None)
     if tipo:
+        if "orden_capas" in tipo:
+            salida["orden_capas"] = tipo["orden_capas"]
+        else:
+            salida.pop("orden_capas", None)
         diferente = abs(salida["thickness"] - tipo["thickness"]) > 5e-7
         if diferente and datos["_resolucion"] == "detach":
             salida.update(type_name=f"Muro {_num(salida['thickness'])}", layers=[])
@@ -163,6 +171,8 @@ def normalizar_muro(ctx, datos, tipos=None, catalogo=None):
             type_name=str(actual) if conservar else f"Muro {_num(salida['thickness'])}",
             layers=deepcopy(salida.get("layers") or []) if conservar else [],
         )
+    from .capas_envolvente import validar_orden_y_cara
+    validar_orden_y_cara(salida)
     salida["name"] = str(salida.get("name") or "").strip() or "Muro"
     if salida["height"] <= 0 or salida["thickness"] <= 0:
         raise ValueError("Altura y espesor deben ser positivos")

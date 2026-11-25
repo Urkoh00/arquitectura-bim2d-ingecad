@@ -9,7 +9,7 @@ from . import openings as OP
 from .architectural import validate_wall
 from .geom import junctions as J
 
-WALL_FIELDS = frozenset('type_name material thickness height layers wall_category'.split())
+WALL_FIELDS = frozenset('type_name material thickness height layers wall_category orden_capas cara_exterior'.split())
 OPEN_FIELDS = frozenset(('type_name','material','width','height','sill','operation') + OP.V3_KEYS)
 PLAN_FIELDS = frozenset('thickness width height sill offset reference side niche_depth cabinet_mode wall_category'.split())
 

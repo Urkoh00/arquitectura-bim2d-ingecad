@@ -98,7 +98,7 @@ def cambio_propiedades(ctx, entity, values):
         keys = ('thickness', 'height', 'base', 'reference', 'name', 'type_name',
                 'material', 'level', 'layers', 'wall_category', 'height_constraint',
                 'top_level_id', 'top_offset', 'base_offset', 'level_id',
-                'defense_type', 'void_ratio')
+                'defense_type', 'void_ratio', 'orden_capas', 'cara_exterior')
         return edit_wall(entity, **{key: values[key] for key in keys if key in values})
     if kind == 'column':
         from .columns import EditColumnCommand

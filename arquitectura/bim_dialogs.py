@@ -120,7 +120,7 @@ def wall_form(ctx, record=None, types=None):
     d=record or {}
     types=[normalise_type(t) for t in _types_of(ctx, types)]
     if d.get('type_name') and d.get('layers') and not any(t['name']==d['type_name'] for t in types):
-        types.append(normalise_type({'name':d['type_name'],'layers':d['layers']}))
+        types.append(normalise_type({**d, 'name': d['type_name']}))
     dlg,layout,buttons=_dialog(ctx,'Arquitectura — Muro',
         'Elija un tipo de muro del catálogo del dibujo (TIPOSMURO) o defina uno genérico. '
         'Los datos se guardan en el DXF y viajan al modelo BIM.')
@@ -146,10 +146,16 @@ def wall_form(ctx, record=None, types=None):
     height=_spin(d.get('height',3.00),positive=True)
     base=_spin(d.get('base',0.0))
     reference=_choice([('Eje','eje'),('Cara izquierda','izquierda'),('Cara derecha','derecha')],d.get('reference','eje'))
+    cara_exterior = _choice([
+        ('Automática según el contorno', 'auto'),
+        ('Izquierda del sentido de dibujo', 'izquierda'),
+        ('Derecha del sentido de dibujo', 'derecha'),
+    ], d.get('cara_exterior', 'auto'))
     from .wall_categories import CATEGORIES,category
     wall_category=_choice(CATEGORIES,category(d))
     form.addRow('Categoría:',wall_category)
     for label,widget in [('Espesor:',thickness),('Altura:',height),('Cota base:',base),('Referencia de dibujo:',reference)]:form.addRow(label,widget)
+    form.addRow('Cara exterior:', cara_exterior)
     from .levels import load as load_levels
     from .compat import require_document
     try:catalog=load_levels(require_document(ctx))
@@ -238,6 +244,7 @@ def wall_form(ctx, record=None, types=None):
     def read():
         from .linea_fichas import normalizar_muro
         out = {'thickness': thickness.value(), 'height': height.value(), 'base': base.value(),
+               'cara_exterior': cara_exterior.currentData(),
                'reference': reference.currentData(), 'name': name.text().strip() or 'Muro',
                'material': material.text().strip(), 'level': level.text().strip(),
                'ifc_class': 'IfcWall', 'wall_category': wall_category.currentData(),
@@ -246,8 +253,10 @@ def wall_form(ctx, record=None, types=None):
                'base_offset': base_offset.value(), 'top_offset': top_offset.value(),
                'type_name': current, 'layers': d.get('layers') or [],
                '_tipo_elegido': kind.currentData(), '_resolucion': resolution.currentData()}
+        if 'orden_capas' in d:
+            out['orden_capas'] = d['orden_capas']
         return normalizar_muro(ctx, out, types, catalog)
-    dlg._arq={'height_constraint':height_constraint,'base_level':base_level,'top_level':top_level,'base_offset':base_offset,'top_offset':top_offset,'resulting_height':resulting_height,'height':height,'wall_category':wall_category,'type':kind,'thickness':thickness,'layers':table,'name':name,'material':material,'total':total,'manual_thickness':manual,'mismatch':mismatch,'resolution':resolution}
+    dlg._arq={'cara_exterior':cara_exterior,'height_constraint':height_constraint,'base_level':base_level,'top_level':top_level,'base_offset':base_offset,'top_offset':top_offset,'resulting_height':resulting_height,'height':height,'wall_category':wall_category,'type':kind,'thickness':thickness,'layers':table,'name':name,'material':material,'total':total,'manual_thickness':manual,'mismatch':mismatch,'resolution':resolution}
     return dlg,read
 
 
@@ -273,8 +282,8 @@ def wall_types_form(ctx, types):
     dlg.setWindowTitle('Arquitectura — Tipos de muro (TIPOSMURO)')
     dlg.resize(720,460)
     main=QVBoxLayout(dlg)
-    info=QLabel('Catálogo de tipos de muro de este dibujo. Las capas se cuentan desde la cara '
-                'dibujada hacia el interior del muro; el espesor total es su suma. MURO ofrece '
+    info=QLabel('Tipos nuevos de envolvente: capas de exterior a interior. Particiones: desde la cara '
+                'dibujada. Los tipos anteriores sin orden requieren revisión; el espesor es la suma. MURO ofrece '
                 'los tipos con el espesor que se escriba.')
     info.setWordWrap(True);main.addWidget(info)
     row=QHBoxLayout();main.addLayout(row)
@@ -290,6 +299,13 @@ def wall_types_form(ctx, types):
     from .wall_categories import CATEGORIES
     wall_category=_choice(CATEGORIES,'fachada')
     eform.addRow('Categoría:',wall_category)
+    orden_capas = _choice([
+        ('Anterior: pendiente de revisión', None),
+        ('De exterior a interior', 'exterior-interior'),
+        ('Desde la cara dibujada (particiones)', 'cara-dibujada'),
+    ], None)
+    eform.addRow('Orden de las capas:', orden_capas)
+
     table=_layers_table([],editable=True)
     total=QLabel('')
     cbuttons=QHBoxLayout()
@@ -329,7 +345,14 @@ def wall_types_form(ctx, types):
             raise ValueError(f'El tipo «{nm}» necesita al menos una capa')
         if any(t['name'].lower()==nm.lower() for k,t in enumerate(data) if k!=i):
             raise ValueError(f'Ya existe un tipo «{nm}»')
-        data[i]=normalise_type({'name':nm,'layers':layers,'wall_category':wall_category.currentData()})
+        valores = {**data[i], 'name': nm, 'layers': layers,
+                   'wall_category': wall_category.currentData()}
+        orden = orden_capas.currentData()
+        if orden is None:
+            valores.pop('orden_capas', None)
+        else:
+            valores['orden_capas'] = orden
+        data[i] = normalise_type(valores)
         item=lst.item(i)
         if item is not None:
             item.setText(label(data[i]));decorate(item,data[i])
@@ -341,6 +364,7 @@ def wall_types_form(ctx, types):
         name.setText(t['name'] if t else '')
         wall_category.setCurrentIndex(wall_category.findData(t['wall_category'] if t else 'fachada'))
         table._fill(t['layers'] if t else [])
+        orden_capas.setCurrentIndex(max(0, orden_capas.findData(t.get('orden_capas') if t else None)))
         state['busy']=False
         update_total()
 
@@ -407,6 +431,13 @@ def wall_types_form(ctx, types):
             table.setItem(k,0,QTableWidgetItem(a));table.setItem(k,1,QTableWidgetItem(b))
         table.setCurrentCell(t,0)
 
+    def cambiar_categoria(*_):
+        if state['busy'] or orden_capas.currentData() is None:
+            return
+        orden = 'cara-dibujada' if wall_category.currentData() == 'particion' else 'exterior-interior'
+        orden_capas.setCurrentIndex(orden_capas.findData(orden))
+
+    wall_category.currentIndexChanged.connect(cambiar_categoria)
     lst.currentRowChanged.connect(on_row)
     table.itemChanged.connect(update_total)
     b_new.clicked.connect(lambda:new())
@@ -430,7 +461,7 @@ def wall_types_form(ctx, types):
     def read():
         store()
         return [dict(t) for t in sort_types(data)]
-    dlg._arq={'wall_category':wall_category,'list':lst,'name':name,'layers':table,'new':new,'delete':delete,'add_layer':add_layer,
+    dlg._arq={'orden_capas':orden_capas,'wall_category':wall_category,'list':lst,'name':name,'layers':table,'new':new,'delete':delete,'add_layer':add_layer,
               'total':total}
     return dlg,read
 

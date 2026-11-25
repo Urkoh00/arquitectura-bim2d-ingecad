@@ -102,6 +102,16 @@ DEFAULTS = {
     ],
 }
 
+# Los valores iniciales son tipos nuevos. Los catálogos guardados sin el
+# campo de orden se conservan al cargar, para no voltear sus dibujos.
+for _tipo_inicial in DEFAULTS['wall_types']:
+    _tipo_inicial['orden_capas'] = (
+        'cara-dibujada' if _tipo_inicial.get('wall_category') == 'particion'
+        else 'exterior-interior'
+    )
+del _tipo_inicial
+
+
 def _drawing(document):
     drawing = getattr(document, 'doc', document)
     if drawing is None or not hasattr(drawing, 'rootdict'):
@@ -223,7 +233,7 @@ def validate_defaults(values):
     return values
 
 
-def normalise_type(t):
+def normalise_type(t, *, nuevo=False):
     """{'name', 'layers': [[thickness, material], ...], 'thickness', 'material'}.
     Accepts the v1.8.0 form {'name', 'thickness', 'material'} (one layer)."""
     name = str(t.get('name', '')).strip()
@@ -236,6 +246,14 @@ def normalise_type(t):
     main = max(layers, key=lambda lm: lm[0])[1] if layers else ''
     from .wall_categories import category
     out = {'name': name, 'layers': layers, 'thickness': total, 'material': main, 'wall_category':category(t)}
+    if nuevo and 'orden_capas' not in t:
+        out['orden_capas'] = ('cara-dibujada' if out['wall_category'] == 'particion'
+                              else 'exterior-interior')
+    if 'orden_capas' in t:
+        from .capas_envolvente import ORDENES
+        if t['orden_capas'] not in ORDENES:
+            raise ValueError('Orden de capas no válido')
+        out['orden_capas'] = t['orden_capas']
     ref = t.get('catalogo')
     if isinstance(ref, dict) and ref.get('codigo'):
         # solución del catálogo de elementos constructivos de la que procede (v1.48.1)
@@ -288,7 +306,7 @@ def layers_text(t):
     return ' + '.join(partes)
 
 
-def parse_type(text):
+def parse_type(text, *, nuevo=True):
     """'Nombre = 0,015 Yeso + 0,07 LHD' or 'Nombre 0,12 [material]'."""
     text = str(text).strip()
     if '=' in text:
@@ -309,7 +327,7 @@ def parse_type(text):
             if not words or not _is_number(words[0]):
                 raise ValueError('Capa no válida (use «0,05 Material»)')
             layers.append([float(words[0].replace(',', '.')), ' '.join(words[1:])])
-        return normalise_type({'name': name.strip(), 'layers': layers})
+        return normalise_type({'name': name.strip(), 'layers': layers}, nuevo=nuevo)
     words = text.split()
     # the thickness is the LAST decimal value («Termoarcilla 30 ECO 0,30»):
     # whole numbers may be part of the name
@@ -319,7 +337,7 @@ def parse_type(text):
         raise ValueError('Indique nombre y espesor, p. ej. «Termoarcilla 24 0,24» o capas con «=»')
     return normalise_type({'name': ' '.join(words[:num]),
                            'thickness': float(words[num].replace(',', '.')),
-                           'material': ' '.join(words[num + 1:])})
+                           'material': ' '.join(words[num + 1:])}, nuevo=nuevo)
 
 
 def _store(drawing, payload):
@@ -379,7 +397,9 @@ def nuevo_tipo(tipos, original=None):
         nombre = f'{prefijo} {numero}'
         numero += 1
     return normalise_type({'name': nombre, 'layers': copy.deepcopy(base['layers']),
-                           'wall_category': base.get('wall_category', 'fachada')})
+                           'wall_category': base.get('wall_category', 'fachada'),
+                           'orden_capas': ('cara-dibujada' if base.get('wall_category') == 'particion'
+                                           else 'exterior-interior')})
 
 
 def guardar_tipos(ctx, tipos):
@@ -453,9 +473,9 @@ def tipos_muro(ctx, *args):
             path = text.split(' ', 1)[1].strip().strip('"')
             with open(path, 'w', encoding='utf-8-sig', newline='') as f:
                 escritor = csv.writer(f, delimiter=';', lineterminator='\n')
-                escritor.writerow(['Nombre', 'Capas', 'Categoría'])
+                escritor.writerow(['Nombre', 'Capas', 'Categoría', 'Orden'])
                 for t in sort_types(types):
-                    escritor.writerow([t['name'], layers_text(t), t['wall_category']])
+                    escritor.writerow([t['name'], layers_text(t), t['wall_category'], t.get('orden_capas', '')])
             ctx.echo(f'TIPOSMURO: {len(types)} tipos exportados a {path}')
             return
         if low.startswith('importar '):
@@ -463,24 +483,33 @@ def tipos_muro(ctx, *args):
             new = {t['name'].lower(): t for t in types}
             count = 0
             con_categoria = False
+            con_orden = False
             with open(path, encoding='utf-8-sig') as f:
                 for n, cols in enumerate(csv.reader(f, delimiter=';'), 1):
                     cols = [c.strip() for c in cols]
                     if not cols or not cols[0] or cols[0].startswith('#'):
+                        continue
+                    cabecera = [c.casefold() for c in cols]
+                    if cabecera in (['nombre', 'capas', 'categoría', 'orden'],
+                                    ['nombre', 'capas', 'categoria', 'orden']):
+                        con_categoria = True
+                        con_orden = True
                         continue
                     if [c.casefold() for c in cols] in (['nombre', 'capas', 'categoría'], ['nombre', 'capas', 'categoria']):
                         con_categoria = True
                         continue
                     if con_categoria:
                         from .wall_categories import CATEGORIES
-                        if len(cols) != 3 or cols[2] not in {clave for _nombre, clave in CATEGORIES}:
+                        if len(cols) != (4 if con_orden else 3) or cols[2] not in {clave for _nombre, clave in CATEGORIES}:
                             raise ValueError(f'línea {n}: categoría de muro no válida')
-                        t = normalise_type({**parse_type(f'{cols[0]} = {cols[1]}'), 'wall_category': cols[2]})
+                        t = normalise_type({**parse_type(f'{cols[0]} = {cols[1]}', nuevo=False), 'wall_category': cols[2]})
+                        if con_orden and cols[3]:
+                            t = normalise_type({**t, 'orden_capas': cols[3]})
                     elif len(cols) >= 3 and _is_number(cols[1]):
                         t = normalise_type({'name': cols[0], 'material': cols[2],
                                             'thickness': float(cols[1].replace(',', '.'))})
                     elif len(cols) >= 2:
-                        t = parse_type(f"{cols[0]} = {cols[1]}")
+                        t = parse_type(f"{cols[0]} = {cols[1]}", nuevo=False)
                     else:
                         raise ValueError(f'línea {n}: se necesitan nombre y capas')
                     new[t['name'].lower()] = t
@@ -502,6 +531,10 @@ def tipos_muro(ctx, *args):
             if previous is not None:
                 # Cambiar las capas no solicita reclasificar el tipo constructivo.
                 entry = normalise_type({**entry, 'wall_category': previous['wall_category']})
+                if 'orden_capas' in previous:
+                    entry['orden_capas'] = previous['orden_capas']
+                else:
+                    entry.pop('orden_capas', None)
             new = [t for t in types if t['name'].lower() != entry['name'].lower()] + [entry]
             ctx.echo(f"TIPOSMURO: {entry['name']}: {layers_text(entry)} = {_num(entry['thickness'])} m")
         current['wall_types'] = new

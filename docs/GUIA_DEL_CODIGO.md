@@ -793,3 +793,19 @@ resueltos. Solo aplica aislamiento automático interior o de cámara. El
 contacto se comprueba en geometría y altura, no por igualdad de nombres de
 planta. Los modos manuales conservan su definición. La conexión con las
 fichas, la regeneración y las piezas exportadas sigue siendo necesaria.
+
+### R29-E: orden del tipo y cara exterior del muro
+
+Los tipos nuevos de envolvente se crean con `orden_capas=exterior-interior`;
+los de partición, con `cara-dibujada`. Normalizar un tipo guardado sin el
+campo no lo añade. Las fichas y -TIPOSMURO permiten revisar el orden y el
+CSV lo conserva en una cuarta columna; un CSV sin orden no se reinterpreta.
+
+`cara_exterior` se guarda por muro: auto, izquierda o derecha. La ficha y
+las preguntas de texto comparten la validación con creación, edición y
+propuestas de cambio. La simetría intercambia las caras explícitas para
+conservar la cara física; auto se vuelve a resolver por geometría. Las
+referencias, las identidades y Deshacer/Rehacer siguen sus órdenes nativas.
+
+El módulo puro capas_envolvente se copia al construir la extensión porque
+la validación de muros también se usa allí. No importa ningún anfitrión.

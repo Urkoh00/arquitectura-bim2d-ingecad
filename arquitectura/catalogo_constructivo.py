@@ -653,6 +653,7 @@ def tipo_de_muro(sol: dict, nombre: str | None = None) -> dict:
         "layers": [[c["espesor"], c["material"]] for c in sol["capas"]],
         "wall_category": categoria,
         "catalogo": {"codigo": sol["codigo"], "fuente": FUENTE},
+        "orden_capas": "cara-dibujada" if categoria == "particion" else "exterior-interior",
     })
 
 
