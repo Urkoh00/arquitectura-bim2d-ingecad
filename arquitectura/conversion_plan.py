@@ -359,7 +359,7 @@ def analyse(drawing, lo, hi, classification, tmin=.07, tmax=.5, height=3.,
                 keep_manual(e,role)
                 continue
 
-        def emit(part, source, insert_layer, forced, depth=0):
+        def emit(part, source, insert_layer, forced, depth=0, role=role):
             if part.dxftype()=='INSERT':
                 if depth >= BLOCK_DEPTH:
                     warnings.append('Bloque anidado demasiado profundo; conservado')

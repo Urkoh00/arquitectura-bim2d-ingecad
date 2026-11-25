@@ -1,12 +1,12 @@
-# Manual de Arquitectura para IngeCAD — versión 1.48.20-dev
+# Manual de Arquitectura para IngeCAD — versión 1.48.21-dev
 
-Versión 1.48.20-dev · 25-11-2026
+Versión 1.48.21-dev · 25-11-2026
 
 > Copia del manual publicado como documento en claude.ai; se regenera con cada versión.
 
 ## Qué es
 
-Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.48.20-dev** y se actualiza con cada versión.
+Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.48.21-dev** y se actualiza con cada versión.
 
 ## Perfiles de trabajo
 
@@ -39,7 +39,7 @@ El plugin se instala copiando una carpeta en IngeCAD, y la extensión copiando t
 
 **En IngeCAD**
 
-1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.48.20-dev.zip`.
+1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.48.21-dev.zip`.
 2. Copie la carpeta `arquitectura` en la carpeta de plugins de IngeCAD.
 3. Reinicie IngeCAD. Aparece el menú *Arquitectura* y su barra de herramientas.
 4. Escriba `ARQDIAG` en la línea de órdenes para comprobar que la versión cargada es la que acaba de copiar.
@@ -636,7 +636,7 @@ Con niveles o forjados, el intercambio usa `.arqbim` v3 y necesita la extensión
 
 ## Limitaciones conocidas
 
-Estas son las limitaciones conocidas de la versión 1.48.20-dev; cada versión actualiza esta lista.
+Estas son las limitaciones conocidas de la versión 1.48.21-dev; cada versión actualiza esta lista.
 
 - **Plataforma:** las pruebas automáticas se ejecutan en Linux con la última versión oficial de IngeCAD y de IngeTrazo, pero sin pantalla. Solo se prueba con la última versión de cada programa, porque ambos publican casi cada semana.
 - **Muros curvos:** cada muro llega como mucho a 350° (un muro redondo son dos o más). La elección automática de cara de MURO y ESTIRAMURO hasta una cara curva solo conocen muros rectos: con un muro curvo, elija la cara a mano. DIVIDEMURO divide el arco entre los dos puntos designados; para dividir un arco entero, designe sus dos extremos.
@@ -650,6 +650,7 @@ Estas son las limitaciones conocidas de la versión 1.48.20-dev; cada versión a
 
 | Fecha | Versión | Novedades |
 | --- | --- | --- |
+| 1.48.21-dev | 25-11-2026 | Robustez interna: cuatro funciones internas dejan de depender de la variable de un bucle (análisis estático B023). Sin cambios de uso. |
 | 1.48.20-dev | 25-11-2026 | PILAR, opción P: un clic en la esquina exterior de dos muros coloca el pilar retranqueado hacia dentro a las distancias indicadas, con el ángulo de una de las caras, y con vista previa. |
 | 1.48.19-dev | 25-11-2026 | Partición de recubrimiento de pilares en PILAR y -PILAR (tipo o espesor, material; 7 cm por defecto), sin invadir los muros y con recintos recalculados. Aislamiento del pilar solo en el perfil Modelo Térmico. |
 | 1.48.18-dev | 25-11-2026 | Perfiles de trabajo: Planos 2D (por defecto y único en esta versión), Modelo BIM y Modelo Térmico. El perfil decide órdenes, campos de las fichas y avisos; no cambia el modelo. |

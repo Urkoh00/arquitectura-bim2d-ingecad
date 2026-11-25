@@ -1,7 +1,7 @@
 {
   "ruff": "0.17.6",
   "rules": "F,B023,B006,B008,E722",
-  "reviewed_on": "2026-11-24",
+  "reviewed_on": "2026-11-25",
   "warnings": [
     {
       "code": "F401",
@@ -76,18 +76,6 @@
       "reason": "La llamada a wall_corners valida la geometría aunque se descarte el contorno."
     },
     {
-      "code": "B023",
-      "file": "arquitectura/cabinets.py",
-      "message": "Function definition does not bind loop variable `shift`",
-      "reason": "La función se consume en la misma iteración; no se guarda ni difiere su ejecución."
-    },
-    {
-      "code": "B023",
-      "file": "arquitectura/cabinets.py",
-      "message": "Function definition does not bind loop variable `shift`",
-      "reason": "La función se consume en la misma iteración; no se guarda ni difiere su ejecución."
-    },
-    {
       "code": "F401",
       "file": "arquitectura/cabinets.py",
       "message": "`PySide6.QtWidgets.QMessageBox` imported but unused",
@@ -122,18 +110,6 @@
       "file": "arquitectura/conversion_plan.py",
       "message": "`copy` imported but unused",
       "reason": "Importación o reimportación sin efecto funcional demostrado. Se conserva según el criterio de no corregir estilo."
-    },
-    {
-      "code": "B023",
-      "file": "arquitectura/conversion_plan.py",
-      "message": "Function definition does not bind loop variable `role`",
-      "reason": "La función se consume en la misma iteración; no se guarda ni difiere su ejecución."
-    },
-    {
-      "code": "B023",
-      "file": "arquitectura/conversion_ranges.py",
-      "message": "Function definition does not bind loop variable `role`",
-      "reason": "La función se consume en la misma iteración; no se guarda ni difiere su ejecución."
     },
     {
       "code": "F401",

@@ -2,6 +2,26 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.48.21-dev — 2026-11-25
+
+Revisión externa (Gemini, resumida por DeepSeek): unos 13 puntos comprobados contra el código real. Solo había que
+tocar los cuatro avisos de análisis estático; el resto eran falsos positivos sobre un ZIP que mezclaba versiones.
+
+- **B023 (captura de la variable de un bucle), blindado en cuatro funciones internas** que hoy no fallaban (se usan
+  en el acto, nunca se guardan), para que no se conviertan en error si alguna se guardara: `cabinets._niche_symbols`
+  (`pt`), `conversion_ranges.analyse_ranges` (`keep`) y `conversion_plan` (`emit`). Se enlaza la variable como
+  argumento por defecto. Quitados del registro `tests/ruff_admitido.json`; `ruff --select B023` queda limpio.
+- **Falsos positivos descartados, comprobados en el repositorio real:**
+  - los cuatro imports a `arquitectura.vendor` funcionan (la carpeta existe, con `walldetect.py` y su `__init__`);
+  - `wall_tools` usa dos funciones `outline` distintas (de `curve_tools`, 5 argumentos, y de `space_envelope`, 3);
+    no hay firma incompatible;
+  - `levels.py` no llama a `slabs.read`: la `read()` señalada es la del diálogo de niveles, sin argumentos;
+  - `apply_architectural_change`, `carpentry_properties`, `_spin`, `create_wall` y `create_opening` tienen
+    argumentos solo por nombre (`*`), que el analizador contó como posicionales;
+  - los puntos de «mezcla de versiones» (openings, defensas, reactor) son del ZIP que revisó Gemini; los ZIP que
+    genera el proyecto salen de `git archive HEAD`, de una sola versión por construcción.
+- Prueba: la ya existente `test_depuracion_estatica.py` vigila B023 y falla si reaparece.
+
 ## 1.48.20-dev — 2026-11-25
 
 **Criterio del propietario (25-11):** salvo con aislamiento por el exterior (SATE), en fachada el pilar no se enrasa

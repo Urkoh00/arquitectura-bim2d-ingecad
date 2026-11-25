@@ -25,7 +25,7 @@ def _niche_symbols(spec,rec):
     if fw:result.extend(OP._jambs(spec.point,rec['offset'],rec['offset']+rec['width'],fw,lo,hi,h,float(rec.get('leaf_thickness')or OP.LEAF_THICKNESS)))
     for front in fronts(spec,rec):
         shift=front['_track']
-        def pt(p):return(p[0]+spec.n[0]*shift,p[1]+spec.n[1]*shift)
+        def pt(p,shift=shift):return(p[0]+spec.n[0]*shift,p[1]+spec.n[1]*shift)
         for g in OP.plan_symbol(spec,front):
             if g[0]=='poly':result.append(('poly',[pt(p)for p in g[1]],g[2]))
             elif g[0]=='line':result.append(('line',pt(g[1]),pt(g[2])))

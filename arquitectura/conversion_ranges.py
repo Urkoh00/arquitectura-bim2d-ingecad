@@ -19,7 +19,7 @@ def analyse_ranges(drawing,lo,hi,classification,tmin,tmax,height,parallel,origin
     if unknown:raise ValueError('Categoría sin rango de muro')
     plans=[]
     for i,role in enumerate(sorted(WALLS)):
-        def keep(r):return r not in WALLS or r==role
+        def keep(r,role=role):return r not in WALLS or r==role
         layers={k:v for k,v in classification.layers.items()if keep(v)and(i==0 or v!='pilares')}
         handles={k:v for k,v in classification.handles.items()if keep(v)and(i==0 or v!='pilares')}
         fuera={k for k,v in classification.handles.items()if not keep(v)or(i>0 and v=='pilares')}
