@@ -2,6 +2,30 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.48.19-dev — 2026-11-25
+
+Integración del parcial 05 de R29 (Codex, revisado por Claude): recubrimientos de pilares (bloque E), adaptados a los
+perfiles.
+
+- **Planos 2D:**
+  - PILAR y -PILAR ofrecen la partición de recubrimiento: tipo o espesor (7 cm por defecto) y material;
+  - ocupa las caras libres sin invadir los muros, y los recintos se recalculan;
+  - un solo Deshacer.
+- **Modelo Térmico:**
+  - se ofrecen además el aislamiento y las clases constructivas de los materiales, que se guardan en el dibujo;
+  - en Planos 2D esos valores se conservan ocultos.
+- **Geometría por tramos de altura:** un pilar que atraviesa dos plantas toma la capa de cada tramo, con sus
+  cantidades.
+- **Contrato e IGZ:** llevan las dos capas (`IfcCovering` CLADDING e INSULATION) con su pilar y su superficie
+  expuesta.
+- **Dos carencias del escritor IFC de IngeTrazo** (fuera de la 1.0), documentadas con un caso mínimo propio para el
+  registro E14:
+  - mide la superficie del recubrimiento sumando todas las caras del sólido;
+  - no crea `IfcRelCoversBldgElements` con el pilar.
+- **Queda abierto:** un pilar centrado en una fachada recibe la partición también por la cara exterior; falta
+  limitarla al lado del recinto. El bloque E no se da por cerrado hasta resolverlo.
+- Los commits llevan como autor la dirección privada de la cuenta.
+
 ## 1.48.18-dev — 2026-11-25
 
 Perfiles de trabajo (decisión del propietario, 25-11): **Planos 2D** (por defecto), **Modelo BIM** y **Modelo

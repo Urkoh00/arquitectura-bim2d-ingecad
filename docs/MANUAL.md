@@ -1,12 +1,12 @@
-# Manual de Arquitectura para IngeCAD — versión 1.48.18-dev
+# Manual de Arquitectura para IngeCAD — versión 1.48.19-dev
 
-Versión 1.48.18-dev · 25-11-2026
+Versión 1.48.19-dev · 25-11-2026
 
 > Copia del manual publicado como documento en claude.ai; se regenera con cada versión.
 
 ## Qué es
 
-Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.48.18-dev** y se actualiza con cada versión.
+Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.48.19-dev** y se actualiza con cada versión.
 
 ## Perfiles de trabajo
 
@@ -39,7 +39,7 @@ El plugin se instala copiando una carpeta en IngeCAD, y la extensión copiando t
 
 **En IngeCAD**
 
-1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.48.18-dev.zip`.
+1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.48.19-dev.zip`.
 2. Copie la carpeta `arquitectura` en la carpeta de plugins de IngeCAD.
 3. Reinicie IngeCAD. Aparece el menú *Arquitectura* y su barra de herramientas.
 4. Escriba `ARQDIAG` en la línea de órdenes para comprobar que la versión cargada es la que acaba de copiar.
@@ -348,6 +348,8 @@ El contrato completo, con un ejemplo, está en `docs/ENTRADA_REVISADA.md` dentro
 
 Cada pilar es un solo paso de `Deshacer`, con los muros y recintos ya actualizados. En el cálculo de superficie útil, los pilares de hasta 100 cm² de sección no se descuentan.
 
+**Partición de recubrimiento (desde la 1.48.19).** La ficha de `PILAR` y `-PILAR` ofrecen la partición que forra el pilar: un tipo de partición o un espesor a mano, y su material. Para los pilares nuevos, el valor inicial es 7 cm. La partición ocupa las caras libres del pilar sin invadir los muros, y los recintos se recalculan al editarla. La orden y su regeneración se deshacen en un solo paso. En el perfil Modelo Térmico se ofrece además el aislamiento del pilar. Al trabajar en Planos 2D, los valores de aislamiento que ya tenga un pilar se conservan aunque no se vean.
+
 ## Carpinterías: puertas, ventanas y huecos
 
 `CARPINTERIA` inserta puertas (IfcDoor), ventanas (IfcWindow) y huecos sin carpintería en un muro o partición. Cada una abre su hueco en el muro, en planta y en 3D, y lo acompaña si el muro se mueve. `PUERTAARQ`, `VENTANAARQ` y `HUECOARQ` son la misma orden con ese tipo de partida.
@@ -634,7 +636,7 @@ Con niveles o forjados, el intercambio usa `.arqbim` v3 y necesita la extensión
 
 ## Limitaciones conocidas
 
-Estas son las limitaciones conocidas de la versión 1.48.18-dev; cada versión actualiza esta lista.
+Estas son las limitaciones conocidas de la versión 1.48.19-dev; cada versión actualiza esta lista.
 
 - **Plataforma:** las pruebas automáticas se ejecutan en Linux con la última versión oficial de IngeCAD y de IngeTrazo, pero sin pantalla. Solo se prueba con la última versión de cada programa, porque ambos publican casi cada semana.
 - **Muros curvos:** cada muro llega como mucho a 350° (un muro redondo son dos o más). La elección automática de cara de MURO y ESTIRAMURO hasta una cara curva solo conocen muros rectos: con un muro curvo, elija la cara a mano. DIVIDEMURO divide el arco entre los dos puntos designados; para dividir un arco entero, designe sus dos extremos.
@@ -648,6 +650,7 @@ Estas son las limitaciones conocidas de la versión 1.48.18-dev; cada versión a
 
 | Fecha | Versión | Novedades |
 | --- | --- | --- |
+| 1.48.19-dev | 25-11-2026 | Partición de recubrimiento de pilares en PILAR y -PILAR (tipo o espesor, material; 7 cm por defecto), sin invadir los muros y con recintos recalculados. Aislamiento del pilar solo en el perfil Modelo Térmico. |
 | 1.48.18-dev | 25-11-2026 | Perfiles de trabajo: Planos 2D (por defecto y único en esta versión), Modelo BIM y Modelo Térmico. El perfil decide órdenes, campos de las fichas y avisos; no cambia el modelo. |
 | 1.48.17-dev | 25-11-2026 | Cara exterior de los muros (automática por la geometría, o izquierda/derecha); tipos de envolvente con capas de exterior a interior; patios y porches como recintos exteriores; ARQVALIDAR avisa de tipos antiguos y de caras indeterminadas. |
 | 1.48.16-dev | 24-11-2026 | Doble clic sobre forjados y armarios abre su ficha propia; ACTUALIZAEJES conserva un pilar movido con las órdenes de IngeCAD; pilares y particiones de una planta inferior se pueden designar desde la activa; COTAMUROS usa la orden pública de cotas de IngeCAD. |
