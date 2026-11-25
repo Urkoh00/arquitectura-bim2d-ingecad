@@ -1,12 +1,12 @@
-# Manual de Arquitectura para IngeCAD — versión 1.48.21-dev
+# Manual de Arquitectura para IngeCAD — versión 1.48.22-dev
 
-Versión 1.48.21-dev · 25-11-2026
+Versión 1.48.22-dev · 25-11-2026
 
 > Copia del manual publicado como documento en claude.ai; se regenera con cada versión.
 
 ## Qué es
 
-Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.48.21-dev** y se actualiza con cada versión.
+Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.48.22-dev** y se actualiza con cada versión.
 
 ## Perfiles de trabajo
 
@@ -39,7 +39,7 @@ El plugin se instala copiando una carpeta en IngeCAD, y la extensión copiando t
 
 **En IngeCAD**
 
-1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.48.21-dev.zip`.
+1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.48.22-dev.zip`.
 2. Copie la carpeta `arquitectura` en la carpeta de plugins de IngeCAD.
 3. Reinicie IngeCAD. Aparece el menú *Arquitectura* y su barra de herramientas.
 4. Escriba `ARQDIAG` en la línea de órdenes para comprobar que la versión cargada es la que acaba de copiar.
@@ -344,9 +344,11 @@ El contrato completo, con un ejemplo, está en `docs/ENTRADA_REVISADA.md` dentro
 - **`G`** gira 90°. **`A`** lo orienta solo según el muro o la línea bajo el cursor.
 - **`P` a distancia de dos paramentos:** se designan dos caras de muro (o líneas) y se hace clic en la esquina; las caras del pilar quedan a las distancias indicadas. Es el caso habitual de fachada, con 0,05 m. Desde la 1.48.20 basta con un solo clic en la esquina exterior de dos muros: el pilar queda dentro de los muros, a las distancias indicadas de las dos caras, con el ángulo de una de ellas. Salvo con aislamiento por el exterior, en fachada el pilar no se enrasa con la cara exterior, para no crear un puente térmico; se retranquea al menos 5 cm hacia dentro. En una esquina interior o en cualquier otro punto, se siguen designando las dos caras.
 - **`U` a distancia de un paramento:** una cara y un punto a lo largo de ella.
-- **`C` recubrimiento:** añade un forro alrededor de la sección. Un pilar aislado se recubre entero; si corta un muro, solo la parte que queda fuera de él, y el muro ocupa el resto. En el IFC, el revestimiento mide su superficie vista.
+- **`C` recubrimiento:** añade un forro alrededor de la sección. Un pilar aislado se recubre entero; si corta un muro, solo la parte que queda fuera de él, y el muro ocupa el resto. En fachada, el forro se dibuja solo en las caras libres hacia el interior: un pilar centrado en una fachada no lleva partición por fuera del edificio. El criterio respeta la cara por la que se dibujó el muro, los patios declarados y las fachadas curvas; en un edificio abierto en el que no se pueda decidir el lado interior, se avisa y no se adivina. En el IFC, el revestimiento mide su superficie vista.
 
 Cada pilar es un solo paso de `Deshacer`, con los muros y recintos ya actualizados. En el cálculo de superficie útil, los pilares de hasta 100 cm² de sección no se descuentan.
+
+**Referencias a objetos al colocar (desde la 1.48.22).** Las fases en las que una orden pide un punto admiten las referencias a objetos y el rastreo de IngeCAD (F11 para el rastreo; OTRACK en la barra de estado). Funciona al colocar muros con MUROPARALELO, el nuevo extremo con ESTIRAMURO, los pilares, y las carpinterías y los armarios, que sitúan su jamba o su frente con el mismo punto que fija su muro; y al llevar una carpintería a su destino con MOVERCARP. Se enganchan tanto los extremos de las caras como los de los ejes BIM. Las fases en las que se designa un objeto conservan el cursor libre. Esto no enciende capas ni cambia el modelo: solo ayuda a situar el punto. Al abrir un dibujo, espere a que termine su preparación inicial.
 
 **Partición de recubrimiento (desde la 1.48.19).** La ficha de `PILAR` y `-PILAR` ofrecen la partición que forra el pilar: un tipo de partición o un espesor a mano, y su material. Para los pilares nuevos, el valor inicial es 7 cm. La partición ocupa las caras libres del pilar sin invadir los muros, y los recintos se recalculan al editarla. La orden y su regeneración se deshacen en un solo paso. En el perfil Modelo Térmico se ofrece además el aislamiento del pilar. Al trabajar en Planos 2D, los valores de aislamiento que ya tenga un pilar se conservan aunque no se vean.
 
@@ -636,7 +638,7 @@ Con niveles o forjados, el intercambio usa `.arqbim` v3 y necesita la extensión
 
 ## Limitaciones conocidas
 
-Estas son las limitaciones conocidas de la versión 1.48.21-dev; cada versión actualiza esta lista.
+Estas son las limitaciones conocidas de la versión 1.48.22-dev; cada versión actualiza esta lista.
 
 - **Plataforma:** las pruebas automáticas se ejecutan en Linux con la última versión oficial de IngeCAD y de IngeTrazo, pero sin pantalla. Solo se prueba con la última versión de cada programa, porque ambos publican casi cada semana.
 - **Muros curvos:** cada muro llega como mucho a 350° (un muro redondo son dos o más). La elección automática de cara de MURO y ESTIRAMURO hasta una cara curva solo conocen muros rectos: con un muro curvo, elija la cara a mano. DIVIDEMURO divide el arco entre los dos puntos designados; para dividir un arco entero, designe sus dos extremos.
@@ -650,6 +652,7 @@ Estas son las limitaciones conocidas de la versión 1.48.21-dev; cada versión a
 
 | Fecha | Versión | Novedades |
 | --- | --- | --- |
+| 1.48.22-dev | 25-11-2026 | Cierre del recubrimiento de pilares (forro hacia el interior en fachada; capa de aislamiento solo cuando existe). Referencias a objetos de IngeCAD al colocar muros, pilares, carpinterías y armarios y al mover carpinterías (R29-E y R29-F de Codex). |
 | 1.48.21-dev | 25-11-2026 | Robustez interna: cuatro funciones internas dejan de depender de la variable de un bucle (análisis estático B023). Sin cambios de uso. |
 | 1.48.20-dev | 25-11-2026 | PILAR, opción P: un clic en la esquina exterior de dos muros coloca el pilar retranqueado hacia dentro a las distancias indicadas, con el ángulo de una de las caras, y con vista previa. |
 | 1.48.19-dev | 25-11-2026 | Partición de recubrimiento de pilares en PILAR y -PILAR (tipo o espesor, material; 7 cm por defecto), sin invadir los muros y con recintos recalculados. Aislamiento del pilar solo en el perfil Modelo Térmico. |

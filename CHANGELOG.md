@@ -2,6 +2,33 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.48.22-dev — 2026-11-25
+
+Integración de los parciales 06 (cierre E) y 07 (F) de R29 (Codex, revisados por Claude). Rebasados sobre la
+1.48.21 sin conflictos; conviven con el pilar de esquina retranqueado de la 1.48.20.
+
+**Cierre del bloque E (parcial 06):**
+- El forro del pilar se dibuja solo en las caras libres hacia el interior. Un pilar centrado en una fachada no
+  lleva partición por fuera. Respeta la cara de dibujo del muro, los patios y las fachadas curvas; en un edificio
+  abierto sin lado interior claro, avisa y no adivina.
+- La capa `ARQ-AISLAMIENTOS` se crea solo cuando existe geometría aislante; no se borra una capa del usuario, y un
+  modelo con aislamiento lo conserva al abrirlo en Planos 2D.
+- UNIONESARQ y ARQVALIDAR omiten los avisos térmicos en Planos 2D, conservando los del plano y la sincronización.
+- Esto cierra el caso que quedó abierto en el parcial 05 por el otro lado: la 1.48.20 lo evitaba retranqueando el
+  pilar; el 06 lo resuelve también cuando el pilar queda en la fachada, recortando el forro.
+
+**Rastreo de referencias, F (parcial 07):**
+- Las fases en que una orden pide un punto admiten las referencias a objetos y el rastreo de IngeCAD (F11; OTRACK).
+- Cubre MUROPARALELO, el nuevo extremo de ESTIRAMURO, PILAR, CARPINTERIA y ARMARIOBIM (que fijan jamba o frente con
+  el punto del muro) y el destino de MOVERCARP. Se enganchan extremos de caras y de ejes BIM.
+- Las fases de designar un objeto conservan el cursor libre. No enciende capas ni cambia el modelo.
+
+**Revisión de la integración:**
+- Las dos entregas parten de v1.48.19 (`1460f8a`); 3 + 5 parches, todos con autor `Urkoh00` y la dirección privada.
+- Sin nombres comerciales en el código (las menciones a SketchUp están en documentos internos de `docs/`, como
+  declaración de cumplimiento, no en el plugin ni en el manual).
+- Batería completa con `ARQ_PERFIL=termico`: 1723 correctas, 3 omitidas.
+
 ## 1.48.21-dev — 2026-11-25
 
 Revisión externa (Gemini, resumida por DeepSeek): unos 13 puntos comprobados contra el código real. Solo había que
