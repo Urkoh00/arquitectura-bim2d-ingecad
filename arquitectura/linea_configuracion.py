@@ -6,7 +6,7 @@ import uuid
 
 from tools.base import Tool
 from .linea_campos import Campo, ContextoLinea, PreguntasTexto
-from .linea_fichas import medida, opcion, texto
+from .linea_fichas import _perfil_termico, medida, opcion, texto
 from .compat import require_document
 
 NOMBRES_CONFIGURACION = ("PARAMETROSARQ", "USOSARQ", "TIPOSMURO", "NIVELES", "NIVELASIGNAR")
@@ -214,7 +214,7 @@ class ConfiguracionTexto(PreguntasTexto, Tool):
             opcion("orden", "Orden de capas", [
                 ("Anterior sin revisar", None), ("Fuera-dentro", "exterior-interior"),
                 ("Cara dibujada", "cara-dibujada")
-            ], editar),
+            ], lambda v: editar(v) and _perfil_termico()),
             texto("ruta", "Ruta del CSV", archivo),
         ]
 

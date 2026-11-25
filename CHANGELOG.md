@@ -2,6 +2,28 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.48.18-dev — 2026-11-25
+
+Perfiles de trabajo (decisión del propietario, 25-11): **Planos 2D** (por defecto), **Modelo BIM** y **Modelo
+Térmico**, acumulativos.
+
+- El perfil decide:
+  - qué órdenes aparecen en el menú y en la barra;
+  - qué campos térmicos muestran las fichas: cara exterior del muro, orden de capas del tipo y clasificación
+    normativa del recinto, también por la línea de órdenes;
+  - qué avisa ARQVALIDAR: el orden de capas y la cara exterior, solo en el térmico.
+- **No cambia el modelo:** un muro es el mismo objeto BIM en los tres perfiles, y subir de perfil no obliga a
+  redibujar.
+- Una orden de otro perfil escrita a mano no se ejecuta, y explica a qué perfil pertenece.
+- **Órdenes por perfil:**
+  - Modelo BIM: EXPORTARBIM y SINCRONIZARARQ;
+  - Modelo Térmico: USOSARQ, BIBLIOTECAHE y CATALOGOEC.
+- **La 1.0 publica solo Planos 2D** (`perfiles.PUBLICADOS`). La variable `ARQ_PERFIL` fuerza otro perfil para el
+  desarrollo; la batería de pruebas usa el térmico, que lo incluye todo.
+- El perfil se lee al cargar el plugin: IngeCAD 0.8.0 no permite cambiar después los menús de un plugin. Se
+  propondrá a IngeCAD.
+- El aviso de unidades de ARQVALIDAR ya no menciona la exportación.
+
 ## 1.48.17-dev — 2026-11-25
 
 Integración del parcial 04 de R29 (Codex, revisado por Claude): bloque E, cara exterior y orden de capas.

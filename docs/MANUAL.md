@@ -1,12 +1,24 @@
-# Manual de Arquitectura para IngeCAD — versión 1.48.17-dev
+# Manual de Arquitectura para IngeCAD — versión 1.48.18-dev
 
-Versión 1.48.17-dev · 25-11-2026
+Versión 1.48.18-dev · 25-11-2026
 
 > Copia del manual publicado como documento en claude.ai; se regenera con cada versión.
 
 ## Qué es
 
-Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.48.17-dev** y se actualiza con cada versión.
+Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.48.18-dev** y se actualiza con cada versión.
+
+## Perfiles de trabajo
+
+El plugin se adapta a lo que se quiere obtener de él mediante tres perfiles, que se añaden uno sobre otro:
+
+- **Planos 2D** (por defecto): planta acotada, recintos y cuadro de superficies, secciones, alzados y plano de carpintería. Todo el trabajo queda en IngeCAD.
+- **Modelo BIM**: añade la exportación del modelo a IngeTrazo y a IFC, con su geometría, y la sincronización de cambios.
+- **Modelo Térmico**: añade los datos para el cálculo energético, es decir, los catálogos térmicos y constructivos, los usos del edificio, la clasificación normativa de los recintos, y la cara exterior y el orden de capas de los muros.
+
+El perfil decide qué órdenes aparecen en el menú y en la barra, qué campos muestran las fichas y de qué avisa `ARQVALIDAR`. **No cambia lo que se dibuja:** en los tres perfiles, un muro es el mismo objeto BIM, con su identidad, su altura y su nivel. Por eso, si más adelante se necesita el modelo, basta con cambiar de perfil: no hay que redibujar nada. Una orden de otro perfil que se escriba no se ejecuta, y explica a qué perfil pertenece.
+
+**Esta versión trabaja con el perfil Planos 2D.** Los perfiles Modelo BIM y Modelo Térmico llegarán en versiones posteriores. Los apartados de este manual sobre exportación y datos térmicos describen esas funciones para cuando estén disponibles. `ARQDIAG` muestra el perfil activo.
 
 Cada elemento guarda su identidad persistente, su clase IFC, su geometría editable en planta, sus parámetros 3D (altura, espesor, cota), sus propiedades constructivas (tipo, material, capas) y su nivel. Las carpinterías conocen su muro y los recintos siguen a los muros que los cierran.
 
@@ -27,7 +39,7 @@ El plugin se instala copiando una carpeta en IngeCAD, y la extensión copiando t
 
 **En IngeCAD**
 
-1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.48.17-dev.zip`.
+1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.48.18-dev.zip`.
 2. Copie la carpeta `arquitectura` en la carpeta de plugins de IngeCAD.
 3. Reinicie IngeCAD. Aparece el menú *Arquitectura* y su barra de herramientas.
 4. Escriba `ARQDIAG` en la línea de órdenes para comprobar que la versión cargada es la que acaba de copiar.
@@ -622,7 +634,7 @@ Con niveles o forjados, el intercambio usa `.arqbim` v3 y necesita la extensión
 
 ## Limitaciones conocidas
 
-Estas son las limitaciones conocidas de la versión 1.48.17-dev; cada versión actualiza esta lista.
+Estas son las limitaciones conocidas de la versión 1.48.18-dev; cada versión actualiza esta lista.
 
 - **Plataforma:** las pruebas automáticas se ejecutan en Linux con la última versión oficial de IngeCAD y de IngeTrazo, pero sin pantalla. Solo se prueba con la última versión de cada programa, porque ambos publican casi cada semana.
 - **Muros curvos:** cada muro llega como mucho a 350° (un muro redondo son dos o más). La elección automática de cara de MURO y ESTIRAMURO hasta una cara curva solo conocen muros rectos: con un muro curvo, elija la cara a mano. DIVIDEMURO divide el arco entre los dos puntos designados; para dividir un arco entero, designe sus dos extremos.
@@ -636,6 +648,7 @@ Estas son las limitaciones conocidas de la versión 1.48.17-dev; cada versión a
 
 | Fecha | Versión | Novedades |
 | --- | --- | --- |
+| 1.48.18-dev | 25-11-2026 | Perfiles de trabajo: Planos 2D (por defecto y único en esta versión), Modelo BIM y Modelo Térmico. El perfil decide órdenes, campos de las fichas y avisos; no cambia el modelo. |
 | 1.48.17-dev | 25-11-2026 | Cara exterior de los muros (automática por la geometría, o izquierda/derecha); tipos de envolvente con capas de exterior a interior; patios y porches como recintos exteriores; ARQVALIDAR avisa de tipos antiguos y de caras indeterminadas. |
 | 1.48.16-dev | 24-11-2026 | Doble clic sobre forjados y armarios abre su ficha propia; ACTUALIZAEJES conserva un pilar movido con las órdenes de IngeCAD; pilares y particiones de una planta inferior se pueden designar desde la activa; COTAMUROS usa la orden pública de cotas de IngeCAD. |
 | 1.48.15-dev | 24-11-2026 | Un recinto dañado ya no impide generar el cuadro de superficies: su fila indica el error. |

@@ -156,6 +156,11 @@ def wall_form(ctx, record=None, types=None):
     form.addRow('Categoría:',wall_category)
     for label,widget in [('Espesor:',thickness),('Altura:',height),('Cota base:',base),('Referencia de dibujo:',reference)]:form.addRow(label,widget)
     form.addRow('Cara exterior:', cara_exterior)
+    from .perfiles import TERMICO, incluye, perfil_activo
+    if not incluye(perfil_activo(), TERMICO):
+        # el dato se conserva tal cual; solo no se ofrece fuera del perfil térmico
+        cara_exterior.setVisible(False)
+        form.labelForField(cara_exterior).setVisible(False)
     from .levels import load as load_levels
     from .compat import require_document
     try:catalog=load_levels(require_document(ctx))
@@ -305,6 +310,10 @@ def wall_types_form(ctx, types):
         ('Desde la cara dibujada (particiones)', 'cara-dibujada'),
     ], None)
     eform.addRow('Orden de las capas:', orden_capas)
+    from .perfiles import TERMICO, incluye, perfil_activo
+    if not incluye(perfil_activo(), TERMICO):
+        orden_capas.setVisible(False)
+        eform.labelForField(orden_capas).setVisible(False)
 
     table=_layers_table([],editable=True)
     total=QLabel('')
@@ -1436,7 +1445,8 @@ def space_form(ctx, record, by_use=None):
         for key, lab in CU.propose(use.text()).items():
             cte[key].setCurrentIndex(max(0, cte[key].findData(lab)))
     propose.clicked.connect(proposed)
-    if not by_use:
+    from .perfiles import TERMICO, incluye, perfil_activo
+    if not by_use or not incluye(perfil_activo(), TERMICO):
         cte_group.setVisible(False)
     layout.addWidget(cte_group)
     layout.addWidget(buttons)

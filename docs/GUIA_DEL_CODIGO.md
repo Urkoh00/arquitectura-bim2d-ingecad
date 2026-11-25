@@ -77,7 +77,7 @@ si se cambia de geometría; la validación y el facetado siguen en
 
 Esta guía es para quien vaya a **leer, estudiar o mantener** el código. No sustituye al manual de uso (`docs/MANUAL.md`). Explica cómo está organizado el plugin, qué recorrido hace un elemento desde el clic hasta el IFC y dónde buscar cada cosa.
 
-Versión de referencia: **1.48.17-dev**, con 86 módulos y unas 26 000 líneas en `arquitectura/`, más la extensión de IngeTrazo en `ingetrazo_ext/`.
+Versión de referencia: **1.48.18-dev**, con 86 módulos y unas 26 000 líneas en `arquitectura/`, más la extensión de IngeTrazo en `ingetrazo_ext/`.
 
 ---
 
@@ -157,6 +157,7 @@ Se puede probar sin IngeCAD. Es la parte más delicada y la mejor probada.
 | `wall_constraints.py` | Altura del muro de nivel a nivel (restricción superior). |
 | `defensas.py` | Barandillas, balaustradas y antepechos: un muro con categoría «defensa». |
 | `particiones_virtuales.py` | Límites de recinto sin muro, y su orden. |
+| `perfiles.py` | Perfiles de trabajo (Planos 2D, Modelo BIM, Modelo Térmico): órdenes ofrecidas, campos térmicos de las fichas y avisos de ARQVALIDAR. No cambian el modelo. `ARQ_PERFIL` fuerza uno; las pruebas usan el térmico. |
 | `openings.py` | Carpinterías: hueco, piezas (marco, hojas, vidrio), símbolo en planta y medidas. |
 | `curved_carpentry.py` | Carpintería curva en muros curvos. |
 | `cabinets.py` | Armarios adosados y empotrados. |

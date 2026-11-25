@@ -74,7 +74,10 @@ def audit_architecture(document):
             if ident not in wall_ids:
                 issues.append(f'Contorno referido a muro inexistente: {ident}')
     issues += _outline_issues(drawing, sources, outlines)
-    issues += _avisos_capas(drawing, sources)
+    from .perfiles import TERMICO, incluye, perfil_activo
+    if incluye(perfil_activo(), TERMICO):
+        # cara exterior y orden de capas solo importan al modelo térmico
+        issues += _avisos_capas(drawing, sources)
     issues += _space_issues(drawing)
     from .memoria_plano import avisos
     issues += avisos(drawing)
@@ -85,7 +88,7 @@ def audit_architecture(document):
     if sources and WALL_LAYER in drawing.layers and drawing.layers.get(WALL_LAYER).is_off() and not outlines:
         issues.append('ALERTA: capa de muros fuente apagada sin contorno regenerado')
     if drawing.header.get('$INSUNITS', 0) not in (0, 6):
-        issues.append('Unidades DXF distintas de metros: falta normalizar antes de exportar IGZ')
+        issues.append('Unidades DXF distintas de metros: el plugin trabaja en metros; normalice el dibujo')
     if drawing.header.get('$INSUNITS', 0) == 0:
         issues.append('Unidades DXF sin declarar: el modelo arquitectónico presupone metros')
     return {'muros': len(sources), 'pilares': len(columns), 'huecos': len(openings),

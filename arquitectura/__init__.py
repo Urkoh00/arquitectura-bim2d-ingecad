@@ -37,7 +37,7 @@ import os
 from collections import defaultdict
 from pathlib import Path
 
-_VERSION = "1.48.17-dev"
+_VERSION = "1.48.18-dev"
 
 from core.plugins import SEPARATOR, MenuItem, PluginSpec, Submenu, ToolbarItem
 from tools.base import Tool
@@ -1459,6 +1459,8 @@ from .catalogo_constructivo import catalogo_ec
 def arqdiag(ctx, *args):
     """Diagnóstico sin mutar el dibujo y sin depender de PySide6."""
     ctx.echo(f'ARQDIAG — Arquitectura {_VERSION} (motor de nodos, huella única 2D/3D, exportación .arqbim)')
+    from . import perfiles
+    ctx.echo(f'Perfil de trabajo: {perfiles.NOMBRES[perfiles.perfil_activo()]}')
     try:
         from .wall_tools import MuroCarasTool as MuroTool
         ctx.echo(f'Herramienta MURO: {MuroTool.__module__}.{MuroTool.__name__}')
@@ -1523,14 +1525,17 @@ def _spec_kwargs() -> dict:
     comandos = {"SINCRONIZARARQ":sincronizar_arq,"NIVELES":niveles,"NIVELASIGNAR":asignar_nivel,"ACTUALIZAEJES":update,"EXPORTARBIM": exportar_bim, "DIAGNOSTICOARQ": diagnostico_arq, "ARQDIAG": arqdiag, "UNIONESARQ": unionesarq, "ARQVALIDAR": validar_arq, "ARQMIGRAR": migrar_arq, "PARAMETROSARQ": parametros_arq, "TIPOSMURO": tipos_muro, "USOSARQ": usos_arq, "BIBLIOTECAHE": biblioteca_he, "CATALOGOEC": catalogo_ec}
     from .linea_ordenes import crear_variantes
     herramientas.update(crear_variantes(herramientas, comandos))
+    from . import perfiles
+    perfil = perfiles.perfil_activo()
+    herramientas, comandos = perfiles.filtrar_ordenes(herramientas, comandos, perfil)
     return dict(
         **extra,
         on_document_open=install_level_toolbar,
         version=_VERSION,
-        description="Dibujo arquitectónico 2D con objetos BIM (muros, pilares, carpinterías) y exportación a IngeTrazo/IFC",
+        description="Dibujo arquitectónico 2D con objetos BIM: muros, pilares, carpinterías, recintos, secciones y alzados",
         tools=herramientas,
         commands=comandos,
-        menu=(
+        menu=perfiles.filtrar_menu((
             MenuItem("Opciones generales y parámetros iniciales...", "PARAMETROSARQ", icon=glyph / "parametros.svg"),
             MenuItem("Tipos de muro (espesor total y capas)...", "TIPOSMURO", icon=glyph / "tiposmuro.svg"),
             MenuItem("Usos del edificio (certificado energético, DB-HE, DB-SI)...", "USOSARQ", icon=glyph / "usos.svg"),
@@ -1606,8 +1611,8 @@ def _spec_kwargs() -> dict:
             SEPARATOR,
             MenuItem("Diagnóstico del plugin", "ARQDIAG", icon=glyph / "arqdiag.svg"),
             MenuItem("Ayuda Arquitectura", "AYUDAARQ", icon=glyph / "ayudaarq.svg"),
-        ),
-        toolbar=(
+        ), perfil),
+        toolbar=perfiles.filtrar_barra((
             ToolbarItem("Muro", "MURO", icon=glyph / "muro.svg"),
             ToolbarItem("Muro curvo", "MUROCURVO", icon=glyph / "murocurvo.svg"),
             ToolbarItem("Muro paralelo", "MUROPARALELO", icon=glyph / "muroparalelo.svg"),
@@ -1625,7 +1630,7 @@ def _spec_kwargs() -> dict:
             ToolbarItem("Regenerar uniones", "UNIONESARQ", icon=glyph / "uniones.svg"),
             ToolbarItem("Validar CAD y BIM", "ARQVALIDAR", icon=glyph / "validar.svg"),
             ToolbarItem("Exportar BIM", "EXPORTARBIM", icon=glyph / "exportarbim.svg"),
-        ),
+        ), perfil),
     )
 
 

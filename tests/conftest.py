@@ -10,6 +10,10 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+
+# La batería prueba todas las funciones: perfil Modelo Térmico, que lo incluye
+# todo. Las pruebas de los perfiles fijan el suyo (tests/test_perfiles.py).
+os.environ.setdefault("ARQ_PERFIL", "termico")
 INGECAD = Path(os.environ.get("INGECAD_SRC", ROOT.parent / "ingecad")).resolve()
 
 for p in (str(ROOT), str(INGECAD)):

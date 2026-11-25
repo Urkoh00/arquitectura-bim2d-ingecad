@@ -24,6 +24,11 @@ def medida(clave, titulo, minimo=0.001, maximo=100000.0, cuando=None):
     return Campo(clave, titulo, "numero", minimo=minimo, maximo=maximo, cuando=cuando)
 
 
+def _perfil_termico():
+    from .perfiles import TERMICO, incluye, perfil_activo
+    return incluye(perfil_activo(), TERMICO)
+
+
 def opcion(clave, titulo, valores, cuando=None):
     opciones = valores if callable(valores) else tuple(valores)
     return Campo(clave, titulo, "opcion", opciones, cuando=cuando)
@@ -94,7 +99,7 @@ def campos_muro(ctx, datos):
         ),
         opcion("cara_exterior", "Cara exterior", [
             ("Automática", "auto"), ("Izquierda", "izquierda"), ("Derecha", "derecha")
-        ]),
+        ], lambda _v: _perfil_termico()),
         texto("name", "Nombre"),
         texto("material", "Material principal"),
     ]
