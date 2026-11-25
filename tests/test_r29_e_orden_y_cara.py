@@ -114,3 +114,13 @@ def test_no_se_crea_un_muro_con_una_cara_o_un_orden_invalidos(plugin, campo, val
     arquitectura = modulo(plugin, "architectural_v10")
     with pytest.raises(ValueError):
         arquitectura.create_wall((0, 0), (5, 0), **{campo: valor})
+
+
+def test_leer_una_formula_no_inventa_orden_y_crear_un_tipo_si(plugin):
+    sesion = Session(plugin)
+    parametros = modulo(plugin, "parameters_arq")
+    assert "orden_capas" not in parametros.parse_type("Fórmula = 0,3 Material")
+    contexto = SimpleNamespace(document=sesion.document, execute=sesion.history.execute, echo=sesion.out.append)
+    parametros.tipos_muro(contexto, "Nuevo = 0,3 Material")
+    nuevo = next(t for t in parametros.load_defaults(sesion.document)["wall_types"] if t["name"] == "Nuevo")
+    assert nuevo["orden_capas"] == "exterior-interior"

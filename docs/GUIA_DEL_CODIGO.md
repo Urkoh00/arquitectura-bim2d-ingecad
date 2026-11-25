@@ -830,3 +830,8 @@ Estos datos conservan la colocación de origen. El escritor IFC del
 anfitrión sigue siendo experimental y no se afirma que materialice todos
 los intervalos ni las relaciones de material. La integración de las
 capas de recubrimiento del pilar todavía es una etapa pendiente.
+
+Leer una fórmula de capas no permite saber si pertenece a un tipo nuevo
+o a uno anterior. `parse_type` conserva ese hecho; la acción de crear
+un tipo añade su orden, no el analizador de texto. Así, copiar una fórmula
+no reinterpreta el tipo y la exportación/importación conserva su estado.

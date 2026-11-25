@@ -306,7 +306,7 @@ def layers_text(t):
     return ' + '.join(partes)
 
 
-def parse_type(text, *, nuevo=True):
+def parse_type(text, *, nuevo=False):
     """'Nombre = 0,015 Yeso + 0,07 LHD' or 'Nombre 0,12 [material]'."""
     text = str(text).strip()
     if '=' in text:
@@ -528,6 +528,8 @@ def tipos_muro(ctx, *args):
             entry = parse_type(text)
             # mismo nombre exacto: find_wall_type también acepta número o prefijo
             previous = next((t for t in types if t['name'].lower() == entry['name'].lower()), None)
+            if previous is None:
+                entry = normalise_type(entry, nuevo=True)
             if previous is not None:
                 # Cambiar las capas no solicita reclasificar el tipo constructivo.
                 entry = normalise_type({**entry, 'wall_category': previous['wall_category']})
