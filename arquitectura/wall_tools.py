@@ -1191,8 +1191,12 @@ class MuroParaleloTool(WallTypeChoice, Tool):
 # --- ESTIRAMURO / PIVOTAMURO -----------------------------------------------------
 
 class _EndTool(Tool):
-    entity_picker = True
     verb = ""
+
+    @property
+    def entity_picker(self):
+        # Después de designar el muro, se pide un extremo geométrico.
+        return getattr(self, 'wall', None) is None
 
     def start(self):
         self.name = type(self).name

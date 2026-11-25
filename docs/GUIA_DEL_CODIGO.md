@@ -936,3 +936,7 @@ La prueba `ventana_otrack_r29.py` pausa el cursor sobre un extremo, pulsa F11,
 muestra la guía y observa el punto que recibe la herramienta mediante un clic.
 Las fichas se aceptan por su botón real y la prueba reactiva la ventana antes
 del atajo, porque el foco puede quedar en la ficha que acaba de cerrarse.
+
+ESTIRAMURO y PIVOTAMURO comparten la distinción: designar el muro mantiene
+selección de objetos; con un muro elegido, el nuevo extremo pasa por las
+referencias nativas. La geometría y la edición conservan sus órdenes originales.
