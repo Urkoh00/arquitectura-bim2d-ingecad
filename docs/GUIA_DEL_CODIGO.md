@@ -2,6 +2,13 @@
 
 ### R29-E: controles del recubrimiento y catálogo del dibujo
 
+Las fichas y preguntas consultan `perfiles.incluye(perfil_activo(), TERMICO)`
+para ofrecer aislamiento y clasificación constructiva. En Planos 2D solo se
+ofrece la partición. Leer la ficha conserva los datos ocultos y la auditoría
+omite sus avisos térmicos. La resolución geométrica y el contrato no consultan
+el perfil: cambiarlo no modifica el modelo. `test_r29_e_perfiles.py` comprueba
+campos, creación del tabique e igualdad completa del contrato entre perfiles.
+
 `recubrimientos_pilar.aplicar_tipo` comparte la selección de partición entre
 la ficha de PILAR y sus preguntas por texto. El registro conserva por separado
 la partición, su material y el modo, espesor y material del aislamiento.

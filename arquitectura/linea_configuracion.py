@@ -50,7 +50,8 @@ def campos_parametros(valores):
             etiqueta = titulo + ": " + etiquetas.get(clave, clave)
             if clave in ("thickness", "height", "width", "depth", "radius", "base", "sill", 'cover', 'insulation_thickness'):
                 campos.append(
-                    medida(ruta, etiqueta + " (m)", -1e6 if clave in ("base", "sill") else 0.0 if clave == 'cover' else 0.001)
+                    medida(ruta, etiqueta + " (m)", -1e6 if clave in ("base", "sill") else 0.0 if clave == 'cover' else 0.001,
+                           cuando=(lambda _v: _perfil_termico()) if clave.startswith('insulation_') else None)
                 )
             elif clave == "rotation":
                 campos.append(
@@ -58,7 +59,7 @@ def campos_parametros(valores):
                 )
             elif clave == 'insulation_mode':
                 from .recubrimientos_pilar import MODOS_AISLAMIENTO
-                campos.append(opcion(ruta, etiqueta, list(MODOS_AISLAMIENTO)))
+                campos.append(opcion(ruta, etiqueta, list(MODOS_AISLAMIENTO), lambda _v: _perfil_termico()))
             elif clave == "reference":
                 campos.append(
                     opcion(
@@ -81,7 +82,8 @@ def campos_parametros(valores):
                     )
                 )
             else:
-                campos.append(texto(ruta, etiqueta))
+                campos.append(texto(ruta, etiqueta,
+                              (lambda _v: _perfil_termico()) if clave.startswith('insulation_') else None))
     general = valores["general"]
     from .vistas_arq import RELLENOS, GAMA, GROSORES
     for clave in ("escala", "precision_medidas", "usar_usos", "cota_minima", "norte", "armarios_superficie_util",
@@ -121,7 +123,7 @@ def campos_parametros(valores):
     for nombre in nombres(valores):
         ruta = 'materiales.' + nombre
         planos[ruta] = clases.get(nombre, '')
-        campos.append(opcion(ruta, 'Clase constructiva de ' + nombre, list(ETIQUETAS)))
+        campos.append(opcion(ruta, 'Clase constructiva de ' + nombre, list(ETIQUETAS), lambda _v: _perfil_termico()))
     return campos, planos
 
 

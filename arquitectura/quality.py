@@ -91,7 +91,7 @@ def audit_architecture(document):
         issues.append('Unidades DXF distintas de metros: el plugin trabaja en metros; normalice el dibujo')
     if drawing.header.get('$INSUNITS', 0) == 0:
         issues.append('Unidades DXF sin declarar: el modelo arquitectónico presupone metros')
-    if columns:
+    if columns and incluye(perfil_activo(), TERMICO):
         from .exchange import read_model
         try:
             _muros, calculadas, _huecos, avisos = read_model(drawing, strict=False)

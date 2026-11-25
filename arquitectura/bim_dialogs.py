@@ -688,6 +688,13 @@ def column_form(ctx, record=None, anchor=None):
     shape.currentIndexChanged.connect(update);update()
     tipo_recubrimiento.currentIndexChanged.connect(update)
     modo_aislamiento.currentIndexChanged.connect(update)
+    from .perfiles import TERMICO, BIM, incluye, perfil_activo
+    if not incluye(perfil_activo(), TERMICO):
+        for control in (modo_aislamiento, espesor_aislamiento, material_aislamiento, estado_aislamiento):
+            control.hide()
+            etiqueta = form.labelForField(control)
+            if etiqueta is not None:
+                etiqueta.hide()
     layout.addWidget(geo)
     where=QGroupBox('Punto de inserción',dlg)
     wform=QFormLayout(where)
@@ -708,6 +715,9 @@ def column_form(ctx, record=None, anchor=None):
         props.addRow(k,v)
     cls=QLineEdit('IfcColumn');cls.setReadOnly(True)
     props.addRow('Clase IFC:',cls)
+    if not incluye(perfil_activo(), BIM):
+        cls.hide()
+        props.labelForField(cls).hide()
     link=d.get('grid_link')or{}
     props.addRow('Ubicación en rejilla:',QLabel(link.get('mark')or'Sin vínculo'))
     if link:
@@ -780,6 +790,9 @@ def architectural_defaults_dialog(ctx, current):
     for kind,title in [('wall','Muros'),('column','Pilares'),('door','Puertas'),('window','Ventanas')]:
         widget=QWidget();form=QFormLayout(widget)
         for key,value in data[kind].items():
+            from .perfiles import TERMICO, incluye, perfil_activo
+            if key.startswith('insulation_') and not incluye(perfil_activo(), TERMICO):
+                continue
             if key in numeric:
                 editor=_spin(value,positive=key not in ('base','sill','rotation','cover'))
                 if key=='rotation':
@@ -850,7 +863,10 @@ def architectural_defaults_dialog(ctx, current):
         control = _choice(list(ETIQUETAS), clases.get(nombre_material, ''))
         formulario_materiales.addRow(nombre_material, control)
         editors[('materiales', nombre_material)] = control
-    tabs.addTab(materiales, 'Materiales constructivos')
+    if incluye(perfil_activo(), TERMICO):
+        tabs.addTab(materiales, 'Materiales constructivos')
+    else:
+        materiales.hide()
     editors[('general','usar_usos')]=usos;editors[('general','cota_minima')]=minimo
     editors[('general','norte')]=norte
     editors[('general','armarios_superficie_util')]=armarios
