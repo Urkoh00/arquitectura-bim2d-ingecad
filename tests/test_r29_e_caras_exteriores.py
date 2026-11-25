@@ -55,3 +55,25 @@ def test_el_lado_exterior_de_un_muro_curvo_sigue_su_normal_local():
              J.Wall("arco2", (4, 0), (-4, 0), 0.2, bulge=1)]
     resultado = J.solve(muros)
     assert SP.external_walls(resultado, con_lados=True) == {"arco1": "derecha", "arco2": "derecha"}
+
+
+@pytest.mark.parametrize("situacion,es_exterior", [
+    ("interior", False),
+    (None, False),
+    ("sin_revisar", False),
+    ("exterior_cubierto", True),
+    ("exterior_descubierto", True),
+])
+def test_solo_un_recinto_exterior_declarado_orienta_el_anillo_interior(situacion, es_exterior):
+    from arquitectura.capas_envolvente import lados_del_modelo
+
+    muros = anillo("fachada", (0, 0), (12, 12)) + anillo("patio", (4, 4), (8, 8))
+    resultado = J.solve(muros)
+    recinto = {"seed": (6, 6), "height": 3}
+    if situacion is not None:
+        recinto["enclosure"] = situacion
+    lados = lados_del_modelo(resultado, [("recinto", recinto, None)])
+    esperados = {"fachada" + str(indice): "derecha" for indice in range(4)}
+    if es_exterior:
+        esperados.update({"patio" + str(indice): "izquierda" for indice in range(4)})
+    assert lados == esperados

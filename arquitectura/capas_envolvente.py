@@ -113,7 +113,8 @@ def lados_del_modelo(resultado, recintos=()):
 
     regiones = []
     for _identificador, registro, entidad in recintos:
-        if registro.get('enclosure', 'interior') == 'interior':
+        # Un valor desconocido no demuestra que el espacio sea exterior.
+        if registro.get('enclosure') not in ('exterior_cubierto', 'exterior_descubierto'):
             continue
         region, _motivo = outline(registro, resultado, entidad)
         if region is not None:

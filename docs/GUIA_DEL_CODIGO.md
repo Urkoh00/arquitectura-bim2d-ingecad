@@ -57,9 +57,15 @@ el módulo por sí solo no cambia el dibujo.
 La heurística preliminar de primera cara y nombres de materiales queda
 sustituida por el criterio recibido el 24-11: lado exterior geométrico,
 orden explícito de capas y clasificación de materiales en el catálogo.
-Se ha sustituido en el núcleo puro; falta conectarlo al dibujo, a las fichas y a la exportación. El criterio completo y los casos
-obligatorios constan en `docs/REVISION_EXTERNA_D1_2026-11-24.md`. Las
-pruebas preliminares actuales no certifican esa integración.
+La colocación de las capas del muro ya llega a las fichas, al registro y al
+contrato. El recubrimiento del pilar sigue pendiente de esa integración.
+El criterio completo y los casos obligatorios constan en
+`docs/REVISION_EXTERNA_D1_2026-11-24.md`. Las pruebas del núcleo no certifican
+por sí solas la futura geometría de recubrimiento.
+
+Solo los recintos declarados `exterior_cubierto` o `exterior_descubierto`
+exponen la cara del anillo interior: una clasificación desconocida no se
+interpreta como exterior. Lo comprueba `test_r29_e_caras_exteriores.py`.
 
 ### R29-G: precisión de la carpintería curva
 
