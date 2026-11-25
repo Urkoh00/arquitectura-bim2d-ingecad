@@ -57,7 +57,7 @@ el módulo por sí solo no cambia el dibujo.
 La heurística preliminar de primera cara y nombres de materiales queda
 sustituida por el criterio recibido el 24-11: lado exterior geométrico,
 orden explícito de capas y clasificación de materiales en el catálogo.
-Debe reemplazarse antes de integrar E. El criterio completo y los casos
+Se ha sustituido en el núcleo puro; falta conectarlo al dibujo, a las fichas y a la exportación. El criterio completo y los casos
 obligatorios constan en `docs/REVISION_EXTERNA_D1_2026-11-24.md`. Las
 pruebas preliminares actuales no certifican esa integración.
 
@@ -774,3 +774,22 @@ de las caras reales de los polígonos y usan la normal local del muro,
 también en curvas. Un extremo expuesto no decide por sí solo el lado.
 Los ensayos comprueban ambas referencias de cara y sentidos de dibujo,
 particiones interiores aisladas, patios, porches y muros curvos.
+
+### R29-E: catálogo constructivo y posición del aislamiento
+
+`capas_envolvente.py` separa `clase_constructiva` de las propiedades térmicas
+del catálogo. Las clases son aislante, fábrica/hoja, revestimiento,
+trasdosado y cámara. Un material sin clasificación impide resolver el
+automático. No se infieren clases por nombre, grupo o conductividad.
+
+`aislamiento` distingue exterior, cámara e interior por las hojas a ambos
+lados de la capa aislante. Los casos sin una posición única generan aviso.
+`colocar` obtiene intervalos físicos de cada capa desde la cara exterior
+resuelta, respetando la referencia geométrica del muro. No reinterpreta
+un tipo antiguo sin orden.
+
+El núcleo de `recubrimientos_pilar` recibe explícitamente catálogo y lados
+resueltos. Solo aplica aislamiento automático interior o de cámara. El
+contacto se comprueba en geometría y altura, no por igualdad de nombres de
+planta. Los modos manuales conservan su definición. La conexión con las
+fichas, la regeneración y las piezas exportadas sigue siendo necesaria.

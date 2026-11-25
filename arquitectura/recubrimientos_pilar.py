@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Resumen: resuelve el partición y el aislamiento del pilar a partir de sus muros de contacto.
+# Resumen: resuelve la partición y el aislamiento del pilar a partir de sus muros de contacto.
 """Reglas del recubrimiento sin dependencias de los anfitriones CAD."""
 from copy import deepcopy
 import math
@@ -18,7 +18,7 @@ CAMPOS = (
 
 
 def normalizar(datos):
-    """Conserva cover como espesor del partición; separa el aislamiento añadido."""
+    """Conserva cover como espesor de la partición; separa el aislamiento añadido."""
     salida = deepcopy(datos)
     salida.setdefault("cover", 0.0)
     salida.setdefault("cover_type", "")
@@ -53,55 +53,33 @@ def _texto(texto):
     )
 
 
-def _es_aislante(material):
-    nombre = _texto(material)
-    return any(raiz in nombre for raiz in (
-        "aislam", "lana mineral", "lana de roca", "lana de vidrio", "poliestir",
-        "poliuret", "corcho", "fibra de madera", "vidrio celular",
-    )) or any(palabra in nombre.split() for palabra in ("eps", "xps", "pir", "pur"))
+def _aislamiento_muro(muro, catalogo, lados):
+    from . import capas_envolvente as capas
 
-
-def _es_revestimiento(material):
-    nombre = _texto(material)
-    return any(raiz in nombre for raiz in (
-        "revoco", "enfosc", "guarnecido", "pintura", "revestimiento", "acabado", "alicatado",
-    ))
-
-
-def _aislamiento_muro(muro):
-    capas = muro.get("layers") or []
-    if not capas:
-        return None, "muro en contacto sin capas: no se deduce aislamiento automático"
-    aislantes = [indice for indice, (_, material) in enumerate(capas) if _es_aislante(material)]
-    if not aislantes:
-        return None, ""
-    if len(aislantes) > 1:
-        return None, "varias capas aislantes en el muro: elija el aislamiento del pilar"
-    indice = aislantes[0]
-    # Se interpreta el tipo desde su primera cara: los revestimientos exteriores
-    # no convierten un aislamiento superficial en aislamiento de cámara.
-    exteriores = capas[:indice]
-    if all(_es_revestimiento(material) for _, material in exteriores):
-        return None, ""
-    espesor, material = capas[indice]
-    espesor = float(espesor)
-    if not math.isfinite(espesor) or espesor <= 0:
-        return None, "espesor de aislamiento del muro no válido"
-    return (espesor, str(material)), ""
+    if not muro.get("layers"):
+        return None, ["muro en contacto sin capas: no se deduce aislamiento automático"]
+    if muro.get("orden_capas") != "exterior-interior":
+        tipo = muro.get("type_name") or "Sin nombre"
+        return None, [f"Tipo «{tipo}»: revise el orden de capas; conserva el significado anterior"]
+    if capas.lado_exterior(muro, lados) is None:
+        return None, ["cara exterior indeterminada: no se deduce aislamiento automático"]
+    candidato, avisos = capas.aislamiento(muro['layers'], catalogo)
+    if candidato is None or candidato['posicion'] == 'exterior':
+        return None, avisos
+    return (candidato['espesor'], candidato['material']), avisos
 
 
 def _coinciden_en_altura(pilar, muro):
-    nivel_pilar, nivel_muro = pilar.get("level_id"), muro.get("level_id")
-    if nivel_pilar and nivel_muro and nivel_pilar != nivel_muro:
-        return False
     base_pilar, base_muro = float(pilar.get("base", 0)), float(muro.get("base", 0))
     return min(base_pilar + float(pilar["height"]), base_muro + float(muro["height"])) > (
         max(base_pilar, base_muro) + TOLERANCIA
     )
 
 
-def resolver(pilar, muros):
+def resolver(pilar, muros, catalogo=None, lados=None):
     """Devuelve datos nuevos y avisos; nunca modifica el pilar ni sus muros."""
+    catalogo = catalogo or {}
+    lados = lados or {}
     salida = normalizar(pilar)
     salida["insulation_resolved_thickness"] = 0.0
     salida["insulation_resolved_material"] = ""
@@ -125,8 +103,8 @@ def resolver(pilar, muros):
         area = poligonos.overlap_area(piezas_nucleo, poligonos.convex_parts(forma.strip()))
         if area <= TOLERANCIA * TOLERANCIA:
             continue
-        candidato, aviso = _aislamiento_muro(muro)
-        if aviso:
+        candidato, avisos_muro = _aislamiento_muro(muro, catalogo, lados)
+        for aviso in avisos_muro:
             avisos.append(f"Pilar {salida['id']}, muro {identificador}: {aviso}")
         if candidato:
             candidatos.append(candidato)

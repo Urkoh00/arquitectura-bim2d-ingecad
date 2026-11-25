@@ -13,6 +13,16 @@ def modulo(plugin, nombre):
     return importlib.import_module(paquete + "." + nombre)
 
 
+CATALOGO = {"materiales": {
+    "Ladrillo cerámico": {"clase_constructiva": "fabrica"},
+    "Ladrillo hueco": {"clase_constructiva": "fabrica"},
+    "Ladrillo": {"clase_constructiva": "fabrica"},
+    "Lana mineral": {"clase_constructiva": "aislante"},
+    "Corcho": {"clase_constructiva": "aislante"},
+    "Revoco": {"clase_constructiva": "revestimiento"},
+}}
+
+
 def pilar(**cambios):
     return {
         "id": "pilar", "kind": "column", "shape": "rect", "center": [0, 0],
@@ -26,6 +36,7 @@ def muro(**cambios):
         "id": "muro", "kind": "wall", "a": [-3, 0], "b": [3, 0],
         "thickness": 0.3, "height": 3.0, "base": 0.0,
         "wall_category": "fachada", "level_id": "baja",
+        "orden_capas": "exterior-interior", "cara_exterior": "derecha",
         "layers": [[0.1, "Ladrillo cerámico"], [0.05, "Lana mineral"], [0.15, "Ladrillo hueco"]],
         **cambios,
     }
@@ -34,7 +45,7 @@ def muro(**cambios):
 def resolver(plugin, datos=None, muros=None):
     datos = pilar() if datos is None else datos
     muros = [muro()] if muros is None else muros
-    return modulo(plugin, "recubrimientos_pilar").resolver(datos, [(m["id"], m) for m in muros])
+    return modulo(plugin, "recubrimientos_pilar").resolver(datos, [(m["id"], m) for m in muros], CATALOGO)
 
 
 def test_aislamiento_en_camara_reutiliza_material_y_espesor_sin_mutar_entradas(plugin):
@@ -111,3 +122,27 @@ def test_cero_recubrimiento_no_crea_aislamiento_y_cover_numerico_se_conserva(plu
 def test_datos_invalidos_se_rechazan(plugin, campo, valor):
     with pytest.raises(ValueError):
         resolver(plugin, pilar(**{campo: valor}))
+
+
+def test_el_nucleo_no_resuelve_materiales_sin_clasificacion(plugin):
+    modulo_recubrimiento = modulo(plugin, "recubrimientos_pilar")
+    datos, avisos = modulo_recubrimiento.resolver(pilar(), [("muro", muro())])
+    assert datos["insulation_resolved_thickness"] == 0
+    assert any("clasifica" in aviso for aviso in avisos)
+
+
+def test_el_tipo_antiguo_y_la_cara_auto_indeterminada_no_se_adivinan(plugin):
+    pared = muro()
+    pared.pop("orden_capas")
+    datos, avisos = resolver(plugin, muros=[pared])
+    assert datos["insulation_resolved_thickness"] == 0
+    assert any("orden" in aviso for aviso in avisos)
+    datos, avisos = resolver(plugin, muros=[muro(cara_exterior="auto")])
+    assert datos["insulation_resolved_thickness"] == 0
+    assert any("cara exterior" in aviso for aviso in avisos)
+
+
+def test_el_contacto_fisico_prevalece_sobre_el_nombre_de_la_planta(plugin):
+    datos, avisos = resolver(plugin, muros=[muro(level_id="otra")])
+    assert not avisos
+    assert datos["insulation_resolved_thickness"] == pytest.approx(0.05)
