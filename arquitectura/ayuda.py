@@ -79,7 +79,7 @@ _SECCIONES_BASE = (
         (("PILAR",), "Pilar BIM rectangular, circular o metálico", (
             "S sección (0,30x0,30 · D0,35 · IPE/IPN/HEA/HEB/UPN · 2UPN cajón/empresillado)",
             "E enganche 1-9, G girar 90°, A autorrotación",
-            "P a distancia de dos paramentos, U de un paramento, C recubrimiento")),
+            "P a distancia de dos paramentos (o un clic en la esquina exterior), U de un paramento, C recubrimiento")),
         (("EJES", "REJILLA"), "Rejilla estructural", (
             "Origen de la rejilla; X e Y intervalos, Ángulo en grados, Suelto, Fin",)),
         (("EDITAREJE",), "Edita o renumera un eje", (

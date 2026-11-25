@@ -1,12 +1,12 @@
-# Manual de Arquitectura para IngeCAD — versión 1.48.19-dev
+# Manual de Arquitectura para IngeCAD — versión 1.48.20-dev
 
-Versión 1.48.19-dev · 25-11-2026
+Versión 1.48.20-dev · 25-11-2026
 
 > Copia del manual publicado como documento en claude.ai; se regenera con cada versión.
 
 ## Qué es
 
-Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.48.19-dev** y se actualiza con cada versión.
+Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.48.20-dev** y se actualiza con cada versión.
 
 ## Perfiles de trabajo
 
@@ -39,7 +39,7 @@ El plugin se instala copiando una carpeta en IngeCAD, y la extensión copiando t
 
 **En IngeCAD**
 
-1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.48.19-dev.zip`.
+1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.48.20-dev.zip`.
 2. Copie la carpeta `arquitectura` en la carpeta de plugins de IngeCAD.
 3. Reinicie IngeCAD. Aparece el menú *Arquitectura* y su barra de herramientas.
 4. Escriba `ARQDIAG` en la línea de órdenes para comprobar que la versión cargada es la que acaba de copiar.
@@ -342,7 +342,7 @@ El contrato completo, con un ejemplo, está en `docs/ENTRADA_REVISADA.md` dentro
 
 - **Libre:** se coloca por uno de 9 puntos de enganche (`E` 1-9, como el teclado numérico; 5 es el centro). También se elige en la ficha del pilar, con un botón por esquina, por mitad de cara y para el centro. El punto se marca con las referencias a objetos de IngeCAD (extremo, punto medio, intersección, rejilla…).
 - **`G`** gira 90°. **`A`** lo orienta solo según el muro o la línea bajo el cursor.
-- **`P` a distancia de dos paramentos:** se designan dos caras de muro (o líneas) y se hace clic en la esquina; las caras del pilar quedan a las distancias indicadas. Es el caso habitual de fachada, con 0,05 m.
+- **`P` a distancia de dos paramentos:** se designan dos caras de muro (o líneas) y se hace clic en la esquina; las caras del pilar quedan a las distancias indicadas. Es el caso habitual de fachada, con 0,05 m. Desde la 1.48.20 basta con un solo clic en la esquina exterior de dos muros: el pilar queda dentro de los muros, a las distancias indicadas de las dos caras, con el ángulo de una de ellas. Salvo con aislamiento por el exterior, en fachada el pilar no se enrasa con la cara exterior, para no crear un puente térmico; se retranquea al menos 5 cm hacia dentro. En una esquina interior o en cualquier otro punto, se siguen designando las dos caras.
 - **`U` a distancia de un paramento:** una cara y un punto a lo largo de ella.
 - **`C` recubrimiento:** añade un forro alrededor de la sección. Un pilar aislado se recubre entero; si corta un muro, solo la parte que queda fuera de él, y el muro ocupa el resto. En el IFC, el revestimiento mide su superficie vista.
 
@@ -636,7 +636,7 @@ Con niveles o forjados, el intercambio usa `.arqbim` v3 y necesita la extensión
 
 ## Limitaciones conocidas
 
-Estas son las limitaciones conocidas de la versión 1.48.19-dev; cada versión actualiza esta lista.
+Estas son las limitaciones conocidas de la versión 1.48.20-dev; cada versión actualiza esta lista.
 
 - **Plataforma:** las pruebas automáticas se ejecutan en Linux con la última versión oficial de IngeCAD y de IngeTrazo, pero sin pantalla. Solo se prueba con la última versión de cada programa, porque ambos publican casi cada semana.
 - **Muros curvos:** cada muro llega como mucho a 350° (un muro redondo son dos o más). La elección automática de cara de MURO y ESTIRAMURO hasta una cara curva solo conocen muros rectos: con un muro curvo, elija la cara a mano. DIVIDEMURO divide el arco entre los dos puntos designados; para dividir un arco entero, designe sus dos extremos.
@@ -650,6 +650,7 @@ Estas son las limitaciones conocidas de la versión 1.48.19-dev; cada versión a
 
 | Fecha | Versión | Novedades |
 | --- | --- | --- |
+| 1.48.20-dev | 25-11-2026 | PILAR, opción P: un clic en la esquina exterior de dos muros coloca el pilar retranqueado hacia dentro a las distancias indicadas, con el ángulo de una de las caras, y con vista previa. |
 | 1.48.19-dev | 25-11-2026 | Partición de recubrimiento de pilares en PILAR y -PILAR (tipo o espesor, material; 7 cm por defecto), sin invadir los muros y con recintos recalculados. Aislamiento del pilar solo en el perfil Modelo Térmico. |
 | 1.48.18-dev | 25-11-2026 | Perfiles de trabajo: Planos 2D (por defecto y único en esta versión), Modelo BIM y Modelo Térmico. El perfil decide órdenes, campos de las fichas y avisos; no cambia el modelo. |
 | 1.48.17-dev | 25-11-2026 | Cara exterior de los muros (automática por la geometría, o izquierda/derecha); tipos de envolvente con capas de exterior a interior; patios y porches como recintos exteriores; ARQVALIDAR avisa de tipos antiguos y de caras indeterminadas. |

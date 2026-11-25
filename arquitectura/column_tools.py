@@ -9,7 +9,11 @@
   automatic rotation from the wall or line under the cursor (A).
 * «A distancia de paramentos» (P): two wall faces (or lines) and a click in
   the corner where the column goes: its sides lie at d1 and d2 from them.
-  The usual façade case: two outer faces and d = 0,05 m.
+  The usual façade case: two outer faces and d = 0,05 m. **One click on the
+  outer corner of two walls** does the same: the column goes inside the
+  walls, at d1 and d2 from both faces, with the angle of the first face
+  (25-11-2026, criterio del propietario: en fachada el pilar queda al menos
+  5 cm hacia dentro, para no crear un puente térmico).
 * «A distancia de un paramento» (U): one face and a point along it.
 * Sections typed with S: 0,30x0,30 · 30x40 (cm) · D0,35 · IPE 200 · IPN 160
   · HEA 200 · HEB 160 · UPN 120 · 2UPN 160 cajon · 2UPN 160 empresillado
@@ -110,8 +114,8 @@ class PilarTool(Tool):
                 "paramentos": f"a {self.d1:g} y {self.d2:g} m de dos paramentos",
                 "paramento": f"a {self.d1:g} m de un paramento"}[self.mode].replace(".", ",")
         steps = {"libre": ["punto de inserción"],
-                 "paramentos": ["primer paramento", "segundo paramento",
-                                "clic en la esquina donde va el pilar"],
+                 "paramentos": ["esquina exterior de dos muros, o primer paramento",
+                                "segundo paramento", "clic en la esquina donde va el pilar"],
                  "paramento": ["paramento", "punto a lo largo del paramento (en el lado del pilar)"]}[self.mode]
         step = steps[min(len(self.picks), len(steps) - 1)]
         self.prompt(f"PILAR ({self._section_text()}; {mode}): {step} o "
@@ -252,6 +256,63 @@ class PilarTool(Tool):
             center = (center[0] + e1[0] * k, center[1] + e1[1] * k)
         return center, values
 
+    def _wall_corner(self, p):
+        """The two wall faces that meet at ``p`` (an outer corner of two walls)
+        and a point inside the walls in that corner, or None.
+
+        The faces are the contour lines (``junction_edge``) with an end at
+        ``p``; the side of the corner is the one inside the wall body, tested
+        on the walls of those lines. Tolerance, not rounding: 1e-5 m."""
+        from .architectural import metadata
+        from .geom.junctions import walls_from_records
+        doc = _document(self.ctx).doc
+        tol = 1e-5
+        faces, ids = [], set()
+        for e in doc.modelspace():
+            if e.dxftype() != "LINE":
+                continue
+            m = metadata(e) or {}
+            if m.get("kind") != "junction_edge":
+                continue
+            a = (e.dxf.start.x, e.dxf.start.y)
+            b = (e.dxf.end.x, e.dxf.end.y)
+            if math.dist(a, p) <= tol:
+                faces.append((a, b))
+            elif math.dist(b, p) <= tol:
+                faces.append((b, a))
+            else:
+                continue
+            ids.update(m.get("wall_ids") or ())
+        if len(faces) != 2:
+            return None
+        u1, u2 = _line_dir(faces[0]), _line_dir(faces[1])
+        if abs(u1[0] * u2[1] - u1[1] * u2[0]) < 1e-9:
+            return None                          # collinear: not a corner
+        records = [(m["id"], m) for e in doc.modelspace()
+                   if (m := metadata(e) or {}).get("kind") == "wall" and m.get("id") in ids]
+        walls = [w for w in walls_from_records(records) if not getattr(w, "curved", False)]
+        bis = (u1[0] + u2[0], u1[1] + u2[1])
+        n = math.hypot(*bis)
+        bis = (bis[0] / n, bis[1] / n)
+        eps = 1e-3
+
+        # A corner lies past the axis end of a wall (inside the joint), so the
+        # test allows the thickness of the other walls beyond each end.
+        reach = max((w.thickness for w in walls), default=0.0)
+
+        def inside(q):
+            for w in walls:
+                s, o = w.local(q)
+                if (-reach - 1e-9 <= s <= w.length + reach + 1e-9
+                        and w.lo - 1e-9 <= o <= w.hi + 1e-9):
+                    return True
+            return False
+
+        # only an outer (convex) corner: the walls lie inside the angle of the
+        # two faces. An inner corner keeps the usual two-faces picking.
+        q = (p[0] + bis[0] * eps, p[1] + bis[1] * eps)
+        return (faces[0], faces[1], q) if inside(q) else None
+
     def _face_center(self, line, q):
         u = _line_dir(line)
         n = (-u[1], u[0])
@@ -287,7 +348,15 @@ class PilarTool(Tool):
             center, values = self._free_center(p)
             self._place(center, values)
         elif self.mode == "paramentos":
-            if len(self.picks) < 2:
+            corner = self._wall_corner(p) if not self.picks else None
+            if corner is not None:
+                l1, l2, q = corner
+                try:
+                    center, values = self._corner_center(l1, l2, q)
+                    self._place(center, values)
+                except ValueError as exc:
+                    self.ctx.echo(f"PILAR: {exc}")
+            elif len(self.picks) < 2:
                 line = self._picked_line(p)
                 if line is None:
                     self.ctx.echo("PILAR: designe una cara de muro o una línea.")
@@ -319,6 +388,9 @@ class PilarTool(Tool):
                 center, values = self._free_center(cursor)
             elif self.mode == "paramentos" and len(self.picks) == 2:
                 center, values = self._corner_center(self.picks[0], self.picks[1], cursor)
+            elif self.mode == "paramentos" and not self.picks and (
+                    corner := self._wall_corner(cursor)) is not None:
+                center, values = self._corner_center(*corner)
             elif self.mode == "paramento" and self.picks:
                 center, values = self._face_center(self.picks[0], cursor)
             else:

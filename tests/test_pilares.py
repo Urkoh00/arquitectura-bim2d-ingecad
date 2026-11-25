@@ -101,6 +101,40 @@ def test_pilar_de_esquina_a_5_cm_de_las_caras_exteriores(plugin, tmp_path):
     assert area == pytest.approx(7.70 * 4.70 - 0.05 * 0.05)    # descuenta lo que sobresale
 
 
+def test_pilar_de_esquina_con_un_clic_en_la_esquina_exterior(plugin):
+    """Criterio del propietario (25-11): en fachada el pilar queda al menos
+    5 cm hacia dentro; la referencia es la esquina exterior, con un retranqueo
+    a cada lado. Un clic en esa esquina equivale a designar las dos caras."""
+    s = Session(plugin)
+    _cerramiento(s)
+    s.plugin.commands['UNIONESARQ'](_cmd_ctx(s))
+    t = s.tool('PILAR')
+    t.values['cover'] = 0.0
+    t.on_option('s')
+    t.on_option('0,30x0,30')
+    t.on_option('p')
+    t.on_option('0,05')
+    assert t.preview_segments((-0.15, -0.15)), "la vista previa ya muestra el pilar"
+    t.on_point((-0.15, -0.15))               # esquina exterior sudoeste
+    assert len(_columns(s)) == 1, s.out[-6:]
+    c = _columns(s)[0]
+    xs = [p[0] for p in c.get_points('xy')]
+    ys = [p[1] for p in c.get_points('xy')]
+    assert (min(xs), min(ys), max(xs), max(ys)) == pytest.approx((-0.10, -0.10, 0.20, 0.20))
+    assert not t.picks
+
+
+def test_un_clic_en_una_esquina_interior_sigue_designando_caras(plugin):
+    s = Session(plugin)
+    _cerramiento(s)
+    s.plugin.commands['UNIONESARQ'](_cmd_ctx(s))
+    t = s.tool('PILAR')
+    t.on_option('p')
+    t.on_option('0,05')
+    t.on_point((0.15, 0.15))                 # esquina interior: no coloca nada
+    assert not _columns(s)
+
+
 def test_perfil_heb_con_recubrimiento_y_revestimiento(plugin, tmp_path):
     s = Session(plugin)
     _cerramiento(s)

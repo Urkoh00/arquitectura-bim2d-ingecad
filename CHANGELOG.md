@@ -2,6 +2,24 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.48.20-dev — 2026-11-25
+
+**Criterio del propietario (25-11):** salvo con aislamiento por el exterior (SATE), en fachada el pilar no se enrasa
+con la cara exterior del muro, para no crear un puente térmico. Va retranqueado al menos 5 cm hacia dentro. La
+referencia es la esquina exterior, con un retranqueo a cada lado y el ángulo de una de las alineaciones. Dentro de
+un muro, la referencia es un punto de su línea exterior, con el retranqueo y el ángulo del muro.
+
+- **PILAR, opción P:**
+  - un clic en la esquina exterior de dos muros coloca el pilar dentro de ellos, a las distancias indicadas
+    (0,05 m por defecto) de las dos caras, con el ángulo de la primera;
+  - la vista previa lo muestra al pasar por la esquina;
+  - en una esquina interior o en otro punto se siguen designando las dos caras;
+  - la esquina se busca con tolerancia, sin redondeo.
+- La opción U ya sigue el criterio de un muro: una cara, un punto a lo largo de ella, el retranqueo y el ángulo del
+  muro.
+- Consecuencia para el recubrimiento: con este criterio, la cara exterior del pilar queda dentro del muro y no se
+  forra. El caso abierto del parcial 05 (pilar centrado en una fachada) queda como caso particular.
+
 ## 1.48.19-dev — 2026-11-25
 
 Integración del parcial 05 de R29 (Codex, revisado por Claude): recubrimientos de pilares (bloque E), adaptados a los
