@@ -1,12 +1,12 @@
-# Manual de Arquitectura para IngeCAD — versión 1.48.16-dev
+# Manual de Arquitectura para IngeCAD — versión 1.48.17-dev
 
-Versión 1.48.16-dev · 24-11-2026
+Versión 1.48.17-dev · 25-11-2026
 
 > Copia del manual publicado como documento en claude.ai; se regenera con cada versión.
 
 ## Qué es
 
-Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.48.16-dev** y se actualiza con cada versión.
+Arquitectura es un plugin de IngeCAD para dibujar plantas en 2D en las que cada muro, pilar, puerta, ventana y recinto es desde el principio un objeto BIM, que se lleva a IngeTrazo y se exporta a IFC sin redibujar nada. Este manual corresponde a la versión **1.48.17-dev** y se actualiza con cada versión.
 
 Cada elemento guarda su identidad persistente, su clase IFC, su geometría editable en planta, sus parámetros 3D (altura, espesor, cota), sus propiedades constructivas (tipo, material, capas) y su nivel. Las carpinterías conocen su muro y los recintos siguen a los muros que los cierran.
 
@@ -27,7 +27,7 @@ El plugin se instala copiando una carpeta en IngeCAD, y la extensión copiando t
 
 **En IngeCAD**
 
-1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.48.16-dev.zip`.
+1. Descomprima el ZIP de la versión, por ejemplo `Arquitectura_IngeCAD_v1.48.17-dev.zip`.
 2. Copie la carpeta `arquitectura` en la carpeta de plugins de IngeCAD.
 3. Reinicie IngeCAD. Aparece el menú *Arquitectura* y su barra de herramientas.
 4. Escriba `ARQDIAG` en la línea de órdenes para comprobar que la versión cargada es la que acaba de copiar.
@@ -117,7 +117,13 @@ Los valores por defecto, el catálogo de tipos de muro y los usos se guardan den
 
 Aquí se guardan también las capas y la tolerancia que usa `LINEASAMURO`.
 
-**TIPOSMURO** gestiona el catálogo. Sin argumentos abre una ficha con la lista de tipos y las capas de cada uno, donde se crean, duplican y eliminan tipos y se añaden, quitan y ordenan capas. Las formas de la tabla sirven desde la línea de órdenes. Cada tipo es una lista de capas, contadas desde la cara dibujada hacia el cuerpo del muro; su espesor total es la suma de las capas.
+**TIPOSMURO** gestiona el catálogo. Sin argumentos abre una ficha con la lista de tipos y las capas de cada uno, donde se crean, duplican y eliminan tipos y se añaden, quitan y ordenan capas. Las formas de la tabla sirven desde la línea de órdenes. Cada tipo es una lista de capas, contadas desde la cara dibujada hacia el cuerpo del muro; su espesor total es la suma de las capas. En los tipos nuevos de envolvente (fachada, medianera, sótano), desde la 1.48.17, las capas se cuentan de exterior a interior; los de partición conservan el orden desde la cara dibujada.
+
+**Orden de capas y cara exterior (desde la 1.48.17).** `TIPOSMURO` permite revisar el orden de capas de cada tipo. Los tipos anteriores, que no tienen ese dato, se conservan tal como están: un tipo nunca se voltea por leerlo. `ARQVALIDAR` los señala, una vez por tipo, para que se revisen.
+
+`MURO` y `-MURO` permiten elegir la **cara exterior**: Automática, Izquierda o Derecha, según el sentido de dibujo. En Automática manda la geometría: es exterior la cara que da al contorno exterior del edificio. Los patios se declaran como recintos «exterior descubierto» y los porches como «exterior cubierto»; el nombre de un recinto no basta para hacerlo exterior. Si un muro no tiene un único lado exterior, por ejemplo una medianera o un edificio todavía abierto, `ARQVALIDAR` pide indicarlo: no se adivina.
+
+La exportación conserva el lado exterior y la posición de cada capa en el espesor del muro. Esto no garantiza que el IFC que escribe IngeTrazo represente ya todas esas relaciones de material: la exportación IFC sigue siendo experimental.
 
 | Escriba | Hace |
 | --- | --- |
@@ -616,7 +622,7 @@ Con niveles o forjados, el intercambio usa `.arqbim` v3 y necesita la extensión
 
 ## Limitaciones conocidas
 
-Estas son las limitaciones conocidas de la versión 1.48.16-dev; cada versión actualiza esta lista.
+Estas son las limitaciones conocidas de la versión 1.48.17-dev; cada versión actualiza esta lista.
 
 - **Plataforma:** las pruebas automáticas se ejecutan en Linux con la última versión oficial de IngeCAD y de IngeTrazo, pero sin pantalla. Solo se prueba con la última versión de cada programa, porque ambos publican casi cada semana.
 - **Muros curvos:** cada muro llega como mucho a 350° (un muro redondo son dos o más). La elección automática de cara de MURO y ESTIRAMURO hasta una cara curva solo conocen muros rectos: con un muro curvo, elija la cara a mano. DIVIDEMURO divide el arco entre los dos puntos designados; para dividir un arco entero, designe sus dos extremos.
@@ -630,6 +636,7 @@ Estas son las limitaciones conocidas de la versión 1.48.16-dev; cada versión a
 
 | Fecha | Versión | Novedades |
 | --- | --- | --- |
+| 1.48.17-dev | 25-11-2026 | Cara exterior de los muros (automática por la geometría, o izquierda/derecha); tipos de envolvente con capas de exterior a interior; patios y porches como recintos exteriores; ARQVALIDAR avisa de tipos antiguos y de caras indeterminadas. |
 | 1.48.16-dev | 24-11-2026 | Doble clic sobre forjados y armarios abre su ficha propia; ACTUALIZAEJES conserva un pilar movido con las órdenes de IngeCAD; pilares y particiones de una planta inferior se pueden designar desde la activa; COTAMUROS usa la orden pública de cotas de IngeCAD. |
 | 1.48.15-dev | 24-11-2026 | Un recinto dañado ya no impide generar el cuadro de superficies: su fila indica el error. |
 | 1.48.14-dev | 24-11-2026 | Correcciones internas de robustez (plano de carpintería, vistas previas de fichas, detección de escalas); sin cambios de uso. |

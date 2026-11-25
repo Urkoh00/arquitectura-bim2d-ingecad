@@ -2,6 +2,24 @@
 
 Fecha: 5-11-2026. Base: v1.5.1. Distribución de ensayo: no sustituye la versión de trabajo.
 
+## 1.48.17-dev — 2026-11-25
+
+Integración del parcial 04 de R29 (Codex, revisado por Claude): bloque E, cara exterior y orden de capas.
+
+- **Cara exterior geométrica:** la decide el contorno exterior del edificio. Los patios («exterior descubierto»)
+  y los porches («exterior cubierto») declarados como recintos cuentan como exterior. Si un muro no tiene un lado
+  único, ARQVALIDAR lo pide y no se adivina. MURO y -MURO permiten forzarla: Automática, Izquierda o Derecha.
+- **Orden de capas:**
+  - los tipos nuevos de envolvente se definen de exterior a interior, como el catálogo del Ministerio;
+  - los de partición, desde la cara dibujada;
+  - los tipos anteriores sin ese dato se conservan, con un aviso por tipo en ARQVALIDAR.
+- **Aislamiento:** su posición (exterior, en cámara, interior) se clasifica por la clase constructiva de los
+  materiales y su posición entre capas, nunca por el nombre. Si falta la clase, se avisa.
+- **Contrato de intercambio:** lleva el lado exterior resuelto y la posición física de cada capa. La exportación IFC
+  sigue siendo experimental.
+- **Sigue pendiente de E:** recubrimientos automáticos de pilares (interfaz, catálogo, regeneración y
+  exportación). Después, F y H–K.
+
 ## 1.48.16-dev — 2026-11-24
 
 Integración del parcial 03 de R29 (Codex, revisado por Claude): los puntos D1 encargados, con un commit y pruebas
