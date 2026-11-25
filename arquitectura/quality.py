@@ -93,11 +93,15 @@ def audit_architecture(document):
         issues.append('Unidades DXF sin declarar: el modelo arquitectónico presupone metros')
     if columns:
         from .exchange import read_model
+        from .recubrimientos_pilar import avisos_ocultos_por_perfil
         try:
-            _muros, calculadas, _huecos, avisos = read_model(drawing, strict=False)
+            notas_recubrimiento = []
+            _muros, calculadas, _huecos, avisos = read_model(
+                drawing, strict=False, avisos_recubrimiento=notas_recubrimiento)
             termico = incluye(perfil_activo(), TERMICO)
+            ocultos = avisos_ocultos_por_perfil(notas_recubrimiento)
             issues.extend(aviso for aviso in avisos if aviso.startswith('Pilar ')
-                          and (termico or 'interior indeterminado' in aviso))
+                          and aviso not in ocultos)
             originales = {registro['id']: registro for _entidad, registro in columns}
             for identificador, calculada in calculadas:
                 anterior = originales.get(identificador, {})

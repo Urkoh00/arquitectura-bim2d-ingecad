@@ -52,13 +52,16 @@ def _pts(entity):
     return [tuple(map(float, p)) for p in entity.get_points("xy")]
 
 
-def read_model(drawing, tol=1e-5, strict=True, skip=()):
+def read_model(drawing, tol=1e-5, strict=True, skip=(), *, avisos_recubrimiento=None):
     """Tagged walls/columns/openings of the drawing, CAD geometry first.
 
     Returns (walls, columns, openings, issues). Raises on duplicated IDs:
     exporting two objects with one identity would corrupt the IFC. With
     ``strict=False`` (plan regeneration) a duplicate is kept under a
-    provisional key and reported, so the drawing can still be displayed."""
+    provisional key and reported, so the drawing can still be displayed.
+    avisos_recubrimiento recoge opcionalmente solo esos avisos para filtrarlos
+    al mostrarlos; issues y los resultados geométricos se conservan completos.
+    """
     msp = drawing.modelspace()
     from . import frame as FR
     walls, columns, openings, issues, seen = [], [], [], [], {}
@@ -115,6 +118,9 @@ def read_model(drawing, tol=1e-5, strict=True, skip=()):
         clases = general_options(drawing).get('materiales_constructivos', {})
         columns, avisos = resolver_modelo(walls, columns, catalogo(clases), read_spaces(drawing, skip))
         issues.extend(avisos)
+        if avisos_recubrimiento is not None:
+            # La presentación necesita distinguirlos de los avisos de sincronización CAD.
+            avisos_recubrimiento.extend(avisos)
     return walls, columns, openings, issues
 
 

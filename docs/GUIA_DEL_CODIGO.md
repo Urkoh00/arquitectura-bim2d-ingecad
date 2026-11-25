@@ -916,3 +916,12 @@ al retomar un modelo por doble clic mediante `datos_de_colocacion`. No
 copia identidades ni resultados derivados del tramo anterior. La prueba
 de ventana detecta la diferencia entre mostrar la selección en la ficha
 y conservarla realmente en el nuevo registro.
+
+### Avisos de recubrimiento en la regeneración (R29-E)
+
+`read_model` conserva todos los avisos y permite recoger por separado los que
+proceden del recubrimiento. `UNIONESARQ` y `ARQVALIDAR` usan el mismo filtro de
+presentación de `recubrimientos_pilar`: fuera del perfil térmico se omiten los
+avisos de aislamiento. El interior indeterminado sigue avisándose porque impide
+resolver la partición en Planos 2D. No se filtran los problemas de sincronización
+CAD ni se cambia el contrato o la geometría según el perfil.

@@ -17,6 +17,16 @@ CAMPOS = (
 )
 
 
+def avisos_ocultos_por_perfil(avisos):
+    """Solo filtra los avisos del recubrimiento; el modelo conserva todos."""
+    from . import perfiles
+
+    if perfiles.incluye(perfiles.perfil_activo(), perfiles.TERMICO):
+        return set()
+    # No decidir el interior impide dibujar la partición: también importa en 2D.
+    return {aviso for aviso in avisos if 'interior indeterminado' not in aviso}
+
+
 def aplicar_tipo(datos, tipos=None):
     """El tipo elegido fija su espesor; un nombre desconocido no se interpreta."""
     salida = normalizar(datos)

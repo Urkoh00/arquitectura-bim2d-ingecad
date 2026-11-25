@@ -43,6 +43,7 @@ class RegenerateContoursCommand(Command):
         self.sync=None          # [(entity, old_meta, new_meta)], fixed on first do
         self.groups=[]
         self.issues=[]
+        self.avisos_recubrimiento = []
         self.new_count=0
         self.removed_handles=[]
         self.space_edits=[]     # [(entity, old_meta, new_meta, old_pts, new_pts)]
@@ -465,7 +466,9 @@ class RegenerateContoursCommand(Command):
                 # polygons go to IngeTrazo through exchange.py). CAD axes first.
                 from .exchange import read_model
                 from .geom import junctions as J
-                records, columns, _ops, issues = read_model(document.doc, strict=False)
+                self.avisos_recubrimiento = []
+                records, columns, _ops, issues = read_model(
+                    document.doc, strict=False, avisos_recubrimiento=self.avisos_recubrimiento)
                 specs = J.walls_from_records(records)
                 from .geom.bands import solve_records
                 from . import particiones_virtuales as VP

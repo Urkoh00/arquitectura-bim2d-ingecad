@@ -1487,8 +1487,10 @@ def unionesarq(ctx,*args):
         if moved:
             ctx.echo(f'UNIONESARQ: {moved} elemento(s) con datos BIM actualizados desde la geometría CAD.')
         ctx.echo(f'UNIONESARQ: {cmd.new_count} segmentos de contorno regenerados; {groups} muro(s) seleccionables como objeto completo.')
+        from .recubrimientos_pilar import avisos_ocultos_por_perfil
+        ocultos = avisos_ocultos_por_perfil(cmd.avisos_recubrimiento)
         for issue in cmd.issues:
-            if 'duplicado' not in issue:
+            if 'duplicado' not in issue and issue not in ocultos:
                 ctx.echo('  Aviso: ' + issue)
     except Exception as exc:
         ctx.echo(f'UNIONESARQ: {type(exc).__name__}: {exc}')
