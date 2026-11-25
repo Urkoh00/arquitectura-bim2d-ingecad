@@ -626,7 +626,11 @@ def column_form(ctx, record=None, anchor=None):
     ``anchor`` the insertion point (1..9, as the numeric keypad) when one
     is given: placing a new column; editing one has nothing to insert."""
     QDialog,_,_,QFormLayout,QGroupBox,_,_,QLineEdit,QLabel=_widgets()
-    d=record or {}
+    from .recubrimientos_pilar import normalizar, MODOS_AISLAMIENTO
+    from .parameters_arq import load_defaults
+    d = normalizar(record or {})
+    from .compat import require_document
+    tipos = load_defaults(require_document(ctx))['wall_types']
     dlg,layout,buttons=_dialog(ctx,'Arquitectura — Pilar',
        'Defina la sección, el punto de inserción y las propiedades BIM del pilar. '
        'La posición se marca con el ratón, con las referencias a objetos de IngeCAD.')
@@ -648,18 +652,40 @@ def column_form(ctx, record=None, anchor=None):
     cover.setSingleStep(.01)
     cover.setToolTip('Recubrimiento o forro alrededor de la sección (0 = sin recubrimiento). '
                      'Donde el pilar está dentro de un muro, el muro ocupa ese espacio.')
+    tipo_recubrimiento = _choice([('Espesor manual', '')] + [
+        (tipo['name'], tipo['name']) for tipo in tipos if tipo.get('wall_category') == 'particion'
+    ], d['cover_type'])
+    material_recubrimiento = QLineEdit(d['cover_material'])
+    modo_aislamiento = _choice(list(MODOS_AISLAMIENTO), d['insulation_mode'])
+    espesor_aislamiento = _spin(d['insulation_thickness'], positive=True)
+    material_aislamiento = QLineEdit(d['insulation_material'])
+    estado_aislamiento = QLabel('Se resuelve al regenerar; solo en caras libres y bajo la partición.')
+    if 'insulation_resolved_thickness' in d:
+        estado_aislamiento.setText(f"Aislamiento resuelto máximo: {d['insulation_resolved_thickness']:g} m")
     height=_spin(d.get('height',3.00),positive=True)
     z=_spin(d.get('base',0))
     for name,widget in [('Sección:',shape),('Anchura (X):',w),('Fondo (Y):',h),
                         ('Radio circunscrito:',radius),('Perfil:',profile),('Giro de sección:',rotation),
-                        ('Recubrimiento:',cover),('Altura:',height),('Cota base:',z)]:
+                        ('Partición de recubrimiento:', tipo_recubrimiento),
+                        ('Espesor de partición:',cover), ('Material de partición:', material_recubrimiento),
+                        ('Aislamiento:', modo_aislamiento), ('Espesor de aislamiento:', espesor_aislamiento),
+                        ('Material del aislamiento:', material_aislamiento), ('', estado_aislamiento),
+                        ('Altura:',height),('Cota base:',z)]:
         form.addRow(name,widget)
     def update(*_):
         kind=shape.currentData()
         regular=kind in ('circ','hex','oct')
         w.setEnabled(kind=='rect');h.setEnabled(kind=='rect');radius.setEnabled(regular)
         profile.setEnabled(kind=='steel')
+        manual = not tipo_recubrimiento.currentData()
+        cover.setEnabled(manual)
+        material_recubrimiento.setEnabled(manual)
+        con = modo_aislamiento.currentData() == 'con'
+        espesor_aislamiento.setEnabled(con)
+        material_aislamiento.setEnabled(con)
     shape.currentIndexChanged.connect(update);update()
+    tipo_recubrimiento.currentIndexChanged.connect(update)
+    modo_aislamiento.currentIndexChanged.connect(update)
     layout.addWidget(geo)
     where=QGroupBox('Punto de inserción',dlg)
     wform=QFormLayout(where)
@@ -697,8 +723,16 @@ def column_form(ctx, record=None, anchor=None):
             out['anchor'] = picker._group.checkedId() if picker._group.checkedId() > 0 else 5
         if out['shape'] == 'steel':
             out['profile'] = profile.text()
-        return normalizar_pilar(out)
+        out.update(cover_type=tipo_recubrimiento.currentData(),
+                   cover_material=material_recubrimiento.text().strip(),
+                   insulation_mode=modo_aislamiento.currentData(),
+                   insulation_thickness=espesor_aislamiento.value(),
+                   insulation_material=material_aislamiento.text().strip())
+        return normalizar_pilar(out, tipos)
     dlg._arq={'shape':shape,'width':w,'depth':h,'profile':profile,'cover':cover,'anchor':picker}
+    dlg._arq.update(cover_type=tipo_recubrimiento, cover_material=material_recubrimiento,
+                    insulation_mode=modo_aislamiento, insulation_thickness=espesor_aislamiento,
+                    insulation_material=material_aislamiento)
     return dlg,read
 
 
@@ -729,24 +763,31 @@ def architectural_defaults_dialog(ctx, current):
     info=QLabel('Valores por defecto para elementos NUEVOS. Se guardan en el dibujo DXF; no modifican los ya dibujados.')
     info.setWordWrap(True);main.addWidget(info)
     tabs=QTabWidget(dlg);main.addWidget(tabs)
-    numeric={'thickness','height','base','width','depth','radius','rotation','sill'}
+    numeric={'thickness','height','base','width','depth','radius','rotation','sill',
+             'cover', 'insulation_thickness'}
     labels={'thickness':'Espesor (m)','height':'Altura (m)','base':'Cota base (m)',
             'reference':'Referencia','name':'Nombre','type_name':'Tipo',
             'material':'Material','level':'Nivel','shape':'Sección',
             'width':'Anchura (m)','depth':'Fondo (m)','radius':'Radio circunscrito (m)','rotation':'Giro (°)',
-            'sill':'Antepecho (m)'}
+            'sill':'Antepecho (m)', 'cover':'Partición de recubrimiento (m)',
+            'cover_type':'Tipo de partición (vacío = manual)', 'cover_material':'Material de partición',
+            'insulation_mode':'Aislamiento', 'insulation_thickness':'Espesor de aislamiento (m)',
+            'insulation_material':'Material del aislamiento'}
     editors={}
     for kind,title in [('wall','Muros'),('column','Pilares'),('door','Puertas'),('window','Ventanas')]:
         widget=QWidget();form=QFormLayout(widget)
         for key,value in data[kind].items():
             if key in numeric:
-                editor=_spin(value,positive=key not in ('base','sill','rotation'))
+                editor=_spin(value,positive=key not in ('base','sill','rotation','cover'))
                 if key=='rotation':
                     editor.setSuffix(' °');editor.setRange(-360,360);editor.setSingleStep(15)
             elif key=='reference':
                 editor=_choice([('Eje','eje'),('Izquierda','izquierda'),('Derecha','derecha')],value)
             elif key=='shape':
                 editor=_choice([('Rectangular','rect'),('Circular','circ'),('Hexagonal regular','hex'),('Octogonal regular','oct')],value)
+            elif key == 'insulation_mode':
+                from .recubrimientos_pilar import MODOS_AISLAMIENTO
+                editor = _choice(list(MODOS_AISLAMIENTO), value)
             else:
                 editor=QLineEdit(str(value))
             form.addRow(labels.get(key,key),editor)
@@ -797,6 +838,16 @@ def architectural_defaults_dialog(ctx, current):
     gform.addRow('Precisión de las medidas', precision)
     editors[('general', 'precision_medidas')] = precision
     tabs.insertTab(0,general,'General');tabs.setCurrentIndex(0)
+    from .materiales_constructivos import nombres, ETIQUETAS
+    materiales = QWidget()
+    formulario_materiales = QFormLayout(materiales)
+    formulario_materiales.addRow(QLabel('Clases explícitas de los materiales de TIPOSMURO; se guardan en el dibujo.'))
+    clases = data['general'].get('materiales_constructivos', {})
+    for nombre_material in nombres(data):
+        control = _choice(list(ETIQUETAS), clases.get(nombre_material, ''))
+        formulario_materiales.addRow(nombre_material, control)
+        editors[('materiales', nombre_material)] = control
+    tabs.addTab(materiales, 'Materiales constructivos')
     editors[('general','usar_usos')]=usos;editors[('general','cota_minima')]=minimo
     editors[('general','norte')]=norte
     editors[('general','armarios_superficie_util')]=armarios
@@ -812,7 +863,16 @@ def architectural_defaults_dialog(ctx, current):
 def read_defaults_dialog(data,editors,numeric=('thickness','height','base','width','depth','radius','rotation','sill')):
     data.setdefault('general',{})
     for (kind,key),editor in editors.items():
-        if key=='usar_usos': data[kind][key]=editor.isChecked()
+        if kind == 'materiales':
+            clases = data['general'].setdefault('materiales_constructivos', {})
+            valor = editor.currentData()
+            if valor:
+                clases[key] = valor
+            else:
+                clases.pop(key, None)
+        elif key=='usar_usos': data[kind][key]=editor.isChecked()
+        elif key in ('cover', 'insulation_thickness'): data[kind][key]=editor.value()
+        elif key == 'insulation_mode': data[kind][key]=editor.currentData()
         elif key in ('cota_minima','norte'): data[kind][key]=editor.value()
         elif key in numeric: data[kind][key]=editor.value()
         elif key in ('reference','shape','armarios_superficie_util','escala','precision_medidas','vista_relleno',

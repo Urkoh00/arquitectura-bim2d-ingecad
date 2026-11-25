@@ -28,7 +28,7 @@ class CreacionTexto(PreguntasTexto):
         elif familia == "pilar":
             datos = deepcopy(self.values)
             datos["anchor"] = getattr(self, "anchor", 5)
-            campos = F.campos_pilar(datos, self.orden_original == "PILAR")
+            campos = F.campos_pilar(datos, self.orden_original == "PILAR", tipos=F.tipos_de_pilar(self.ctx))
         elif familia == "carpinteria":
             datos = deepcopy({**self.v, **self.bim})
             campos, cambiar = F.campos_carpinteria(self.ctx, datos)
@@ -67,7 +67,7 @@ class CreacionTexto(PreguntasTexto):
             self.ctx.echo(f"Altura resultante: {self.height:g} m")
             self._reprompt()
         elif familia == "pilar":
-            valores = F.normalizar_pilar(datos)
+            valores = F.normalizar_pilar(datos, tipos=F.tipos_de_pilar(self.ctx))
             anclaje = valores.pop("anchor", 5)
             if self.orden_original == "PILAR":
                 self.anchor = anclaje

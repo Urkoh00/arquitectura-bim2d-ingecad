@@ -184,7 +184,15 @@ def normalizar_muro(ctx, datos, tipos=None, catalogo=None):
     return salida
 
 
-def campos_pilar(datos, enganche=True):
+def tipos_de_pilar(ctx):
+    from .parameters_arq import load_defaults
+    from .compat import require_document
+    return load_defaults(require_document(ctx))['wall_types']
+
+
+def campos_pilar(datos, enganche=True, tipos=None):
+    from .recubrimientos_pilar import normalizar, MODOS_AISLAMIENTO
+    datos.update(normalizar(datos))
     datos.setdefault("profile", "HEB 160")
     datos.setdefault("cover", 0.0)
     datos.setdefault("anchor", 5)
@@ -209,7 +217,16 @@ def campos_pilar(datos, enganche=True):
             cuando=lambda v: v["shape"] in ("circ", "hex", "oct"),
         ),
         texto("profile", "Perfil metálico", es("steel")),
-        medida("cover", "Recubrimiento (m)", 0.0, 1.0),
+        opcion('cover_type', 'Partición de recubrimiento',
+               [('Espesor manual', '')] + [(t['name'], t['name']) for t in tipos or []
+                                          if t.get('wall_category') == 'particion']),
+        medida('cover', 'Espesor de partición (m)', 0.0, 1.0,
+               cuando=lambda v: not v.get('cover_type')),
+        texto('cover_material', 'Material de partición', lambda v: not v.get('cover_type')),
+        opcion('insulation_mode', 'Aislamiento del pilar', list(MODOS_AISLAMIENTO)),
+        medida('insulation_thickness', 'Espesor de aislamiento (m)', 0.0001, 1.0,
+               cuando=lambda v: v['insulation_mode'] == 'con'),
+        texto('insulation_material', 'Material del aislamiento', lambda v: v['insulation_mode'] == 'con'),
         Campo("rotation", "Rotación (grados)", "angulo", minimo=-360.0, maximo=360.0),
         medida("height", "Altura (m)"),
         medida("base", "Cota base (m)", -100000.0),
@@ -221,8 +238,9 @@ def campos_pilar(datos, enganche=True):
     return campos
 
 
-def normalizar_pilar(datos):
-    salida = deepcopy(datos)
+def normalizar_pilar(datos, tipos=None):
+    from .recubrimientos_pilar import aplicar_tipo
+    salida = aplicar_tipo(datos, tipos)
     salida["name"] = str(salida.get("name") or "").strip() or "Pilar"
     salida["type_name"] = str(salida.get("type_name") or "").strip() or "Pilar genérico"
     if salida["shape"] == "steel":

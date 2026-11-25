@@ -30,7 +30,9 @@ DEFAULTS = {
     'column': {'shape': 'rect', 'width': 0.30, 'depth': 0.30, 'radius': 0.15, 'rotation': 0.0,
                'height': 3.00, 'base': 0.0, 'name': 'Pilar',
                'type_name': 'Pilar genérico', 'material': 'Hormigón armado',
-               'level': 'Planta baja'},
+               'level': 'Planta baja', 'cover': 0.07, 'cover_type': '',
+               'cover_material': 'Partición de recubrimiento', 'insulation_mode': 'auto',
+               'insulation_thickness': 0.05, 'insulation_material': 'Aislamiento'},
     'door': {'width': 0.90, 'height': 2.10, 'sill': 0.0},
     # Three classifications that must not be mixed (user's notes 07/11/2026):
     #   tipo_edificio_cee: <TipoDeEdificio> of the energy certificate XML
@@ -71,6 +73,7 @@ DEFAULTS = {
     #     cruzado; grosores en mm de lo cortado, de la línea de tierra y de lo
     #     visto (los niveles van siempre a 0,13).
     'general': {'escala': 50, 'precision_medidas': 'cm', 'usar_usos': False, 'cota_minima': 0.05, 'norte': 0.0,
+                'materiales_constructivos': {},
                 'armarios_superficie_util': 'computan',
                 'vista_relleno': 'color', 'vista_color': 9,
                 'grosor_corte': 0.50, 'grosor_tierra': 0.70, 'grosor_visto': 0.18,
@@ -179,7 +182,11 @@ def validate_defaults(values):
             raise ValueError('Referencia de muro no válida')
         if d.get('shape','rect') not in ('rect','circ','hex','oct'):
             raise ValueError('Sección de pilar no válida')
+    from .materiales_constructivos import validar
+    from .recubrimientos_pilar import normalizar
+    normalizar(values['column'])
     g = values.get('general') or {}
+    validar(g.get('materiales_constructivos', {}))
     if type(g.get('escala', 50)) is not int or g.get('escala', 50) not in (20, 25, 50):
         raise ValueError('general.escala: 20, 25 o 50')
     if g.get('precision_medidas', 'cm') not in ('cm', 'mm'):

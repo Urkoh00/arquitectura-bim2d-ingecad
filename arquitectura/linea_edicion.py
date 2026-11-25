@@ -41,7 +41,7 @@ class PropiedadesTexto(PreguntasTexto, Tool):
         if self._kind == "wall":
             campos, cambiar = F.campos_muro(self.ctx, datos)
         elif self._kind == "column":
-            campos = F.campos_pilar(datos, False)
+            campos = F.campos_pilar(datos, False, tipos=F.tipos_de_pilar(self.ctx))
         elif self._kind == "space":
             campos, cambiar = F.campos_recinto(self.ctx, datos)
         elif self._kind == "slab":
@@ -83,7 +83,7 @@ class PropiedadesTexto(PreguntasTexto, Tool):
         if self._kind == "wall":
             valores = F.normalizar_muro(self.ctx, datos)
         elif self._kind == "column":
-            valores = F.normalizar_pilar(datos)
+            valores = F.normalizar_pilar(datos, tipos=F.tipos_de_pilar(self.ctx))
         elif self._kind == "opening" and not datos.get("cabinet"):
             valores = F.normalizar_carpinteria(datos)
         elif self._kind == "space":

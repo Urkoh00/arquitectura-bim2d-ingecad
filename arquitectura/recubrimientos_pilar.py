@@ -17,6 +17,19 @@ CAMPOS = (
 )
 
 
+def aplicar_tipo(datos, tipos=None):
+    """El tipo elegido fija su espesor; un nombre desconocido no se interpreta."""
+    salida = normalizar(datos)
+    nombre = salida['cover_type']
+    if nombre and tipos is not None:
+        tipo = next((tipo for tipo in tipos if tipo['name'] == nombre), None)
+        if tipo is None or tipo.get('wall_category') != 'particion':
+            raise ValueError('Elija un tipo de partición para el recubrimiento')
+        salida['cover'] = math.fsum(float(espesor) for espesor, _material in tipo['layers'])
+        salida['cover_material'] = ' / '.join(str(material) for _espesor, material in tipo['layers'])
+    return salida
+
+
 def normalizar(datos):
     """Conserva cover como espesor de la partición; separa el aislamiento añadido."""
     salida = deepcopy(datos)

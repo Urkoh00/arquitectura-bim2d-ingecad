@@ -15,8 +15,11 @@ from .sections import column_points
 def column_command(center,values):
     from core.actions import AddEntityCommand
     from .architectural import APPID
+    from .recubrimientos_pilar import normalizar, CAMPOS
+    values = normalizar(values)
     points=column_points(center,values)
     props={k:v for k,v in values.items() if k in ('shape','width','depth','radius','rotation','profile','cover','height','base','name','type_name','material','level','grid_link')}
+    props.update({campo: values[campo] for campo in CAMPOS if campo in values})
     rec={'kind':'column','schema':2,'id':uuid.uuid4().hex,'ifc_class':'IfcColumn',
          'center':list(map(float,center[:2])),**props}
     def factory(msp):
@@ -77,6 +80,9 @@ class EditColumnCommand:
         self.after.update({k: v for k,v in values.items() if k in (
             'shape','width','depth','radius','rotation','profile','cover','height','base','name',
             'type_name','material','level','grid_link')})
+        from .recubrimientos_pilar import normalizar, CAMPOS
+        self.after.update({campo: values[campo] for campo in CAMPOS if campo in values})
+        self.after = normalizar(self.after)
         # Preserve its stable BIM id and world placement.
         self.after['id'] = original['id']
         self.after['center'] = original['center']

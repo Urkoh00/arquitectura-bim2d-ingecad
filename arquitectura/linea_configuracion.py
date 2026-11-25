@@ -42,14 +42,17 @@ def campos_parametros(valores):
             ruta = grupo + "." + clave
             planos[ruta] = valor
             etiqueta = titulo + ": " + etiquetas.get(clave, clave)
-            if clave in ("thickness", "height", "width", "depth", "radius", "base", "sill"):
+            if clave in ("thickness", "height", "width", "depth", "radius", "base", "sill", 'cover', 'insulation_thickness'):
                 campos.append(
-                    medida(ruta, etiqueta + " (m)", -1e6 if clave in ("base", "sill") else 0.001)
+                    medida(ruta, etiqueta + " (m)", -1e6 if clave in ("base", "sill") else 0.0 if clave == 'cover' else 0.001)
                 )
             elif clave == "rotation":
                 campos.append(
                     Campo(ruta, etiqueta + " (grados)", "angulo", minimo=-360.0, maximo=360.0)
                 )
+            elif clave == 'insulation_mode':
+                from .recubrimientos_pilar import MODOS_AISLAMIENTO
+                campos.append(opcion(ruta, etiqueta, list(MODOS_AISLAMIENTO)))
             elif clave == "reference":
                 campos.append(
                     opcion(
@@ -107,6 +110,12 @@ def campos_parametros(valores):
                    [(f"{x:g}".replace(".", ","), x) for x in GROSORES]),
         ]
     )
+    from .materiales_constructivos import nombres, ETIQUETAS
+    clases = valores['general'].get('materiales_constructivos', {})
+    for nombre in nombres(valores):
+        ruta = 'materiales.' + nombre
+        planos[ruta] = clases.get(nombre, '')
+        campos.append(opcion(ruta, 'Clase constructiva de ' + nombre, list(ETIQUETAS)))
     return campos, planos
 
 
@@ -136,7 +145,14 @@ class ConfiguracionTexto(PreguntasTexto, Tool):
         nuevo = deepcopy(self._configuracion)
         for ruta, valor in valores.items():
             grupo, clave = ruta.split(".", 1)
-            nuevo[grupo][clave] = valor
+            if grupo == 'materiales':
+                clases = nuevo['general'].setdefault('materiales_constructivos', {})
+                if valor:
+                    clases[clave] = valor
+                else:
+                    clases.pop(clave, None)
+            else:
+                nuevo[grupo][clave] = valor
         guardar_parametros(self.ctx, nuevo)
         self.ctx.finish()
 

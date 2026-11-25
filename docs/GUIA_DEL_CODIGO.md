@@ -1,5 +1,20 @@
 # Guía del código del plugin Arquitectura
 
+### R29-E: controles del recubrimiento y catálogo del dibujo
+
+`recubrimientos_pilar.aplicar_tipo` comparte la selección de partición entre
+la ficha de PILAR y sus preguntas por texto. El registro conserva por separado
+la partición, su material y el modo, espesor y material del aislamiento.
+Los valores iniciales de los pilares nuevos incluyen una partición de 7 cm;
+un `cover` numérico existente conserva su espesor, también si es cero.
+
+`materiales_constructivos.py` valida las clases explícitas del catálogo
+guardado en PARAMETROSARQ, pestaña Materiales constructivos. Su variante de
+texto pregunta las mismas clases de los materiales de TIPOSMURO. La clase
+ausente queda sin resolver: no se deduce por el nombre ni por conductividad.
+La integración geométrica se prueba por separado de estos controles.
+Pruebas: `test_r29_e_pilar_configuracion.py` y paridad de fichas R27.
+
 ### Cobertura de las copias cargadas por IngeCAD
 
 Las pruebas de integración cargan una copia temporal del plugin, como el
