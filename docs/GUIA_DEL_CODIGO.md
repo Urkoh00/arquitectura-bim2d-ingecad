@@ -949,3 +949,14 @@ La búsqueda del muro, los identificadores y las órdenes de creación se conser
 MOVERCARP conserva la selección libre de la carpintería y admite referencias
 nativas después de elegirla. El cambio no sustituye el cálculo del desplazamiento,
 la identidad del vano, su muro anfitrión ni la transacción de Deshacer.
+
+La verificación final recorre caras y ejes por separado en once órdenes,
+incluida PIVOTAMURO. Inicializa el catálogo de niveles de la semilla antes de
+crear sus elementos y espera la preparación asíncrona de las referencias.
+Completa cada operación y comprueba un Deshacer/Rehacer exacto, identidades
+y referencias a muro y nivel. En X11 captura la pantalla con `QScreen.grabWindow`:
+`QWidget.grab` sobre la vista OpenGL no conserva su superposición de guía.
+La prueba gráfica exige trazos naranjas y huecos sobre la alineación capturada;
+Qt offscreen comprueba el punto y el modelo, sin declarar una captura GL válida.
+Los ejes son entidades DXF reales que el motor actual ya indexa: no se añade
+un proveedor paralelo. Véase `docs/R29_RASTREO_REFERENCIAS.md`.

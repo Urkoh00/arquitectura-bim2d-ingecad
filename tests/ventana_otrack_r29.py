@@ -18,9 +18,11 @@ from core.plugins import load_plugin
 from views.main_window import MainWindow
 from tests.test_wall_tools import Session
 from tests.escenarios_r27 import modulo
+from tests.verificacion_r27 import estado
 
 orden = sys.argv[1]
 destino = Path(sys.argv[2])
+referencia = sys.argv[3] if len(sys.argv) > 3 else 'cara'
 destino.mkdir(parents=True, exist_ok=True)
 app = QApplication([])
 fallos = []
@@ -37,6 +39,8 @@ cargado = load_plugin(RAIZ / 'arquitectura', bundled=False)
 assert cargado.available, cargado.reason
 # La semilla usa órdenes reales sin interfaz; todos los datos son propios.
 sesion = Session(cargado.spec)
+niveles = modulo(cargado.spec, 'levels')
+sesion.history.execute(niveles.StoreCatalog(niveles.load(sesion.document)))
 puntos = [(0, 0), (6, 0), (6, 4), (0, 4)]
 for inicio, final in zip(puntos, puntos[1:] + puntos[:1]):
     cambio = modulo(cargado.spec, 'architectural_v10').create_wall(inicio, final, 0.3)
@@ -111,16 +115,18 @@ temporizador_fichas = QTimer()
 temporizador_fichas.timeout.connect(aceptar_ficha)
 temporizador_fichas.start(50)
 ventana.viewport.view.zoom_extents(-1, -1, 9, 5)
-ventana.viewport.update()
+ventana.regen_in_memory()
 esperar_regeneracion()
 escribir(orden)
 herramienta = ventana.tools.tool
 assert herramienta is not None, orden
 seleccion_inicial = herramienta.entity_picker
 if orden == 'MUROPARALELO':
-    escribir('3,0.15')
+    # Se toma la fachada norte: las referencias del sur quedan a un lado,
+    # en vez de pedir un lado mediante un punto situado en la propia base.
+    escribir('3,3.85')
     assert herramienta.stage == 'side'
-elif orden == 'ESTIRAMURO':
+elif orden in ('ESTIRAMURO', 'PIVOTAMURO'):
     escribir('5.8,0.15')
     assert herramienta.wall is not None
 elif orden == 'CARPINTERIA':
@@ -144,6 +150,8 @@ elif orden == 'MOVERCARP':
     centro_hoja = [(a + b) / 2 for a, b in zip(inicio, final)]
     escribir(f'{centro_hoja[0]},{centro_hoja[1]}')
     assert herramienta.entity is not None
+antes = estado(cargado.spec, ventana.document)
+profundidad_antes = ventana.history.depth
 ventana.tools.osnap_on = True
 ventana.tools.osnap_modes = {'END'}
 ventana.tools.ortho_on = False
@@ -156,10 +164,19 @@ ventana.viewport.setFocus()
 QTest.qWait(40)
 QTest.keyClick(ventana.viewport, Qt.Key_F11)
 assert ventana.tools.otrack_on
-origen = (2, 1.95) if orden in ('RECINTO', 'FORJADO') else (-0.15, -0.15)
-objetivo = (4, 1.97) if orden in ('RECINTO', 'FORJADO') else (4, -0.13)
+# El primer movimiento arranca las cachés nativas; esperar evita confundir
+# su construcción al abrir el dibujo con la ausencia de una referencia.
+mover_cursor((8, 4))
+QTest.qWait(300)
+esperar_regeneracion()
+origen = (6, 0) if referencia == 'eje' else (-0.15, -0.15)
+if orden in ('RECINTO', 'FORJADO'):
+    origen = (2, 2) if referencia == 'eje' else (2, 1.95)
+elif orden == 'PIVOTAMURO' and referencia == 'eje':
+    origen = (6, 4)
+objetivo = (4, origen[1] + 0.02)
 if orden == 'ESTIRAMURO':
-    objetivo = (8, -0.13)
+    objetivo = (8, origen[1] + 0.02)
 mover_cursor(origen)
 QTest.qWait(ventana.tools.TRACK_DWELL_MS + 160)
 adquiridos = list(ventana.tools.track_points())
@@ -171,7 +188,38 @@ guia = ventana.tools.track_hint
 seleccion_al_colocar = herramienta.entity_picker
 ventana.viewport.update()
 QTest.qWait(80)
-ventana.grab().save(str(destino / 'rastreo.png'))
+captura = ventana.screen().grabWindow(ventana.winId())
+captura_pantalla = not captura.isNull()
+if captura_pantalla:
+    posicion_vista = ventana.viewport.mapTo(ventana, QPoint(0, 0))
+    pixmap = ventana.screen().grabWindow(
+        ventana.winId(), posicion_vista.x(), posicion_vista.y(),
+        ventana.viewport.width(), ventana.viewport.height())
+else:
+    # Qt offscreen no tiene pantalla ni contexto GL: la prueba gráfica se hace en X11.
+    captura = ventana.grab()
+    pixmap = ventana.viewport.grab()
+captura.save(str(destino / 'rastreo.png'))
+imagen = pixmap.toImage()
+trazos_naranjas = 0
+huecos_trazo = 0
+if guia is not None:
+    inicio_pantalla = ventana.viewport.view.world_to_screen(*guia[0])
+    final_pantalla = ventana.viewport.view.world_to_screen(*guia[1])
+    escala_pixel = pixmap.devicePixelRatio()
+    izquierda = int(min(inicio_pantalla[0], final_pantalla[0]) * escala_pixel) + 20
+    derecha = int(max(inicio_pantalla[0], final_pantalla[0]) * escala_pixel) - 20
+    fila = int(inicio_pantalla[1] * escala_pixel)
+    for columna in range(max(0, izquierda), min(imagen.width(), derecha)):
+        muestra_naranja = False
+        for desplazamiento in range(-2, 3):
+            color = imagen.pixelColor(columna, fila + desplazamiento)
+            if color.red() > 200 and 100 < color.green() < 210 and color.blue() < 90:
+                muestra_naranja = True
+        if muestra_naranja:
+            trazos_naranjas += 1
+        else:
+            huecos_trazo += 1
 # El observador no cambia el punto ni sustituye la operación de la herramienta.
 puntos_entregados = []
 accion_original = herramienta.on_point
@@ -185,13 +233,58 @@ def observar_punto(punto):
 herramienta.on_point = observar_punto
 QTest.mouseClick(ventana.viewport, Qt.LeftButton, pos=posicion)
 esperar_regeneracion()
+herramienta.on_point = accion_original
+if orden == 'MUROPARALELO':
+    escribir('4,-2')
+elif orden == 'MURO':
+    escribir('5,-0.15')
+elif orden == 'MUROCURVO':
+    escribir('5,-0.15')
+    escribir('1')
+elif orden == 'FORJADO':
+    for respuesta in ('5,1.95', '5,3', '4,3', '', ''):
+        escribir(respuesta)
+ventana.tools.cancel()
+esperar_regeneracion()
+despues = estado(cargado.spec, ventana.document)
+pasos_deshacer = ventana.history.depth - profundidad_antes
+escribir('UNDO')
+escribir('1')
+deshacer_exacto = estado(cargado.spec, ventana.document) == antes
+escribir('REDO')
+rehacer_exacto = estado(cargado.spec, ventana.document) == despues
+fuentes = ('wall', 'opening', 'column', 'space', 'slab')
+identidades_antes = {registro['id'] for registro in antes['bim']['registros']
+                     if registro.get('kind') in fuentes}
+identidades_despues = {registro['id'] for registro in despues['bim']['registros']
+                       if registro.get('kind') in fuentes}
+origenes_antes = {registro['id']: registro for registro in antes['bim']['registros']
+                  if registro.get('kind') in fuentes}
+origenes_despues = {registro['id']: registro for registro in despues['bim']['registros']
+                    if registro.get('kind') in fuentes}
+referencias = ('wall_id', 'level_id', 'level', 'level_offset')
+referencias_conservadas = all(
+    origenes_despues[identificador].get(campo) == registro.get(campo)
+    for identificador, registro in origenes_antes.items()
+    if identificador in origenes_despues
+    for campo in referencias
+)
 resultado = {
-    'orden': orden, 'plataforma': app.platformName(), 'cuadros': cuadros,
+    'orden': orden, 'referencia': referencia,
+    'plataforma': app.platformName(), 'cuadros': cuadros,
     'seleccion_inicial': seleccion_inicial, 'seleccion_al_colocar': seleccion_al_colocar,
     'origen': origen, 'cursor': entrada_cursor, 'resuelto': resuelto,
     'adquiridos': adquiridos, 'guia': guia, 'entregados': puntos_entregados,
+    'pixeles_trazo': trazos_naranjas, 'pixeles_hueco_trazo': huecos_trazo,
+    'captura_pantalla': captura_pantalla,
+    'pasos_deshacer': pasos_deshacer,
+    'deshacer_exacto': deshacer_exacto, 'rehacer_exacto': rehacer_exacto,
+    'identidades_conservadas': identidades_antes <= identidades_despues,
+    'referencias_conservadas': referencias_conservadas,
+    'mismos_elementos': identidades_antes == identidades_despues,
     'excepciones': fallos,
 }
+ventana.document.save_as(destino / 'modelo.dxf')
 ventana.tools.cancel()
 ventana.document.dirty = False
 ventana.close()
