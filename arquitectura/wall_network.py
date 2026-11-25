@@ -55,6 +55,22 @@ class RegenerateContoursCommand(Command):
         self.memoria_change = None
         self.memoria_applied = False
         self.column_edits = []
+        self.cover_layer_commands = []
+        self.cover_layers_applied = []
+
+    def _plan_cover_layers(self, document, columns, result):
+        """La existencia de geometría decide la capa, con independencia del perfil."""
+        from core.layers import NewLayerCommand
+        from .recubrimientos_pilar import capas_geometricas
+
+        if 'ARQ-AISLAMIENTOS' in document.doc.layers:
+            return
+        for _identificador, pilar in columns:
+            if float(pilar.get('insulation_resolved_thickness') or 0) <= 0:
+                continue
+            if capas_geometricas(pilar, result)['INSULATION']:
+                self.cover_layer_commands.append(NewLayerCommand('ARQ-AISLAMIENTOS', color=3))
+                break
 
     def _plan_columns(self, document, columns):
         """Guarda ambos estados para que el recálculo forme parte del mismo Deshacer."""
@@ -462,6 +478,7 @@ class RegenerateContoursCommand(Command):
                 self.issues = issues + result.warnings + getattr(self,'sync_notes',[])
                 self.result = result
                 self._plan_columns(document, columns)
+                self._plan_cover_layers(document, columns, result)
                 walls = [w for w in result.walls.values() if w["area"] > 0]
                 self._plan_openings(document,records)
                 segments = J.plan_items(result, self._opening_cuts())
@@ -476,6 +493,9 @@ class RegenerateContoursCommand(Command):
                 self.has_walls = bool(walls)
                 self._plan_spaces(document,result)
             self._apply_columns(document, 'new')
+            for command in self.cover_layer_commands:
+                command.do(document)
+                self.cover_layers_applied.append(command)
             from . import sync as SY
             SY.delete_groups(document.doc)
             for e in self.removed:
@@ -541,6 +561,7 @@ class RegenerateContoursCommand(Command):
                         document.doc.entitydb.delete_entity(entity)
                 self.added=[];self.added_labels=[]
                 self.removed=None
+                self.cover_layer_commands = []
             raise
     def _revert(self,document):
         from .architectural import WALL_LAYER
@@ -551,6 +572,9 @@ class RegenerateContoursCommand(Command):
         for e in self.added+self.added_labels:
             if e.is_alive and e.dxf.owner is not None:
                 msp.unlink_entity(e)
+        for command in reversed(self.cover_layers_applied):
+            command.undo(document)
+        self.cover_layers_applied = []
         for e in (self.removed or [])+getattr(self,'removed_labels',[]):
             if e.is_alive and e.dxf.owner is None:
                 msp.add_entity(e)

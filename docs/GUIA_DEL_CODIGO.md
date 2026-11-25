@@ -2,6 +2,13 @@
 
 ### R29-E: recubrimiento hacia el interior
 
+La capa `ARQ-AISLAMIENTOS` se crea únicamente si el resultado contiene una
+capa aislante real. La regeneración incluye `NewLayerCommand`, público de
+IngeCAD, en su propio Deshacer y revierte su creación si falla el dibujo.
+No se elimina una capa que ya existiera. No se consulta el perfil para crear
+o borrar geometría: un modelo térmico abierto en Planos 2D conserva su capa.
+Pruebas: `test_r29_e_cierre_capas.py`.
+
 Cada franja del pilar conserva los lados exteriores de sus muros de contacto
 en `cover_sides`. La anulación explícita del muro prevalece sobre el contorno
 geométrico; los patios declarados también son exteriores. No depende del perfil.

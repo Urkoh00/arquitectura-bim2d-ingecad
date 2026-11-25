@@ -77,8 +77,6 @@ def apply_architectural_change(ctx, change, *, kind='wall'):
     if kind == 'column':
         from .columns import PILLAR_LAYER
         needed.insert(0, (PILLAR_LAYER, 4))
-    if kind == 'column' or 'ARQ-PILARES' in doc.doc.layers:
-        needed.append(('ARQ-AISLAMIENTOS', 3))
     if kind == 'space':
         needed.append(('ARQ-RECINTOS', 3))
     if kind == 'virtual_partition':
