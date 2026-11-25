@@ -54,6 +54,51 @@ class RegenerateContoursCommand(Command):
         self.layer_routes=None
         self.memoria_change = None
         self.memoria_applied = False
+        self.column_edits = []
+
+    def _plan_columns(self, document, columns):
+        """Guarda ambos estados para que el recálculo forme parte del mismo Deshacer."""
+        import copy
+        from .architectural import metadata
+        from .frame import FRAME_APPID
+
+        calculados = dict(columns)
+        for entidad in self._current(document.doc.modelspace(), 'column'):
+            anterior = metadata(entidad)
+            nuevo = calculados.get(anterior['id'])
+            if nuevo is None:
+                continue
+            nuevo = copy.deepcopy(nuevo)
+            puntos_nuevos = nuevo.pop('polygon')
+            puntos_anteriores = [tuple(punto[:2]) for punto in entidad.get_points('xy')]
+            invisible = entidad.dxf.get('invisible') if entidad.dxf.hasattr('invisible') else None
+            ocultar_portador = float(nuevo.get('cover') or 0) > 0
+            if nuevo == anterior and puntos_anteriores == puntos_nuevos and bool(invisible) == ocultar_portador:
+                continue
+            marco = list(entidad.get_xdata(FRAME_APPID)) if entidad.has_xdata(FRAME_APPID) else None
+            self.column_edits.append((entidad, copy.deepcopy(anterior), nuevo,
+                                      puntos_anteriores, puntos_nuevos, marco, invisible))
+
+    def _apply_columns(self, document, which):
+        from .architectural import _xdata
+        from .frame import FRAME_APPID
+
+        for entidad, anterior, nuevo, puntos_anteriores, puntos_nuevos, marco, invisible in self.column_edits:
+            entidad.set_points(puntos_nuevos if which == 'new' else puntos_anteriores, format='xy')
+            _xdata(document.doc.modelspace(), entidad, nuevo if which == 'new' else anterior)
+            if which == 'new':
+                # El portador completo no debe dibujar anillos dentro del muro.
+                # La sección y las capas libres se ven en sus detalles agrupados.
+                entidad.dxf.invisible = int(float(nuevo.get('cover') or 0) > 0)
+            elif invisible is None:
+                entidad.dxf.discard('invisible')
+            else:
+                entidad.dxf.invisible = invisible
+            if which == 'old':
+                if marco is None:
+                    entidad.discard_xdata(FRAME_APPID)
+                else:
+                    entidad.set_xdata(FRAME_APPID, marco)
     def _current(self,msp,kind='junction_edge'):
         from .architectural import metadata
         return [e for e in msp if (metadata(e) or {}).get('kind')==kind]
@@ -352,6 +397,21 @@ class RegenerateContoursCommand(Command):
                 d=msp.add_lwpolyline(sec,close=True,dxfattribs={'layer':e.dxf.layer})
                 _xdata(msp,d,{'kind':'column_detail','schema':1,'column_id':m['id']})
                 made.append(d)
+            from .recubrimientos_pilar import capas_geometricas
+            from .geom import polygon as poligonos
+            cota = float(m.get('base', 0)) + 1e-7
+            for papel, franjas in capas_geometricas(m, self.result).items():
+                for franja in franjas:
+                    if not franja['base'] <= cota < franja['base'] + franja['height']:
+                        continue
+                    capa = 'ARQ-AISLAMIENTOS' if papel == 'INSULATION' else 'ARQ-PARTICIONES'
+                    for exterior, huecos in poligonos.merge(franja['pieces']):
+                        for contorno in [exterior, *huecos]:
+                            detalle = msp.add_lwpolyline(contorno, close=True, dxfattribs={'layer': capa})
+                            _xdata(msp, detalle, {'kind': 'column_detail', 'schema': 1,
+                                                'column_id': m['id'], 'cover_role': papel,
+                                                'material': franja['material']})
+                            made.append(detalle)
         return made
     def do(self,document):
         import copy
@@ -401,6 +461,7 @@ class RegenerateContoursCommand(Command):
                 self.by_use = general_options(document.doc)["usar_usos"]
                 self.issues = issues + result.warnings + getattr(self,'sync_notes',[])
                 self.result = result
+                self._plan_columns(document, columns)
                 walls = [w for w in result.walls.values() if w["area"] > 0]
                 self._plan_openings(document,records)
                 segments = J.plan_items(result, self._opening_cuts())
@@ -414,6 +475,7 @@ class RegenerateContoursCommand(Command):
                     raise ValueError('No se obtuvo contorno exterior: se conserva la geometría original')
                 self.has_walls = bool(walls)
                 self._plan_spaces(document,result)
+            self._apply_columns(document, 'new')
             from . import sync as SY
             SY.delete_groups(document.doc)
             for e in self.removed:
@@ -510,6 +572,7 @@ class RegenerateContoursCommand(Command):
         if WALL_LAYER in document.doc.layers and self.old_layer_off is not None:
             layer=document.doc.layers.get(WALL_LAYER)
             layer.off() if self.old_layer_off else layer.on()
+        self._apply_columns(document, 'old')
         if self.sync:
             self._write_meta(document,'old')
         self.removed_handles=[e.dxf.handle for e in self.added if e.is_alive]

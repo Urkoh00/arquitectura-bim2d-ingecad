@@ -390,8 +390,16 @@ class SetArchitecturalDefaults(Command):
 
 def guardar_parametros(ctx, valores):
     """La ficha y la línea de órdenes comparten la escritura y su Deshacer."""
-    ctx.execute(SetArchitecturalDefaults(valores))
-    ctx.echo('PARAMETROSARQ: parámetros guardados en este DXF. Los elementos existentes no se modifican.')
+    from .compat import require_document
+    anterior = load_defaults(require_document(ctx))['general'].get('materiales_constructivos', {})
+    cambio = SetArchitecturalDefaults(valores)
+    if anterior != valores['general'].get('materiales_constructivos', {}):
+        from .transactions import apply_architectural_change
+        apply_architectural_change(ctx, cambio)
+        ctx.echo('PARAMETROSARQ: clasificación guardada; pilares y recintos recalculados en el mismo Deshacer.')
+    else:
+        ctx.execute(cambio)
+        ctx.echo('PARAMETROSARQ: parámetros iniciales guardados en este DXF.')
 
 
 def nuevo_tipo(tipos, original=None):

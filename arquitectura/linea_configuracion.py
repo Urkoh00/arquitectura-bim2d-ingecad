@@ -29,6 +29,12 @@ def campos_parametros(valores):
         "rotation": "Giro",
         "sill": "Antepecho",
         "wall_category": "Categoría",
+        'cover': 'Partición de recubrimiento',
+        'cover_type': 'Tipo de partición (vacío: espesor manual)',
+        'cover_material': 'Material de partición',
+        'insulation_mode': 'Aislamiento del pilar',
+        'insulation_thickness': 'Espesor de aislamiento',
+        'insulation_material': 'Material del aislamiento',
     }
     campos = []
     planos = {}

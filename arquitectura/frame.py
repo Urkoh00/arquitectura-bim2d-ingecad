@@ -221,6 +221,9 @@ def transform_record(m, aff, entity=None, hosts=None):
                                  "se toma la de igual área")
             if m.get("cover"):
                 new["cover"] = _scaled(m["cover"], math.sqrt(fx * fy))
+            for campo in ('insulation_thickness', 'insulation_resolved_thickness'):
+                if campo in m:
+                    new[campo] = _scaled(m[campo], math.sqrt(fx * fy))
             dot = X[0] * Y[0] + X[1] * Y[1]
             if abs(dot) > 1e-9 * fx * fy:
                 notes.append(f"{label}: la deformación no conserva los ángulos rectos; "

@@ -15,6 +15,26 @@ ausente queda sin resolver: no se deduce por el nombre ni por conductividad.
 La integración geométrica se prueba por separado de estos controles.
 Pruebas: `test_r29_e_pilar_configuracion.py` y paridad de fichas R27.
 
+`resolver_franjas` separa las cotas de contacto de los muros: un pilar no
+extiende a toda su altura el aislamiento encontrado en una sola planta.
+`exchange.read_model` calcula una copia sin escribir el dibujo; las franjas
+se usan en `geom.bands` para los mismos encuentros, recintos y sólidos.
+Solo la regeneración transaccional guarda los resultados y el portador.
+`RegenerateContoursCommand` conserva puntos, registro, marco e invisibilidad
+anteriores para Deshacer/Rehacer, incluidos cambios de tipo y clasificación.
+
+El portador completo de un pilar con partición se oculta; sus detalles
+agrupados muestran núcleo y caras libres de cada capa en ARQ-PARTICIONES y
+ARQ-AISLAMIENTOS. Así no se dibuja un anillo que invada los muros. Las capas
+se exportan como IfcCovering CLADDING/INSULATION con host, franjas, material,
+área expuesta y volumen. Si cambia el material entre alturas, cada material
+aislante tiene una identidad derivada estable. Un espesor variable no se
+reduce a una medida Width falsa. Las copias compartidas se generan desde
+estas mismas fuentes, sin importar anfitriones al cargar sus módulos.
+Pruebas analíticas, recintos, falta de clasificación, escala nativa y un
+solo Deshacer: `test_r29_e_pilar_geometria.py`. Las limitaciones del escritor
+IFC se comprueban en la cadena oficial y se documentan por separado.
+
 ### Cobertura de las copias cargadas por IngeCAD
 
 Las pruebas de integración cargan una copia temporal del plugin, como el
@@ -62,21 +82,20 @@ Pruebas: `test_r29_adenda_manillas.py`, `test_r29_manillas.py` y
 `test_r29_memoria_version.py`. La posible opción de tirador largo vertical
 (`handle_kind`) queda como propuesta para una versión posterior.
 
-### R29-E: núcleo preliminar pendiente de integración
+### R29-E: núcleo integrado de recubrimientos
 
 `recubrimientos_pilar.py` separa el espesor de la partición (`cover`) del
-aislamiento resuelto y no modifica las entradas. Su integración con las
-fichas, la regeneración y las piezas de exportación aún está pendiente;
-el módulo por sí solo no cambia el dibujo.
+aislamiento resuelto y no modifica las entradas. Las fichas y la regeneración
+usan sus mismas reglas; el contrato contiene las piezas de cada capa.
 
 La heurística preliminar de primera cara y nombres de materiales queda
 sustituida por el criterio recibido el 24-11: lado exterior geométrico,
 orden explícito de capas y clasificación de materiales en el catálogo.
 La colocación de las capas del muro ya llega a las fichas, al registro y al
-contrato. El recubrimiento del pilar sigue pendiente de esa integración.
+contrato. El recubrimiento del pilar se integra por franjas de altura.
 El criterio completo y los casos obligatorios constan en
 `docs/REVISION_EXTERNA_D1_2026-11-24.md`. Las pruebas del núcleo no certifican
-por sí solas la futura geometría de recubrimiento.
+por sí solas el resultado: también se comprueban sólidos, recintos y persistencia.
 
 Solo los recintos declarados `exterior_cubierto` o `exterior_descubierto`
 exponen la cara del anillo interior: una clasificación desconocida no se
@@ -814,7 +833,7 @@ El núcleo de `recubrimientos_pilar` recibe explícitamente catálogo y lados
 resueltos. Solo aplica aislamiento automático interior o de cámara. El
 contacto se comprueba en geometría y altura, no por igualdad de nombres de
 planta. Los modos manuales conservan su definición. La conexión con las
-fichas, la regeneración y las piezas exportadas sigue siendo necesaria.
+fichas, la regeneración y las piezas exportadas usa ese mismo núcleo.
 
 ### R29-E: orden del tipo y cara exterior del muro
 
@@ -850,8 +869,10 @@ computa superficie útil; no se etiqueta un recinto por su texto libre.
 
 Estos datos conservan la colocación de origen. El escritor IFC del
 anfitrión sigue siendo experimental y no se afirma que materialice todos
-los intervalos ni las relaciones de material. La integración de las
-capas de recubrimiento del pilar todavía es una etapa pendiente.
+los intervalos ni las relaciones de material. Los recubrimientos del pilar
+ya viajan como sólidos separados; el escritor IFC vigente aún no conserva
+su superficie expuesta ni la relación con el pilar. La prueba de cadena
+registra esos límites sin presentarlos como una medición IFC certificada.
 
 Leer una fórmula de capas no permite saber si pertenece a un tipo nuevo
 o a uno anterior. `parse_type` conserva ese hecho; la acción de crear

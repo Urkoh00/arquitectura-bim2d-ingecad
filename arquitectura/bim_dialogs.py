@@ -629,8 +629,10 @@ def column_form(ctx, record=None, anchor=None):
     from .recubrimientos_pilar import normalizar, MODOS_AISLAMIENTO
     from .parameters_arq import load_defaults
     d = normalizar(record or {})
-    from .compat import require_document
-    tipos = load_defaults(require_document(ctx))['wall_types']
+    from .compat import document_of
+    from .parameters_arq import DEFAULTS
+    documento = document_of(ctx)
+    tipos = load_defaults(documento)['wall_types'] if documento is not None else DEFAULTS['wall_types']
     dlg,layout,buttons=_dialog(ctx,'Arquitectura — Pilar',
        'Defina la sección, el punto de inserción y las propiedades BIM del pilar. '
        'La posición se marca con el ratón, con las referencias a objetos de IngeCAD.')
@@ -760,7 +762,8 @@ def architectural_defaults_dialog(ctx, current):
     dlg.setWindowTitle('Arquitectura — Parámetros iniciales (PARAMETROSARQ)')
     dlg.resize(450,510)
     main=QVBoxLayout(dlg)
-    info=QLabel('Valores por defecto para elementos NUEVOS. Se guardan en el dibujo DXF; no modifican los ya dibujados.')
+    info=QLabel('Valores iniciales para elementos nuevos. Las clases de materiales se guardan en el DXF '
+                'y recalculan el aislamiento automático de los pilares existentes.')
     info.setWordWrap(True);main.addWidget(info)
     tabs=QTabWidget(dlg);main.addWidget(tabs)
     numeric={'thickness','height','base','width','depth','radius','rotation','sill',

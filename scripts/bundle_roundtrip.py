@@ -23,7 +23,8 @@ SOURCE = ROOT / "arquitectura"
 # módulos sin dependencias del anfitrión que usa la extensión (directa o
 # indirectamente, desde exchange.py y roundtrip_model.py)
 FILES = ["roundtrip_model.py", "architectural.py", "exchange.py", "openings.py", "cabinets.py",
-         "curved_carpentry.py", "wall_categories.py", "capas_envolvente.py", "defensas.py", "particiones_virtuales.py"]
+         "curved_carpentry.py", "wall_categories.py", "capas_envolvente.py", "defensas.py", "particiones_virtuales.py",
+         "recubrimientos_pilar.py", "sections.py", "profiles.py", "materiales_constructivos.py"]
 
 
 def bundle(target=ROOT / "ingetrazo_ext" / "arq_shared"):

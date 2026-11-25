@@ -150,6 +150,8 @@ class RouteLevels(Command):
                 elif source.get('kind')=='wall':
                     from .wall_categories import category,layer_name
                     prefix=layer_name(category(source),document.doc.layers)
+                elif source.get('kind') == 'column' and m.get('cover_role') in ('CLADDING', 'INSULATION'):
+                    prefix = 'ARQ-AISLAMIENTOS' if m['cover_role'] == 'INSULATION' else 'ARQ-PARTICIONES'
                 else:prefix={'column':'ARQ-PILARES','space':'ARQ-RECINTOS','slab':'ARQ-FORJADOS'}.get(source.get('kind'))
                 ident=m.get('display_level_id')or opening_ident or source.get('level_id')
                 if not prefix or ident not in catalog:continue

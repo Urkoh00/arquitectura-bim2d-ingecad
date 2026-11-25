@@ -77,6 +77,7 @@ def test_pilar_de_esquina_a_5_cm_de_las_caras_exteriores(plugin, tmp_path):
     s = Session(plugin)
     _cerramiento(s)
     t = s.tool('PILAR')
+    t.values['cover'] = 0.0  # Este caso comprueba la sección desnuda, no el nuevo forro inicial.
     t.on_option('s')
     t.on_option('0,30x0,30')
     t.on_option('p')
@@ -104,6 +105,7 @@ def test_perfil_heb_con_recubrimiento_y_revestimiento(plugin, tmp_path):
     s = Session(plugin)
     _cerramiento(s)
     t = s.tool('PILAR')
+    t.values['insulation_mode'] = 'sin'  # La prueba mide el perfil y su partición manual.
     t.on_option('s')
     t.on_option('HEB 160')
     t.on_option('c')
@@ -115,7 +117,7 @@ def test_perfil_heb_con_recubrimiento_y_revestimiento(plugin, tmp_path):
     t.on_point((1.0, 1.0))
     s.plugin.commands['UNIONESARQ'](_cmd_ctx(s))
     details = [e for e in s.document.doc.modelspace() if (s.meta(e) or {}).get('kind') == 'column_detail']
-    assert len(details) == 1                                           # el perfil, dibujado
+    assert len([e for e in details if not s.meta(e).get('cover_role')]) == 1  # El perfil, dibujado.
     data = s.export(tmp_path)
     col = next(e for e in data['elements'] if e['ifc_class'] == 'IfcColumn')
     cov = next(e for e in data['elements'] if e['ifc_class'] == 'IfcCovering')
@@ -214,6 +216,7 @@ def test_giro_generico_actualiza_la_rotacion(plugin, tmp_path):
 def test_dos_upn_en_cajon(plugin, tmp_path):
     s = Session(plugin)
     t = s.tool('PILAR')
+    t.values['cover'] = 0.0  # El cajeado del perfil se comprueba sin partición añadida.
     t.on_option('s')
     t.on_option('2UPN 160 cajon')
     t.on_option('e')

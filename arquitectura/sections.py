@@ -70,7 +70,7 @@ def local_size(values):
 
 
 def local_footprint(values):
-    cover = float(values.get('cover') or 0.0)
+    cover = float(values.get('cover') or 0.0) + float(values.get('insulation_resolved_thickness') or 0.0)
     if not math.isfinite(cover) or cover < 0:
         raise ValueError('Recubrimiento inválido')
     shape = values.get('shape', 'rect')

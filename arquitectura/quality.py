@@ -91,6 +91,18 @@ def audit_architecture(document):
         issues.append('Unidades DXF distintas de metros: el plugin trabaja en metros; normalice el dibujo')
     if drawing.header.get('$INSUNITS', 0) == 0:
         issues.append('Unidades DXF sin declarar: el modelo arquitectónico presupone metros')
+    if columns:
+        from .exchange import read_model
+        try:
+            _muros, calculadas, _huecos, avisos = read_model(drawing, strict=False)
+            issues.extend(aviso for aviso in avisos if aviso.startswith('Pilar '))
+            originales = {registro['id']: registro for _entidad, registro in columns}
+            for identificador, calculada in calculadas:
+                anterior = originales.get(identificador, {})
+                if calculada.get('insulation_bands') != anterior.get('insulation_bands'):
+                    issues.append(f'Pilar {identificador}: recubrimiento desactualizado; ejecute UNIONESARQ')
+        except (ValueError, TypeError, KeyError) as error:
+            issues.append(f'No se pudieron revisar los recubrimientos: {error}')
     return {'muros': len(sources), 'pilares': len(columns), 'huecos': len(openings),
             'segmentos': len(outlines), 'incidencias': sorted(set(issues))}
 

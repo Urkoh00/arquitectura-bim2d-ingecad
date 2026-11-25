@@ -19,18 +19,24 @@ from . import junctions as J
 from . import polygon as P
 
 
-def column_inputs(columns):
+def column_inputs(columns, elevation=None):
     """[(id, footprint, core, cover)] for ``junctions.solve`` from column
     records: the core is the column without its covering, so that walls get
     back the covering inside them."""
     out = []
     for cid, m in columns:
+        if elevation is not None and m.get('insulation_bands'):
+            from ..recubrimientos_pilar import en_altura
+            from ..sections import column_geometry
+            m = en_altura(m, elevation)
+            m['polygon'] = column_geometry(m['center'], m)['footprint']
         core, cover = None, 0.0
         try:
-            cover = float(m.get('cover') or 0.0)
+            cover = float(m.get('cover') or 0.0) + float(m.get('insulation_resolved_thickness') or 0.0)
             if cover > 1e-9 and m.get('center') is not None:
                 from ..sections import column_geometry
-                core = column_geometry(m['center'], {**m, 'cover': 0.0})['footprint']
+                core = column_geometry(m['center'], {**m, 'cover': 0.0,
+                                                     'insulation_resolved_thickness': 0.0})['footprint']
         except Exception:  # noqa: BLE001  (an old record: the footprint is all)
             core, cover = None, 0.0
         out.append((cid, m['polygon'], core, cover))
@@ -49,23 +55,27 @@ def solve_records(walls, columns, partitions=()):
     wall_z = {i: (float(m.get('base', 0)), float(m.get('base', 0)) + float(m['height'])) for i, m in walls}
     col_z = {i: (float(m.get('base', 0)), float(m.get('base', 0)) + float(m['height'])) for i, m in columns}
     heights = sorted({v for z in list(wall_z.values()) + list(col_z.values()) for v in z})
+    heights = sorted(set(heights) | {cota for _identificador, pilar in columns
+                     for franja in pilar.get('insulation_bands', [])
+                     for cota in (franja['base'], franja['base'] + franja['height'])})
     combined = J.Result()
     combined.virtual_partitions = list(partitions or ())
     combined.specs = {w.id: w for w in specs}
     combined.vertical_networks = []
     combined.columns = {i: m['polygon'] for i, m in columns}
+    combined.column_bands = {identificador: [] for identificador, _pilar in columns}
     wall_bands = {w.id: [] for w in specs}
-    inputs = column_inputs(columns)
     cache = {}
     for lo, hi in zip(heights, heights[1:]):
         if hi - lo <= 1e-9:
             continue
         mid = lo + (hi - lo) / 2
+        inputs = column_inputs(columns, mid)
         ws = [w for w in specs if wall_z[w.id][0] <= mid < wall_z[w.id][1]]
         cs = [c for c in inputs if col_z[c[0]][0] <= mid < col_z[c[0]][1]]
         if not ws and not cs:
             continue
-        key = (tuple(w.id for w in ws), tuple(c[0] for c in cs))
+        key = (tuple(w.id for w in ws), tuple((c[0], tuple(map(tuple, c[1])), c[3]) for c in cs))
         if key not in cache:
             cache[key] = J.solve(ws, cs)
         part = cache[key]
@@ -73,6 +83,8 @@ def solve_records(walls, columns, partitions=()):
         for ident, geo in part.walls.items():
             wall_bands[ident].append((lo, hi, geo))
         combined.columns.update({c[0]: part.columns[c[0]] for c in cs if c[0] in part.columns})
+        for identificador, contorno in part.columns.items():
+            combined.column_bands[identificador].append((lo, hi, contorno))
     for ident, bands in wall_bands.items():
         projection, projected = [], set()
         for lo, hi, geo in bands:

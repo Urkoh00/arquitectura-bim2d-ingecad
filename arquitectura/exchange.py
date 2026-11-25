@@ -108,6 +108,13 @@ def read_model(drawing, tol=1e-5, strict=True, skip=()):
             columns.append((ident, m))
         else:
             openings.append(m)
+    if columns:
+        from .recubrimientos_pilar import resolver_modelo
+        from .materiales_constructivos import catalogo
+        from .parameters_arq import general_options
+        clases = general_options(drawing).get('materiales_constructivos', {})
+        columns, avisos = resolver_modelo(walls, columns, catalogo(clases), read_spaces(drawing, skip))
+        issues.extend(avisos)
     return walls, columns, openings, issues
 
 
@@ -122,6 +129,78 @@ def read_spaces(drawing, skip=()):
         if m.get("kind") == "space" and m.get("id") and m.get("seed"):
             out.append((m["id"], dict(m), e))
     return out
+
+
+def _recubrimientos_pilar(identificador, datos, resultado, nivel):
+    """Cada material conserva identidad y cantidades propias, también entre plantas."""
+    from .recubrimientos_pilar import capas_geometricas
+    from .sections import column_geometry
+    from .geom.spaces import network_at
+
+    capas = capas_geometricas(datos, resultado)
+    nucleo = column_geometry(datos['center'], {**datos, 'cover': 0,
+                             'insulation_resolved_thickness': 0})['sections']
+    piezas_nucleo = [pieza for seccion in nucleo for pieza in P.convex_parts(seccion)]
+    elementos = []
+    referencia = J.Wall('recubrimiento', (0, 0), (1, 0), 0.1)
+    for papel, franjas in capas.items():
+        por_material = {}
+        for franja in franjas:
+            por_material.setdefault(franja['material'], []).append(franja)
+        for material, tramos in por_material.items():
+            bandas = [(tramo['base'], tramo['base'] + tramo['height'], {'pieces': tramo['pieces']})
+                      for tramo in tramos]
+            caras, volumen = S.layered_wall_solid(bandas, referencia, float(datos.get('base', 0)))
+            if volumen <= 1e-12:
+                continue
+            es_aislamiento = papel == 'INSULATION'
+            sufijo = '-ais-' + uuid.uuid5(uuid.NAMESPACE_OID, material).hex[:12] if es_aislamiento else '-rec'
+            nombre = 'Aislamiento de pilar' if es_aislamiento else 'Partición de recubrimiento'
+            base = min(tramo['base'] for tramo in tramos)
+            cima = max(tramo['base'] + tramo['height'] for tramo in tramos)
+            registro = {'name': nombre, 'type_name': datos.get('cover_type') or nombre,
+                        'material': material, 'base': base, 'height': cima - base}
+            if not es_aislamiento and not float(datos.get('cover') or 0):
+                registro['type_name'] = 'Interior del cajeado del perfil'
+            area_planta = max(math.fsum(P.area(pieza) for pieza in tramo['pieces']) for tramo in tramos)
+            elemento = _element(identificador + sufijo, 'IfcCovering', registro, caras, volumen, area_planta, nivel)
+            elemento['enums'] = {'PredefinedType': papel}
+            elemento['host'] = identificador
+            elemento['params'].update(host=identificador, franjas=[
+                {clave: tramo[clave] for clave in ('base', 'height', 'thickness', 'material')}
+                for tramo in tramos])
+            elemento['psets']['ARQ_Recubrimiento'] = {'Pilar': identificador, 'Papel': papel,
+                                                      'AreaEnPlanta': area_planta}
+            superficie = 0.0
+            proyeccion = []
+            for tramo in tramos:
+                cota = tramo['base'] + tramo['height'] / 2
+                parcial = network_at(resultado, cota)
+                if es_aislamiento:
+                    exteriores = P.merge(piezas_nucleo + tramo['pieces'])
+                else:
+                    exteriores = [(parcial.columns[identificador], [])]
+                superficie += math.fsum(_exposed_length(contorno, parcial) for contorno, _huecos in exteriores) * tramo['height']
+                for pieza in tramo['pieces']:
+                    nuevas = [pieza]
+                    for anterior in proyeccion:
+                        nuevas = [parte for fragmento in nuevas for parte in P.convex_difference(fragmento, anterior)]
+                    proyeccion.extend(nuevas)
+            elemento['footprint'] = [[[list(punto) for punto in exterior],
+                                      [[list(punto) for punto in hueco] for hueco in huecos]]
+                                     for exterior, huecos in P.merge(proyeccion)]
+            elemento['quantities'] = {'GrossArea': superficie, 'NetArea': superficie,
+                                      'GrossVolume': volumen, 'NetVolume': volumen}
+            espesores = [tramo['thickness'] for tramo in tramos]
+            if not es_aislamiento and max(espesores) <= 1e-9:
+                # El relleno del cajeado metálico conserva su sección en planta;
+                # con espesor cero no representa una superficie de revestimiento.
+                elemento['quantities'].update(GrossArea=area_planta, NetArea=area_planta)
+            if max(espesores) - min(espesores) <= 1e-9:
+                elemento['quantities']['Width'] = espesores[0]
+                elemento['psets']['ARQ_Recubrimiento']['Espesor'] = espesores[0]
+            elementos.append(elemento)
+    return elementos
 
 
 def _exposed_length(outline, result):
@@ -309,39 +388,7 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD", problem
                                          "Masa_kg_m": round(PR.mass_per_metre(prof), 1)}
             el["quantities"]["NetWeight"] = PR.mass_per_metre(prof) * height
         elements.append(el)
-        # what the footprint has beyond the column itself: its covering
-        # (only outside the walls: the junctions gave the walls back what
-        # of the covering is inside them)
-        kept = result.columns.get(ident) or footprint
-        rest = P.convex_parts([tuple(map(float, q[:2])) for q in kept])
-        for sec in sections:
-            rest = P.subtract(rest, sec)
-        rest_area = sum(P.area(pc) for pc in rest)
-        if rest_area > 1e-9:
-            cf, cv = S.wall_solid(rest, (0.0, 0.0), (1.0, 0.0), base, height, ())
-            cid = ident + "-rec"
-            cover = float(m.get("cover") or 0.0)
-            what = (f"Recubrimiento de {cover:.3f} m".replace(".", ",") if cover > 0
-                    else "Interior del cajeado del perfil")
-            cm = {"name": "Revestimiento de pilar", "type_name": what,
-                  "material": m.get("cover_material") or "", "height": height, "base": base}
-            ce = _element(cid, "IfcCovering", cm, cf, cv, rest_area, level)
-            ce["psets"] = {"ARQ_Recubrimiento": {"Pilar": ident, "Descripcion": what,
-                                                 "Espesor": cover}}
-            ce["params"].update(host=ident)
-            ce["footprint"] = []
-            if cover > 0:
-                # the area of a cladding is its surface: the faces in the
-                # open (not those against a wall) times the height
-                exposed = _exposed_length(kept, result) * height
-                ce["psets"]["ARQ_Recubrimiento"].update(AreaEnPlanta=rest_area,
-                                                         LongitudVista=exposed / height if height else 0.0)
-                ce["quantities"] = {"Width": cover, "GrossArea": exposed, "NetArea": exposed,
-                                    "GrossVolume": cv, "NetVolume": cv}
-            else:
-                ce["quantities"] = {"Width": cover, "GrossArea": rest_area, "GrossVolume": cv,
-                                    "NetVolume": cv}
-            elements.append(ce)
+        elements.extend(_recubrimientos_pilar(ident, m, result, level))
     from . import superficies as SU
     res_u = SU.useful_result(specs, columns, records=walls, partitions=partitions)
     from .parameters_arq import general_options
@@ -467,7 +514,8 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD", problem
         "generator": generator,
         # north_deg: norte del proyecto (PARAMETROSARQ > General), grados en
         # sentido horario desde +Y; la extensión lo pasa a la escena de IngeTrazo
-        "project": {"name": project, **_usos(drawing), "north_deg": _north(drawing)},
+        "project": {"name": project, **_usos(drawing), "north_deg": _north(drawing),
+                    'materiales_constructivos': general_options(drawing).get('materiales_constructivos', {})},
         "levels": level_rows,
         **({'active_level_id':catalog['active']}if catalog else{}),
         "elements": elements,

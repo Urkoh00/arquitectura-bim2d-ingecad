@@ -42,7 +42,7 @@ DATA_KEY = "arquitectura"
 #: what each class may carry (possible finding 26 of the independent audit:
 #: a space with wall layers made the IFC writer produce an invalid file)
 ONLY_FOR = {"material_layers": {"IfcWall"}, "openings": {"IfcWall","IfcSlab"},
-            "fills": {"IfcDoor", "IfcWindow"}, "host": {"IfcDoor", "IfcWindow", "IfcBuildingElementProxy"},
+            "fills": {"IfcDoor", "IfcWindow"}, "host": {"IfcDoor", "IfcWindow", "IfcBuildingElementProxy", "IfcCovering"},
             "parts": {"IfcDoor", "IfcWindow", "IfcBuildingElementProxy"}}
 
 # colours of the carpentry's pieces by the material's name (the plugin sends
