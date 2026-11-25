@@ -1381,7 +1381,8 @@ def space_form(ctx, record, by_use=None):
     use.text = use.currentText                     # read and set like the line edit it was
     use.setText = use.setCurrentText
     enclosure = _choice([("Interior", "interior"),
-                         ("Exterior cubierto (terraza, balcón, porche): computa el 50 %", "exterior_cubierto")],
+                         ("Exterior cubierto (terraza, balcón, porche): computa el 50 %", "exterior_cubierto"),
+                         ("Exterior descubierto (patio): no computa", "exterior_descubierto")],
                         d.get("enclosure") or "interior")
     height = _spin(d.get("height", 3.00), positive=True)
     height_mode = _choice([('Automática por envolvente', 'auto'), ('Manual', 'manual')],

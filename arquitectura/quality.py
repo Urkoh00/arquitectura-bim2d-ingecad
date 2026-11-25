@@ -74,6 +74,7 @@ def audit_architecture(document):
             if ident not in wall_ids:
                 issues.append(f'Contorno referido a muro inexistente: {ident}')
     issues += _outline_issues(drawing, sources, outlines)
+    issues += _avisos_capas(drawing, sources)
     issues += _space_issues(drawing)
     from .memoria_plano import avisos
     issues += avisos(drawing)
@@ -229,3 +230,27 @@ def _space_issues(drawing):
         if now != want or abs(float(d.get('area', 0)) - room['area']) > 1e-6:
             out.append(f'Recinto {name}: contorno o superficie desactualizados: ejecute UNIONESARQ')
     return out
+
+
+def _avisos_capas(drawing, sources):
+    """Comprueba el orden y el exterior sin modificar ni regrabar el modelo."""
+    if not any(registro.get('layers') for _entidad, registro in sources):
+        return []
+    try:
+        from .exchange import read_model, read_spaces
+        from .geom.bands import solve_records
+        from .geom.junctions import walls_from_records
+        from .capas_envolvente import colocar, lados_del_modelo
+        from .particiones_virtuales import read
+
+        muros, pilares, _huecos, _avisos = read_model(drawing, strict=False)
+        resultado = solve_records(muros, pilares, read(drawing))
+        lados = lados_del_modelo(resultado, read_spaces(drawing))
+        especificaciones = {muro.id: muro for muro in walls_from_records(muros)}
+        avisos = []
+        for identificador, registro in muros:
+            _capas, problemas = colocar(registro, especificaciones[identificador], lados)
+            avisos.extend(problemas)
+        return list(dict.fromkeys(avisos))
+    except (ValueError, TypeError, KeyError) as error:
+        return ['No se pudo comprobar el orden de capas: ' + str(error)]

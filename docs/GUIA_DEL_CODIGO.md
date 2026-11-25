@@ -809,3 +809,24 @@ referencias, las identidades y Deshacer/Rehacer siguen sus órdenes nativas.
 
 El módulo puro capas_envolvente se copia al construir la extensión porque
 la validación de muros también se usa allí. No importa ningún anfitrión.
+
+### R29-E: colocación exportada y revisión de solo lectura
+
+`capas_envolvente.lados_del_modelo` combina las franjas verticales del
+mismo resultado geométrico que usa el contrato. Los recintos exteriores
+cubiertos o descubiertos aportan sus regiones; no se deducen del nombre.
+Si un muro expone caras distintas en distintas franjas, su lado único
+queda indeterminado.
+
+`exchange.wall_type_data` conserva orden y anulación, y añade a params el
+lado resuelto y los intervalos físicos `capas_colocadas`. Los nombres y
+espesores del conjunto material siguen sin alterarse. No coloca capas
+con un lado indeterminado ni reinterpreta tipos sin orden. ARQVALIDAR
+comparte las mismas reglas y deduplica el aviso del tipo sin regrabarlo.
+La situación «exterior descubierto» representa el patio explícito y no
+computa superficie útil; no se etiqueta un recinto por su texto libre.
+
+Estos datos conservan la colocación de origen. El escritor IFC del
+anfitrión sigue siendo experimental y no se afirma que materialice todos
+los intervalos ni las relaciones de material. La integración de las
+capas de recubrimiento del pilar todavía es una etapa pendiente.

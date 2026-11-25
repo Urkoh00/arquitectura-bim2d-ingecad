@@ -100,3 +100,32 @@ def aislamiento(capas, catalogo):
         return None, ["posición del aislamiento indeterminada entre las hojas y los acabados"]
     espesor, material = capas[indice]
     return {"posicion": posicion, "espesor": float(espesor), "material": str(material)}, []
+
+def lados_del_modelo(resultado, recintos=()):
+    """Resuelve por franjas de altura, sin escribir metadatos en el dibujo."""
+    from .geom import spaces as espacios
+    from .space_envelope import outline
+
+    regiones = []
+    for _identificador, registro, entidad in recintos:
+        if registro.get('enclosure', 'interior') == 'interior':
+            continue
+        region, _motivo = outline(registro, resultado, entidad)
+        if region is not None:
+            base = float(registro.get('base', 0))
+            cima = base + float(registro['height'])
+            regiones.append((base, cima, region))
+    franjas = getattr(resultado, 'vertical_networks', None)
+    if franjas is None:
+        franjas = [((-math.inf, math.inf), resultado)]
+    candidatos = {}
+    for (base, cima), parcial in franjas:
+        exteriores = [region for inferior, superior, region in regiones
+                      if inferior < cima - TOLERANCIA and superior > base + TOLERANCIA]
+        lados = espacios.external_walls(parcial, exteriores=exteriores, con_lados=True)
+        for identificador, lado in lados.items():
+            candidatos.setdefault(identificador, set()).add(lado)
+    # Un mismo muro puede exponer lados distintos en plantas diferentes.
+    # La colocación única solo es válida si las franjas son coherentes.
+    return {identificador: next(iter(opciones)) if len(opciones) == 1 else None
+            for identificador, opciones in candidatos.items()}

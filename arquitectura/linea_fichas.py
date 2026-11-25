@@ -502,7 +502,8 @@ def campos_recinto(ctx, datos):
         opcion(
             "enclosure",
             "Situación",
-            [("Interior", "interior"), ("Exterior cubierto", "exterior_cubierto")],
+            [("Interior", "interior"), ("Exterior cubierto", "exterior_cubierto"),
+             ("Patio descubierto", "exterior_descubierto")],
         ),
         opcion("height_mode", "Altura", [("Automática", "auto"), ("Manual", "manual")]),
         medida("height", "Altura de reserva (m)"),

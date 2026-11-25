@@ -162,8 +162,9 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD", problem
     partitions = VP.read(drawing)
     result = solve_records(walls, columns, partitions)   # by height bands (0002)
     issues += result.warnings
-    from .geom import spaces as SP
-    external = set().union(*(SP.external_walls(part) for _z, part in result.vertical_networks))
+    from .capas_envolvente import lados_del_modelo
+    lados_exteriores = lados_del_modelo(result, read_spaces(drawing, skip=skip))
+    external = set(lados_exteriores)
     by_wall = {}
     for o in openings:
         by_wall.setdefault(o.get("wall_id"), []).append(o)
@@ -216,7 +217,7 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD", problem
                             reference=spec.reference)
         if spec.curved:
             el["params"].update(bulge=spec.bulge, center=list(spec.c), radius=spec.r)
-        wall_type_data(el,m,spec.thickness,issues)
+        wall_type_data(el, m, spec.thickness, issues, lados=lados_exteriores)
         el["quantities"] = {"Length": spec.length, "Height": float(m["height"]),
                             "Width": spec.thickness, "GrossFootprintArea": geo["area"],
                             "GrossVolume": math.fsum(g["area"] * (hi - lo) for lo, hi, g in geo["bands"]),
@@ -483,7 +484,7 @@ def build(drawing, project="Proyecto", generator="Arquitectura IngeCAD", problem
     }
 
 
-def wall_type_data(el, record, thickness, issues=None):
+def wall_type_data(el, record, thickness, issues=None, *, lados=None):
     """Shared semantic data for source export and extension type previews."""
     issues=issues if issues is not None else []
     layers=record.get('layers') or []
@@ -500,6 +501,32 @@ def wall_type_data(el, record, thickness, issues=None):
         if abs(total-thickness)>5e-4:issues.append('Muro '+record['id']+': las capas no suman el espesor')
         el['material_layers']=[{'thickness':float(t),'material':mat}for t,mat in layers]
         el['psets']['ARQ_Capas']={f'Capa {i}':f'{float(t):.3f} m {mat}'.strip()for i,(t,mat)in enumerate(layers,1)}
+    from .capas_envolvente import colocar, lado_exterior
+    parametros = el['params']
+    for campo in ('orden_capas', 'cara_exterior'):
+        if campo in record:
+            parametros[campo] = record[campo]
+        else:
+            parametros.pop(campo, None)
+    if lados is None:
+        lados = {record.get('id'): record.get('cara_exterior_resuelta')}
+    parametros['cara_exterior_resuelta'] = lado_exterior(record, lados)
+    parametros.pop('capas_colocadas', None)
+    if layers:
+        especificacion = None
+        if 'a' in record and 'b' in record:
+            especificacion = J.Wall(record['id'], record['a'], record['b'], thickness,
+                                    record.get('reference', 'eje'), bulge=record.get('bulge', 0))
+        if record.get('orden_capas') == 'exterior-interior' and especificacion is None:
+            avisos = ['No se colocan capas sin una referencia geométrica de muro']
+            colocadas = None
+        else:
+            colocadas, avisos = colocar(record, especificacion, lados)
+        if colocadas is not None:
+            parametros['capas_colocadas'] = colocadas
+        for aviso in avisos:
+            if aviso not in issues:
+                issues.append(aviso)
     el['params'].pop('wall_type',None);arq.pop('TypeThickness',None)
     if el['type_name']:
         width=sum(float(t)for t,_ in layers)if layers else thickness

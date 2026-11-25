@@ -1924,7 +1924,10 @@ class RecintoTool(Tool):
             elif key == "use":
                 self.use = raw
             elif key == "enclosure":
-                self.enclosure = "exterior_cubierto" if txt.startswith("e") else "interior"
+                if txt.startswith(("d", "patio")):
+                    self.enclosure = "exterior_descubierto"
+                else:
+                    self.enclosure = "exterior_cubierto" if txt.startswith(("e", "c")) else "interior"
             elif key == "ceiling":
                 try:
                     v = float(txt.replace(",", ".")) if txt else 0.0
@@ -1958,7 +1961,7 @@ class RecintoTool(Tool):
             return True
         if txt in ("t", "tipo"):
             self.pending = "enclosure"
-            self.prompt("Tipo de recinto [Interior/Exterior cubierto (terraza, balcón, galería, porche)]:")
+            self.prompt("Tipo de recinto [Interior/Cubierto (terraza, balcón, porche)/Descubierto (patio)]:")
             return True
         if txt in ("f", "falso techo", "falsotecho", "techo"):
             self.pending = "ceiling"

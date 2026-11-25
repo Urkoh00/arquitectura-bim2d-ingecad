@@ -42,7 +42,7 @@ CRITERIA = {
     },
 }
 DEFAULT = "extremadura_2019"
-ENCLOSURES = ("interior", "exterior_cubierto")
+ENCLOSURES = ("interior", "exterior_cubierto", "exterior_descubierto")
 
 
 def criterion(name=None):
@@ -134,6 +134,9 @@ def evaluate(meta, room, room_useful=None, crit=None, by_use=None, documento=Non
     if height < c["min_free_height"]:
         factor = 0.0
         notes.append("altura libre menor de " + longitud(c['min_free_height'], documento) + " m: no computa")
+    elif enclosure == "exterior_descubierto":
+        factor = 0.0
+        notes.append("patio o espacio exterior descubierto: no computa como superficie útil")
     elif enclosure == "exterior_cubierto":
         if depth(room) + 1e-9 >= c["exterior_min_depth"]:
             factor = c["exterior_factor"]
