@@ -1,5 +1,23 @@
 # Guía del código del plugin Arquitectura
 
+### R29-E: recubrimiento hacia el interior
+
+Cada franja del pilar conserva los lados exteriores de sus muros de contacto
+en `cover_sides`. La anulación explícita del muro prevalece sobre el contorno
+geométrico; los patios declarados también son exteriores. No depende del perfil.
+Antes de resolver encuentros, `geom.bands` recorta la huella del recubrimiento
+por la cara interior y conserva completo el núcleo estructural. Las curvas
+usan las mismas cuerdas del muro. Se descartan bandas separadas del núcleo por
+el propio muro. Así planta, recintos, sólidos y cantidades comparten la huella.
+
+Una fachada abierta sin lado decidido no recibe un forro exterior supuesto:
+se conserva el núcleo y se avisa «interior indeterminado» también en Planos 2D.
+La partición interior sigue recubriéndose hacia ambos recintos. Las cantidades
+de área comprueban que la cara expuesta pertenezca al material, para no medir
+la cara desnuda del núcleo como si fuera revestimiento.
+Pruebas: `test_r29_e_cierre_interior.py`, incluidas referencias de cara,
+sentidos de dibujo, patio, curva, cantidades analíticas y Deshacer/Rehacer.
+
 ### R29-E: controles del recubrimiento y catálogo del dibujo
 
 Las fichas y preguntas consultan `perfiles.incluye(perfil_activo(), TERMICO)`

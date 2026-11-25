@@ -139,8 +139,86 @@ def en_altura(datos, elevacion):
         if franja['base'] <= elevacion < franja['base'] + franja['height']:
             salida.update({campo: franja[campo] for campo in (
                 'insulation_resolved_thickness', 'insulation_resolved_material')})
+            salida['cover_sides'] = dict(franja.get('cover_sides', {}))
             break
     return salida
+
+
+def _caras_de_contacto(pilar, muros, lados):
+    """Solo los muros expuestos o forzados limitan el lado del recubrimiento."""
+    from .capas_envolvente import lado_exterior
+
+    nucleo = column_geometry(pilar['center'], {**pilar, 'cover': 0,
+                             'insulation_resolved_thickness': 0})['footprint']
+    piezas = poligonos.convex_parts(nucleo)
+    caras = {}
+    if float(pilar.get('cover') or 0) <= 0:
+        return caras
+    for identificador, muro in muros:
+        if muro.get('wall_category') not in ('fachada', 'medianera', 'sotano'):
+            continue
+        if identificador not in lados and muro.get('cara_exterior', 'auto') == 'auto':
+            continue
+        if not _coinciden_en_altura(pilar, muro):
+            continue
+        forma = encuentros.walls_from_records([(identificador, muro)])[0]
+        if poligonos.overlap_area(piezas, poligonos.convex_parts(forma.strip())) > TOLERANCIA ** 2:
+            caras[identificador] = lado_exterior(muro, lados)
+    return caras
+
+
+def _recortar_cara(piezas, muro, exterior):
+    """Solo la zona situada más allá de la cara interior puede recibir el forro."""
+    medio = muro.hi if exterior == 'derecha' else muro.lo
+    if not muro.curved:
+        direccion = muro.u if exterior == 'derecha' else (-muro.u[0], -muro.u[1])
+        punto = muro.point(0, medio)
+        return [recorte for pieza in piezas
+                if (recorte := poligonos.clip_halfplane(pieza, punto, direccion))]
+    if not piezas:
+        return []
+    minimo_x, minimo_y, maximo_x, maximo_y = poligonos.bbox(piezas)
+    hacia_centro = [(minimo_x, minimo_y), (maximo_x, minimo_y),
+                   (maximo_x, maximo_y), (minimo_x, maximo_y)]
+    eje = muro.run(medio, muro.point(0, medio), muro.point(muro.length, medio))
+    # Las mismas cuerdas del muro evitan otra aproximación de la curva.
+    for inicio, final in zip(eje, eje[1:]):
+        direccion = poligonos.mul(poligonos.sub(final, inicio), muro.d)
+        hacia_centro = poligonos.clip_halfplane(hacia_centro, inicio, direccion)
+        if not hacia_centro:
+            break
+    exterior_hacia_centro = (exterior == 'izquierda') == (muro.d > 0)
+    if exterior_hacia_centro:
+        return poligonos.subtract(piezas, hacia_centro) if hacia_centro else piezas
+    if not hacia_centro:
+        return []
+    return [recorte for pieza in piezas
+            if (recorte := poligonos.convex_intersection(pieza, hacia_centro))]
+
+
+def recortar_al_interior(resultado, pilares, muros):
+    """Modifica solo el resultado derivado; nunca el núcleo estructural ni el registro."""
+    por_id = {muro.id: muro for muro in muros}
+    for identificador, pilar in pilares:
+        caras = pilar.get('cover_sides', {})
+        if not caras or identificador not in resultado.columns:
+            continue
+        nucleo = column_geometry(pilar['center'], {**pilar, 'cover': 0,
+                                 'insulation_resolved_thickness': 0})['footprint']
+        libres = poligonos.subtract(poligonos.convex_parts(resultado.columns[identificador]), nucleo)
+        for muro_id, exterior in caras.items():
+            if exterior is None:
+                libres = []
+                break
+            if muro_id in por_id:
+                libres = _recortar_cara(libres, por_id[muro_id], exterior)
+        contornos = poligonos.merge(poligonos.convex_parts(nucleo) + libres)
+        conectados = [contorno for contorno in contornos
+                      if poligonos.point_in_polygon(pilar['center'], contorno[0])]
+        # Una banda separada del núcleo por el muro no es un forro del pilar.
+        if len(conectados) != 1 or conectados[0][1]:
+            raise ValueError(f'Pilar {identificador}: no se obtuvo un recubrimiento interior conectado')
+        resultado.columns[identificador] = conectados[0][0]
 
 
 def resolver_franjas(pilar, muros, catalogo=None, lados=None):
@@ -163,8 +241,15 @@ def resolver_franjas(pilar, muros, catalogo=None, lados=None):
             continue
         tramo, notas = resolver({**pilar, 'base': inferior, 'height': superior - inferior},
                                  muros, catalogo, lados)
-        franjas.append({campo: tramo[campo] for campo in (
-            'base', 'height', 'insulation_resolved_thickness', 'insulation_resolved_material')})
+        franja = {campo: tramo[campo] for campo in (
+            'base', 'height', 'insulation_resolved_thickness', 'insulation_resolved_material')}
+        franja['cover_sides'] = _caras_de_contacto(tramo, muros, lados or {})
+        if any(lado is None for lado in franja['cover_sides'].values()):
+            aviso = (f"Pilar {pilar['id']}: interior indeterminado; indique la cara exterior "
+                     'del muro antes de dibujar su partición de recubrimiento')
+            if aviso not in notas:
+                notas.append(aviso)
+        franjas.append(franja)
         avisos.extend(nota for nota in notas if nota not in avisos)
     salida['insulation_bands'] = franjas
     mayor = max(franjas, key=lambda franja: franja['insulation_resolved_thickness'])
@@ -181,11 +266,8 @@ def resolver_modelo(muros, pilares, catalogo, recintos=()):
     if not pilares:
         return pilares, []
     lados = {}
-    necesita_exterior = any(float(pilar.get('cover') or 0) > 0 and
-                           pilar.get('insulation_mode', 'auto') == 'auto' for _identificador, pilar in pilares)
-    tipos_orientados = any(muro.get('layers') and muro.get('orden_capas') == 'exterior-interior'
-                          for _identificador, muro in muros)
-    if necesita_exterior and tipos_orientados:
+    necesita_exterior = any(float(pilar.get('cover') or 0) > 0 for _identificador, pilar in pilares)
+    if necesita_exterior and muros:
         sin_aislamiento = []
         for identificador, pilar in pilares:
             copia = {**pilar, 'insulation_resolved_thickness': 0}

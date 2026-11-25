@@ -180,7 +180,8 @@ def _recubrimientos_pilar(identificador, datos, resultado, nivel):
                     exteriores = P.merge(piezas_nucleo + tramo['pieces'])
                 else:
                     exteriores = [(parcial.columns[identificador], [])]
-                superficie += math.fsum(_exposed_length(contorno, parcial) for contorno, _huecos in exteriores) * tramo['height']
+                superficie += math.fsum(_exposed_length(contorno, parcial, propias=tramo['pieces'])
+                                        for contorno, _huecos in exteriores) * tramo['height']
                 for pieza in tramo['pieces']:
                     nuevas = [pieza]
                     for anterior in proyeccion:
@@ -203,13 +204,15 @@ def _recubrimientos_pilar(identificador, datos, resultado, nivel):
     return elementos
 
 
-def _exposed_length(outline, result):
+def _exposed_length(outline, result, *, propias=None):
     """Length of the edges of a column's outline that are in the open: an
     edge is against a wall when the point just outside its middle is in that
     wall's footprint."""
     from .geom import polygon as P
     loop = P.dedupe(P.ccw([tuple(map(float, q[:2])) for q in outline]))
     pieces = [pc for geo in result.walls.values() for pc in geo.get("pieces", ())]
+    from .geom.soldadura import TOLERANCIA
+    paso = 4 * TOLERANCIA
     total = 0.0
     for i, a in enumerate(loop):
         b = loop[(i + 1) % len(loop)]
@@ -218,7 +221,13 @@ def _exposed_length(outline, result):
             continue
         # ccw: the outside is on the right of a -> b
         n = ((b[1] - a[1]) / length, -(b[0] - a[0]) / length)
-        probe = ((a[0] + b[0]) / 2 + n[0] * 1e-4, (a[1] + b[1]) / 2 + n[1] * 1e-4)
+        medio = ((a[0] + b[0]) / 2, (a[1] + b[1]) / 2)
+        if propias is not None:
+            interior = (medio[0] - n[0] * paso, medio[1] - n[1] * paso)
+            if not any(P.point_in_polygon(interior, pieza) for pieza in propias):
+                # El núcleo puede quedar desnudo hacia fuera: esa cara no es partición.
+                continue
+        probe = (medio[0] + n[0] * paso, medio[1] + n[1] * paso)
         if not any(P.point_in_polygon(probe, pc) for pc in pieces):
             total += length
     return total

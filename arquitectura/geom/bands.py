@@ -66,6 +66,7 @@ def solve_records(walls, columns, partitions=()):
     combined.column_bands = {identificador: [] for identificador, _pilar in columns}
     wall_bands = {w.id: [] for w in specs}
     cache = {}
+    from ..recubrimientos_pilar import en_altura, recortar_al_interior
     for lo, hi in zip(heights, heights[1:]):
         if hi - lo <= 1e-9:
             continue
@@ -73,9 +74,18 @@ def solve_records(walls, columns, partitions=()):
         inputs = column_inputs(columns, mid)
         ws = [w for w in specs if wall_z[w.id][0] <= mid < wall_z[w.id][1]]
         cs = [c for c in inputs if col_z[c[0]][0] <= mid < col_z[c[0]][1]]
+        pilares_activos = [(identificador, en_altura(datos, mid)) for identificador, datos in columns
+                           if col_z[identificador][0] <= mid < col_z[identificador][1]]
+        if any(datos.get('cover_sides') for _identificador, datos in pilares_activos):
+            huellas = J.Result(columns={columna[0]: columna[1] for columna in cs})
+            recortar_al_interior(huellas, pilares_activos, ws)
+            cs = [(identificador, huellas.columns[identificador], nucleo, espesor)
+                  for identificador, _contorno, nucleo, espesor in cs]
         if not ws and not cs:
             continue
-        key = (tuple(w.id for w in ws), tuple((c[0], tuple(map(tuple, c[1])), c[3]) for c in cs))
+        caras = tuple((identificador, tuple(sorted(datos.get('cover_sides', {}).items())))
+                      for identificador, datos in pilares_activos)
+        key = (tuple(w.id for w in ws), tuple((c[0], tuple(map(tuple, c[1])), c[3]) for c in cs), caras)
         if key not in cache:
             cache[key] = J.solve(ws, cs)
         part = cache[key]

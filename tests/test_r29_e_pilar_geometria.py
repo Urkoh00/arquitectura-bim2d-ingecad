@@ -56,8 +56,9 @@ def test_en_fachada_no_se_solapan_aislamiento_particion_y_muro(plugin):
     pared(sesion, plugin)
     insertar(sesion, plugin, centro=(0, 0))
     capas = recubrimientos(sesion)
-    assert capas['INSULATION']['quantities']['NetVolume'] == pytest.approx(2 * 0.4 * 0.05 * 3)
-    assert capas['CLADDING']['quantities']['NetVolume'] == pytest.approx((2 * 0.54 * 0.12 - 2 * 0.4 * 0.05) * 3)
+    # En fachada se reviste solo hacia el interior, no por ambas caras libres.
+    assert capas['INSULATION']['quantities']['NetVolume'] == pytest.approx(0.4 * 0.05 * 3)
+    assert capas['CLADDING']['quantities']['NetVolume'] == pytest.approx((0.54 * 0.12 - 0.4 * 0.05) * 3)
     geometria = modulo(plugin, 'exchange')
     muros, columnas, _huecos, avisos = geometria.read_model(sesion.document.doc)
     resultado = modulo(plugin, 'geom.bands').solve_records(muros, columnas)
@@ -79,7 +80,7 @@ def test_pilar_entre_plantas_toma_el_aislamiento_de_cada_franja(plugin):
     pared(sesion, plugin, base=3, aislamiento=0.08)
     insertar(sesion, plugin, centro=(0, 0), height=6)
     aislamiento = recubrimientos(sesion)['INSULATION']
-    esperado = 2 * (0.3 + 2 * 0.05) * 0.05 * 3 + 2 * (0.3 + 2 * 0.08) * 0.08 * 3
+    esperado = (0.3 + 2 * 0.05) * 0.05 * 3 + (0.3 + 2 * 0.08) * 0.08 * 3
     assert aislamiento['quantities']['NetVolume'] == pytest.approx(esperado)
     bandas = aislamiento['params']['franjas']
     assert [(b['base'], b['height'], b['thickness']) for b in bandas] == [(0, 3, 0.05), (3, 3, 0.08)]
