@@ -66,7 +66,8 @@ def analyse(drawing):
 
 class CarpinteriaTool(Tool):
     name = "CARPINTERIA"
-    entity_picker = True
+    # El clic designa el muro y sitúa la jamba: necesita el punto de referencia.
+    entity_picker = False
     kind = "door"
 
     def wants_raw_text(self):

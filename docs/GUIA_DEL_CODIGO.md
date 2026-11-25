@@ -940,3 +940,8 @@ del atajo, porque el foco puede quedar en la ficha que acaba de cerrarse.
 ESTIRAMURO y PIVOTAMURO comparten la distinción: designar el muro mantiene
 selección de objetos; con un muro elegido, el nuevo extremo pasa por las
 referencias nativas. La geometría y la edición conservan sus órdenes originales.
+
+CARPINTERIA y ARMARIOBIM colocan una jamba o un frente a partir de un punto,
+aunque ese mismo clic determine el muro. Usan el punto resuelto por IngeCAD,
+como MURO y PILAR; no deben marcar toda su interacción como selección pura.
+La búsqueda del muro, los identificadores y las órdenes de creación se conservan.
